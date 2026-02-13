@@ -103,14 +103,14 @@ namespace PF2e.Grid
 
                 // Lazy deletion: skip stale entries
                 if (closedSet.Contains(state)) continue;
-                if (costSoFar.TryGetValue(state, out int currentCost) &&
+                if (!costSoFar.TryGetValue(state, out int currentCost) ||
                     node.gCostAtEnqueue > currentCost)
                     continue;
 
                 // Goal reached
                 if (node.pos == to)
                 {
-                    totalCost = costSoFar[state];
+                    totalCost = currentCost;
                     ReconstructPath(state, outPath);
                     return true;
                 }
@@ -159,7 +159,7 @@ namespace PF2e.Grid
         /// PF2e rules: ally cells can be traversed but not stopped on; enemy cells block.
         /// </summary>
         public bool FindPath(GridData grid, Vector3Int from, Vector3Int to,
-            MovementProfile profile, OccupancyMap occupancy, EntityHandle mover,
+            MovementProfile profile, EntityHandle mover, OccupancyMap occupancy,
             List<Vector3Int> outPath, out int totalCost)
         {
             outPath.Clear();
@@ -190,8 +190,9 @@ namespace PF2e.Grid
                 var node = openSet.Dequeue();
                 var state = (node.pos, node.parity);
 
+                // Lazy deletion: skip stale entries
                 if (closedSet.Contains(state)) continue;
-                if (costSoFar.TryGetValue(state, out int currentCost) &&
+                if (!costSoFar.TryGetValue(state, out int currentCost) ||
                     node.gCostAtEnqueue > currentCost)
                     continue;
 
@@ -205,7 +206,7 @@ namespace PF2e.Grid
                         continue;
                     }
 
-                    totalCost = costSoFar[state];
+                    totalCost = currentCost;
                     ReconstructPath(state, outPath);
                     return true;
                 }
@@ -362,6 +363,112 @@ namespace PF2e.Grid
                 cachedZone.Clear();
                 foreach (var kvp in outZone)
                     cachedZone[kvp.Key] = kvp.Value;
+            }
+        }
+
+        /// <summary>
+        /// Dijkstra flood-fill with PF2e occupancy rules.
+        /// Expand by CanTraverse (allies/neutrals passable, enemies block).
+        /// Result filtered by CanOccupy (can't stop on ally/enemy).
+        /// Origin always included. No caching (occupancy changes each turn).
+        /// </summary>
+        public void GetMovementZone(
+            GridData grid,
+            Vector3Int origin,
+            MovementProfile profile,
+            int budgetFeet,
+            EntityHandle mover,
+            OccupancyMap occupancy,
+            Dictionary<Vector3Int, int> outZone)
+        {
+            outZone.Clear();
+
+            if (!grid.IsCellPassable(origin, profile.moveType)) return;
+
+            openSet.Clear();
+            costSoFar.Clear();
+            closedSet.Clear();
+            minCostPerPos.Clear();
+
+            var startState = (origin, false);
+            costSoFar[startState] = 0;
+
+            openSet.Enqueue(
+                new PathNode { pos = origin, parity = false, gCostAtEnqueue = 0 },
+                new PathPriority(0, 0));
+
+            minCostPerPos[origin] = 0;
+
+            while (openSet.Count > 0)
+            {
+                var node = openSet.Dequeue();
+                var state = (node.pos, node.parity);
+
+                if (closedSet.Contains(state)) continue;
+                if (!costSoFar.TryGetValue(state, out int currentCost) ||
+                    node.gCostAtEnqueue > currentCost)
+                    continue;
+
+                closedSet.Add(state);
+
+                grid.GetNeighbors(node.pos, profile.moveType, neighborBuffer);
+
+                foreach (var neighbor in neighborBuffer)
+                {
+                    if (!grid.TryGetCell(neighbor.pos, out var targetCell)) continue;
+
+                    if (occupancy != null && !occupancy.CanTraverse(neighbor.pos, mover))
+                        continue;
+
+                    bool newParity = neighbor.type == NeighborType.Diagonal
+                        ? !node.parity
+                        : node.parity;
+
+                    int stepCost = MovementCostEvaluator.GetStepCost(
+                        targetCell, neighbor, node.parity, profile);
+
+                    int newCost = currentCost + stepCost;
+                    if (newCost > budgetFeet) continue;
+
+                    var newState = (neighbor.pos, newParity);
+
+                    if (closedSet.Contains(newState)) continue;
+
+                    if (!costSoFar.TryGetValue(newState, out int existingCost) ||
+                        newCost < existingCost)
+                    {
+                        costSoFar[newState] = newCost;
+                        openSet.Enqueue(new PathNode
+                        {
+                            pos = neighbor.pos,
+                            parity = newParity,
+                            gCostAtEnqueue = newCost
+                        }, new PathPriority(newCost, StepTypeTieBreak(neighbor.type)));
+
+                        if (!minCostPerPos.TryGetValue(neighbor.pos, out int minSoFar) ||
+                            newCost < minSoFar)
+                        {
+                            minCostPerPos[neighbor.pos] = newCost;
+                        }
+                    }
+                }
+            }
+
+            // Build result: only cells where mover can stop
+            foreach (var kvp in minCostPerPos)
+            {
+                Vector3Int pos = kvp.Key;
+
+                if (pos == origin)
+                {
+                    outZone[pos] = kvp.Value;
+                    continue;
+                }
+
+                if (occupancy != null && !occupancy.CanOccupy(pos, mover))
+                    continue;
+
+                outZone[pos] = kvp.Value;
             }
         }
 
