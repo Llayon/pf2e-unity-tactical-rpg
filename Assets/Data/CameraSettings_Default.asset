@@ -22,9 +22,9 @@ MonoBehaviour:
   defaultPitch: 55
   pitchFollowsZoom: 1
   defaultYaw: 0
-  rotationSpeed: 80
+  rotationSpeed: 60
   rotationSmoothTime: 0.15
-  panSpeed: 18
+  panSpeed: 15
   panSmoothTime: 0.1
   edgeScrollSize: 10
   enableEdgeScroll: 1
