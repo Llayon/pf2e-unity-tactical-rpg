@@ -24,11 +24,11 @@ namespace PF2e.Camera
 
         [Header("Yaw (Rotation)")]
         public float defaultYaw = 0f;
-        public float rotationSpeed = 90f;
+        public float rotationSpeed = 80f;
         public float rotationSmoothTime = 0.15f;
 
         [Header("Pan (Movement)")]
-        public float panSpeed = 12f;
+        public float panSpeed = 18f;
         public float panSmoothTime = 0.1f;
         public float edgeScrollSize = 10f;
         public bool enableEdgeScroll = true;
