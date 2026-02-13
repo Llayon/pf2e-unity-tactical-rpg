@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16a881909bc9cc5419c53617c4dc2a18, type: 3}
+  m_Name: CameraSettings_Default
+  m_EditorClassIdentifier: PF2e::PF2e.Camera.TacticalCameraSettings
+  minDistance: 5
+  maxDistance: 30
+  defaultDistance: 15
+  zoomSpeed: 3
+  zoomSmoothTime: 0.15
+  minPitch: 30
+  maxPitch: 75
+  defaultPitch: 55
+  pitchFollowsZoom: 1
+  defaultYaw: 0
+  rotationSpeed: 90
+  rotationSmoothTime: 0.15
+  panSpeed: 12
+  panSmoothTime: 0.1
+  edgeScrollSize: 10
+  enableEdgeScroll: 1
+  boundsMinX: -5
+  boundsMaxX: 25
+  boundsMinZ: -5
+  boundsMaxZ: 25

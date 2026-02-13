@@ -1,0 +1,24 @@
+{
+    "name": "PF2e.Tests.EditMode",
+    "rootNamespace": "PF2e.Tests",
+    "references": [
+        "GUID:03dfa6625a4da7f49853e56458760ba6",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
