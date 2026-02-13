@@ -155,6 +155,105 @@ namespace PF2e.Grid
         }
 
         /// <summary>
+        /// Find shortest path with occupancy awareness.
+        /// PF2e rules: ally cells can be traversed but not stopped on; enemy cells block.
+        /// </summary>
+        public bool FindPath(GridData grid, Vector3Int from, Vector3Int to,
+            MovementProfile profile, OccupancyMap occupancy, EntityHandle mover,
+            List<Vector3Int> outPath, out int totalCost)
+        {
+            outPath.Clear();
+            totalCost = 0;
+
+            if (!grid.IsCellPassable(from, profile.moveType) ||
+                !grid.IsCellPassable(to, profile.moveType)) return false;
+            if (from == to)
+            {
+                outPath.Add(from);
+                return true;
+            }
+
+            openSet.Clear();
+            closedSet.Clear();
+            cameFrom.Clear();
+            costSoFar.Clear();
+
+            var startState = (from, false);
+            costSoFar[startState] = 0;
+
+            int h = Heuristic(from, false, to);
+            openSet.Enqueue(new PathNode { pos = from, parity = false, gCostAtEnqueue = 0 },
+                new PathPriority(h, 0));
+
+            while (openSet.Count > 0)
+            {
+                var node = openSet.Dequeue();
+                var state = (node.pos, node.parity);
+
+                if (closedSet.Contains(state)) continue;
+                if (costSoFar.TryGetValue(state, out int currentCost) &&
+                    node.gCostAtEnqueue > currentCost)
+                    continue;
+
+                // Goal reached — check if we can stop here
+                if (node.pos == to)
+                {
+                    if (occupancy != null && !occupancy.CanOccupy(to, mover))
+                    {
+                        // Can't stop on goal (e.g. ally there). Let A* try other states.
+                        closedSet.Add(state);
+                        continue;
+                    }
+
+                    totalCost = costSoFar[state];
+                    ReconstructPath(state, outPath);
+                    return true;
+                }
+
+                closedSet.Add(state);
+
+                grid.GetNeighbors(node.pos, profile.moveType, neighborBuffer);
+
+                foreach (var neighbor in neighborBuffer)
+                {
+                    if (!grid.TryGetCell(neighbor.pos, out var targetCell)) continue;
+
+                    // Occupancy: can we traverse this cell?
+                    if (occupancy != null && !occupancy.CanTraverse(neighbor.pos, mover))
+                        continue;
+
+                    bool newParity = neighbor.type == NeighborType.Diagonal
+                        ? !node.parity
+                        : node.parity;
+
+                    int stepCost = MovementCostEvaluator.GetStepCost(
+                        targetCell, neighbor, node.parity, profile);
+
+                    int newCost = currentCost + stepCost;
+                    var newState = (neighbor.pos, newParity);
+
+                    if (closedSet.Contains(newState)) continue;
+
+                    if (!costSoFar.TryGetValue(newState, out int existingCost) ||
+                        newCost < existingCost)
+                    {
+                        costSoFar[newState] = newCost;
+                        cameFrom[newState] = state;
+                        int f = newCost + Heuristic(neighbor.pos, newParity, to);
+                        openSet.Enqueue(new PathNode
+                        {
+                            pos = neighbor.pos,
+                            parity = newParity,
+                            gCostAtEnqueue = newCost
+                        }, new PathPriority(f, StepTypeTieBreak(neighbor.type)));
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Dijkstra flood-fill: compute all reachable cells within budgetFeet.
         /// Output: outZone[pos] = minimum cost to reach pos.
         /// </summary>
