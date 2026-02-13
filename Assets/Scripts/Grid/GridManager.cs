@@ -55,15 +55,32 @@ namespace PF2e.Grid
 
         private void CreateTestGrid()
         {
-            for (int x = 0; x < testGridSizeX; x++)
+            // Floor 0: 8×8 grid
+            for (int x = 0; x < 8; x++)
             {
-                for (int z = 0; z < testGridSizeZ; z++)
+                for (int z = 0; z < 8; z++)
                 {
                     Data.SetCell(new Vector3Int(x, 0, z), CellData.CreateWalkable());
                 }
             }
 
-            Debug.Log($"[GridManager] Test grid {testGridSizeX}x{testGridSizeZ} created. Cells: {Data.CellCount}");
+            // Hole at (3,0,3) = Impassable
+            Data.SetCell(new Vector3Int(3, 0, 3), CellData.CreateImpassable());
+
+            // Floor 1: 4×4 platform (x=2..5, z=2..5)
+            for (int x = 2; x <= 5; x++)
+            {
+                for (int z = 2; z <= 5; z++)
+                {
+                    Data.SetCell(new Vector3Int(x, 1, z), CellData.CreateWalkable());
+                }
+            }
+
+            // Stairs connecting floor 0 to floor 1
+            Data.AddVerticalLink(VerticalLink.CreateStairs(
+                new Vector3Int(4, 0, 4), new Vector3Int(4, 1, 4)));
+
+            Debug.Log($"[GridManager] Multi-height test grid created. Cells: {Data.CellCount}");
             RaiseGridChanged();
         }
 

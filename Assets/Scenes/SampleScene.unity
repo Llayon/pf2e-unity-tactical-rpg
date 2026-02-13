@@ -619,6 +619,8 @@ GameObject:
   - component: {fileID: 2005884552}
   - component: {fileID: 2005884554}
   - component: {fileID: 2005884553}
+  - component: {fileID: 2005884556}
+  - component: {fileID: 2005884555}
   m_Layer: 8
   m_Name: TacticalGrid
   m_TagString: Untagged
@@ -698,6 +700,30 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 256
   maxRayDistance: 100
+--- !u!114 &2005884555
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2005884549}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 07af2f9d440276240b1a8c4d4e022da4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PF2e::PF2e.Grid.GridFloorColliders
+--- !u!114 &2005884556
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2005884549}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6db6a6fcc57ada84ca3e7daa6a2b45d8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PF2e::PF2e.Grid.GridFloorController
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

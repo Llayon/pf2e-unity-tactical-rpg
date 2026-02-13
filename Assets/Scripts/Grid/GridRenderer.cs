@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using PF2e.Data;
 
 namespace PF2e.Grid
@@ -8,7 +7,7 @@ namespace PF2e.Grid
     /// <summary>
     /// Manages chunk GameObjects for grid rendering.
     /// Listens to GridManager.OnGridChanged, rebuilds only dirty chunks.
-    /// Toggle G to show/hide.
+    /// Visual-only: no input handling. Controlled via public API.
     /// </summary>
     [RequireComponent(typeof(GridManager))]
     public class GridRenderer : MonoBehaviour
@@ -24,6 +23,8 @@ namespace PF2e.Grid
 
         private bool gridVisible = true;
         private int chunkSize;
+        private int currentFloor;
+        private MaterialPropertyBlock floorPropBlock;
 
         private void OnEnable()
         {
@@ -46,23 +47,38 @@ namespace PF2e.Grid
             gridData = gridManager.Data;
             chunkSize = Mathf.Max(1, gridManager.Config.chunkSize);
 
+            floorPropBlock = new MaterialPropertyBlock();
+
             // Create material: URP Unlit, Transparent, ZWrite Off, vertex color
             gridMaterial = CreateGridMaterial(gridManager.Config.gridColor);
 
             // Initial full build
             RebuildAllChunks();
+            UpdateFloorVisibility();
         }
 
-        private void Update()
+        // --- Public API (called by GridFloorController) ---
+
+        public void SetFloorState(int floor, bool visible)
         {
-            // Toggle G
-            var keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.gKey.wasPressedThisFrame)
-            {
-                gridVisible = !gridVisible;
-                SetChunksVisible(gridVisible);
-            }
+            currentFloor = floor;
+            gridVisible = visible;
+            UpdateFloorVisibility();
         }
+
+        public void SetCurrentFloor(int floor)
+        {
+            currentFloor = floor;
+            UpdateFloorVisibility();
+        }
+
+        public void SetGridVisible(bool visible)
+        {
+            gridVisible = visible;
+            UpdateFloorVisibility();
+        }
+
+        // --- Internal ---
 
         private void OnGridChanged()
         {
@@ -74,6 +90,42 @@ namespace PF2e.Grid
             for (int i = 0; i < dirtyBuffer.Count; i++)
             {
                 RebuildChunk(dirtyBuffer[i]);
+            }
+
+            UpdateFloorVisibility();
+        }
+
+        private void UpdateFloorVisibility()
+        {
+            foreach (var kvp in chunks)
+            {
+                ApplyChunkFloorVisibility(kvp.Key, kvp.Value);
+            }
+        }
+
+        private void ApplyChunkFloorVisibility(Vector3Int chunkCoord, GridChunk chunk)
+        {
+            if (chunk == null || chunk.GameObject == null) return;
+
+            bool hasVerts = chunk.Mesh != null && chunk.Mesh.vertexCount > 0;
+            int chunkElev = chunkCoord.y;
+
+            if (!gridVisible || !hasVerts || chunkElev > currentFloor)
+            {
+                chunk.GameObject.SetActive(false);
+                return;
+            }
+
+            chunk.GameObject.SetActive(true);
+
+            if (chunk.MeshRenderer != null)
+            {
+                Color color = gridManager.Config.gridColor;
+                if (chunkElev < currentFloor)
+                    color.a *= 0.3f;
+
+                floorPropBlock.SetColor("_BaseColor", color);
+                chunk.MeshRenderer.SetPropertyBlock(floorPropBlock);
             }
         }
 
@@ -123,9 +175,7 @@ namespace PF2e.Grid
             chunk.MeshFilter.mesh = chunk.Mesh;
             chunk.IsDirty = false;
 
-            // Hide empty chunks
-            bool hasVerts = chunk.Mesh.vertexCount > 0;
-            chunk.GameObject.SetActive(hasVerts && gridVisible);
+            ApplyChunkFloorVisibility(chunkCoord, chunk);
         }
 
         private GridChunk CreateChunk(Vector3Int chunkCoord)
@@ -157,17 +207,6 @@ namespace PF2e.Grid
                 if (chunk.Mesh != null) Destroy(chunk.Mesh);
                 if (chunk.GameObject != null) Destroy(chunk.GameObject);
                 chunks.Remove(chunkCoord);
-            }
-        }
-
-        private void SetChunksVisible(bool visible)
-        {
-            foreach (var kvp in chunks)
-            {
-                var chunk = kvp.Value;
-                bool hasVerts = chunk.Mesh != null && chunk.Mesh.vertexCount > 0;
-                if (chunk.GameObject != null)
-                    chunk.GameObject.SetActive(visible && hasVerts);
             }
         }
 
