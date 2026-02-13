@@ -15,7 +15,7 @@ MonoBehaviour:
   minDistance: 5
   maxDistance: 30
   defaultDistance: 15
-  zoomSpeed: 3
+  zoomSpeed: 5
   zoomSmoothTime: 0.15
   minPitch: 30
   maxPitch: 75

@@ -12,7 +12,7 @@ namespace PF2e.Camera
         public float minDistance = 5f;
         public float maxDistance = 30f;
         public float defaultDistance = 15f;
-        public float zoomSpeed = 3f;
+        public float zoomSpeed = 5f;
         public float zoomSmoothTime = 0.15f;
 
         [Header("Pitch")]
