@@ -383,6 +383,15 @@ namespace PF2e.Grid
         {
             outZone.Clear();
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (occupancy != null)
+            {
+                var occ = occupancy.GetOccupant(origin);
+                if (occ.IsValid && occ != mover)
+                    Debug.LogWarning($"[GetMovementZone] Origin {origin} occupied by {occ}, not by mover {mover}. Possible integration error.");
+            }
+#endif
+
             if (!grid.IsCellPassable(origin, profile.moveType)) return;
 
             openSet.Clear();
@@ -417,6 +426,8 @@ namespace PF2e.Grid
                 {
                     if (!grid.TryGetCell(neighbor.pos, out var targetCell)) continue;
 
+                    // NOTE: Occupancy checked only on neighbor.pos.
+                    // Diagonal between two occupied cardinals is allowed if target diagonal is traversable (PF2e RAW).
                     if (occupancy != null && !occupancy.CanTraverse(neighbor.pos, mover))
                         continue;
 
