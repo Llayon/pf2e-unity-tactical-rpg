@@ -48,22 +48,21 @@ namespace PF2e.Grid
             floorController = GetComponent<GridFloorController>();
             if (floorController != null)
             {
-                floorController.OnGridVisualsToggled += OnVisualsToggled;
-                visualsEnabled = floorController.GridVisualsEnabled;
+                floorController.OnGridVisualsToggled += SetVisualsEnabled;
+                SetVisualsEnabled(floorController.GridVisualsEnabled);
             }
         }
 
         private void OnDestroy()
         {
             if (floorController != null)
-                floorController.OnGridVisualsToggled -= OnVisualsToggled;
+                floorController.OnGridVisualsToggled -= SetVisualsEnabled;
         }
 
-        private void OnVisualsToggled(bool enabled)
+        public void SetVisualsEnabled(bool enabled)
         {
             visualsEnabled = enabled;
-            if (!visualsEnabled)
-                ClearHighlights();
+            if (!enabled) ClearHighlights();
         }
 
         private void Update()
