@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using PF2e.Data;
+using PF2e.Managers;
+using PF2e.Presentation.Entity;
 
 namespace PF2e.Grid
 {
@@ -25,6 +27,7 @@ namespace PF2e.Grid
         private Vector3Int? lastSelectedCell;
 
         private UnityEngine.Camera mainCamera;
+        private EntityManager entityManager;
 
         private void OnEnable()
         {
@@ -38,6 +41,7 @@ namespace PF2e.Grid
             if (gridManager == null || gridManager.Data == null) return;
             gridData = gridManager.Data;
             mainCamera = UnityEngine.Camera.main;
+            entityManager = FindObjectOfType<EntityManager>();
         }
 
         private void Update()
@@ -47,31 +51,69 @@ namespace PF2e.Grid
             var mouse = Mouse.current;
             if (mouse == null) return;
 
-            // Raycast from mouse
             Vector2 mousePos = mouse.position.ReadValue();
             Ray ray = mainCamera.ScreenPointToRay(new Vector3(mousePos.x, mousePos.y, 0));
 
-            if (Physics.Raycast(ray, out RaycastHit hit, maxRayDistance, gridLayerMask))
+            var hits = Physics.RaycastAll(ray, maxRayDistance, gridLayerMask);
+            if (hits.Length == 0)
             {
-                var cell = ResolveCell(hit);
+                ClearHover();
+                return;
+            }
 
-                if (gridData.HasCell(cell))
+            // RaycastAll does NOT guarantee order by distance
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+            RaycastHit? floorHit = null;
+            EntityView entityView = null;
+
+            for (int i = 0; i < hits.Length; i++)
+            {
+                if (!floorHit.HasValue)
                 {
-                    // Hover
-                    gridManager.SetHoveredCell(cell);
-                    UpdateHoverHighlight(cell);
-
-                    // Click
-                    if (mouse.leftButton.wasPressedThisFrame)
-                    {
-                        gridManager.SetClickedCell(cell);
-                        gridManager.SetSelectedCell(cell);
-                        UpdateSelectionHighlight(cell);
-                    }
+                    var floor = hits[i].collider.GetComponent<FloorLevel>();
+                    if (floor != null)
+                        floorHit = hits[i];
                 }
-                else
+
+                if (entityView == null)
                 {
-                    ClearHover();
+                    // GetComponentInParent for future-proofing (child colliders)
+                    var ev = hits[i].collider.GetComponentInParent<EntityView>();
+                    if (ev != null)
+                        entityView = ev;
+                }
+
+                if (floorHit.HasValue && entityView != null)
+                    break;
+            }
+
+            if (!floorHit.HasValue)
+            {
+                ClearHover();
+                return;
+            }
+
+            var cell = ResolveCell(floorHit.Value);
+
+            if (gridData.HasCell(cell))
+            {
+                gridManager.SetHoveredCell(cell);
+                UpdateHoverHighlight(cell);
+
+                if (mouse.leftButton.wasPressedThisFrame)
+                {
+                    if (entityManager != null)
+                    {
+                        if (entityView != null)
+                            entityManager.SelectEntity(entityView.Handle);
+                        else
+                            entityManager.DeselectEntity();
+                    }
+
+                    gridManager.SetClickedCell(cell);
+                    gridManager.SetSelectedCell(cell);
+                    UpdateSelectionHighlight(cell);
                 }
             }
             else
@@ -130,6 +172,27 @@ namespace PF2e.Grid
             {
                 highlightPool.Return(hoverHighlight);
                 hoverHighlight = null;
+            }
+        }
+
+        /// <summary>
+        /// Clears all visual highlights (hover + selection).
+        /// Called when grid visibility is toggled off to avoid confusion.
+        /// </summary>
+        public void ClearHighlights()
+        {
+            ClearHover();
+            lastSelectedCell = null;
+
+            if (highlightPool != null)
+            {
+                if (selectionHighlight != null)
+                {
+                    highlightPool.Return(selectionHighlight);
+                    selectionHighlight = null;
+                }
+
+                highlightPool.ClearAll();
             }
         }
     }

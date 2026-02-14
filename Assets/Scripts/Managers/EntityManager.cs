@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using PF2e.Core;
@@ -28,6 +29,13 @@ namespace PF2e.Managers
 
         private readonly Dictionary<EntityHandle, EntityView> views
             = new Dictionary<EntityHandle, EntityView>();
+
+        // ─── Selection ───
+        public EntityHandle SelectedEntity { get; private set; }
+
+        // ─── Events ───
+        public event Action<EntityHandle> OnEntitySelected;
+        public event Action OnEntityDeselected;
 
         private void Awake()
         {
@@ -87,8 +95,9 @@ namespace PF2e.Managers
             go.name = $"Entity_{data.Name}_{handle.Id}";
             go.transform.SetParent(transform, false);
 
-            // Layer will be configured in part2 when entity selection is added.
-            // For now, capsule stays on Default layer.
+            // Set entity to same layer as grid so GridInteraction.gridLayerMask sees it
+            if (gridManager != null)
+                go.layer = gridManager.gameObject.layer;
 
             go.transform.position = GetEntityWorldPosition(data.GridPosition);
 
@@ -132,6 +141,52 @@ namespace PF2e.Managers
             }, new Vector3Int(6, 0, 5));
 
             Debug.Log($"[EntityManager] Spawned {Registry.Count} test entities");
+        }
+
+        // ─── Selection ───
+
+        public void SelectEntity(EntityHandle handle)
+        {
+            if (!handle.IsValid || !Registry.Exists(handle)) return;
+
+            // Deselect previous
+            if (SelectedEntity.IsValid && SelectedEntity != handle)
+            {
+                if (views.TryGetValue(SelectedEntity, out var prevView))
+                    prevView.SetSelected(false);
+            }
+
+            SelectedEntity = handle;
+
+            if (views.TryGetValue(handle, out var view))
+                view.SetSelected(true);
+
+            OnEntitySelected?.Invoke(handle);
+        }
+
+        public void DeselectEntity()
+        {
+            if (SelectedEntity.IsValid)
+            {
+                if (views.TryGetValue(SelectedEntity, out var view))
+                    view.SetSelected(false);
+            }
+
+            SelectedEntity = EntityHandle.None;
+            OnEntityDeselected?.Invoke();
+        }
+
+        // ─── Queries ───
+
+        public EntityHandle GetEntityAt(Vector3Int gridPos)
+        {
+            return Occupancy.GetOccupant(gridPos);
+        }
+
+        public EntityView GetView(EntityHandle handle)
+        {
+            views.TryGetValue(handle, out var view);
+            return view;
         }
 
         private void OnDestroy()

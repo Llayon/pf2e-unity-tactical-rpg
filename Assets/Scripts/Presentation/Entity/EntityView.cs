@@ -8,7 +8,7 @@ namespace PF2e.Presentation.Entity
         private EntityHandle handle;
         private MeshRenderer mr;
 
-        private readonly MaterialPropertyBlock mpb = new MaterialPropertyBlock();
+        private MaterialPropertyBlock mpb;
         private Color baseColor;
         private bool selected;
 
@@ -25,6 +25,7 @@ namespace PF2e.Presentation.Entity
         private void ApplyColor(Color c)
         {
             if (mr == null) return;
+            if (mpb == null) mpb = new MaterialPropertyBlock();
             mpb.SetColor("_BaseColor", c);
             mr.SetPropertyBlock(mpb);
         }

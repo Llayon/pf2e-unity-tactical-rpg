@@ -66,13 +66,22 @@ namespace PF2e.Grid
 
         /// <summary>
         /// Return a specific highlight to the pool.
+        /// Idempotent: safe to call even if already returned via ClearAll().
         /// </summary>
         public void Return(GameObject go)
         {
             if (go == null) return;
+
+            // If it wasn't in activeHighlights, it was already returned/cleared.
+            // Don't push to pool again (would cause duplicates).
+            if (!activeHighlights.Remove(go))
+            {
+                go.SetActive(false);
+                return;
+            }
+
             go.SetActive(false);
             pool.Push(go);
-            activeHighlights.Remove(go);
         }
 
         private GameObject GetOrCreate()
