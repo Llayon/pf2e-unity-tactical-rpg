@@ -11,11 +11,10 @@ namespace PF2e.Presentation
     /// Green = 1 action, Yellow = 2 actions, Red = 3 actions.
     /// Path preview on hover within zone.
     ///
-    /// NOTE: Update order between GridInteraction and this component
-    /// is not guaranteed. Path preview may lag by 1 frame. Acceptable.
+    /// Must be on the same GameObject as GridManager, GridFloorController, CellHighlightPool
+    /// (TacticalGrid) so GetComponent works for all dependencies.
     ///
-    /// TODO: After G key (grid hide), ClearAll may deactivate zone highlights.
-    /// Zone won't auto-restore. Re-clicking entity will re-show zone.
+    /// NOTE: Update order vs GridInteraction not guaranteed; path preview may lag 1 frame.
     /// </summary>
     public class MovementZoneVisualizer : MonoBehaviour
     {
@@ -40,24 +39,31 @@ namespace PF2e.Presentation
         private EntityHandle showingFor;
         private Vector3Int? lastHoveredZoneCell;
 
+        private GridFloorController floorController;
+        private bool visualsEnabled = true;
+
         private void Start()
         {
-            if (entityManager == null)
-                entityManager = FindObjectOfType<EntityManager>();
-            if (gridManager == null)
-                gridManager = FindObjectOfType<GridManager>();
-            if (highlightPool == null)
-                highlightPool = FindObjectOfType<CellHighlightPool>();
+            // gridManager, highlightPool must be on same GO (TacticalGrid)
+            if (gridManager == null) gridManager = GetComponent<GridManager>();
+            if (highlightPool == null) highlightPool = GetComponent<CellHighlightPool>();
+            floorController = GetComponent<GridFloorController>();
 
-            if (entityManager == null || gridManager == null || highlightPool == null)
+            // EntityManager is on a separate GO — FindObjectOfType acceptable for prototype
+            if (entityManager == null) entityManager = FindObjectOfType<EntityManager>();
+
+            if (entityManager == null || gridManager == null || highlightPool == null || floorController == null)
             {
-                Debug.LogError("[MovementZoneVisualizer] Missing references! Disabling.");
+                Debug.LogError("[MovementZoneVisualizer] Missing references/components! Disabling.");
                 enabled = false;
                 return;
             }
 
             entityManager.OnEntitySelected += OnEntitySelected;
             entityManager.OnEntityDeselected += OnEntityDeselected;
+
+            floorController.OnGridVisualsToggled += SetVisualsEnabled;
+            SetVisualsEnabled(floorController.GridVisualsEnabled);
         }
 
         private void OnDestroy()
@@ -67,16 +73,39 @@ namespace PF2e.Presentation
                 entityManager.OnEntitySelected -= OnEntitySelected;
                 entityManager.OnEntityDeselected -= OnEntityDeselected;
             }
+            if (floorController != null)
+                floorController.OnGridVisualsToggled -= SetVisualsEnabled;
+        }
+
+        /// <summary>
+        /// Called by GridFloorController.OnGridVisualsToggled.
+        /// Clears zone when hidden; restores zone when re-shown if a player is still selected.
+        /// </summary>
+        public void SetVisualsEnabled(bool enabled)
+        {
+            visualsEnabled = enabled;
+
+            if (!visualsEnabled)
+            {
+                ClearZone();
+                return;
+            }
+
+            // Restore zone if a player entity is still selected
+            if (entityManager != null && entityManager.SelectedEntity.IsValid)
+                OnEntitySelected(entityManager.SelectedEntity);
         }
 
         private void Update()
         {
-            if (!showingFor.IsValid) return;
+            if (!visualsEnabled || !showingFor.IsValid) return;
             UpdatePathPreview();
         }
 
         private void OnEntitySelected(EntityHandle handle)
         {
+            if (!visualsEnabled) return;
+
             var data = entityManager.Registry.Get(handle);
             if (data == null || data.Team != Team.Player)
             {
@@ -125,30 +154,24 @@ namespace PF2e.Presentation
 
             foreach (var kvp in currentZone)
             {
-                Vector3Int pos = kvp.Key;
+                var pos = kvp.Key;
                 int cost = kvp.Value;
-
                 if (pos == data.GridPosition) continue;
 
-                Color color;
-                if (cost <= speed1) color = action1Color;
-                else if (cost <= speed2) color = action2Color;
-                else color = action3Color;
+                Color color = cost <= speed1 ? action1Color :
+                              cost <= speed2 ? action2Color : action3Color;
 
                 var worldPos = gridManager.Data.CellToWorld(pos);
-                var highlight = highlightPool.ShowHighlight(worldPos, cellSize, color);
-                zoneHighlights.Add(highlight);
+                zoneHighlights.Add(highlightPool.ShowHighlight(worldPos, cellSize, color));
             }
         }
 
         private void ClearZone()
         {
             foreach (var go in zoneHighlights)
-            {
-                if (go != null && highlightPool != null)
-                    highlightPool.Return(go);
-            }
+                if (go != null && highlightPool != null) highlightPool.Return(go);
             zoneHighlights.Clear();
+
             currentZone.Clear();
             showingFor = EntityHandle.None;
 
@@ -193,7 +216,7 @@ namespace PF2e.Presentation
                 ignoresDifficultTerrain = false
             };
 
-            bool found = entityManager.Pathfinding.FindPath(
+            if (!entityManager.Pathfinding.FindPath(
                 gridManager.Data,
                 data.GridPosition,
                 hoveredCell.Value,
@@ -201,26 +224,21 @@ namespace PF2e.Presentation
                 showingFor,
                 entityManager.Occupancy,
                 pathBuffer,
-                out int totalCost);
-
-            if (!found) return;
+                out int _))
+                return;
 
             float cellSize = gridManager.Config.cellWorldSize;
             for (int i = 1; i < pathBuffer.Count; i++)
             {
                 var worldPos = gridManager.Data.CellToWorld(pathBuffer[i]);
-                var highlight = highlightPool.ShowHighlight(worldPos, cellSize * 0.6f, pathColor);
-                pathHighlights.Add(highlight);
+                pathHighlights.Add(highlightPool.ShowHighlight(worldPos, cellSize * 0.6f, pathColor));
             }
         }
 
         private void ClearPathPreview()
         {
             foreach (var go in pathHighlights)
-            {
-                if (go != null && highlightPool != null)
-                    highlightPool.Return(go);
-            }
+                if (go != null && highlightPool != null) highlightPool.Return(go);
             pathHighlights.Clear();
         }
     }

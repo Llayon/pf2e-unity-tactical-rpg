@@ -28,6 +28,8 @@ namespace PF2e.Grid
 
         private UnityEngine.Camera mainCamera;
         private EntityManager entityManager;
+        private GridFloorController floorController;
+        private bool visualsEnabled = true;
 
         private void OnEnable()
         {
@@ -42,6 +44,26 @@ namespace PF2e.Grid
             gridData = gridManager.Data;
             mainCamera = UnityEngine.Camera.main;
             entityManager = FindObjectOfType<EntityManager>();
+
+            floorController = GetComponent<GridFloorController>();
+            if (floorController != null)
+            {
+                floorController.OnGridVisualsToggled += OnVisualsToggled;
+                visualsEnabled = floorController.GridVisualsEnabled;
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (floorController != null)
+                floorController.OnGridVisualsToggled -= OnVisualsToggled;
+        }
+
+        private void OnVisualsToggled(bool enabled)
+        {
+            visualsEnabled = enabled;
+            if (!visualsEnabled)
+                ClearHighlights();
         }
 
         private void Update()
@@ -138,7 +160,7 @@ namespace PF2e.Grid
 
         private void UpdateHoverHighlight(Vector3Int cell)
         {
-            if (highlightPool == null) return;
+            if (highlightPool == null || !visualsEnabled) return;
             if (lastHoverCell.HasValue && lastHoverCell.Value == cell) return;
 
             if (hoverHighlight != null)
@@ -152,7 +174,7 @@ namespace PF2e.Grid
 
         private void UpdateSelectionHighlight(Vector3Int cell)
         {
-            if (highlightPool == null) return;
+            if (highlightPool == null || !visualsEnabled) return;
             if (lastSelectedCell.HasValue && lastSelectedCell.Value == cell) return;
 
             if (selectionHighlight != null)

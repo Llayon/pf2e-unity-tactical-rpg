@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -20,6 +21,13 @@ namespace PF2e.Grid
         private bool gridVisible = true;
         private bool initialized;
 
+        /// <summary>
+        /// Fired whenever grid visuals are toggled (G key) or on initial setup.
+        /// true = visible, false = hidden.
+        /// </summary>
+        public event Action<bool> OnGridVisualsToggled;
+        public bool GridVisualsEnabled => gridVisible;
+
         private void Start()
         {
             gridManager = GetComponent<GridManager>();
@@ -30,6 +38,7 @@ namespace PF2e.Grid
                 gridManager.OnGridChanged += OnGridChanged;
 
             RecalculateAndApply(forceToTopFloor: true);
+            OnGridVisualsToggled?.Invoke(gridVisible);
         }
 
         private void OnDestroy()
@@ -88,6 +97,8 @@ namespace PF2e.Grid
                 gridVisible = !gridVisible;
                 if (gridRenderer != null)
                     gridRenderer.SetFloorState(currentFloor, gridVisible);
+
+                OnGridVisualsToggled?.Invoke(gridVisible);
             }
 
             if (kb.pageUpKey.wasPressedThisFrame && currentFloor < maxFloor)

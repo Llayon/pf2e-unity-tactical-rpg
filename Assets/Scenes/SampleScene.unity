@@ -723,6 +723,7 @@ GameObject:
   - component: {fileID: 2005884553}
   - component: {fileID: 2005884556}
   - component: {fileID: 2005884555}
+  - component: {fileID: 2005884557}
   m_Layer: 8
   m_Name: TacticalGrid
   m_TagString: Untagged
@@ -826,6 +827,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6db6a6fcc57ada84ca3e7daa6a2b45d8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PF2e::PF2e.Grid.GridFloorController
+--- !u!114 &2005884557
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2005884549}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 69748ce937eb6e14da5e63a4ac8f6093, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PF2e::PF2e.Presentation.MovementZoneVisualizer
+  entityManager: {fileID: 0}
+  gridManager: {fileID: 0}
+  highlightPool: {fileID: 0}
+  action1Color: {r: 0, g: 0.8, b: 0, a: 0.35}
+  action2Color: {r: 0.9, g: 0.9, b: 0, a: 0.35}
+  action3Color: {r: 0.9, g: 0.2, b: 0, a: 0.35}
+  pathColor: {r: 0, g: 0.5, b: 1, a: 0.5}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
