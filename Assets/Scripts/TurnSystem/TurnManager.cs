@@ -176,6 +176,37 @@ namespace PF2e.TurnSystem
                 OnActionsChanged?.Invoke(ActionsRemaining);
         }
 
+/// <summary>
+/// Atomic: spend actions + restore state from ExecutingAction + auto-EndTurn if drained.
+/// Solves the race where SpendActions → EndTurn is ignored while state == ExecutingAction.
+/// </summary>
+public void CompleteActionWithCost(int actionCost)
+{
+    if (state != TurnState.ExecutingAction) return;
+
+    if (actionCost <= 0) actionCost = 0;
+
+    // 1) Spend actions directly via EntityData
+    EntityData data = null;
+    if (entityManager != null && entityManager.Registry != null)
+        data = entityManager.Registry.Get(CurrentEntity);
+
+    if (data != null && actionCost > 0)
+        data.SpendActions(actionCost);
+
+    // 2) Restore state from ExecutingAction
+    state = stateBeforeExecution;
+
+    // 3) Notify action count change
+    int remaining = (data != null) ? data.ActionsRemaining : 0;
+    OnActionsChanged?.Invoke(remaining);
+
+    // 4) Auto-EndTurn if drained — state is now PlayerTurn/EnemyTurn so EndTurn will succeed
+    if (remaining <= 0)
+        EndTurn();
+}
+
+
         /// <summary>
         /// Terminate the combat encounter and reset all state.
         /// </summary>
