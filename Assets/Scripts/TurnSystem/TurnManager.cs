@@ -201,9 +201,17 @@ public void CompleteActionWithCost(int actionCost)
     int remaining = (data != null) ? data.ActionsRemaining : 0;
     OnActionsChanged?.Invoke(remaining);
 
-    // 4) Auto-EndTurn if drained — state is now PlayerTurn/EnemyTurn so EndTurn will succeed
+    // 4) Auto-EndTurn if drained — state is now PlayerTurn/EnemyTurn so EndTurn will succeed.
+    //    Otherwise re-select entity so MovementZoneVisualizer refreshes zone for remaining actions.
     if (remaining <= 0)
+    {
         EndTurn();
+    }
+    else
+    {
+        if (entityManager != null && CurrentEntity.IsValid)
+            entityManager.SelectEntity(CurrentEntity);
+    }
 }
 
 

@@ -3,6 +3,7 @@ using UnityEngine.InputSystem;
 using PF2e.Data;
 using PF2e.Managers;
 using PF2e.Presentation.Entity;
+using PF2e.TurnSystem;
 
 namespace PF2e.Grid
 {
@@ -30,6 +31,7 @@ namespace PF2e.Grid
         private EntityManager entityManager;
         private GridFloorController floorController;
         private bool visualsEnabled = true;
+        [SerializeField] private TurnManager turnManager; // optional — assigned in Inspector for combat
 
         private void OnEnable()
         {
@@ -128,7 +130,7 @@ namespace PF2e.Grid
                     {
                         if (entityView != null)
                             entityManager.SelectEntity(entityView.Handle);
-                        else
+                        else if (turnManager == null || !turnManager.IsPlayerTurn)
                             entityManager.DeselectEntity();
                     }
 
