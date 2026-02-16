@@ -3,18 +3,20 @@ using UnityEngine;
 using PF2e.Core;
 using PF2e.Grid;
 using PF2e.Managers;
+using PF2e.TurnSystem;
 
 namespace PF2e.Presentation
 {
     /// <summary>
-    /// Visualizes movement zone for selected player entity.
+    /// Visualizes movement zone for the active actor.
+    /// In combat: zone driven by TurnManager (active entity + remaining actions).
+    /// In exploration: zone driven by EntityManager selection (legacy behavior).
     /// Green = 1 action, Yellow = 2 actions, Red = 3 actions.
     /// Path preview on hover within zone.
     ///
     /// Must be on the same GameObject as GridManager, GridFloorController, CellHighlightPool
-    /// (TacticalGrid) so GetComponent works for all dependencies.
-    ///
-    /// NOTE: Update order vs GridInteraction not guaranteed; path preview may lag 1 frame.
+    /// (TacticalGrid) so GetComponent works for those dependencies.
+    /// EntityManager and TurnManager must be assigned via Inspector.
     /// </summary>
     public class MovementZoneVisualizer : MonoBehaviour
     {
@@ -23,24 +25,37 @@ namespace PF2e.Presentation
         [SerializeField] private GridManager gridManager;
         [SerializeField] private CellHighlightPool highlightPool;
 
+        [Header("Combat")]
+        [SerializeField] private TurnManager turnManager;
+
         [Header("Zone Colors")]
         [SerializeField] private Color action1Color = new Color(0f, 0.8f, 0f, 0.35f);
         [SerializeField] private Color action2Color = new Color(0.9f, 0.9f, 0f, 0.35f);
         [SerializeField] private Color action3Color = new Color(0.9f, 0.2f, 0f, 0.35f);
 
         [Header("Path Preview")]
-        [SerializeField] private Color pathColor = new Color(0f, 0.5f, 1f, 0.5f);
+        [SerializeField] private Color pathAction1Color = new Color(0f, 0.85f, 0f, 0.55f);
+        [SerializeField] private Color pathAction2Color = new Color(0.95f, 0.95f, 0f, 0.55f);
+        [SerializeField] private Color pathAction3Color = new Color(0.95f, 0.25f, 0f, 0.55f);
 
-        private readonly Dictionary<Vector3Int, int> currentZone = new Dictionary<Vector3Int, int>();
+        private readonly Dictionary<Vector3Int, int> currentZoneActions = new Dictionary<Vector3Int, int>();
         private readonly List<GameObject> zoneHighlights = new List<GameObject>();
         private readonly List<GameObject> pathHighlights = new List<GameObject>();
         private readonly List<Vector3Int> pathBuffer = new List<Vector3Int>();
+        private readonly List<int> pathActionBoundaries = new List<int>(8);
 
         private EntityHandle showingFor;
+        private int showingMaxActions = 0;
         private Vector3Int? lastHoveredZoneCell;
+
+        private float lastPathUpdateTime = -1f;
+        private const float PathUpdateInterval = 0.05f;
 
         private GridFloorController floorController;
         private bool visualsEnabled = true;
+
+        private bool IsCombatMode =>
+            turnManager != null && turnManager.State != TurnState.Inactive;
 
         private void Start()
         {
@@ -49,18 +64,32 @@ namespace PF2e.Presentation
             if (highlightPool == null) highlightPool = GetComponent<CellHighlightPool>();
             floorController = GetComponent<GridFloorController>();
 
-            // EntityManager is on a separate GO — FindObjectOfType acceptable for prototype
-            if (entityManager == null) entityManager = FindObjectOfType<EntityManager>();
-
-            if (entityManager == null || gridManager == null || highlightPool == null || floorController == null)
+            if (entityManager == null)
             {
-                Debug.LogError("[MovementZoneVisualizer] Missing references/components! Disabling.");
+                Debug.LogError("[MovementZoneVisualizer] EntityManager not assigned! Assign in Inspector. Disabling.", this);
                 enabled = false;
                 return;
             }
 
+            if (gridManager == null || highlightPool == null || floorController == null)
+            {
+                Debug.LogError("[MovementZoneVisualizer] Missing GridManager/CellHighlightPool/GridFloorController! Disabling.", this);
+                enabled = false;
+                return;
+            }
+
+            // Selection-driven zone (exploration mode; guarded in handlers for combat)
             entityManager.OnEntitySelected += OnEntitySelected;
             entityManager.OnEntityDeselected += OnEntityDeselected;
+
+            // TurnManager-driven zone (combat mode)
+            if (turnManager != null)
+            {
+                turnManager.OnTurnStarted += HandleTurnStarted;
+                turnManager.OnTurnEnded += HandleTurnEnded;
+                turnManager.OnActionsChanged += HandleActionsChanged;
+                turnManager.OnCombatEnded += HandleCombatEnded;
+            }
 
             floorController.OnGridVisualsToggled += SetVisualsEnabled;
             SetVisualsEnabled(floorController.GridVisualsEnabled);
@@ -73,14 +102,87 @@ namespace PF2e.Presentation
                 entityManager.OnEntitySelected -= OnEntitySelected;
                 entityManager.OnEntityDeselected -= OnEntityDeselected;
             }
+            if (turnManager != null)
+            {
+                turnManager.OnTurnStarted -= HandleTurnStarted;
+                turnManager.OnTurnEnded -= HandleTurnEnded;
+                turnManager.OnActionsChanged -= HandleActionsChanged;
+                turnManager.OnCombatEnded -= HandleCombatEnded;
+            }
             if (floorController != null)
                 floorController.OnGridVisualsToggled -= SetVisualsEnabled;
         }
 
-        /// <summary>
-        /// Called by GridFloorController.OnGridVisualsToggled.
-        /// Clears zone when hidden; restores zone when re-shown if a player is still selected.
-        /// </summary>
+        // ─── TurnManager event handlers ─────────────────────────────────────
+
+        private void HandleTurnStarted(EntityHandle handle)
+        {
+            RefreshCombatZone();
+        }
+
+        private void HandleTurnEnded(EntityHandle handle)
+        {
+            if (IsCombatMode)
+                ClearZone();
+        }
+
+        private void HandleActionsChanged(int remaining)
+        {
+            if (IsCombatMode)
+                RefreshCombatZone();
+        }
+
+        private void HandleCombatEnded()
+        {
+            ClearZone();
+        }
+
+        // ─── Combat zone refresh ────────────────────────────────────────────
+
+        private void RefreshCombatZone()
+        {
+            if (!visualsEnabled) { ClearZone(); return; }
+
+            if (turnManager == null || turnManager.State != TurnState.PlayerTurn)
+            { ClearZone(); return; }
+
+            var handle = turnManager.CurrentEntity;
+            if (!handle.IsValid) { ClearZone(); return; }
+
+            var data = entityManager.Registry.Get(handle);
+            if (data == null || data.Team != Team.Player)
+            { ClearZone(); return; }
+
+            int remainingActions = Mathf.Clamp(turnManager.ActionsRemaining, 0, 3);
+            if (remainingActions <= 0) { ClearZone(); return; }
+
+            ShowZoneFor(handle, remainingActions);
+        }
+
+        // ─── Selection-driven handlers (exploration mode) ───────────────────
+
+        private void OnEntitySelected(EntityHandle handle)
+        {
+            if (IsCombatMode) return;
+            if (!visualsEnabled) return;
+
+            var data = entityManager.Registry.Get(handle);
+            if (data == null || data.Team != Team.Player)
+            {
+                ClearZone();
+                return;
+            }
+            ShowZoneFor(handle, 3);
+        }
+
+        private void OnEntityDeselected()
+        {
+            if (IsCombatMode) return;
+            ClearZone();
+        }
+
+        // ─── Visuals toggle ─────────────────────────────────────────────────
+
         public void SetVisualsEnabled(bool enabled)
         {
             visualsEnabled = enabled;
@@ -91,10 +193,18 @@ namespace PF2e.Presentation
                 return;
             }
 
-            // Restore zone if a player entity is still selected
-            if (entityManager != null && entityManager.SelectedEntity.IsValid)
-                OnEntitySelected(entityManager.SelectedEntity);
+            if (IsCombatMode)
+            {
+                RefreshCombatZone();
+            }
+            else
+            {
+                if (entityManager != null && entityManager.SelectedEntity.IsValid)
+                    OnEntitySelected(entityManager.SelectedEntity);
+            }
         }
+
+        // ─── Update / Path Preview ──────────────────────────────────────────
 
         private void Update()
         {
@@ -102,25 +212,7 @@ namespace PF2e.Presentation
             UpdatePathPreview();
         }
 
-        private void OnEntitySelected(EntityHandle handle)
-        {
-            if (!visualsEnabled) return;
-
-            var data = entityManager.Registry.Get(handle);
-            if (data == null || data.Team != Team.Player)
-            {
-                ClearZone();
-                return;
-            }
-            ShowZoneFor(handle);
-        }
-
-        private void OnEntityDeselected()
-        {
-            ClearZone();
-        }
-
-        private void ShowZoneFor(EntityHandle handle)
+        private void ShowZoneFor(EntityHandle handle, int maxActions)
         {
             ClearZone();
 
@@ -128,8 +220,7 @@ namespace PF2e.Presentation
             if (data == null || gridManager.Data == null) return;
 
             showingFor = handle;
-
-            int budgetFeet = data.Speed * 3;
+            showingMaxActions = Mathf.Clamp(maxActions, 0, 3);
 
             var profile = new MovementProfile
             {
@@ -139,27 +230,26 @@ namespace PF2e.Presentation
                 ignoresDifficultTerrain = false
             };
 
-            entityManager.Pathfinding.GetMovementZone(
+            entityManager.Pathfinding.GetMovementZoneByActions(
                 gridManager.Data,
                 data.GridPosition,
                 profile,
-                budgetFeet,
+                showingMaxActions,
                 handle,
                 entityManager.Occupancy,
-                currentZone);
+                currentZoneActions);
 
             float cellSize = gridManager.Config.cellWorldSize;
-            int speed1 = data.Speed;
-            int speed2 = data.Speed * 2;
 
-            foreach (var kvp in currentZone)
+            foreach (var kvp in currentZoneActions)
             {
                 var pos = kvp.Key;
-                int cost = kvp.Value;
+                int actions = kvp.Value;
                 if (pos == data.GridPosition) continue;
+                if (actions <= 0) continue;
 
-                Color color = cost <= speed1 ? action1Color :
-                              cost <= speed2 ? action2Color : action3Color;
+                Color color = actions == 1 ? action1Color :
+                              actions == 2 ? action2Color : action3Color;
 
                 var worldPos = gridManager.Data.CellToWorld(pos);
                 zoneHighlights.Add(highlightPool.ShowHighlight(worldPos, cellSize, color));
@@ -172,69 +262,140 @@ namespace PF2e.Presentation
                 if (go != null && highlightPool != null) highlightPool.Return(go);
             zoneHighlights.Clear();
 
-            currentZone.Clear();
+            currentZoneActions.Clear();
             showingFor = EntityHandle.None;
+            showingMaxActions = 0;
 
             ClearPathPreview();
         }
 
         private void UpdatePathPreview()
         {
+            if (IsCombatMode && turnManager.State != TurnState.PlayerTurn)
+            {
+                ClearPathPreview();
+                return;
+            }
+
             var hoveredCell = gridManager.HoveredCell;
 
             if (!hoveredCell.HasValue)
             {
                 if (lastHoveredZoneCell.HasValue)
                 {
-                    ClearPathPreview();
+                    HidePathPreviewImmediate();
                     lastHoveredZoneCell = null;
                 }
                 return;
             }
 
+            // If hovered cell is not in STOP zone, hide and exit immediately (no throttle)
+            if (!currentZoneActions.ContainsKey(hoveredCell.Value))
+            {
+                if (lastHoveredZoneCell != hoveredCell.Value)
+                    lastHoveredZoneCell = hoveredCell.Value;
+
+                HidePathPreviewImmediate();
+                return;
+            }
+
+            // If same cell, do nothing
             if (hoveredCell == lastHoveredZoneCell)
                 return;
 
+            // Hover changed -> hide old preview immediately (objects stay reserved)
             lastHoveredZoneCell = hoveredCell.Value;
+            HidePathPreviewImmediate();
 
-            if (!currentZone.ContainsKey(hoveredCell.Value))
-            {
-                ClearPathPreview();
+            // Throttle reconstruction updates
+            if (Time.time - lastPathUpdateTime < PathUpdateInterval)
                 return;
-            }
 
-            ClearPathPreview();
+            // O(path_length) reconstruction from cached zone graph
+            pathActionBoundaries.Clear();
 
-            var data = entityManager.Registry.Get(showingFor);
-            if (data == null) return;
-
-            var profile = new MovementProfile
-            {
-                moveType = MovementType.Walk,
-                speedFeet = data.Speed,
-                creatureSizeCells = data.SizeCells,
-                ignoresDifficultTerrain = false
-            };
-
-            if (!entityManager.Pathfinding.FindPath(
-                gridManager.Data,
-                data.GridPosition,
-                hoveredCell.Value,
-                profile,
-                showingFor,
-                entityManager.Occupancy,
-                pathBuffer,
-                out int _))
+            if (!entityManager.Pathfinding.ReconstructPathFromZone(
+                hoveredCell.Value, pathBuffer, out int _actionsCost, pathActionBoundaries))
                 return;
 
             float cellSize = gridManager.Config.cellWorldSize;
-            for (int i = 1; i < pathBuffer.Count; i++)
+            int needed = Mathf.Max(0, pathBuffer.Count - 1);
+
+            // boundaries: [0, start2, start3]
+            int boundaryPtr = 0;
+            int nextBoundary = (pathActionBoundaries.Count > 1) ? pathActionBoundaries[1] : int.MaxValue;
+
+            // 1) Ensure list has enough objects (create only when needed grows)
+            for (int i = pathHighlights.Count; i < needed; i++)
             {
-                var worldPos = gridManager.Data.CellToWorld(pathBuffer[i]);
-                pathHighlights.Add(highlightPool.ShowHighlight(worldPos, cellSize * 0.6f, pathColor));
+                var dummyWorld = gridManager.Data.CellToWorld(pathBuffer[Mathf.Min(1, pathBuffer.Count - 1)]);
+                var go = highlightPool.ShowHighlight(dummyWorld, cellSize * 0.6f, pathAction1Color);
+                pathHighlights.Add(go);
+            }
+
+            // 2) Configure used highlights (reuse existing objects)
+            for (int pathIndex = 1; pathIndex < pathBuffer.Count; pathIndex++)
+            {
+                while (pathIndex >= nextBoundary && boundaryPtr + 1 < pathActionBoundaries.Count)
+                {
+                    boundaryPtr++;
+                    nextBoundary = (boundaryPtr + 1 < pathActionBoundaries.Count)
+                        ? pathActionBoundaries[boundaryPtr + 1]
+                        : int.MaxValue;
+                }
+
+                int actionIndex = boundaryPtr + 1; // 1..3
+                if (actionIndex < 1) actionIndex = 1;
+                if (actionIndex > 3) actionIndex = 3;
+
+                Color c = actionIndex == 1 ? pathAction1Color :
+                          actionIndex == 2 ? pathAction2Color : pathAction3Color;
+
+                int highlightIndex = pathIndex - 1;
+                var worldPos = gridManager.Data.CellToWorld(pathBuffer[pathIndex]);
+
+                var go = pathHighlights[highlightIndex];
+                if (go == null)
+                {
+                    go = highlightPool.ShowHighlight(worldPos, cellSize * 0.6f, c);
+                    pathHighlights[highlightIndex] = go;
+                }
+                else
+                {
+                    highlightPool.ConfigureExistingHighlight(go, worldPos, cellSize * 0.6f, c, active: true);
+                }
+            }
+
+            // 3) Hide unused highlights (no Return — reserved for reuse)
+            for (int i = needed; i < pathHighlights.Count; i++)
+            {
+                var go = pathHighlights[i];
+                if (go != null)
+                    highlightPool.HideWithoutReturn(go);
+            }
+
+            lastPathUpdateTime = Time.time;
+        }
+
+        /// <summary>
+        /// Hide path preview objects immediately without returning to pool (reserved for reuse).
+        /// </summary>
+        private void HidePathPreviewImmediate()
+        {
+            if (highlightPool == null) return;
+
+            for (int i = 0; i < pathHighlights.Count; i++)
+            {
+                var go = pathHighlights[i];
+                if (go != null)
+                    highlightPool.HideWithoutReturn(go);
             }
         }
 
+        /// <summary>
+        /// Hard clear: return all path highlights to pool and clear list.
+        /// Used when zone is cleared, visuals toggled off, or combat mode changes.
+        /// </summary>
         private void ClearPathPreview()
         {
             foreach (var go in pathHighlights)

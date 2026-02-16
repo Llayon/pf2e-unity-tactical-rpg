@@ -21,6 +21,7 @@ namespace PF2e.TurnSystem
 
         private readonly List<Vector3Int> pathBuffer = new List<Vector3Int>();
         private bool strideInProgress = false;
+        private int pendingActionCost = 0;
 
         public bool StrideInProgress => strideInProgress;
 
@@ -75,21 +76,25 @@ namespace PF2e.TurnSystem
                 ignoresDifficultTerrain = false
             };
 
-            // e) Find path (occupancy-aware)
+            // e) Find action-based path (1-3 actions)
+            int maxActions = Mathf.Clamp(turnManager.ActionsRemaining, 0, 3);
             pathBuffer.Clear();
-            bool found = entityManager.Pathfinding.FindPath(
+            bool found = entityManager.Pathfinding.FindPathByActions(
                 gridManager.Data,
                 data.GridPosition,
                 targetCell,
                 profile,
                 handle,
                 entityManager.Occupancy,
+                maxActions,
                 pathBuffer,
-                out int totalCost);
+                out int actionsCost,
+                out int totalFeet);
             if (!found) return false;
 
-            // f) Path must fit within one action (one Speed budget)
-            if (totalCost > data.Speed) return false;
+            // f) Validate action cost
+            if (actionsCost <= 0 || actionsCost > maxActions) return false;
+            pendingActionCost = actionsCost;
 
             // g) Target cell must be occupiable
             if (!entityManager.Occupancy.CanOccupy(targetCell, handle)) return false;
@@ -130,7 +135,8 @@ namespace PF2e.TurnSystem
         private void OnStrideComplete(EntityHandle handle)
         {
             strideInProgress = false;
-            turnManager.CompleteActionWithCost(1);
+            turnManager.CompleteActionWithCost(pendingActionCost <= 0 ? 1 : pendingActionCost);
+            pendingActionCost = 0;
         }
     }
 }

@@ -112,6 +112,39 @@ namespace PF2e.Grid
             return go;
         }
 
+        /// <summary>
+        /// Reconfigure an EXISTING highlight GameObject (no pooling). Used for reuse.
+        /// Safe: keeps MaterialPropertyBlock logic consistent with ShowHighlight.
+        /// </summary>
+        public void ConfigureExistingHighlight(GameObject go, Vector3 worldCenter, float cellSize, Color color, bool active = true)
+        {
+            if (go == null) return;
+
+            go.SetActive(active);
+            activeHighlights.Add(go);
+
+            go.transform.position = new Vector3(worldCenter.x, worldCenter.y + YOffset, worldCenter.z);
+            go.transform.localScale = new Vector3(cellSize * 0.95f, 1f, cellSize * 0.95f);
+
+            var mr = go.GetComponent<MeshRenderer>();
+            if (mr != null)
+            {
+                s_PropBlock ??= new MaterialPropertyBlock();
+                s_PropBlock.SetColor("_BaseColor", color);
+                mr.SetPropertyBlock(s_PropBlock);
+            }
+        }
+
+        /// <summary>
+        /// Hide highlight without returning to pool (reserved for reuse).
+        /// </summary>
+        public void HideWithoutReturn(GameObject go)
+        {
+            if (go == null) return;
+            go.SetActive(false);
+            activeHighlights.Add(go);
+        }
+
         private void OnDestroy()
         {
             foreach (var go in activeHighlights)

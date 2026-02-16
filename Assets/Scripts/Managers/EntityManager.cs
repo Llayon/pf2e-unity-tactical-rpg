@@ -44,8 +44,20 @@ namespace PF2e.Managers
             Pathfinding = new GridPathfinding();
 
             if (gridManager == null)
-                gridManager = FindObjectOfType<GridManager>();
+            {
+                Debug.LogError("[EntityManager] GridManager is not assigned in Inspector. Disabling EntityManager.", this);
+                enabled = false;
+                return;
+            }
         }
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            if (gridManager == null)
+                Debug.LogError("[EntityManager] Missing reference: GridManager. Assign it in Inspector.", this);
+        }
+#endif
 
         private void Start()
         {

@@ -523,5 +523,469 @@ namespace PF2e.Grid
             outPath.Add(state.Item1); // start
             outPath.Reverse();
         }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // Phase 9.5: Multi-Stride (action-based) movement for PF2e (Solasta-like)
+        // Zone + pathfinding across 1..N Stride actions, with diagonal parity reset
+        // on each new Stride.
+        // Stores cameFrom + best stop-states so UI can reconstruct hover path in O(path).
+        // ═══════════════════════════════════════════════════════════════════════
+
+        private const int ActionPenalty = 1_000_000;
+
+        private readonly struct ActionState : IEquatable<ActionState>
+        {
+            public readonly Vector3Int pos;
+            public readonly bool parity;         // diagonal parity INSIDE CURRENT stride
+            public readonly byte actionsUsed;    // Stride actions started/used (0..maxActions)
+            public readonly ushort feetInStride; // feet spent in current stride (0..speed)
+
+            public ActionState(Vector3Int pos, bool parity, byte actionsUsed, int feetInStride)
+            {
+                this.pos = pos;
+                this.parity = parity;
+                this.actionsUsed = actionsUsed;
+                this.feetInStride = (ushort)Mathf.Clamp(feetInStride, 0, ushort.MaxValue);
+            }
+
+            public bool Equals(ActionState other)
+                => pos == other.pos
+                   && parity == other.parity
+                   && actionsUsed == other.actionsUsed
+                   && feetInStride == other.feetInStride;
+
+            public override bool Equals(object obj) => obj is ActionState o && Equals(o);
+            public override int GetHashCode() => HashCode.Combine(pos, parity, actionsUsed, feetInStride);
+        }
+
+        private struct ActionNode
+        {
+            public ActionState state;
+            public int packedAtEnqueue; // lazy deletion
+        }
+
+        private static int PackCost(byte actionsUsed, int feetTotal)
+            => actionsUsed * ActionPenalty + feetTotal;
+
+        private static int UnpackFeet(int packed) => packed % ActionPenalty;
+
+        // Reusable buffers (separate from normal A*/Dijkstra buffers)
+        private readonly MinBinaryHeap<ActionNode, int> actionOpenSet = new();
+        private readonly HashSet<ActionState> actionClosed = new();
+        private readonly Dictionary<ActionState, int> actionCostSoFar = new();
+        private readonly Dictionary<ActionState, ActionState> actionCameFrom = new();
+        private readonly List<Vector3Int> actionPathReconstructBuffer = new(128);
+        private readonly List<ActionState> actionStateReconstructBuffer = new(128);
+
+        // For UI reconstruction: best stop-state per position from the last zone build
+        private readonly Dictionary<Vector3Int, ActionState> zoneBestState = new();
+
+        /// <summary>
+        /// Dijkstra over ActionState:
+        /// - primary objective: minimize actionsUsed
+        /// - secondary: minimize total feet
+        /// Priority = PackCost(actionsUsed, totalFeet).
+        ///
+        /// Output: outMinActions[pos] = minimum number of actions needed to STOP on pos.
+        /// Stores cameFrom + zoneBestState for ReconstructPathFromZone().
+        /// </summary>
+        public void GetMovementZoneByActions(
+            GridData grid, Vector3Int origin, MovementProfile profile,
+            int maxActions, EntityHandle mover, OccupancyMap occupancy,
+            Dictionary<Vector3Int, int> outMinActions)
+        {
+            outMinActions.Clear();
+
+            actionOpenSet.Clear();
+            actionClosed.Clear();
+            actionCostSoFar.Clear();
+            actionCameFrom.Clear();
+            zoneBestState.Clear();
+
+            maxActions = Mathf.Clamp(maxActions, 0, 3);
+
+            if (!grid.IsCellPassable(origin, profile.moveType)) return;
+
+            // Origin always included
+            outMinActions[origin] = 0;
+
+            // Save origin as reconstructable anchor (path length will be 1)
+            var startState = new ActionState(origin, parity: false, actionsUsed: 0, feetInStride: 0);
+            zoneBestState[origin] = startState;
+
+            if (maxActions <= 0) return;
+
+            int startPacked = PackCost(0, 0);
+            actionCostSoFar[startState] = startPacked;
+            actionOpenSet.Enqueue(new ActionNode { state = startState, packedAtEnqueue = startPacked }, startPacked);
+
+            while (actionOpenSet.Count > 0)
+            {
+                var node = actionOpenSet.Dequeue();
+                var s = node.state;
+
+                if (actionClosed.Contains(s)) continue;
+
+                if (!actionCostSoFar.TryGetValue(s, out int currentPacked) ||
+                    node.packedAtEnqueue > currentPacked)
+                    continue;
+
+                actionClosed.Add(s);
+
+                bool canStopHere = (occupancy == null) || occupancy.CanOccupy(s.pos, mover);
+
+                // Record STOP cells (not origin) — at dequeue = confirmed optimal
+                if (s.pos != origin && s.actionsUsed > 0 && canStopHere)
+                {
+                    int actions = s.actionsUsed;
+
+                    if (!outMinActions.TryGetValue(s.pos, out int bestActions) || actions < bestActions)
+                        outMinActions[s.pos] = actions;
+
+                    // zoneBestState stores the best packed-cost stop state (for shortest path preview)
+                    if (!zoneBestState.TryGetValue(s.pos, out var bestState))
+                    {
+                        zoneBestState[s.pos] = s;
+                    }
+                    else
+                    {
+                        int bestPacked = int.MaxValue;
+                        if (actionCostSoFar.TryGetValue(bestState, out int bp)) bestPacked = bp;
+                        if (currentPacked < bestPacked)
+                            zoneBestState[s.pos] = s;
+                    }
+                }
+
+                // "Reset edge": end current Stride early, start a new Stride (parity resets),
+                // only if we can actually STOP here.
+                if (s.actionsUsed > 0 &&
+                    s.actionsUsed < maxActions &&
+                    s.feetInStride > 0 &&
+                    canStopHere)
+                {
+                    var resetState = new ActionState(
+                        s.pos,
+                        parity: false,
+                        actionsUsed: (byte)(s.actionsUsed + 1),
+                        feetInStride: 0);
+
+                    int resetPacked = currentPacked + ActionPenalty;
+
+                    if (!actionClosed.Contains(resetState))
+                    {
+                        if (!actionCostSoFar.TryGetValue(resetState, out int oldReset) || resetPacked < oldReset)
+                        {
+                            actionCostSoFar[resetState] = resetPacked;
+                            actionCameFrom[resetState] = s;
+                            actionOpenSet.Enqueue(
+                                new ActionNode { state = resetState, packedAtEnqueue = resetPacked },
+                                resetPacked);
+                        }
+                    }
+                }
+
+                // Expand movement steps
+                grid.GetNeighbors(s.pos, profile.moveType, neighborBuffer);
+
+                foreach (var n in neighborBuffer)
+                {
+                    if (!grid.TryGetCell(n.pos, out var targetCell)) continue;
+
+                    if (occupancy != null && !occupancy.CanTraverse(n.pos, mover))
+                        continue;
+
+                    int stepCost = MovementCostEvaluator.GetStepCost(
+                        targetCell, n,
+                        diagonalParity: s.parity,
+                        profile);
+
+                    // If no Stride started yet, the first move step starts action #1
+                    byte nextActionsUsed = (s.actionsUsed == 0) ? (byte)1 : s.actionsUsed;
+                    if (nextActionsUsed > maxActions) continue;
+
+                    int actionStartPenalty = (s.actionsUsed == 0) ? ActionPenalty : 0;
+
+                    int nextFeetInStride = (s.actionsUsed == 0)
+                        ? stepCost
+                        : (s.feetInStride + stepCost);
+
+                    if (nextFeetInStride > profile.speedFeet) continue;
+
+                    bool nextParity = (n.type == NeighborType.Diagonal) ? !s.parity : s.parity;
+
+                    var ns = new ActionState(n.pos, nextParity, nextActionsUsed, nextFeetInStride);
+
+                    int nextPacked = currentPacked + actionStartPenalty + stepCost;
+
+                    if (!actionClosed.Contains(ns))
+                    {
+                        if (!actionCostSoFar.TryGetValue(ns, out int oldPacked) || nextPacked < oldPacked)
+                        {
+                            actionCostSoFar[ns] = nextPacked;
+                            actionCameFrom[ns] = s;
+                            actionOpenSet.Enqueue(
+                                new ActionNode { state = ns, packedAtEnqueue = nextPacked },
+                                nextPacked);
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Finds a path from->to within maxActions Strides.
+        /// Does NOT preserve zoneBestState/cameFrom for preview (it clears them).
+        /// Intended for execution (StrideAction).
+        /// </summary>
+        public bool FindPathByActions(
+            GridData grid, Vector3Int from, Vector3Int to,
+            MovementProfile profile, EntityHandle mover, OccupancyMap occupancy,
+            int maxActions, List<Vector3Int> outPath,
+            out int actionsCost, out int totalFeetCost)
+        {
+            outPath.Clear();
+            actionsCost = 0;
+            totalFeetCost = 0;
+
+            maxActions = Mathf.Clamp(maxActions, 0, 3);
+
+            if (from == to)
+            {
+                outPath.Add(from);
+                return true;
+            }
+
+            if (maxActions <= 0) return false;
+
+            if (!grid.IsCellPassable(from, profile.moveType) ||
+                !grid.IsCellPassable(to, profile.moveType))
+                return false;
+
+            // Must be able to STOP on goal
+            if (occupancy != null && !occupancy.CanOccupy(to, mover))
+                return false;
+
+            // Clears preview caches — this method is for execution, not preview
+            actionOpenSet.Clear();
+            actionClosed.Clear();
+            actionCostSoFar.Clear();
+            actionCameFrom.Clear();
+            zoneBestState.Clear();
+
+            var startState = new ActionState(from, parity: false, actionsUsed: 0, feetInStride: 0);
+            int startPacked = PackCost(0, 0);
+            actionCostSoFar[startState] = startPacked;
+            actionOpenSet.Enqueue(new ActionNode { state = startState, packedAtEnqueue = startPacked }, startPacked);
+
+            while (actionOpenSet.Count > 0)
+            {
+                var node = actionOpenSet.Dequeue();
+                var s = node.state;
+
+                if (actionClosed.Contains(s)) continue;
+
+                if (!actionCostSoFar.TryGetValue(s, out int currentPacked) ||
+                    node.packedAtEnqueue > currentPacked)
+                    continue;
+
+                // Goal reached (must have started at least 1 action)
+                if (s.pos == to && s.actionsUsed > 0 && s.actionsUsed <= maxActions)
+                {
+                    actionsCost = s.actionsUsed;
+                    totalFeetCost = UnpackFeet(currentPacked);
+                    ReconstructActionPath(s, outPath);
+                    return outPath.Count >= 2;
+                }
+
+                actionClosed.Add(s);
+
+                bool canStopHere = (occupancy == null) || occupancy.CanOccupy(s.pos, mover);
+
+                // Reset edge
+                if (s.actionsUsed > 0 &&
+                    s.actionsUsed < maxActions &&
+                    s.feetInStride > 0 &&
+                    canStopHere)
+                {
+                    var resetState = new ActionState(
+                        s.pos,
+                        parity: false,
+                        actionsUsed: (byte)(s.actionsUsed + 1),
+                        feetInStride: 0);
+
+                    int resetPacked = currentPacked + ActionPenalty;
+
+                    if (!actionClosed.Contains(resetState))
+                    {
+                        if (!actionCostSoFar.TryGetValue(resetState, out int oldReset) || resetPacked < oldReset)
+                        {
+                            actionCostSoFar[resetState] = resetPacked;
+                            actionCameFrom[resetState] = s;
+                            actionOpenSet.Enqueue(
+                                new ActionNode { state = resetState, packedAtEnqueue = resetPacked },
+                                resetPacked);
+                        }
+                    }
+                }
+
+                // Movement edges
+                grid.GetNeighbors(s.pos, profile.moveType, neighborBuffer);
+
+                foreach (var n in neighborBuffer)
+                {
+                    if (!grid.TryGetCell(n.pos, out var targetCell)) continue;
+
+                    if (occupancy != null && !occupancy.CanTraverse(n.pos, mover))
+                        continue;
+
+                    int stepCost = MovementCostEvaluator.GetStepCost(
+                        targetCell, n,
+                        diagonalParity: s.parity,
+                        profile);
+
+                    byte nextActionsUsed = (s.actionsUsed == 0) ? (byte)1 : s.actionsUsed;
+                    if (nextActionsUsed > maxActions) continue;
+
+                    int actionStartPenalty = (s.actionsUsed == 0) ? ActionPenalty : 0;
+
+                    int nextFeetInStride = (s.actionsUsed == 0)
+                        ? stepCost
+                        : (s.feetInStride + stepCost);
+
+                    if (nextFeetInStride > profile.speedFeet) continue;
+
+                    bool nextParity = (n.type == NeighborType.Diagonal) ? !s.parity : s.parity;
+
+                    var ns = new ActionState(n.pos, nextParity, nextActionsUsed, nextFeetInStride);
+
+                    int nextPacked = currentPacked + actionStartPenalty + stepCost;
+
+                    if (!actionClosed.Contains(ns))
+                    {
+                        if (!actionCostSoFar.TryGetValue(ns, out int oldPacked) || nextPacked < oldPacked)
+                        {
+                            actionCostSoFar[ns] = nextPacked;
+                            actionCameFrom[ns] = s;
+                            actionOpenSet.Enqueue(
+                                new ActionNode { state = ns, packedAtEnqueue = nextPacked },
+                                nextPacked);
+                        }
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// O(path_length) reconstruction for hover preview (no boundaries).
+        /// Uses the cached results from the LAST GetMovementZoneByActions call.
+        /// Does NOT run any search.
+        /// </summary>
+        public bool ReconstructPathFromZone(
+            Vector3Int target, List<Vector3Int> outPath, out int outActionsCost)
+        {
+            return ReconstructPathFromZone(target, outPath, out outActionsCost, null);
+        }
+
+        /// <summary>
+        /// O(path_length) reconstruction with Stride boundary indices.
+        /// outActionBoundaries[k] = index in outPath where Stride (k+1) begins.
+        /// E.g. [0, 6, 12] → Stride1 cells [0..5], Stride2 [6..11], Stride3 [12..].
+        /// </summary>
+        public bool ReconstructPathFromZone(
+            Vector3Int target,
+            List<Vector3Int> outPath,
+            out int outActionsCost,
+            List<int> outActionBoundaries)
+        {
+            outPath.Clear();
+            outActionsCost = 0;
+            outActionBoundaries?.Clear();
+
+            if (!zoneBestState.TryGetValue(target, out var endState))
+                return false;
+
+            outActionsCost = endState.actionsUsed;
+
+            ReconstructActionPath(endState, outPath, outActionBoundaries);
+            return outPath.Count >= 2;
+        }
+
+        /// <summary>
+        /// Shared reconstruction (no boundaries). Used by FindPathByActions.
+        /// </summary>
+        private void ReconstructActionPath(ActionState end, List<Vector3Int> outPath)
+        {
+            ReconstructActionPath(end, outPath, null);
+        }
+
+        /// <summary>
+        /// Reconstruction with optional Stride boundary detection.
+        /// Removes consecutive duplicates (reset edges) and records boundary indices.
+        /// Uses reusable actionStateReconstructBuffer — zero GC.
+        /// </summary>
+        private void ReconstructActionPath(ActionState end, List<Vector3Int> outPath, List<int> outActionBoundaries)
+        {
+            // Reconstruct ActionState chain (end -> start), then reverse
+            actionStateReconstructBuffer.Clear();
+
+            var s = end;
+            actionStateReconstructBuffer.Add(s);
+
+            while (actionCameFrom.TryGetValue(s, out var prev))
+            {
+                s = prev;
+                actionStateReconstructBuffer.Add(s);
+            }
+
+            actionStateReconstructBuffer.Reverse();
+
+            outPath.Clear();
+            outActionBoundaries?.Clear();
+            outActionBoundaries?.Add(0); // Stride 1 starts at outPath[0]
+
+            bool hasLast = false;
+            Vector3Int lastPos = default;
+
+            for (int i = 0; i < actionStateReconstructBuffer.Count; i++)
+            {
+                var pos = actionStateReconstructBuffer[i].pos;
+
+                if (!hasLast)
+                {
+                    outPath.Add(pos);
+                    lastPos = pos;
+                    hasLast = true;
+                    continue;
+                }
+
+                if (pos == lastPos)
+                {
+                    // Reset-edge duplicate (end Stride N / start Stride N+1).
+                    // Boundary index = the NEXT unique cell index, not the shared cell.
+                    if (outActionBoundaries != null)
+                    {
+                        int boundaryIndex = outPath.Count;
+                        if (outActionBoundaries.Count == 0 || outActionBoundaries[outActionBoundaries.Count - 1] != boundaryIndex)
+                            outActionBoundaries.Add(boundaryIndex);
+                    }
+                    continue;
+                }
+
+                outPath.Add(pos);
+                lastPos = pos;
+            }
+
+            // Trim any boundary that points past end (reset at very end of path)
+            if (outActionBoundaries != null)
+            {
+                for (int k = outActionBoundaries.Count - 1; k >= 0; k--)
+                {
+                    if (outActionBoundaries[k] < 0 || outActionBoundaries[k] >= outPath.Count)
+                        outActionBoundaries.RemoveAt(k);
+                }
+            }
+        }
     }
 }

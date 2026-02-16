@@ -49,7 +49,7 @@ namespace PF2e.TurnSystem
         {
             get
             {
-                if (entityManager == null) return 0;
+                if (entityManager == null || entityManager.Registry == null) return 0;
                 var data = entityManager.Registry.Get(CurrentEntity);
                 return data != null ? data.ActionsRemaining : 0;
             }
@@ -176,43 +176,36 @@ namespace PF2e.TurnSystem
                 OnActionsChanged?.Invoke(ActionsRemaining);
         }
 
-/// <summary>
-/// Atomic: spend actions + restore state from ExecutingAction + auto-EndTurn if drained.
-/// Solves the race where SpendActions → EndTurn is ignored while state == ExecutingAction.
-/// </summary>
-public void CompleteActionWithCost(int actionCost)
-{
-    if (state != TurnState.ExecutingAction) return;
+        /// <summary>
+        /// Atomic: spend actions + restore state from ExecutingAction + auto-EndTurn if drained.
+        /// Solves the race where SpendActions -> EndTurn is ignored while state == ExecutingAction.
+        /// Zone refresh is handled by MovementZoneVisualizer listening to OnActionsChanged.
+        /// </summary>
+        public void CompleteActionWithCost(int actionCost)
+        {
+            if (state != TurnState.ExecutingAction) return;
 
-    if (actionCost <= 0) actionCost = 0;
+            if (actionCost <= 0) actionCost = 0;
 
-    // 1) Spend actions directly via EntityData
-    EntityData data = null;
-    if (entityManager != null && entityManager.Registry != null)
-        data = entityManager.Registry.Get(CurrentEntity);
+            // 1) Spend actions directly via EntityData
+            EntityData data = null;
+            if (entityManager != null && entityManager.Registry != null)
+                data = entityManager.Registry.Get(CurrentEntity);
 
-    if (data != null && actionCost > 0)
-        data.SpendActions(actionCost);
+            if (data != null && actionCost > 0)
+                data.SpendActions(actionCost);
 
-    // 2) Restore state from ExecutingAction
-    state = stateBeforeExecution;
+            // 2) Restore state from ExecutingAction
+            state = stateBeforeExecution;
 
-    // 3) Notify action count change
-    int remaining = (data != null) ? data.ActionsRemaining : 0;
-    OnActionsChanged?.Invoke(remaining);
+            // 3) Notify action count change
+            int remaining = (data != null) ? data.ActionsRemaining : 0;
+            OnActionsChanged?.Invoke(remaining);
 
-    // 4) Auto-EndTurn if drained — state is now PlayerTurn/EnemyTurn so EndTurn will succeed.
-    //    Otherwise re-select entity so MovementZoneVisualizer refreshes zone for remaining actions.
-    if (remaining <= 0)
-    {
-        EndTurn();
-    }
-    else
-    {
-        if (entityManager != null && CurrentEntity.IsValid)
-            entityManager.SelectEntity(CurrentEntity);
-    }
-}
+            // 4) Auto-EndTurn if drained
+            if (remaining <= 0)
+                EndTurn();
+        }
 
 
         /// <summary>
@@ -244,7 +237,7 @@ public void CompleteActionWithCost(int actionCost)
             {
                 if (data == null || !data.IsAlive) continue;
 
-                                int roll       = UnityEngine.Random.Range(1, 21); // d20: 1–20 inclusive (max is exclusive)(1, 21); // d20: 1–20 inclusive (max is exclusive)
+                                int roll       = UnityEngine.Random.Range(1, 21); // d20: 1-20 inclusive (max is exclusive)
                 int modifier   = data.WisMod;
                 bool isPlayer  = data.Team == Team.Player;
 
@@ -323,6 +316,13 @@ public void CompleteActionWithCost(int actionCost)
             OnActionsChanged?.Invoke(data.ActionsRemaining);
 
             Debug.Log($"[TurnManager] Round {roundNumber} — {data.Name} ({data.Team}) starts turn. Actions: {data.ActionsRemaining}");
+
+            // Auto-skip enemy turns (no AI yet)
+            if (state == TurnState.EnemyTurn)
+            {
+                Debug.Log($"[TurnManager] Auto-skipping enemy turn: {data.Name}");
+                EndTurn();
+            }
         }
     }
 }

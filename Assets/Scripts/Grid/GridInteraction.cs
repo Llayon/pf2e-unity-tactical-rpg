@@ -12,10 +12,15 @@ namespace PF2e.Grid
     /// Physics.Raycast → FloorLevel → snap to cell → hover/click events.
     /// </summary>
     [RequireComponent(typeof(GridManager))]
+    [RequireComponent(typeof(CellHighlightPool))]
     public class GridInteraction : MonoBehaviour
     {
         [SerializeField] private LayerMask gridLayerMask = ~0;
         [SerializeField] private float maxRayDistance = 100f;
+
+        [Header("Dependencies")]
+        [SerializeField] private EntityManager entityManager;
+        [SerializeField] private TurnManager turnManager;
 
         private GridManager gridManager;
         private GridData gridData;
@@ -28,16 +33,18 @@ namespace PF2e.Grid
         private Vector3Int? lastSelectedCell;
 
         private UnityEngine.Camera mainCamera;
-        private EntityManager entityManager;
         private GridFloorController floorController;
         private bool visualsEnabled = true;
-        [SerializeField] private TurnManager turnManager; // optional — assigned in Inspector for combat
 
         private void OnEnable()
         {
             gridManager = GetComponent<GridManager>();
             highlightPool = GetComponent<CellHighlightPool>();
-            if (gridManager == null) return;
+            if (gridManager == null)
+            {
+                Debug.LogError("[GridInteraction] GridManager is null on " + gameObject.name, this);
+                return;
+            }
         }
 
         private void Start()
@@ -45,7 +52,24 @@ namespace PF2e.Grid
             if (gridManager == null || gridManager.Data == null) return;
             gridData = gridManager.Data;
             mainCamera = UnityEngine.Camera.main;
-            entityManager = FindObjectOfType<EntityManager>();
+            if (mainCamera == null)
+                Debug.LogWarning("[GridInteraction] Camera.main is null — raycasting will not work.", this);
+            if (highlightPool == null)
+                Debug.LogWarning("[GridInteraction] CellHighlightPool is null — highlights will not render.", this);
+
+            if (entityManager == null)
+            {
+                Debug.LogError("[GridInteraction] EntityManager is not assigned. Disabling GridInteraction.", this);
+                enabled = false;
+                return;
+            }
+
+            if (turnManager == null)
+            {
+                Debug.LogError("[GridInteraction] TurnManager is not assigned. Disabling GridInteraction.", this);
+                enabled = false;
+                return;
+            }
 
             floorController = GetComponent<GridFloorController>();
             if (floorController != null)
@@ -60,6 +84,16 @@ namespace PF2e.Grid
             if (floorController != null)
                 floorController.OnGridVisualsToggled -= SetVisualsEnabled;
         }
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            if (entityManager == null)
+                Debug.LogError("[GridInteraction] Missing reference: EntityManager. Assign in Inspector.", this);
+            if (turnManager == null)
+                Debug.LogError("[GridInteraction] Missing reference: TurnManager. Assign in Inspector.", this);
+        }
+#endif
 
         public void SetVisualsEnabled(bool enabled)
         {
@@ -132,11 +166,16 @@ namespace PF2e.Grid
                             entityManager.SelectEntity(entityView.Handle);
                         else if (turnManager == null || !turnManager.IsPlayerTurn)
                             entityManager.DeselectEntity();
+                        // During PlayerTurn, empty click = movement command (handled by TurnInputController)
                     }
 
                     gridManager.SetClickedCell(cell);
-                    gridManager.SetSelectedCell(cell);
-                    UpdateSelectionHighlight(cell);
+
+                    if (gridData.TryGetCell(cell, out var cellData) && cellData.IsWalkable)
+                    {
+                        gridManager.SetSelectedCell(cell);
+                        UpdateSelectionHighlight(cell);
+                    }
                 }
             }
             else
@@ -214,8 +253,6 @@ namespace PF2e.Grid
                     highlightPool.Return(selectionHighlight);
                     selectionHighlight = null;
                 }
-
-                highlightPool.ClearAll();
             }
         }
     }

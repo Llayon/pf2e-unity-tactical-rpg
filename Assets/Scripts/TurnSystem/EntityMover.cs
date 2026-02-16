@@ -150,10 +150,12 @@ namespace PF2e.TurnSystem
                 yield break;
             }
 
-            // 6. Dev check: path start should match current entity grid position
+            // StrideAction updates GridPosition to target BEFORE animation,
+            // so path[0] (old pos) != data.GridPosition (already target) is expected.
+            // Instead, verify that path destination matches the updated GridPosition.
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-            if (path[0] != data.GridPosition)
-                Debug.LogWarning($"EntityMover: path start {path[0]} != entity position {data.GridPosition} for {handle.Id}");
+            if (path[path.Count - 1] != data.GridPosition)
+                Debug.LogWarning($"EntityMover: path end {path[path.Count - 1]} != entity position {data.GridPosition} for {handle.Id}");
 #endif
 
             // 7. All checks passed — begin movement
