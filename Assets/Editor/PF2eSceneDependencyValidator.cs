@@ -64,6 +64,7 @@ public static class PF2eSceneDependencyValidator
         errors += ValidateAll<PlayerActionExecutor>(ValidatePlayerActionExecutor);
         errors += ValidateAll<StrideAction>(ValidateStrideAction);
         errors += ValidateAll<StrikeAction>(ValidateStrikeAction);
+        errors += ValidateAll<TargetingController>(ValidateTargetingController);
         errors += ValidateAll<TurnInputController>(ValidateTurnInputController);
         errors += ValidateAll<EntityMover>(ValidateEntityMover);
         errors += ValidateAll<MovementZoneVisualizer>(ValidateMovementZoneVisualizer);
@@ -71,6 +72,7 @@ public static class PF2eSceneDependencyValidator
         errors += ValidateAll<CombatStarter>(ValidateCombatStarter);
         errors += ValidateAll<TurnUIController>(ValidateTurnUIController);
         errors += ValidateAll<CombatLogController>(ValidateCombatLogController);
+        errors += ValidateAll<FloatingDamageUI>(ValidateFloatingDamageUI);
 
         // Strict singletons for core managers (combat scene expectation)
         errors += ErrorIfMoreThanOne<GridManager>();
@@ -82,12 +84,14 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<TurnLogForwarder>();
         errors += ErrorIfMoreThanOne<StrideLogForwarder>();
         errors += ErrorIfMoreThanOne<StrikeLogForwarder>();
+        errors += ErrorIfMoreThanOne<FloatingDamageUI>();
 
         // Strict singletons for combat controller components (also expected 1 per scene)
         errors += ErrorIfMoreThanOne<PlayerActionExecutor>();
         errors += ErrorIfMoreThanOne<StrideAction>();
         errors += ErrorIfMoreThanOne<StrikeAction>();
         errors += ErrorIfMoreThanOne<EntityMover>();
+        errors += ErrorIfMoreThanOne<TargetingController>();
         errors += ErrorIfMoreThanOne<TurnInputController>();
 
         // Presence warnings (scene might be incomplete / wrong setup)
@@ -153,12 +157,19 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(sa, "eventBus", "CombatEventBus");
     }
 
+    private static void ValidateTargetingController(TargetingController tc, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(tc, "actionExecutor", "PlayerActionExecutor");
+        errors += RequireRef(tc, "entityManager",  "EntityManager");
+        errors += RequireRef(tc, "turnManager",    "TurnManager");
+    }
+
     private static void ValidateTurnInputController(TurnInputController tic, ref int errors, ref int warnings)
     {
-        errors += RequireRef(tic, "turnManager", "TurnManager");
-        errors += RequireRef(tic, "gridManager", "GridManager");
-        errors += RequireRef(tic, "actionExecutor", "PlayerActionExecutor");
-        errors += RequireRef(tic, "entityManager", "EntityManager");
+        errors += RequireRef(tic, "turnManager",         "TurnManager");
+        errors += RequireRef(tic, "gridManager",         "GridManager");
+        errors += RequireRef(tic, "actionExecutor",      "PlayerActionExecutor");
+        errors += RequireRef(tic, "targetingController", "TargetingController");
     }
 
     private static void ValidateEntityMover(EntityMover mover, ref int errors, ref int warnings)
@@ -227,6 +238,13 @@ public static class PF2eSceneDependencyValidator
     private static void ValidateStrideLogForwarder(StrideLogForwarder f, ref int errors, ref int warnings)
     {
         errors += RequireRef(f, "eventBus", "CombatEventBus");
+    }
+
+    private static void ValidateFloatingDamageUI(FloatingDamageUI f, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(f, "eventBus",     "CombatEventBus");
+        errors += RequireRef(f, "entityManager","EntityManager");
+        // textPrefab is optional
     }
 
     private static void ValidateCombatLogController(CombatLogController log, ref int errors, ref int warnings)
@@ -333,6 +351,7 @@ public static class PF2eSceneDependencyValidator
         TryGetSingleton(out PlayerActionExecutor actionExecutor, logIfMissing: false);
         TryGetSingleton(out StrideAction strideAction, logIfMissing: false);
         TryGetSingleton(out EntityMover entityMover, logIfMissing: false);
+        TryGetSingleton(out TargetingController targetingController, logIfMissing: false);
         TryGetSingleton(out TurnInputController turnInputController, logIfMissing: false);
         TryGetSingleton(out CellHighlightPool highlightPool, logIfMissing: false);
 
@@ -361,12 +380,19 @@ public static class PF2eSceneDependencyValidator
         if (eventBus != null)
             fixedCount += FixAll<StrideAction>("eventBus", eventBus);
 
-        // TurnInputController (uses executor, not strideAction directly)
+        // TargetingController (Phase 12)
+        fixedCount += FixAll<TargetingController>("entityManager", entityManager);
+        fixedCount += FixAll<TargetingController>("turnManager", turnManager);
+        if (actionExecutor != null)
+            fixedCount += FixAll<TargetingController>("actionExecutor", actionExecutor);
+
+        // TurnInputController (delegates to TargetingController)
         fixedCount += FixAll<TurnInputController>("turnManager", turnManager);
         fixedCount += FixAll<TurnInputController>("gridManager", gridManager);
-        fixedCount += FixAll<TurnInputController>("entityManager", entityManager);
         if (actionExecutor != null)
             fixedCount += FixAll<TurnInputController>("actionExecutor", actionExecutor);
+        if (targetingController != null)
+            fixedCount += FixAll<TurnInputController>("targetingController", targetingController);
 
         fixedCount += FixAll<MovementZoneVisualizer>("entityManager", entityManager);
         fixedCount += FixAll<MovementZoneVisualizer>("gridManager", gridManager);
@@ -415,6 +441,11 @@ public static class PF2eSceneDependencyValidator
         fixedCount += FixAll<CombatLogController>("entityManager", entityManager);
         if (eventBus != null)
             fixedCount += FixAll<CombatLogController>("eventBus", eventBus);
+
+        // FloatingDamageUI (Phase FloatingDamageUI — visual payoff for typed strike events)
+        fixedCount += FixAll<FloatingDamageUI>("entityManager", entityManager);
+        if (eventBus != null)
+            fixedCount += FixAll<FloatingDamageUI>("eventBus", eventBus);
 
         if (fixedCount > 0)
         {

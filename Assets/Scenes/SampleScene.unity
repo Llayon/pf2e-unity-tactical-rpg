@@ -966,6 +966,8 @@ GameObject:
   - component: {fileID: 456169789}
   - component: {fileID: 456169790}
   - component: {fileID: 456169791}
+  - component: {fileID: 456169792}
+  - component: {fileID: 456169793}
   m_Layer: 0
   m_Name: CombatController
   m_TagString: Untagged
@@ -1004,7 +1006,7 @@ MonoBehaviour:
   turnManager: {fileID: 456169784}
   gridManager: {fileID: 2005884550}
   actionExecutor: {fileID: 456169787}
-  entityManager: {fileID: 569346726}
+  targetingController: {fileID: 456169792}
 --- !u!114 &456169783
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1091,7 +1093,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 39d5eb8ec80281d4daf5f0016151ef3a, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: PF2e::PF2e.TurnSystem.StrikeAction
   entityManager: {fileID: 569346726}
   eventBus: {fileID: 939543823}
@@ -1106,7 +1108,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b01a2fd0cb3010d4180da45a2df2ab61, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: PF2e::PF2e.Presentation.TurnManagerTypedForwarder
   turnManager: {fileID: 456169784}
   eventBus: {fileID: 939543823}
@@ -1120,7 +1122,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6de3f415444b54a449725b47ef3a6754, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: PF2e::PF2e.Presentation.TurnLogForwarder
   eventBus: {fileID: 939543823}
   entityManager: {fileID: 569346726}
@@ -1134,9 +1136,52 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 31639a158012b3d4aa20f81572658839, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: PF2e::PF2e.Presentation.StrideLogForwarder
   eventBus: {fileID: 939543823}
+--- !u!114 &456169792
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 456169780}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 698a27238eb684f41a8f61cdf6bb23b1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PF2e::PF2e.TurnSystem.TargetingController
+  actionExecutor: {fileID: 456169787}
+  entityManager: {fileID: 569346726}
+  turnManager: {fileID: 456169784}
+--- !u!114 &456169793
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 456169780}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe81e74bc9ef98845b4f4507dab0d49b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PF2e::PF2e.Presentation.FloatingDamageUI
+  eventBus: {fileID: 939543823}
+  entityManager: {fileID: 569346726}
+  textPrefab: {fileID: 0}
+  headOffset: 1.5
+  jitterRadius: 0.25
+  duration: 1.2
+  liftSpeed: 1.2
+  showMiss: 1
+  missText: MISS
+  hitFontSize: 3
+  critFontSize: 4.2
+  missFontSize: 2.2
+  hitColor: {r: 1, g: 1, b: 1, a: 1}
+  critColor: {r: 1, g: 0.65, b: 0, a: 1}
+  missColor: {r: 0.65, g: 0.65, b: 0.65, a: 1}
+  critMissColor: {r: 0.4, g: 0.4, b: 0.4, a: 1}
 --- !u!1 &467295943
 GameObject:
   m_ObjectHideFlags: 0
@@ -2336,7 +2381,7 @@ MonoBehaviour:
   m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cb225c704ab38074882dbdf5f384697a, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: PF2e::PF2e.Presentation.TurnManagerLogForwarder
   turnManager: {fileID: 456169784}
   entityManager: {fileID: 569346726}

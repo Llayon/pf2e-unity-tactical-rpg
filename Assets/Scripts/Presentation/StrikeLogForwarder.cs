@@ -49,7 +49,7 @@ namespace PF2e.Presentation
 
             // 1. Attack roll line (always published)
             eventBus.Publish(e.attacker,
-                $"strikes {targetName} with {e.weaponName}: " +
+                $"strikes {targetName} with {e.weaponName} — " +
                 $"d20({e.naturalRoll}) + atk({e.attackBonus}) " +
                 $"+ MAP({e.mapPenalty}) = {e.total} " +
                 $"vs AC {e.dc} → {e.degree}",

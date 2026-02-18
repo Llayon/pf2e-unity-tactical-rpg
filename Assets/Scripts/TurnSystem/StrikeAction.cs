@@ -46,13 +46,13 @@ namespace PF2e.TurnSystem
 
             // 4. Apply damage
             int damageDealt = 0;
-            string damageType = "damage";
+            DamageType damageType = DamageType.Bludgeoning;
             int hpBefore = t.CurrentHP;
 
             if (dmg.dealt)
             {
                 damageDealt = dmg.damage;
-                damageType = (weapon.def != null) ? weapon.def.damageType.ToString() : "damage";
+                damageType = weapon.def != null ? weapon.def.damageType : DamageType.Bludgeoning;
 
                 t.CurrentHP -= damageDealt;
                 if (t.CurrentHP < 0) t.CurrentHP = 0;

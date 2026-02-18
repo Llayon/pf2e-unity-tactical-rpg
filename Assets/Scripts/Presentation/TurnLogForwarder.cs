@@ -116,7 +116,7 @@ namespace PF2e.Presentation
             {
                 int spent = lastActions - e.remaining;
                 eventBus.Publish(e.actor,
-                    $"spends {spent} action(s). Remaining: {Mathf.Clamp(e.remaining, 0, 3)}/3",
+                    $"spends {spent} action(s). Remaining {Mathf.Clamp(e.remaining, 0, 3)}/3",
                     CombatLogCategory.Turn);
             }
 

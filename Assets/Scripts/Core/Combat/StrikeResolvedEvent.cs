@@ -16,7 +16,7 @@ namespace PF2e.Core
         public readonly int dc;
         public readonly DegreeOfSuccess degree;
         public readonly int damage;
-        public readonly string damageType;
+        public readonly DamageType damageType;
         public readonly int hpBefore;
         public readonly int hpAfter;
         public readonly bool targetDefeated;
@@ -32,7 +32,7 @@ namespace PF2e.Core
             int dc,
             DegreeOfSuccess degree,
             int damage,
-            string damageType,
+            DamageType damageType,
             int hpBefore,
             int hpAfter,
             bool targetDefeated)
