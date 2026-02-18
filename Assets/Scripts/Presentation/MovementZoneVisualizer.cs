@@ -27,6 +27,8 @@ namespace PF2e.Presentation
 
         [Header("Combat")]
         [SerializeField] private TurnManager turnManager;
+        [SerializeField] private StrideAction strideAction;
+        [SerializeField] private EntityMover entityMover;
 
         [Header("Zone Colors")]
         [SerializeField] private Color action1Color = new Color(0f, 0.8f, 0f, 0.35f);
@@ -38,6 +40,11 @@ namespace PF2e.Presentation
         [SerializeField] private Color pathAction2Color = new Color(0.95f, 0.95f, 0f, 0.55f);
         [SerializeField] private Color pathAction3Color = new Color(0.95f, 0.25f, 0f, 0.55f);
 
+        [Header("Stride Boundary Markers")]
+        [SerializeField] private float boundaryMarkerScale = 0.45f;
+        [SerializeField] private float boundaryMarkerExtraYOffset = 0.03f;
+        [SerializeField] private float boundaryMarkerYawDegrees = 45f;
+
         private readonly Dictionary<Vector3Int, int> currentZoneActions = new Dictionary<Vector3Int, int>();
         private readonly List<GameObject> zoneHighlights = new List<GameObject>();
         private readonly List<GameObject> pathHighlights = new List<GameObject>();
@@ -47,6 +54,14 @@ namespace PF2e.Presentation
         private EntityHandle showingFor;
         private int showingMaxActions = 0;
         private Vector3Int? lastHoveredZoneCell;
+
+        // ─── Committed path playback state ───────────────────────────────────
+        private bool movementPlaybackActive;
+        private readonly List<Vector3Int> committedPath = new List<Vector3Int>();
+        private readonly List<int> committedBoundaries = new List<int>(8);
+        private readonly List<GameObject> committedPathHighlights = new List<GameObject>();
+        private readonly List<GameObject> strideBoundaryMarkers = new List<GameObject>();
+        private int committedNextPathIndex; // next cell index the entity will reach
 
         private float lastPathUpdateTime = -1f;
         private const float PathUpdateInterval = 0.05f;
@@ -91,6 +106,14 @@ namespace PF2e.Presentation
                 turnManager.OnCombatEnded += HandleCombatEnded;
             }
 
+            if (strideAction != null)
+                strideAction.OnStrideStarted += HandleStrideStarted;
+            if (entityMover != null)
+            {
+                entityMover.OnCellReached += HandleCellReached;
+                entityMover.OnMovementComplete += HandleMovementComplete;
+            }
+
             floorController.OnGridVisualsToggled += SetVisualsEnabled;
             SetVisualsEnabled(floorController.GridVisualsEnabled);
         }
@@ -108,6 +131,13 @@ namespace PF2e.Presentation
                 turnManager.OnTurnEnded -= HandleTurnEnded;
                 turnManager.OnActionsChanged -= HandleActionsChanged;
                 turnManager.OnCombatEnded -= HandleCombatEnded;
+            }
+            if (strideAction != null)
+                strideAction.OnStrideStarted -= HandleStrideStarted;
+            if (entityMover != null)
+            {
+                entityMover.OnCellReached -= HandleCellReached;
+                entityMover.OnMovementComplete -= HandleMovementComplete;
             }
             if (floorController != null)
                 floorController.OnGridVisualsToggled -= SetVisualsEnabled;
@@ -209,6 +239,7 @@ namespace PF2e.Presentation
         private void Update()
         {
             if (!visualsEnabled || !showingFor.IsValid) return;
+            if (movementPlaybackActive) return;
             UpdatePathPreview();
         }
 
@@ -267,6 +298,7 @@ namespace PF2e.Presentation
             showingMaxActions = 0;
 
             ClearPathPreview();
+            ClearCommittedPath();
         }
 
         private void UpdatePathPreview()
@@ -401,6 +433,134 @@ namespace PF2e.Presentation
             foreach (var go in pathHighlights)
                 if (go != null && highlightPool != null) highlightPool.Return(go);
             pathHighlights.Clear();
+        }
+
+        // ─── Committed path (Stride playback) ───────────────────────────────
+
+        private void HandleStrideStarted(
+            EntityHandle handle, IReadOnlyList<Vector3Int> path,
+            IReadOnlyList<int> boundaries, int actionsCost)
+        {
+            // Hide hover preview and zone
+            HidePathPreviewImmediate();
+
+            // Snapshot
+            committedPath.Clear();
+            for (int i = 0; i < path.Count; i++) committedPath.Add(path[i]);
+            committedBoundaries.Clear();
+            for (int i = 0; i < boundaries.Count; i++) committedBoundaries.Add(boundaries[i]);
+
+            committedNextPathIndex = 1; // entity starts at path[0], first arrival is path[1]
+            movementPlaybackActive = true;
+
+            RenderCommittedPath();
+        }
+
+        private void HandleCellReached(EntityHandle handle, Vector3Int cell)
+        {
+            if (!movementPlaybackActive) return;
+
+            // Hide the highlight for the cell we just arrived at
+            int highlightIdx = committedNextPathIndex - 1; // path index 1 → highlight 0
+            if (highlightIdx >= 0 && highlightIdx < committedPathHighlights.Count)
+            {
+                var go = committedPathHighlights[highlightIdx];
+                if (go != null) highlightPool.HideWithoutReturn(go);
+            }
+
+            // Hide boundary marker if one existed at this path index
+            HideBoundaryMarkerAtIndex(committedNextPathIndex);
+
+            committedNextPathIndex++;
+        }
+
+        private void HandleMovementComplete(EntityHandle handle, Vector3Int finalCell)
+        {
+            if (!movementPlaybackActive) return;
+            ClearCommittedPath();
+        }
+
+        private void ClearCommittedPath()
+        {
+            movementPlaybackActive = false;
+
+            foreach (var go in committedPathHighlights)
+                if (go != null && highlightPool != null) highlightPool.Return(go);
+            committedPathHighlights.Clear();
+
+            foreach (var go in strideBoundaryMarkers)
+                if (go != null && highlightPool != null) highlightPool.Return(go);
+            strideBoundaryMarkers.Clear();
+
+            committedPath.Clear();
+            committedBoundaries.Clear();
+        }
+
+        /// <summary>
+        /// Render the full committed path with per-action colors and boundary markers.
+        /// </summary>
+        private void RenderCommittedPath()
+        {
+            float cellSize = gridManager.Config.cellWorldSize;
+            int boundaryPtr = 0;
+            int nextBoundary = (committedBoundaries.Count > 1) ? committedBoundaries[1] : int.MaxValue;
+
+            // Path highlights (skip path[0] — entity's start cell)
+            for (int i = 1; i < committedPath.Count; i++)
+            {
+                while (i >= nextBoundary && boundaryPtr + 1 < committedBoundaries.Count)
+                {
+                    boundaryPtr++;
+                    nextBoundary = (boundaryPtr + 1 < committedBoundaries.Count)
+                        ? committedBoundaries[boundaryPtr + 1]
+                        : int.MaxValue;
+                }
+
+                int actionIndex = Mathf.Clamp(boundaryPtr + 1, 1, 3);
+                Color c = actionIndex == 1 ? pathAction1Color :
+                          actionIndex == 2 ? pathAction2Color : pathAction3Color;
+
+                var worldPos = gridManager.Data.CellToWorld(committedPath[i]);
+                committedPathHighlights.Add(highlightPool.ShowHighlight(worldPos, cellSize * 0.6f, c));
+            }
+
+            // Boundary markers at Stride 2/3 start cells (raised above path to avoid z-fighting)
+            for (int b = 1; b < committedBoundaries.Count; b++)
+            {
+                int pathIdx = committedBoundaries[b];
+                if (pathIdx < 1 || pathIdx >= committedPath.Count) continue;
+
+                int actionIndex = Mathf.Clamp(b + 1, 2, 3);
+                Color markerColor = actionIndex == 2 ? pathAction2Color : pathAction3Color;
+                markerColor.a = 0.95f;
+
+                var worldPos = gridManager.Data.CellToWorld(committedPath[pathIdx]);
+                worldPos.y += boundaryMarkerExtraYOffset;
+                float markerSize = cellSize * boundaryMarkerScale;
+                var marker = highlightPool.ShowHighlight(worldPos, markerSize, markerColor);
+                marker.transform.rotation = Quaternion.Euler(90f, boundaryMarkerYawDegrees, 0f);
+                strideBoundaryMarkers.Add(marker);
+            }
+        }
+
+        /// <summary>
+        /// Hide the boundary marker whose path index matches, if any.
+        /// </summary>
+        private void HideBoundaryMarkerAtIndex(int pathIndex)
+        {
+            for (int b = 1; b < committedBoundaries.Count; b++)
+            {
+                if (committedBoundaries[b] == pathIndex)
+                {
+                    int markerIdx = b - 1; // boundary 1 → marker 0, boundary 2 → marker 1
+                    if (markerIdx >= 0 && markerIdx < strideBoundaryMarkers.Count)
+                    {
+                        var go = strideBoundaryMarkers[markerIdx];
+                        if (go != null) highlightPool.HideWithoutReturn(go);
+                    }
+                    break;
+                }
+            }
         }
     }
 }

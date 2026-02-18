@@ -15,6 +15,14 @@ namespace PF2e.Managers
         [Header("Test Setup")]
         [SerializeField] private bool spawnTestEntities = true;
 
+        [Header("Test Item Definitions")]
+        [SerializeField] private WeaponDefinition fighterWeaponDef;
+        [SerializeField] private ArmorDefinition fighterArmorDef;
+        [SerializeField] private WeaponDefinition wizardWeaponDef;
+        [SerializeField] private ArmorDefinition wizardArmorDef;
+        [SerializeField] private WeaponDefinition goblinWeaponDef;
+        [SerializeField] private ArmorDefinition goblinArmorDef;
+
         [Header("Entity Visuals")]
         [SerializeField] private float entityHeight = 1.6f;
         [SerializeField] private float entityRadius = 0.35f;
@@ -56,6 +64,16 @@ namespace PF2e.Managers
         {
             if (gridManager == null)
                 Debug.LogError("[EntityManager] Missing reference: GridManager. Assign it in Inspector.", this);
+
+            if (spawnTestEntities)
+            {
+                if (fighterWeaponDef == null || fighterArmorDef == null)
+                    Debug.LogWarning("[EntityManager] Fighter weapon/armor definitions not assigned.", this);
+                if (wizardWeaponDef == null || wizardArmorDef == null)
+                    Debug.LogWarning("[EntityManager] Wizard weapon/armor definitions not assigned.", this);
+                if (goblinWeaponDef == null || goblinArmorDef == null)
+                    Debug.LogWarning("[EntityManager] Goblin weapon/armor definitions not assigned.", this);
+            }
         }
 #endif
 
@@ -124,33 +142,129 @@ namespace PF2e.Managers
 
         private void SpawnTestEntities()
         {
-            CreateEntity(new EntityData
+            // Fighter with +1 Striking weapon and armor (from inspector defs)
+            var fighter = new EntityData
             {
                 Name = "Fighter", Team = Team.Player, Size = CreatureSize.Medium,
                 Level = 1, MaxHP = 20, CurrentHP = 20, ArmorClass = 18, Speed = 25,
                 Strength = 16, Dexterity = 12, Constitution = 14, Intelligence = 10, Wisdom = 12, Charisma = 8
-            }, new Vector3Int(1, 0, 1));
+            };
+            fighter.SimpleWeaponProf = ProficiencyRank.Trained;
+            fighter.MartialWeaponProf = ProficiencyRank.Trained;
+            fighter.AdvancedWeaponProf = ProficiencyRank.Untrained;
 
-            CreateEntity(new EntityData
+            fighter.UnarmoredProf = ProficiencyRank.Trained;
+            fighter.LightArmorProf = ProficiencyRank.Trained;
+            fighter.MediumArmorProf = ProficiencyRank.Trained;
+            fighter.HeavyArmorProf = ProficiencyRank.Untrained;
+
+            fighter.EquippedWeapon = new WeaponInstance
+            {
+                def = fighterWeaponDef,
+                potencyBonus = 1,
+                strikingRank = StrikingRuneRank.Striking
+            };
+            fighter.EquippedArmor = new ArmorInstance
+            {
+                def = fighterArmorDef,
+                potencyBonus = 0,
+                resilient = ResilientRuneRank.None,
+                broken = false
+            };
+            CreateEntity(fighter, new Vector3Int(1, 0, 1));
+
+            // Wizard with dagger and armor (from inspector defs)
+            var wizard = new EntityData
             {
                 Name = "Wizard", Team = Team.Player, Size = CreatureSize.Medium,
                 Level = 1, MaxHP = 14, CurrentHP = 14, ArmorClass = 13, Speed = 25,
                 Strength = 8, Dexterity = 14, Constitution = 12, Intelligence = 18, Wisdom = 12, Charisma = 10
-            }, new Vector3Int(1, 0, 5));
+            };
+            wizard.SimpleWeaponProf = ProficiencyRank.Trained;
+            wizard.MartialWeaponProf = ProficiencyRank.Untrained;
+            wizard.AdvancedWeaponProf = ProficiencyRank.Untrained;
 
-            CreateEntity(new EntityData
+            wizard.UnarmoredProf = ProficiencyRank.Trained;
+            wizard.LightArmorProf = ProficiencyRank.Untrained;
+            wizard.MediumArmorProf = ProficiencyRank.Untrained;
+            wizard.HeavyArmorProf = ProficiencyRank.Untrained;
+
+            wizard.EquippedWeapon = new WeaponInstance
+            {
+                def = wizardWeaponDef,
+                potencyBonus = 0,
+                strikingRank = StrikingRuneRank.None
+            };
+            wizard.EquippedArmor = new ArmorInstance
+            {
+                def = wizardArmorDef,
+                potencyBonus = 0,
+                resilient = ResilientRuneRank.None,
+                broken = false
+            };
+            CreateEntity(wizard, new Vector3Int(1, 0, 5));
+
+            // Goblin_1 (from inspector defs)
+            var goblin1 = new EntityData
             {
                 Name = "Goblin_1", Team = Team.Enemy, Size = CreatureSize.Small,
                 Level = -1, MaxHP = 6, CurrentHP = 6, ArmorClass = 16, Speed = 25,
                 Strength = 12, Dexterity = 16, Constitution = 10, Intelligence = 10, Wisdom = 10, Charisma = 8
-            }, new Vector3Int(6, 0, 2));
+            };
+            goblin1.MartialWeaponProf = ProficiencyRank.Trained;
+            goblin1.SimpleWeaponProf = ProficiencyRank.Trained;
+            goblin1.AdvancedWeaponProf = ProficiencyRank.Untrained;
 
-            CreateEntity(new EntityData
+            goblin1.UnarmoredProf = ProficiencyRank.Trained;
+            goblin1.LightArmorProf = ProficiencyRank.Trained;
+            goblin1.MediumArmorProf = ProficiencyRank.Untrained;
+            goblin1.HeavyArmorProf = ProficiencyRank.Untrained;
+
+            goblin1.EquippedWeapon = new WeaponInstance
+            {
+                def = goblinWeaponDef,
+                potencyBonus = 0,
+                strikingRank = StrikingRuneRank.None
+            };
+            goblin1.EquippedArmor = new ArmorInstance
+            {
+                def = goblinArmorDef,
+                potencyBonus = 0,
+                resilient = ResilientRuneRank.None,
+                broken = false
+            };
+            CreateEntity(goblin1, new Vector3Int(6, 0, 2));
+
+            // Goblin_2 (from inspector defs)
+            var goblin2 = new EntityData
             {
                 Name = "Goblin_2", Team = Team.Enemy, Size = CreatureSize.Small,
                 Level = -1, MaxHP = 6, CurrentHP = 6, ArmorClass = 16, Speed = 25,
                 Strength = 12, Dexterity = 16, Constitution = 10, Intelligence = 10, Wisdom = 10, Charisma = 8
-            }, new Vector3Int(6, 0, 5));
+            };
+            goblin2.MartialWeaponProf = ProficiencyRank.Trained;
+            goblin2.SimpleWeaponProf = ProficiencyRank.Trained;
+            goblin2.AdvancedWeaponProf = ProficiencyRank.Untrained;
+
+            goblin2.UnarmoredProf = ProficiencyRank.Trained;
+            goblin2.LightArmorProf = ProficiencyRank.Trained;
+            goblin2.MediumArmorProf = ProficiencyRank.Untrained;
+            goblin2.HeavyArmorProf = ProficiencyRank.Untrained;
+
+            goblin2.EquippedWeapon = new WeaponInstance
+            {
+                def = goblinWeaponDef,
+                potencyBonus = 0,
+                strikingRank = StrikingRuneRank.None
+            };
+            goblin2.EquippedArmor = new ArmorInstance
+            {
+                def = goblinArmorDef,
+                potencyBonus = 0,
+                resilient = ResilientRuneRank.None,
+                broken = false
+            };
+            CreateEntity(goblin2, new Vector3Int(6, 0, 5));
 
             Debug.Log($"[EntityManager] Spawned {Registry.Count} test entities");
         }
@@ -199,6 +313,23 @@ namespace PF2e.Managers
         {
             views.TryGetValue(handle, out var view);
             return view;
+        }
+
+        // ─── Death Handling ───
+
+        public void HandleDeath(EntityHandle handle)
+        {
+            if (!handle.IsValid) return;
+
+            if (SelectedEntity == handle)
+                DeselectEntity();
+
+            if (Occupancy != null)
+                Occupancy.Remove(handle);
+
+            var view = GetView(handle);
+            if (view != null && view.gameObject != null)
+                view.gameObject.SetActive(false);
         }
 
         private void OnDestroy()

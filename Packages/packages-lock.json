@@ -7,7 +7,7 @@
       "dependencies": {
         "com.unity.nuget.newtonsoft-json": "3.0.2"
       },
-      "hash": "c4393b091e932835acfa6cda6ead8126f530dade"
+      "hash": "f26f389b940750456a962bd79c08f17cce37f727"
     },
     "com.unity.2d.common": {
       "version": "12.0.1",
@@ -43,11 +43,11 @@
       "dependencies": {}
     },
     "com.unity.ai.assistant": {
-      "version": "1.6.0-pre.2",
+      "version": "1.6.0-pre.3",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.unity.ai.generators": "1.6.0-pre.2",
+        "com.unity.ai.generators": "1.6.0-pre.3",
         "com.unity.serialization": "3.1.1",
         "com.unity.modules.uielements": "1.0.0",
         "com.unity.nuget.newtonsoft-json": "3.2.1",
@@ -56,12 +56,12 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.ai.generators": {
-      "version": "1.6.0-pre.2",
-      "depth": 0,
+      "version": "1.6.0-pre.3",
+      "depth": 1,
       "source": "registry",
       "dependencies": {
         "com.unity.2d.sprite": "1.0.0",
-        "com.unity.ai.toolkit": "1.6.0-pre.2",
+        "com.unity.ai.toolkit": "1.6.0-pre.3",
         "com.unity.mathematics": "1.3.2",
         "com.unity.cloud.gltfast": "6.14.1",
         "com.unity.nuget.newtonsoft-json": "3.2.1"
@@ -82,7 +82,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.ai.navigation": {
-      "version": "2.0.9",
+      "version": "2.0.10",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -91,8 +91,8 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.ai.toolkit": {
-      "version": "1.6.0-pre.2",
-      "depth": 1,
+      "version": "1.6.0-pre.3",
+      "depth": 2,
       "source": "registry",
       "dependencies": {
         "com.unity.nuget.newtonsoft-json": "3.2.1"
@@ -110,8 +110,8 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.cloud.gltfast": {
-      "version": "6.14.1",
-      "depth": 1,
+      "version": "6.16.0",
+      "depth": 0,
       "source": "registry",
       "dependencies": {
         "com.unity.burst": "1.8.24",
@@ -302,7 +302,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.timeline": {
-      "version": "1.8.9",
+      "version": "1.8.10",
       "depth": 0,
       "source": "registry",
       "dependencies": {

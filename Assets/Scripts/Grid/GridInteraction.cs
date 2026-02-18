@@ -166,15 +166,23 @@ namespace PF2e.Grid
                             entityManager.SelectEntity(entityView.Handle);
                         else if (turnManager == null || !turnManager.IsPlayerTurn)
                             entityManager.DeselectEntity();
-                        // During PlayerTurn, empty click = movement command (handled by TurnInputController)
                     }
 
-                    gridManager.SetClickedCell(cell);
-
-                    if (gridData.TryGetCell(cell, out var cellData) && cellData.IsWalkable)
+                    if (entityView != null)
                     {
-                        gridManager.SetSelectedCell(cell);
-                        UpdateSelectionHighlight(cell);
+                        // Entity click event (no movement click)
+                        gridManager.RaiseEntityClicked(entityView.Handle);
+                    }
+                    else
+                    {
+                        // Cell-click path (movement command)
+                        gridManager.SetClickedCell(cell);
+
+                        if (gridData.TryGetCell(cell, out var cellData) && cellData.IsWalkable)
+                        {
+                            gridManager.SetSelectedCell(cell);
+                            UpdateSelectionHighlight(cell);
+                        }
                     }
                 }
             }

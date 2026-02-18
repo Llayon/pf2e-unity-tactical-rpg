@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using PF2e.Core;
@@ -7,67 +8,70 @@ using PF2e.Grid;
 namespace PF2e.TurnSystem
 {
     /// <summary>
-    /// Implements the PF2e Stride action: find path → update data → animate → spend action.
-    /// Does NOT read input. Called by TurnInputController (Step 5).
-    /// Wire all dependencies via Inspector (no FindObjectOfType).
+    /// Phase 10.X FINAL: Atomic Stride execution (build+execute in one method).
+    /// NO TurnManager dependency (PlayerActionExecutor owns turn state).
+    /// Callback without closure (method group).
+    /// Inspector-only wiring.
     /// </summary>
     public class StrideAction : MonoBehaviour
     {
         [Header("Dependencies")]
-        [SerializeField] private TurnManager turnManager;
         [SerializeField] private EntityManager entityManager;
         [SerializeField] private EntityMover entityMover;
         [SerializeField] private GridManager gridManager;
+        [SerializeField] private CombatEventBus eventBus;
 
         private readonly List<Vector3Int> pathBuffer = new List<Vector3Int>();
+        private readonly List<Vector3Int> stridePathSnapshot = new List<Vector3Int>();
+        private readonly List<int> strideActionBoundaries = new List<int>(8);
+
         private bool strideInProgress = false;
-        private int pendingActionCost = 0;
+        private EntityHandle pendingActor;
+        private Action<int> pendingOnComplete;
+        private int pendingCost;
+        private Vector3Int pendingDestination;
+
+        /// <summary>
+        /// Fired when a Stride begins movement.
+        /// Args: entity, path snapshot (read-only), action boundary indices, actionsCost.
+        /// </summary>
+        public event Action<EntityHandle, IReadOnlyList<Vector3Int>, IReadOnlyList<int>, int> OnStrideStarted;
 
         public bool StrideInProgress => strideInProgress;
 
-        /// <summary>
-        /// Returns true if a Stride can be initiated right now (no specific target needed).
-        /// </summary>
-        public bool CanStride()
+#if UNITY_EDITOR
+        private void OnValidate()
         {
-            if (turnManager == null || entityManager == null || entityMover == null || gridManager == null)
-                return false;
-            if (gridManager.Data == null)
-                return false;
-            if (!turnManager.IsPlayerTurn)
-                return false;
-            if (entityMover.IsMoving)
-                return false;
-            if (strideInProgress)
-                return false;
-
-            var handle = turnManager.CurrentEntity;
-            if (!handle.IsValid)
-                return false;
-            if (!turnManager.CanAct(handle))
-                return false;
-
-            return true;
+            if (entityManager == null) Debug.LogError("[StrideAction] Missing EntityManager", this);
+            if (entityMover == null) Debug.LogError("[StrideAction] Missing EntityMover", this);
+            if (gridManager == null) Debug.LogError("[StrideAction] Missing GridManager", this);
+            if (eventBus == null)
+                Debug.LogWarning("[StrideAction] CombatEventBus not assigned. Movement works, but CombatLog will miss Stride entries.", this);
         }
+#endif
 
         /// <summary>
-        /// Attempt to Stride to targetCell. Returns true if movement was successfully started.
-        /// Called by TurnInputController on cell click.
+        /// Atomic Stride execution: build path + validate + execute movement.
+        /// Returns false if preconditions fail (no side effects).
+        /// Returns true if movement started (occupancy/data updated, animation started).
         /// </summary>
-        public bool TryStride(Vector3Int targetCell)
+        public bool TryExecuteStride(EntityHandle actor, Vector3Int targetCell, int availableActions, Action<int> onComplete)
         {
-            // a) Pre-conditions
-            if (!CanStride()) return false;
+            if (!actor.IsValid) return false;
+            if (strideInProgress) return false;
+            if (entityMover != null && entityMover.IsMoving) return false;
+            if (entityManager == null || entityManager.Registry == null) return false;
+            if (gridManager == null || gridManager.Data == null) return false;
 
-            // b) Current entity data
-            var handle = turnManager.CurrentEntity;
-            var data = entityManager.Registry.Get(handle);
+            var data = entityManager.Registry.Get(actor);
             if (data == null) return false;
 
-            // c) Same cell — nothing to do
             if (targetCell == data.GridPosition) return false;
 
-            // d) Build movement profile
+            availableActions = Mathf.Clamp(availableActions, 0, 3);
+            if (availableActions <= 0) return false;
+
+            // Build movement profile
             var profile = new MovementProfile
             {
                 moveType = MovementType.Walk,
@@ -76,67 +80,164 @@ namespace PF2e.TurnSystem
                 ignoresDifficultTerrain = false
             };
 
-            // e) Find action-based path (1-3 actions)
-            int maxActions = Mathf.Clamp(turnManager.ActionsRemaining, 0, 3);
+            // Build path (occupancy-aware, multi-stride)
             pathBuffer.Clear();
+
             bool found = entityManager.Pathfinding.FindPathByActions(
                 gridManager.Data,
                 data.GridPosition,
                 targetCell,
                 profile,
-                handle,
+                actor,
                 entityManager.Occupancy,
-                maxActions,
+                availableActions,
                 pathBuffer,
                 out int actionsCost,
                 out int totalFeet);
+
             if (!found) return false;
+            if (actionsCost <= 0 || actionsCost > availableActions) return false;
 
-            // f) Validate action cost
-            if (actionsCost <= 0 || actionsCost > maxActions) return false;
-            pendingActionCost = actionsCost;
+            // Validate destination occupancy
+            if (!entityManager.Occupancy.CanOccupy(targetCell, actor)) return false;
 
-            // g) Target cell must be occupiable
-            if (!entityManager.Occupancy.CanOccupy(targetCell, handle)) return false;
+            // Snapshot path + boundaries for committed path UI
+            stridePathSnapshot.Clear();
+            stridePathSnapshot.AddRange(pathBuffer);
 
-            // h) Execute Stride
+            ComputeActionBoundariesForPath(gridManager.Data, profile, stridePathSnapshot, strideActionBoundaries);
 
-            // 1) Lock input — state → ExecutingAction
-            turnManager.BeginActionExecution();
-            strideInProgress = true;
+            // Store completion callback (no closure; caller passes method group)
+            pendingActor = actor;
+            pendingOnComplete = onComplete;
+            pendingCost = actionsCost;
+            pendingDestination = targetCell;
 
-            // 2) Update occupancy data BEFORE animation (other systems see new position immediately)
-            bool moveSuccess = entityManager.Occupancy.Move(handle, targetCell, data.SizeCells);
+            // Capture from position BEFORE updating data.GridPosition
+            Vector3Int fromCell = data.GridPosition;
+
+            // Fire UI event (committed path)
+            OnStrideStarted?.Invoke(actor, stridePathSnapshot, strideActionBoundaries, actionsCost);
+
+            // Publish typed stride event (no string log)
+            eventBus?.PublishStrideStarted(actor, fromCell, targetCell, actionsCost);
+
+            // Update occupancy + data BEFORE animation (atomic commit)
+            bool moveSuccess = entityManager.Occupancy.Move(actor, targetCell, data.SizeCells);
             if (!moveSuccess)
             {
-                Debug.LogWarning($"StrideAction: Occupancy.Move failed for {handle.Id} to {targetCell}", this);
-
-                // Rollback state only (data not changed — Move returned false)
-                turnManager.ActionCompleted();
-                strideInProgress = false;
+                // Rollback pending state
+                pendingActor = EntityHandle.None;
+                pendingOnComplete = null;
+                pendingCost = 0;
+                pendingDestination = default;
                 return false;
             }
 
             data.GridPosition = targetCell;
 
-            // 3) Start animation (EntityMover copies pathBuffer internally)
-            entityMover.MoveAlongPath(handle, pathBuffer, onComplete: () =>
-            {
-                OnStrideComplete(handle);
-            });
+            // Start animation
+            strideInProgress = true;
+
+            // No closure: method group instead of lambda
+            entityMover.MoveAlongPath(actor, stridePathSnapshot, onComplete: OnStrideAnimationComplete);
 
             return true;
         }
 
-        /// <summary>
-        /// Called by EntityMover when animation finishes.
-        /// Atomically spends 1 action and restores turn state (auto-EndTurn if drained).
-        /// </summary>
-        private void OnStrideComplete(EntityHandle handle)
+        private void OnStrideAnimationComplete()
         {
             strideInProgress = false;
-            turnManager.CompleteActionWithCost(pendingActionCost <= 0 ? 1 : pendingActionCost);
-            pendingActionCost = 0;
+
+            // Publish typed stride completed event (no string log)
+            if (eventBus != null && pendingActor.IsValid)
+                eventBus.PublishStrideCompleted(pendingActor, pendingDestination, pendingCost);
+
+            var destination = pendingDestination;
+            pendingDestination = default;
+
+            int cost = pendingCost;
+            pendingCost = 0;
+
+            var cb = pendingOnComplete;
+            pendingOnComplete = null;
+
+            var actor = pendingActor;
+            pendingActor = EntityHandle.None;
+
+            // Invoke callback (no closure; executor passed method group)
+            cb?.Invoke(cost);
+        }
+
+        // ─── Boundary computation ────────────────────────────────────────────
+
+        /// <summary>
+        /// Compute action boundary indices for a given path.
+        /// outBoundaries[k] = index in path where Stride (k+1) begins.
+        /// </summary>
+        private void ComputeActionBoundariesForPath(
+            GridData grid, MovementProfile profile, List<Vector3Int> path, List<int> outBoundaries)
+        {
+            outBoundaries.Clear();
+            if (path.Count < 2) return;
+
+            outBoundaries.Add(0); // Stride 1 always starts at index 0
+
+            int accumulatedFeet = 0;
+            bool diagonalParity = false; // PF2e: first diagonal always costs 5ft
+
+            for (int i = 1; i < path.Count; i++)
+            {
+                var fromCell = path[i - 1];
+                var toCell = path[i];
+
+                if (!TryGetNeighborInfo(grid, fromCell, toCell, profile.moveType, out var neighborInfo))
+                {
+                    // Fallback: estimate as cardinal step
+                    neighborInfo = new NeighborInfo(toCell, NeighborType.Cardinal, 0);
+                }
+
+                if (!grid.TryGetCell(toCell, out var cellData))
+                    cellData = default;
+
+                int stepCost = MovementCostEvaluator.GetStepCost(cellData, neighborInfo, diagonalParity, profile);
+
+                if (neighborInfo.type == NeighborType.Diagonal)
+                    diagonalParity = !diagonalParity;
+
+                accumulatedFeet += stepCost;
+
+                // If accumulated cost exceeds speed, this step starts a new action
+                if (accumulatedFeet > profile.speedFeet)
+                {
+                    outBoundaries.Add(i);
+                    accumulatedFeet = stepCost; // this step belongs to the new action
+                    // Parity does NOT reset between actions in PF2e (continuous movement)
+                }
+            }
+        }
+
+        /// <summary>
+        /// Find the NeighborInfo for a specific from→to step by querying GetNeighbors.
+        /// </summary>
+        private bool TryGetNeighborInfo(
+            GridData grid, Vector3Int from, Vector3Int to, MovementType moveType,
+            out NeighborInfo result)
+        {
+            var neighborStepBuffer = new List<NeighborInfo>();
+            grid.GetNeighbors(from, moveType, neighborStepBuffer);
+
+            for (int i = 0; i < neighborStepBuffer.Count; i++)
+            {
+                if (neighborStepBuffer[i].pos == to)
+                {
+                    result = neighborStepBuffer[i];
+                    return true;
+                }
+            }
+
+            result = default;
+            return false;
         }
     }
 }

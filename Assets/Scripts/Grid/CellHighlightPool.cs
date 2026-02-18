@@ -15,6 +15,7 @@ namespace PF2e.Grid
         private readonly HashSet<GameObject> activeHighlights = new();
 
         private static MaterialPropertyBlock s_PropBlock;
+        private static readonly Quaternion DefaultRotation = Quaternion.Euler(90f, 0f, 0f);
 
         private const float YOffset = 0.02f; // Above grid mesh (0.01)
 
@@ -32,8 +33,9 @@ namespace PF2e.Grid
             var go = GetOrCreate();
             go.SetActive(true);
 
-            // Position at cell center, slightly above grid
+            // Position at cell center, slightly above grid; reset rotation (may have been a diamond marker)
             go.transform.position = new Vector3(worldCenter.x, worldCenter.y + YOffset, worldCenter.z);
+            go.transform.rotation = DefaultRotation;
             go.transform.localScale = new Vector3(cellSize * 0.95f, 1f, cellSize * 0.95f);
 
             var mr = go.GetComponent<MeshRenderer>();
@@ -124,6 +126,7 @@ namespace PF2e.Grid
             activeHighlights.Add(go);
 
             go.transform.position = new Vector3(worldCenter.x, worldCenter.y + YOffset, worldCenter.z);
+            go.transform.rotation = DefaultRotation;
             go.transform.localScale = new Vector3(cellSize * 0.95f, 1f, cellSize * 0.95f);
 
             var mr = go.GetComponent<MeshRenderer>();

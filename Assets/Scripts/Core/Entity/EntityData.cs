@@ -27,6 +27,21 @@ namespace PF2e.Core
         public int Speed;            // in feet (25, 30, etc.)
         public int SpeedCells => Speed / 5;
 
+        // ─── Equipment & Proficiency (Phase 11 UNIFIED) ───
+        public WeaponInstance EquippedWeapon;
+        public ArmorInstance EquippedArmor;
+
+        public ProficiencyRank SimpleWeaponProf = ProficiencyRank.Trained;
+        public ProficiencyRank MartialWeaponProf = ProficiencyRank.Trained;
+        public ProficiencyRank AdvancedWeaponProf = ProficiencyRank.Untrained;
+
+        public ProficiencyRank UnarmoredProf = ProficiencyRank.Trained;
+        public ProficiencyRank LightArmorProf = ProficiencyRank.Trained;
+        public ProficiencyRank MediumArmorProf = ProficiencyRank.Trained;
+        public ProficiencyRank HeavyArmorProf = ProficiencyRank.Untrained;
+
+        public int ItemBonusToDamage = 0;
+
         // ─── Ability Scores ───
         public int Strength;
         public int Dexterity;
@@ -70,15 +85,115 @@ namespace PF2e.Core
             }
         }
 
-        // ─── Computed: Effective AC ───
+        // ─── Computed: Proficiency Helpers (Phase 11 UNIFIED) ───
+        public int GetProficiencyBonus(ProficiencyRank rank)
+        {
+            if (rank == ProficiencyRank.Untrained) return 0;
+
+            int add = rank switch
+            {
+                ProficiencyRank.Trained => 2,
+                ProficiencyRank.Expert => 4,
+                ProficiencyRank.Master => 6,
+                ProficiencyRank.Legendary => 8,
+                _ => 2
+            };
+
+            return Level + add;
+        }
+
+        public ProficiencyRank GetArmorProfRank(ArmorCategory cat)
+        {
+            return cat switch
+            {
+                ArmorCategory.Unarmored => UnarmoredProf,
+                ArmorCategory.Light => LightArmorProf,
+                ArmorCategory.Medium => MediumArmorProf,
+                ArmorCategory.Heavy => HeavyArmorProf,
+                _ => UnarmoredProf
+            };
+        }
+
+        // ─── Computed: AC (PF2e correct formula, no double-count) ───
+        public int BaseAC
+        {
+            get
+            {
+                // PF2e: 10 + min(DexMod, DexCap) + prof bonus + armor item bonus
+                int dexApplied = Mathf.Min(DexMod, EquippedArmor.DexCap);
+                int prof = GetProficiencyBonus(GetArmorProfRank(EquippedArmor.Category));
+                int item = EquippedArmor.ItemACBonus;
+                return 10 + dexApplied + prof + item;
+            }
+        }
+
+        // ─── Computed: Weapon Attack Helpers ───
+        public int ConditionPenaltyToAttack
+        {
+            get
+            {
+                return GetConditionValue(ConditionType.Frightened) + GetConditionValue(ConditionType.Sickened);
+            }
+        }
+
+        public ProficiencyRank GetWeaponProfRank(WeaponCategory cat)
+        {
+            return cat switch
+            {
+                WeaponCategory.Simple => SimpleWeaponProf,
+                WeaponCategory.Martial => MartialWeaponProf,
+                WeaponCategory.Advanced => AdvancedWeaponProf,
+                _ => SimpleWeaponProf
+            };
+        }
+
+        public int GetAttackAbilityMod(in WeaponInstance weapon)
+        {
+            if (weapon.IsRanged) return DexMod;
+            if ((weapon.Traits & WeaponTraitFlags.Finesse) != 0) return Mathf.Max(StrMod, DexMod);
+            return StrMod;
+        }
+
+        public int GetAttackBonus(in WeaponInstance weapon)
+        {
+            int prof = GetProficiencyBonus(GetWeaponProfRank(weapon.Category));
+            int potency = weapon.Potency;
+            return prof + GetAttackAbilityMod(weapon) + potency - ConditionPenaltyToAttack;
+        }
+
+        public int GetMAPPenalty(in WeaponInstance weapon)
+        {
+            if (MAPCount <= 0) return 0;
+
+            bool agile = (weapon.Traits & WeaponTraitFlags.Agile) != 0;
+            if (MAPCount == 1) return agile ? -4 : -5;
+            return agile ? -8 : -10;
+        }
+
+        public int WeaponDamageBonus
+        {
+            get
+            {
+                // MVP: melee uses STR, ranged uses 0 (propulsive/thrown later)
+                int ability = EquippedWeapon.IsRanged ? 0 : StrMod;
+                return ability + ItemBonusToDamage;
+            }
+        }
+
         public int EffectiveAC
         {
             get
             {
-                int ac = ArmorClass;
-                if (HasCondition(ConditionType.FlatFooted)) ac -= 2;
+                // IMPORTANT: BaseAC DOES NOT subtract conditions.
+                // EffectiveAC subtracts them exactly once.
+                int ac = BaseAC;
+
+                if (HasCondition(ConditionType.FlatFooted))
+                    ac -= 2;
+
                 ac -= GetConditionValue(ConditionType.Frightened);
                 ac -= GetConditionValue(ConditionType.Sickened);
+
                 return ac;
             }
         }

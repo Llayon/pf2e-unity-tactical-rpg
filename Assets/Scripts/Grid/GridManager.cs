@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using PF2e.Core;
 using PF2e.Data;
 
 namespace PF2e.Grid
@@ -28,6 +29,7 @@ namespace PF2e.Grid
         public event Action OnCellUnhovered;
         public event Action<Vector3Int> OnCellClicked;
         public event Action<Vector3Int> OnCellSelected;
+        public event Action<EntityHandle> OnEntityClicked;
         public event Action OnGridChanged;
 
         // --- Internal state ---
@@ -55,10 +57,10 @@ namespace PF2e.Grid
 
         private void CreateTestGrid()
         {
-            // Floor 0: 8×8 grid
-            for (int x = 0; x < 8; x++)
+            // Floor 0: configurable test grid
+            for (int x = 0; x < testGridSizeX; x++)
             {
-                for (int z = 0; z < 8; z++)
+                for (int z = 0; z < testGridSizeZ; z++)
                 {
                     Data.SetCell(new Vector3Int(x, 0, z), CellData.CreateWalkable());
                 }
@@ -99,6 +101,12 @@ namespace PF2e.Grid
         public void SetClickedCell(Vector3Int cell)
         {
             OnCellClicked?.Invoke(cell);
+        }
+
+        public void RaiseEntityClicked(EntityHandle handle)
+        {
+            if (!handle.IsValid) return;
+            OnEntityClicked?.Invoke(handle);
         }
 
         public void SetSelectedCell(Vector3Int? cell)
