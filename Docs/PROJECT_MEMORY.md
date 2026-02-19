@@ -25,7 +25,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 
 ### B) Gameplay Loop Status (Current)
 - Scene boots to `SampleScene`; test grid and test entities spawn from inspector-wired managers.
-- Controls currently in code: `C` start combat, `X` end combat, left-click cell/entity, `Space` end turn, `Esc` cancel targeting, `WASD/QE/Scroll` camera, `G` grid toggle, `PageUp/PageDown` floor.
+- Controls currently in code: encounter flow buttons (`Start Encounter` / `End Encounter`) as primary path, `C`/`X` as editor/development fallback, left-click cell/entity, `Space` end turn, `Esc` cancel targeting, `WASD/QE/Scroll` camera, `G` grid toggle, `PageUp/PageDown` floor.
 - Turn flow works: initiative roll, per-entity turns, 3 actions, action spending, condition end-turn ticks.
 - Movement works: occupancy-aware, multi-stride pathing, 5/10 diagonal parity, movement zone/path preview, animated movement.
 - Combat works at MVP level: melee strike resolution, MAP increment, damage apply, defeat hide + events.
@@ -59,7 +59,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter authoring still manual |
 | AI | Partial | Simple melee AI implemented; no advanced tactics/ranged/spell logic |
 | Save/load/progression | Not started | No persistence layer |
-| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, and action-driven victory/defeat outcomes; broader multi-round combat coverage is pending |
+| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, and encounter flow button start/end behavior; broader multi-round combat coverage is pending |
 
 ## Module Boundaries
 - `PF2e.Core`: deterministic rules/data only. No UI concerns.
@@ -88,7 +88,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 
 ## Known Issues / TODOs
 - AI is intentionally minimal: nearest-target melee only, same-elevation targeting, no tactical scoring.
-- Combat start/end still debug key driven.
+- Encounter flow buttons are runtime-generated; converting them to authored scene/prefab UI is a future polish step.
 - Restart is scene-reload based (`SceneManager.LoadScene`) and intentionally simple for MVP.
 - Condition model has known simplification TODO (value + duration model evolution).
 - Input System package exists, but most gameplay input is polled directly from keyboard/mouse.
@@ -97,8 +97,8 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Duplicate-looking armor asset naming (`GoblinArmor_.asset`) should be normalized later.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Replace debug combat start/end keys with a productized flow (UI buttons/state gate).
-2. Add PlayMode multi-round regression tests (movement + AI + condition ticks across 2-3 rounds).
+1. Add PlayMode multi-round regression tests (movement + AI + condition ticks across 2-3 rounds).
+2. Add validator/auto-fix coverage for `EncounterFlowController` and authored references.
 3. Extend AI from nearest-melee to basic priority rules (focus low HP, avoid no-progress turns, support ranged enemy profiles).
 
 ## Project Memory Maintenance Rule

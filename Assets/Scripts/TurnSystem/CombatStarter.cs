@@ -4,12 +4,13 @@ using UnityEngine.InputSystem;
 namespace PF2e.TurnSystem
 {
     /// <summary>
-    /// Debug helper: press C to start combat, X to end combat.
-    /// Attach to the same GameObject as TurnManager (CombatController).
+    /// Dev fallback only: press C to start combat, X to end combat.
+    /// Primary encounter flow should come from UI controls.
     /// </summary>
     public class CombatStarter : MonoBehaviour
     {
         [SerializeField] private TurnManager turnManager;
+        [SerializeField] private bool allowDevHotkeys = true;
 
         private bool isReady = false;
 
@@ -21,7 +22,11 @@ namespace PF2e.TurnSystem
 
         private void Update()
         {
+#if !(UNITY_EDITOR || DEVELOPMENT_BUILD)
+            return;
+#else
             if (!isReady) return;
+            if (!allowDevHotkeys) return;
 
             var kb = Keyboard.current;
             if (kb == null || turnManager == null) return;
@@ -37,6 +42,7 @@ namespace PF2e.TurnSystem
                 Debug.Log("[CombatStarter] Ending combat (X pressed)");
                 turnManager.EndCombat();
             }
+#endif
         }
     }
 }
