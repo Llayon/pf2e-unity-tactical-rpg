@@ -12,9 +12,14 @@
 - Open the project in Unity 6:
   - `"C:\Program Files\Unity\Hub\Editor\6000.3.2f1\Editor\Unity.exe" -projectPath "D:\Max\Unity3D\My project"`
 - Run EditMode tests in batch mode:
-- `"C:\Program Files\Unity\Hub\Editor\6000.3.2f1\Editor\Unity.exe" -batchmode -nographics -projectPath "D:\Max\Unity3D\My project" -runTests -testPlatform EditMode -testResults "Logs\EditModeTests.xml" -quit"`
+  - `"C:\Program Files\Unity\Hub\Editor\6000.3.2f1\Editor\Unity.exe" -batchmode -nographics -projectPath "D:\Max\Unity3D\My project" -runTests -testPlatform EditMode -testResults "Logs\EditModeTests.xml" -quit"`
+- Run PlayMode tests in batch mode:
+  - `"C:\Program Files\Unity\Hub\Editor\6000.3.2f1\Editor\Unity.exe" -batchmode -nographics -projectPath "D:\Max\Unity3D\My project" -runTests -testPlatform PlayMode -testResults "Logs\PlayModeTests.xml" -quit"`
 - Iterative local testing:
   - Unity Editor -> `Window > General > Test Runner`.
+- CI workflow:
+  - `.github/workflows/unity-tests.yml` runs EditMode + PlayMode on `push`/`pull_request` to `master`.
+  - Configure repository secret `UNITY_LICENSE` before relying on CI.
 
 ## Coding Style & Naming Conventions
 - Use C# with the `PF2e` namespace family (for example `PF2e.Grid`, `PF2e.Tests`).
@@ -40,3 +45,4 @@
   - Test evidence (Test Runner result or batch test output)
   - Visual proof for UI/scene changes (screenshot/GIF)
   - Linked issue/task when available
+  - Passing `Unity Tests` GitHub Actions check
