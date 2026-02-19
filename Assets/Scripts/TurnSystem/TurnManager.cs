@@ -24,6 +24,7 @@ namespace PF2e.TurnSystem
 
         private List<InitiativeEntry> initiativeOrder = new();
         private TurnState stateBeforeExecution;
+        private readonly List<ConditionTick> conditionTickBuffer = new();
 
         // ─── Public Properties ────────────────────────────────────────────────
 
@@ -63,6 +64,7 @@ namespace PF2e.TurnSystem
         public event Action<EntityHandle>                     OnTurnStarted;          // entityHandle
         public event Action<EntityHandle>                     OnTurnEnded;            // entityHandle
         public event Action<int>                              OnActionsChanged;       // actionsRemaining
+        public event Action<EntityHandle, IReadOnlyList<ConditionTick>> OnConditionsTicked;
         public event Action<IReadOnlyList<InitiativeEntry>>   OnInitiativeRolled;
 
         // ─── Public Methods ───────────────────────────────────────────────────
@@ -110,9 +112,19 @@ namespace PF2e.TurnSystem
             var endingEntity = CurrentEntity;
             var data = entityManager.Registry.Get(endingEntity);
             if (data != null)
-                data.EndTurn();
+            {
+                conditionTickBuffer.Clear();
+                data.EndTurn(conditionTickBuffer);
+
+                if (conditionTickBuffer.Count > 0)
+                    OnConditionsTicked?.Invoke(endingEntity, conditionTickBuffer);
+            }
 
             OnTurnEnded?.Invoke(endingEntity);
+
+            // End encounter immediately when one side is wiped.
+            if (CheckVictory()) return;
+
             currentIndex++;
 
             if (currentIndex >= initiativeOrder.Count)
@@ -275,6 +287,9 @@ namespace PF2e.TurnSystem
                 return data == null || !data.IsAlive;
             });
 
+            // Safety net: if an edge case bypassed EndTurn check.
+            if (CheckVictory()) return;
+
             if (initiativeOrder.Count == 0)
             {
                 EndCombat();
@@ -316,13 +331,37 @@ namespace PF2e.TurnSystem
             OnActionsChanged?.Invoke(data.ActionsRemaining);
 
             Debug.Log($"[TurnManager] Round {roundNumber} — {data.Name} ({data.Team}) starts turn. Actions: {data.ActionsRemaining}");
+        }
 
-            // Auto-skip enemy turns (no AI yet)
-            if (state == TurnState.EnemyTurn)
+        /// <summary>
+        /// Returns true if combat ended due to team wipe.
+        /// Counts only Team.Player and Team.Enemy; Team.Neutral does not affect victory.
+        /// </summary>
+        private bool CheckVictory()
+        {
+            if (entityManager == null || entityManager.Registry == null)
+                return false;
+
+            bool anyPlayer = false;
+            bool anyEnemy = false;
+
+            foreach (var data in entityManager.Registry.GetAll())
             {
-                Debug.Log($"[TurnManager] Auto-skipping enemy turn: {data.Name}");
-                EndTurn();
+                if (data == null || !data.IsAlive) continue;
+
+                if (data.Team == Team.Player) anyPlayer = true;
+                else if (data.Team == Team.Enemy) anyEnemy = true;
             }
+
+            if (anyPlayer && anyEnemy) return false;
+
+            if (!anyPlayer)
+                Debug.Log("[TurnManager] All players defeated. Combat over.");
+            else
+                Debug.Log("[TurnManager] All enemies defeated. Victory!");
+
+            EndCombat();
+            return true;
         }
     }
 }

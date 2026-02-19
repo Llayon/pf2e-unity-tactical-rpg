@@ -73,6 +73,11 @@ public static class PF2eSceneDependencyValidator
         errors += ValidateAll<TurnUIController>(ValidateTurnUIController);
         errors += ValidateAll<CombatLogController>(ValidateCombatLogController);
         errors += ValidateAll<FloatingDamageUI>(ValidateFloatingDamageUI);
+        errors += ValidateAll<InitiativeBarController>(ValidateInitiativeBarController);
+        errors += ValidateAll<ConditionTickForwarder>(ValidateConditionTickForwarder);
+        errors += ValidateAll<ConditionLogForwarder>(ValidateConditionLogForwarder);
+        errors += ValidateAll<StandAction>(ValidateStandAction);
+        errors += ValidateAll<AITurnController>(ValidateAITurnController);
 
         // Strict singletons for core managers (combat scene expectation)
         errors += ErrorIfMoreThanOne<GridManager>();
@@ -85,6 +90,10 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<StrideLogForwarder>();
         errors += ErrorIfMoreThanOne<StrikeLogForwarder>();
         errors += ErrorIfMoreThanOne<FloatingDamageUI>();
+        errors += ErrorIfMoreThanOne<InitiativeBarController>();
+        errors += ErrorIfMoreThanOne<ConditionTickForwarder>();
+        errors += ErrorIfMoreThanOne<ConditionLogForwarder>();
+        errors += ErrorIfMoreThanOne<StandAction>();
 
         // Strict singletons for combat controller components (also expected 1 per scene)
         errors += ErrorIfMoreThanOne<PlayerActionExecutor>();
@@ -93,11 +102,13 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<EntityMover>();
         errors += ErrorIfMoreThanOne<TargetingController>();
         errors += ErrorIfMoreThanOne<TurnInputController>();
+        errors += ErrorIfMoreThanOne<AITurnController>();
 
         // Presence warnings (scene might be incomplete / wrong setup)
         warnings += WarnIfNone<GridManager>();
         warnings += WarnIfNone<EntityManager>();
         warnings += WarnIfNone<TurnManager>();
+        warnings += WarnIfNone<AITurnController>();
 
         string summary = $"[PF2eValidator] Done. Errors: {errors}, Warnings: {warnings}";
         if (errors > 0) Debug.LogError(summary);
@@ -123,6 +134,7 @@ public static class PF2eSceneDependencyValidator
     private static void ValidateEntityManager(EntityManager em, ref int errors, ref int warnings)
     {
         errors += RequireRef(em, "gridManager", "GridManager");
+        errors += RequireRef(em, "eventBus",    "CombatEventBus");
     }
 
     private static void ValidateTurnManager(TurnManager tm, ref int errors, ref int warnings)
@@ -200,7 +212,7 @@ public static class PF2eSceneDependencyValidator
 
     private static void ValidateTurnUIController(TurnUIController ui, ref int errors, ref int warnings)
     {
-        errors += RequireRef(ui, "turnManager", "TurnManager");
+        errors += RequireRef(ui, "eventBus", "CombatEventBus");
         errors += RequireRef(ui, "entityManager", "EntityManager");
         errors += RequireRef(ui, "turnInputController", "TurnInputController");
 
@@ -245,6 +257,43 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(f, "eventBus",     "CombatEventBus");
         errors += RequireRef(f, "entityManager","EntityManager");
         // textPrefab is optional
+    }
+
+    private static void ValidateInitiativeBarController(InitiativeBarController c, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(c, "turnManager",    "TurnManager");
+        errors += RequireRef(c, "entityManager",  "EntityManager");
+        errors += RequireRef(c, "eventBus",       "CombatEventBus");
+        errors += RequireRef(c, "panelRoot",      "GameObject");
+        errors += RequireRef(c, "roundLabel",     "TextMeshProUGUI");
+        errors += RequireRef(c, "slotsContainer", "Transform");
+        errors += RequireRef(c, "slotPrefab",     "InitiativeSlot");
+    }
+
+    private static void ValidateConditionTickForwarder(ConditionTickForwarder f, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(f, "turnManager", "TurnManager");
+        errors += RequireRef(f, "eventBus", "CombatEventBus");
+    }
+
+    private static void ValidateConditionLogForwarder(ConditionLogForwarder f, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(f, "eventBus", "CombatEventBus");
+    }
+
+    private static void ValidateStandAction(StandAction sa, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(sa, "entityManager", "EntityManager");
+    }
+
+    private static void ValidateAITurnController(AITurnController ai, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(ai, "turnManager", "TurnManager");
+        errors += RequireRef(ai, "entityManager", "EntityManager");
+        errors += RequireRef(ai, "gridManager", "GridManager");
+        errors += RequireRef(ai, "strideAction", "StrideAction");
+        errors += RequireRef(ai, "strikeAction", "StrikeAction");
+        errors += RequireRef(ai, "standAction", "StandAction");
     }
 
     private static void ValidateCombatLogController(CombatLogController log, ref int errors, ref int warnings)
@@ -350,6 +399,7 @@ public static class PF2eSceneDependencyValidator
         TryGetSingleton(out CombatEventBus eventBus, logIfMissing: false);
         TryGetSingleton(out PlayerActionExecutor actionExecutor, logIfMissing: false);
         TryGetSingleton(out StrideAction strideAction, logIfMissing: false);
+        TryGetSingleton(out StrikeAction strikeActionSingleton, logIfMissing: false);
         TryGetSingleton(out EntityMover entityMover, logIfMissing: false);
         TryGetSingleton(out TargetingController targetingController, logIfMissing: false);
         TryGetSingleton(out TurnInputController turnInputController, logIfMissing: false);
@@ -358,6 +408,8 @@ public static class PF2eSceneDependencyValidator
         // Fix null references only
 
         fixedCount += FixAll<EntityManager>("gridManager", gridManager);
+        if (eventBus != null)
+            fixedCount += FixAll<EntityManager>("eventBus", eventBus);
 
         fixedCount += FixAll<TurnManager>("entityManager", entityManager);
 
@@ -406,9 +458,10 @@ public static class PF2eSceneDependencyValidator
 
         fixedCount += FixAll<CombatStarter>("turnManager", turnManager);
 
-        // TurnUIController (core deps only; UI fields assigned manually)
-        fixedCount += FixAll<TurnUIController>("turnManager", turnManager);
+        // TurnUIController (bus-driven; UI fields assigned manually)
         fixedCount += FixAll<TurnUIController>("entityManager", entityManager);
+        if (eventBus != null)
+            fixedCount += FixAll<TurnUIController>("eventBus", eventBus);
         if (turnInputController != null)
             fixedCount += FixAll<TurnUIController>("turnInputController", turnInputController);
 
@@ -446,6 +499,42 @@ public static class PF2eSceneDependencyValidator
         fixedCount += FixAll<FloatingDamageUI>("entityManager", entityManager);
         if (eventBus != null)
             fixedCount += FixAll<FloatingDamageUI>("eventBus", eventBus);
+
+        // StandAction (Phase 15A)
+        fixedCount += FixAll<StandAction>("entityManager", entityManager);
+        if (eventBus != null)
+            fixedCount += FixAll<StandAction>("eventBus", eventBus);
+
+        // ConditionTickForwarder (Phase 15B)
+        fixedCount += FixAll<ConditionTickForwarder>("turnManager", turnManager);
+        if (eventBus != null)
+            fixedCount += FixAll<ConditionTickForwarder>("eventBus", eventBus);
+
+        // ConditionLogForwarder (Phase 15B)
+        if (eventBus != null)
+            fixedCount += FixAll<ConditionLogForwarder>("eventBus", eventBus);
+
+        // PlayerActionExecutor standAction (Phase 15A)
+        TryGetSingleton(out StandAction standActionSingleton, logIfMissing: false);
+        if (standActionSingleton != null)
+            fixedCount += FixAll<PlayerActionExecutor>("standAction", standActionSingleton);
+
+        // AITurnController (Phase 16)
+        fixedCount += FixAll<AITurnController>("turnManager", turnManager);
+        fixedCount += FixAll<AITurnController>("entityManager", entityManager);
+        fixedCount += FixAll<AITurnController>("gridManager", gridManager);
+        if (strideAction != null)
+            fixedCount += FixAll<AITurnController>("strideAction", strideAction);
+        if (strikeActionSingleton != null)
+            fixedCount += FixAll<AITurnController>("strikeAction", strikeActionSingleton);
+        if (standActionSingleton != null)
+            fixedCount += FixAll<AITurnController>("standAction", standActionSingleton);
+
+        // InitiativeBarController (Phase 14B)
+        fixedCount += FixAll<InitiativeBarController>("turnManager", turnManager);
+        fixedCount += FixAll<InitiativeBarController>("entityManager", entityManager);
+        if (eventBus != null)
+            fixedCount += FixAll<InitiativeBarController>("eventBus", eventBus);
 
         if (fixedCount > 0)
         {
