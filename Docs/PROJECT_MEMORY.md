@@ -59,7 +59,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter authoring still manual |
 | AI | Partial | Simple melee AI implemented; no advanced tactics/ranged/spell logic |
 | Save/load/progression | Not started | No persistence layer |
-| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, and authored EncounterFlowController wiring; broader multi-round combat coverage is pending |
+| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, and multi-round regression (movement + enemy AI + condition ticks); broader system-level coverage is still pending |
 
 ## Module Boundaries
 - `PF2e.Core`: deterministic rules/data only. No UI concerns.
@@ -94,12 +94,12 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Condition model has known simplification TODO (value + duration model evolution).
 - Input System package exists, but most gameplay input is polled directly from keyboard/mouse.
 - No CI/test pipeline checked in.
-- PlayMode coverage now includes action-driven encounter-end flows, but still lacks deeper multi-round combat regression cases (movement + AI + conditions over several rounds).
+- PlayMode regression now covers multi-round movement/AI/condition-tick flow, but does not yet cover advanced combat domains (ranged/spells/reactions).
 - Duplicate-looking armor asset naming (`GoblinArmor_.asset`) should be normalized later.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Add PlayMode multi-round regression tests (movement + AI + condition ticks across 2-3 rounds).
-2. Extract `EncounterFlowPanel` to a reusable prefab and reuse across scenes.
+1. Extract `EncounterFlowPanel` to a reusable prefab and reuse across scenes.
+2. Add a basic CI pipeline that runs EditMode + PlayMode test jobs.
 3. Extend AI from nearest-melee to basic priority rules (focus low HP, avoid no-progress turns, support ranged enemy profiles).
 
 ## Project Memory Maintenance Rule
