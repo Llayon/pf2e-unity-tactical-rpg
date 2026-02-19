@@ -64,7 +64,18 @@ namespace PF2e.Presentation
 
         private void OnCombatEndedTyped(in CombatEndedEvent e)
         {
-            eventBus.PublishSystem("Combat ended.", CombatLogCategory.CombatEnd);
+            switch (e.result)
+            {
+                case EncounterResult.Victory:
+                    eventBus.PublishSystem("Combat ended. Victory.", CombatLogCategory.CombatEnd);
+                    break;
+                case EncounterResult.Defeat:
+                    eventBus.PublishSystem("Combat ended. Defeat.", CombatLogCategory.CombatEnd);
+                    break;
+                default:
+                    eventBus.PublishSystem("Combat ended.", CombatLogCategory.CombatEnd);
+                    break;
+            }
             lastActor = EntityHandle.None;
             lastActions = -1;
         }

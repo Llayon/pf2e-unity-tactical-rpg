@@ -34,7 +34,7 @@ namespace PF2e.Presentation
             }
 
             turnManager.OnCombatStarted += HandleCombatStarted;
-            turnManager.OnCombatEnded += HandleCombatEnded;
+            turnManager.OnCombatEndedWithResult += HandleCombatEnded;
             turnManager.OnRoundStarted += HandleRoundStarted;
             turnManager.OnTurnStarted += HandleTurnStarted;
             turnManager.OnTurnEnded += HandleTurnEnded;
@@ -45,7 +45,7 @@ namespace PF2e.Presentation
         {
             if (turnManager == null) return;
             turnManager.OnCombatStarted -= HandleCombatStarted;
-            turnManager.OnCombatEnded -= HandleCombatEnded;
+            turnManager.OnCombatEndedWithResult -= HandleCombatEnded;
             turnManager.OnRoundStarted -= HandleRoundStarted;
             turnManager.OnTurnStarted -= HandleTurnStarted;
             turnManager.OnTurnEnded -= HandleTurnEnded;
@@ -53,7 +53,7 @@ namespace PF2e.Presentation
         }
 
         private void HandleCombatStarted() => eventBus.PublishCombatStarted();
-        private void HandleCombatEnded() => eventBus.PublishCombatEnded();
+        private void HandleCombatEnded(EncounterResult result) => eventBus.PublishCombatEnded(result);
         private void HandleRoundStarted(int round) => eventBus.PublishRoundStarted(round);
 
         private void HandleTurnStarted(EntityHandle actor)

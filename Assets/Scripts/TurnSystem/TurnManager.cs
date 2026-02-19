@@ -60,6 +60,7 @@ namespace PF2e.TurnSystem
 
         public event Action                                   OnCombatStarted;
         public event Action                                   OnCombatEnded;
+        public event Action<EncounterResult>                  OnCombatEndedWithResult;
         public event Action<int>                              OnRoundStarted;         // roundNumber
         public event Action<EntityHandle>                     OnTurnStarted;          // entityHandle
         public event Action<EntityHandle>                     OnTurnEnded;            // entityHandle
@@ -223,13 +224,14 @@ namespace PF2e.TurnSystem
         /// <summary>
         /// Terminate the combat encounter and reset all state.
         /// </summary>
-        public void EndCombat()
+        public void EndCombat(EncounterResult result = EncounterResult.Aborted)
         {
             state = TurnState.CombatOver;
 
             if (entityManager != null)
                 entityManager.DeselectEntity();
 
+            OnCombatEndedWithResult?.Invoke(result);
             OnCombatEnded?.Invoke();
 
             // Full reset
@@ -360,7 +362,7 @@ namespace PF2e.TurnSystem
             else
                 Debug.Log("[TurnManager] All enemies defeated. Victory!");
 
-            EndCombat();
+            EndCombat(!anyPlayer ? EncounterResult.Defeat : EncounterResult.Victory);
             return true;
         }
     }

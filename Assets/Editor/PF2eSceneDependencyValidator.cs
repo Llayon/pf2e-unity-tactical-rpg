@@ -71,6 +71,7 @@ public static class PF2eSceneDependencyValidator
         errors += ValidateAll<GridInteraction>(ValidateGridInteraction);
         errors += ValidateAll<CombatStarter>(ValidateCombatStarter);
         errors += ValidateAll<TurnUIController>(ValidateTurnUIController);
+        errors += ValidateAll<EncounterEndPanelController>(ValidateEncounterEndPanelController);
         errors += ValidateAll<CombatLogController>(ValidateCombatLogController);
         errors += ValidateAll<FloatingDamageUI>(ValidateFloatingDamageUI);
         errors += ValidateAll<InitiativeBarController>(ValidateInitiativeBarController);
@@ -90,6 +91,7 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<StrideLogForwarder>();
         errors += ErrorIfMoreThanOne<StrikeLogForwarder>();
         errors += ErrorIfMoreThanOne<FloatingDamageUI>();
+        errors += ErrorIfMoreThanOne<EncounterEndPanelController>();
         errors += ErrorIfMoreThanOne<InitiativeBarController>();
         errors += ErrorIfMoreThanOne<ConditionTickForwarder>();
         errors += ErrorIfMoreThanOne<ConditionLogForwarder>();
@@ -109,6 +111,7 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnIfNone<EntityManager>();
         warnings += WarnIfNone<TurnManager>();
         warnings += WarnIfNone<AITurnController>();
+        warnings += WarnIfNone<EncounterEndPanelController>();
 
         string summary = $"[PF2eValidator] Done. Errors: {errors}, Warnings: {warnings}";
         if (errors > 0) Debug.LogError(summary);
@@ -220,6 +223,16 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(ui, "actorText", "TextMeshProUGUI");
         errors += RequireRef(ui, "actionsText", "TextMeshProUGUI");
         errors += RequireRef(ui, "endTurnButton", "Button");
+    }
+
+    private static void ValidateEncounterEndPanelController(EncounterEndPanelController c, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(c, "eventBus", "CombatEventBus");
+        errors += RequireRef(c, "panelCanvasGroup", "CanvasGroup");
+        errors += RequireRef(c, "titleText", "TextMeshProUGUI");
+        errors += RequireRef(c, "subtitleText", "TextMeshProUGUI");
+        errors += RequireRef(c, "restartButton", "Button");
+        errors += RequireRef(c, "closeButton", "Button");
     }
 
     private static void ValidateTurnManagerLogForwarder(TurnManagerLogForwarder f, ref int errors, ref int warnings)
@@ -464,6 +477,10 @@ public static class PF2eSceneDependencyValidator
             fixedCount += FixAll<TurnUIController>("eventBus", eventBus);
         if (turnInputController != null)
             fixedCount += FixAll<TurnUIController>("turnInputController", turnInputController);
+
+        // EncounterEndPanelController (Phase 17)
+        if (eventBus != null)
+            fixedCount += FixAll<EncounterEndPanelController>("eventBus", eventBus);
 
         // TurnManagerLogForwarder (Phase 10.2 - bus adapter)
         fixedCount += FixAll<TurnManagerLogForwarder>("turnManager", turnManager);

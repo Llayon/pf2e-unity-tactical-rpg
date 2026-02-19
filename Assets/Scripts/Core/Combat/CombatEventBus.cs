@@ -110,9 +110,9 @@ namespace PF2e.Core
             OnCombatStartedTyped?.Invoke(in e);
         }
 
-        public void PublishCombatEnded()
+        public void PublishCombatEnded(EncounterResult result = EncounterResult.Aborted)
         {
-            var e = default(CombatEndedEvent);
+            var e = new CombatEndedEvent(result);
             OnCombatEndedTyped?.Invoke(in e);
         }
 

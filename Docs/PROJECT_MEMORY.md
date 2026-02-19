@@ -8,7 +8,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Single scene (`Assets/Scenes/SampleScene.unity`) with one encounter.
 - Player can: start combat, move (Stride), Strike, Stand, end turn.
 - Enemy side takes turns via simple melee AI (stand if prone, stride toward nearest player, strike in range).
-- Combat presents: turn HUD, initiative bar, combat log, floating damage.
+- Combat presents: turn HUD, initiative bar, combat log, floating damage, and end-of-encounter panel.
 - Basic PF2e rules included: 3-action economy, MAP, basic melee strike check, damage roll, simple conditions.
 
 ## Architecture Snapshot
@@ -30,6 +30,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Combat works at MVP level: melee strike resolution, MAP increment, damage apply, defeat hide + events.
 - Enemy turns execute simple AI behavior; combat no longer auto-skips enemy turns.
 - Victory/defeat ends combat immediately when one side (`Player` or `Enemy`) is wiped.
+- End-of-encounter UI shows `Victory` / `Defeat` / `Encounter Ended`, with restart via scene reload.
 
 ### C) Key Dependencies and Risks
 - High scene wiring coupling: `CombatController`, `TacticalGrid`, `EntityManager`, `CombatEventBus` must all be correctly referenced.
@@ -39,7 +40,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - `EntityManager` mixes runtime orchestration with test spawning data responsibilities.
 
 ### D) Missing Foundations for Vertical Slice
-- Encounter win/lose state presentation and restart flow.
+- Post-encounter navigation beyond restart (return-to-menu/progression path).
 - Explicit action bar/intent UI (targeting feedback still minimal).
 - Broader automated verification (PlayMode/integration tests).
 
@@ -53,7 +54,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Player actions (Stride/Strike/Stand) | Partial | Core actions implemented; no broader action set |
 | PF2e strike/damage basics | Partial | Melee-focused MVP; ranged/spells not implemented |
 | Conditions | Partial | Basic list + tick rules; simplified behavior |
-| Combat/UI presentation | Partial | Turn HUD, log, initiative, floating damage present |
+| Combat/UI presentation | Partial | Turn HUD, log, initiative, floating damage, and end-of-encounter panel are present |
 | Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter authoring still manual |
 | AI | Partial | Simple melee AI implemented; no advanced tactics/ranged/spell logic |
 | Save/load/progression | Not started | No persistence layer |
@@ -77,6 +78,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 ## Do Not Break Contracts and Assumptions
 - `Assets/Scenes/SampleScene.unity` is the active/bootstrap scene in build settings.
 - `TurnManager` action execution contract: use `BeginActionExecution` + `CompleteActionWithCost` for atomic cost/state transitions.
+- `TurnManager` combat-end contract: keep both `OnCombatEnded` (legacy) and `OnCombatEndedWithResult` (typed result path).
 - `StrideAction` commits occupancy/entity position before animation; `EntityMover` is visual-only.
 - `AITurnController` must release action locks on abort/timeout/disable to avoid `ExecutingAction` deadlocks.
 - `CombatEventBus.Publish(actor, message)` messages must not include actor name prefix.
@@ -86,14 +88,15 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 ## Known Issues / TODOs
 - AI is intentionally minimal: nearest-target melee only, same-elevation targeting, no tactical scoring.
 - Combat start/end still debug key driven.
+- Restart is scene-reload based (`SceneManager.LoadScene`) and intentionally simple for MVP.
 - Condition model has known simplification TODO (value + duration model evolution).
 - Input System package exists, but most gameplay input is polled directly from keyboard/mouse.
 - No CI/test pipeline checked in; no PlayMode tests.
 - Duplicate-looking armor asset naming (`GoblinArmor_.asset`) should be normalized later.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Add encounter end UX (victory/defeat panel + restart/return actions) on top of existing combat-end logic.
-2. Add PlayMode smoke test(s) for enemy turn behavior and immediate victory/defeat transitions.
+1. Add PlayMode smoke test(s) for enemy turn behavior and immediate victory/defeat panel transitions.
+2. Replace debug combat start/end keys with a productized flow (UI buttons/state gate).
 3. Extend AI from nearest-melee to basic priority rules (focus low HP, avoid no-progress turns, support ranged enemy profiles).
 
 ## Project Memory Maintenance Rule

@@ -1,7 +1,20 @@
 namespace PF2e.Core
 {
+    public enum EncounterResult : byte
+    {
+        Unknown = 0,
+        Victory = 1,
+        Defeat = 2,
+        Aborted = 3
+    }
+
     public readonly struct CombatStartedEvent { }
-    public readonly struct CombatEndedEvent { }
+
+    public readonly struct CombatEndedEvent
+    {
+        public readonly EncounterResult result;
+        public CombatEndedEvent(EncounterResult result) { this.result = result; }
+    }
 
     public readonly struct RoundStartedEvent
     {
