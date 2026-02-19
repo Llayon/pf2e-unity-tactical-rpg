@@ -10,7 +10,8 @@ namespace PF2e.Presentation
     /// <summary>
     /// Productized encounter flow controls.
     /// Primary path: Start/End Encounter buttons.
-    /// Optional runtime UI creation keeps scene wiring small for MVP.
+    /// Authoring-first: buttons should be wired in scene.
+    /// Optional runtime UI creation remains as a development fallback.
     /// </summary>
     public class EncounterFlowController : MonoBehaviour
     {
@@ -22,7 +23,7 @@ namespace PF2e.Presentation
         [Header("UI")]
         [SerializeField] private Button startEncounterButton;
         [SerializeField] private Button endEncounterButton;
-        [SerializeField] private bool autoCreateRuntimeButtons = true;
+        [SerializeField] private bool autoCreateRuntimeButtons = false;
 
         private RectTransform runtimePanel;
 
@@ -32,6 +33,14 @@ namespace PF2e.Presentation
             if (turnManager == null) Debug.LogError("[EncounterFlow] Missing TurnManager", this);
             if (entityManager == null) Debug.LogError("[EncounterFlow] Missing EntityManager", this);
             if (rootCanvas == null) Debug.LogError("[EncounterFlow] Missing root Canvas", this);
+
+            if (!autoCreateRuntimeButtons)
+            {
+                if (startEncounterButton == null)
+                    Debug.LogWarning("[EncounterFlow] startEncounterButton is not assigned (authoring mode).", this);
+                if (endEncounterButton == null)
+                    Debug.LogWarning("[EncounterFlow] endEncounterButton is not assigned (authoring mode).", this);
+            }
         }
 #endif
 

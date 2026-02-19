@@ -37,7 +37,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - High scene wiring coupling: `CombatController`, `TacticalGrid`, `EntityManager`, `CombatEventBus` must all be correctly referenced.
 - Runtime dependency chain is tight (`TurnManager -> EntityManager -> GridManager`; input and visualizers depend on both).
 - Hybrid event architecture (typed events + string log forwarders) can drift if contracts are broken.
-- Combat start is debug-key driven (`CombatStarter`), not productized flow.
+- Encounter flow depends on authored UI wiring (`Canvas/EncounterFlowPanel/*`) staying intact.
 - `EntityManager` mixes runtime orchestration with test spawning data responsibilities.
 
 ### D) Missing Foundations for Vertical Slice
@@ -59,7 +59,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter authoring still manual |
 | AI | Partial | Simple melee AI implemented; no advanced tactics/ranged/spell logic |
 | Save/load/progression | Not started | No persistence layer |
-| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, and encounter flow button start/end behavior; broader multi-round combat coverage is pending |
+| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, and authored EncounterFlowController wiring; broader multi-round combat coverage is pending |
 
 ## Module Boundaries
 - `PF2e.Core`: deterministic rules/data only. No UI concerns.
@@ -80,6 +80,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - `Assets/Scenes/SampleScene.unity` is the active/bootstrap scene in build settings.
 - `TurnManager` action execution contract: use `BeginActionExecution` + `CompleteActionWithCost` for atomic cost/state transitions.
 - `TurnManager` combat-end contract: keep both `OnCombatEnded` (legacy) and `OnCombatEndedWithResult` (typed result path).
+- `EncounterFlowController` defaults to authored references (`autoCreateRuntimeButtons=false`); runtime auto-create is fallback only.
 - `StrideAction` commits occupancy/entity position before animation; `EntityMover` is visual-only.
 - `AITurnController` must release action locks on abort/timeout/disable to avoid `ExecutingAction` deadlocks.
 - `CombatEventBus.Publish(actor, message)` messages must not include actor name prefix.
@@ -88,7 +89,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 
 ## Known Issues / TODOs
 - AI is intentionally minimal: nearest-target melee only, same-elevation targeting, no tactical scoring.
-- Encounter flow buttons are runtime-generated; converting them to authored scene/prefab UI is a future polish step.
+- Encounter flow UI is authored directly in `SampleScene`; prefab extraction/reuse is still pending.
 - Restart is scene-reload based (`SceneManager.LoadScene`) and intentionally simple for MVP.
 - Condition model has known simplification TODO (value + duration model evolution).
 - Input System package exists, but most gameplay input is polled directly from keyboard/mouse.
@@ -98,7 +99,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 
 ## Next 3 Recommended Tasks (Small, High Value)
 1. Add PlayMode multi-round regression tests (movement + AI + condition ticks across 2-3 rounds).
-2. Add validator/auto-fix coverage for `EncounterFlowController` and authored references.
+2. Extract `EncounterFlowPanel` to a reusable prefab and reuse across scenes.
 3. Extend AI from nearest-melee to basic priority rules (focus low HP, avoid no-progress turns, support ranged enemy profiles).
 
 ## Project Memory Maintenance Rule

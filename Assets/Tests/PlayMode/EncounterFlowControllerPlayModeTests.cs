@@ -1,11 +1,13 @@
 using System;
 using System.Collections;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 using PF2e.Core;
+using PF2e.Presentation;
 using PF2e.TurnSystem;
 
 namespace PF2e.Tests
@@ -17,6 +19,7 @@ namespace PF2e.Tests
 
         private TurnManager turnManager;
         private CombatEventBus eventBus;
+        private EncounterFlowController encounterFlowController;
         private Button startEncounterButton;
         private Button endEncounterButton;
 
@@ -29,20 +32,37 @@ namespace PF2e.Tests
                 TimeoutSeconds,
                 "SampleScene did not load.");
 
-            // Let OnEnable/Start build runtime encounter-flow UI.
-            yield return null;
+            // Let startup initialize UI state.
             yield return null;
 
             turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();
             eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
+            encounterFlowController = UnityEngine.Object.FindFirstObjectByType<EncounterFlowController>();
 
             Assert.IsNotNull(turnManager, "TurnManager not found in SampleScene.");
             Assert.IsNotNull(eventBus, "CombatEventBus not found in SampleScene.");
+            Assert.IsNotNull(encounterFlowController, "EncounterFlowController not found in SampleScene.");
 
             yield return WaitUntilOrTimeout(
                 () => TryResolveButtons(out startEncounterButton, out endEncounterButton),
                 TimeoutSeconds,
                 "Encounter flow buttons were not created/found.");
+        }
+
+        [UnityTest]
+        public IEnumerator GT_P17_PM_300_AuthoringRefs_AreSerialized_AndAutoCreateDisabled()
+        {
+            var autoCreate = ReadPrivateField<bool>(encounterFlowController, "autoCreateRuntimeButtons");
+            var wiredStart = ReadPrivateField<Button>(encounterFlowController, "startEncounterButton");
+            var wiredEnd = ReadPrivateField<Button>(encounterFlowController, "endEncounterButton");
+
+            Assert.IsFalse(autoCreate, "EncounterFlowController should default to authored scene wiring.");
+            Assert.IsNotNull(wiredStart, "startEncounterButton should be serialized in scene authoring mode.");
+            Assert.IsNotNull(wiredEnd, "endEncounterButton should be serialized in scene authoring mode.");
+            Assert.AreEqual(startEncounterButton, wiredStart, "Resolved start button should match serialized reference.");
+            Assert.AreEqual(endEncounterButton, wiredEnd, "Resolved end button should match serialized reference.");
+
+            yield return null;
         }
 
         [UnityTest]
@@ -110,6 +130,17 @@ namespace PF2e.Tests
             startButton = GameObject.Find("Canvas/EncounterFlowPanel/StartEncounterButton")?.GetComponent<Button>();
             endButton = GameObject.Find("Canvas/EncounterFlowPanel/EndEncounterButton")?.GetComponent<Button>();
             return startButton != null && endButton != null;
+        }
+
+        private static T ReadPrivateField<T>(object target, string fieldName)
+        {
+            Assert.IsNotNull(target, $"ReadPrivateField target is null for '{fieldName}'.");
+            var type = target.GetType();
+            var field = type.GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(field, $"Field '{fieldName}' was not found on {type.Name}.");
+
+            object value = field.GetValue(target);
+            return (T)value;
         }
 
         private static IEnumerator WaitUntilOrTimeout(Func<bool> predicate, float timeoutSeconds, string timeoutReason)
