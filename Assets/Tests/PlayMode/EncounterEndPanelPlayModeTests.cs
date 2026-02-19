@@ -7,6 +7,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 using PF2e.Core;
+using PF2e.Managers;
 using PF2e.Presentation;
 using PF2e.TurnSystem;
 
@@ -18,6 +19,7 @@ namespace PF2e.Tests
         private const float DefaultTimeoutSeconds = 5f;
 
         private TurnManager turnManager;
+        private EntityManager entityManager;
         private CombatEventBus eventBus;
         private EncounterEndPanelController panelController;
         private CanvasGroup panelCanvasGroup;
@@ -37,6 +39,10 @@ namespace PF2e.Tests
             // Let scene objects run Awake/OnEnable.
             yield return null;
             ResolveSceneReferences();
+            yield return WaitUntilOrTimeout(
+                () => entityManager.Registry != null && entityManager.Registry.Count >= 2,
+                DefaultTimeoutSeconds,
+                "EntityManager registry was not populated in SampleScene setup.");
         }
 
         [UnityTest]
@@ -166,7 +172,7 @@ namespace PF2e.Tests
                     if (SceneManager.GetActiveScene().name != SampleSceneName)
                         return false;
 
-                    var candidate = UnityEngine.Object.FindObjectOfType<TurnManager>();
+                    var candidate = UnityEngine.Object.FindFirstObjectByType<TurnManager>();
                     return candidate != null && candidate.GetInstanceID() != previousTurnManagerId;
                 },
                 DefaultTimeoutSeconds,
@@ -177,13 +183,95 @@ namespace PF2e.Tests
                 "Encounter end panel should be hidden after scene reload.");
         }
 
+        [UnityTest]
+        public IEnumerator GT_P17_PM_101_LiveFlow_VictoryFromCheckVictory_ShowsPanel()
+        {
+            EncounterResult received = EncounterResult.Unknown;
+            bool eventReceived = false;
+
+            void Handler(in CombatEndedEvent e)
+            {
+                received = e.result;
+                eventReceived = true;
+            }
+
+            eventBus.OnCombatEndedTyped += Handler;
+            try
+            {
+                yield return StartCombatAndWaitForTurnState();
+
+                WipeTeam(Team.Enemy);
+                turnManager.EndTurn();
+
+                yield return WaitUntilOrTimeout(
+                    () => eventReceived,
+                    DefaultTimeoutSeconds,
+                    "CombatEndedEvent was not raised for live-flow victory.");
+                yield return WaitUntilOrTimeout(
+                    () => IsPanelVisible(panelCanvasGroup),
+                    DefaultTimeoutSeconds,
+                    "Encounter panel did not appear for live-flow victory.");
+
+                Assert.AreEqual(EncounterResult.Victory, received);
+                Assert.AreEqual(TurnState.Inactive, turnManager.State);
+                Assert.AreEqual("Victory", titleText.text);
+                Assert.AreEqual("All enemies defeated.", subtitleText.text);
+            }
+            finally
+            {
+                eventBus.OnCombatEndedTyped -= Handler;
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator GT_P17_PM_102_LiveFlow_DefeatFromCheckVictory_ShowsPanel()
+        {
+            EncounterResult received = EncounterResult.Unknown;
+            bool eventReceived = false;
+
+            void Handler(in CombatEndedEvent e)
+            {
+                received = e.result;
+                eventReceived = true;
+            }
+
+            eventBus.OnCombatEndedTyped += Handler;
+            try
+            {
+                yield return StartCombatAndWaitForTurnState();
+
+                WipeTeam(Team.Player);
+                turnManager.EndTurn();
+
+                yield return WaitUntilOrTimeout(
+                    () => eventReceived,
+                    DefaultTimeoutSeconds,
+                    "CombatEndedEvent was not raised for live-flow defeat.");
+                yield return WaitUntilOrTimeout(
+                    () => IsPanelVisible(panelCanvasGroup),
+                    DefaultTimeoutSeconds,
+                    "Encounter panel did not appear for live-flow defeat.");
+
+                Assert.AreEqual(EncounterResult.Defeat, received);
+                Assert.AreEqual(TurnState.Inactive, turnManager.State);
+                Assert.AreEqual("Defeat", titleText.text);
+                Assert.AreEqual("All players defeated.", subtitleText.text);
+            }
+            finally
+            {
+                eventBus.OnCombatEndedTyped -= Handler;
+            }
+        }
+
         private void ResolveSceneReferences()
         {
-            turnManager = UnityEngine.Object.FindObjectOfType<TurnManager>();
-            eventBus = UnityEngine.Object.FindObjectOfType<CombatEventBus>();
-            panelController = UnityEngine.Object.FindObjectOfType<EncounterEndPanelController>();
+            turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();
+            entityManager = UnityEngine.Object.FindFirstObjectByType<EntityManager>();
+            eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
+            panelController = UnityEngine.Object.FindFirstObjectByType<EncounterEndPanelController>();
 
             Assert.IsNotNull(turnManager, "TurnManager not found in SampleScene.");
+            Assert.IsNotNull(entityManager, "EntityManager not found in SampleScene.");
             Assert.IsNotNull(eventBus, "CombatEventBus not found in SampleScene.");
             Assert.IsNotNull(panelController, "EncounterEndPanelController not found in SampleScene.");
 
@@ -199,6 +287,28 @@ namespace PF2e.Tests
             Assert.IsNotNull(titleText, "TitleText not found or missing TextMeshProUGUI.");
             Assert.IsNotNull(subtitleText, "SubtitleText not found or missing TextMeshProUGUI.");
             Assert.IsNotNull(restartButton, "RestartButton not found or missing Button.");
+        }
+
+        private IEnumerator StartCombatAndWaitForTurnState()
+        {
+            turnManager.StartCombat();
+
+            yield return WaitUntilOrTimeout(
+                () => turnManager.State == TurnState.PlayerTurn || turnManager.State == TurnState.EnemyTurn,
+                DefaultTimeoutSeconds,
+                "TurnManager did not enter a turn state after StartCombat.");
+        }
+
+        private void WipeTeam(Team team)
+        {
+            foreach (var data in entityManager.Registry.GetAll())
+            {
+                if (data == null || !data.IsAlive) continue;
+                if (data.Team != team) continue;
+
+                data.CurrentHP = 0;
+                entityManager.HandleDeath(data.Handle);
+            }
         }
 
         private static bool IsPanelVisible(CanvasGroup canvasGroup)
