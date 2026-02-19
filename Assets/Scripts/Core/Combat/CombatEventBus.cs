@@ -159,6 +159,34 @@ namespace PF2e.Core
             var e = new StrideCompletedEvent(actor, to, actionsCost);
             OnStrideCompletedTyped?.Invoke(in e);
         }
+        
+        #region Typed: Condition
+
+        public delegate void ConditionChangedHandler(in ConditionChangedEvent e);
+        public event ConditionChangedHandler OnConditionChangedTyped;
+
+        public void PublishConditionChanged(
+            EntityHandle entity, ConditionType type,
+            ConditionChangeType changeType, int oldValue, int newValue)
+        {
+            var e = new ConditionChangedEvent(entity, type, changeType, oldValue, newValue);
+            OnConditionChangedTyped?.Invoke(in e);
+        }
+
         #endregion
+
+        #region Typed: Entity lifecycle
+
+        public delegate void EntityDefeatedHandler(in EntityDefeatedEvent e);
+        public event EntityDefeatedHandler OnEntityDefeated;
+
+        public void PublishEntityDefeated(EntityHandle handle)
+        {
+            var e = new EntityDefeatedEvent(handle);
+            OnEntityDefeated?.Invoke(in e);
+        }
+
+        #endregion
+#endregion
     }
 }

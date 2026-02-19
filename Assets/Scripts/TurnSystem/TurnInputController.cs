@@ -7,11 +7,13 @@ using PF2e.Managers;
 namespace PF2e.TurnSystem
 {
     /// <summary>
-    /// Phase 10.X FINAL: Thin wiring between input and PlayerActionExecutor.
+    /// Thin router between input and TargetingController / TurnManager.
     /// - Space → EndTurn (PlayerTurn only, not while executor busy)
-    /// - Cell click → executor.TryExecuteStrideToCell
-    /// - Entity click → executor.TryExecuteStrike (if enemy) or do nothing (future inspect/heal)
+    /// - Escape → CancelTargeting
+    /// - Cell click → targetingController.TryConfirmCell (after guards)
+    /// - Entity click → targetingController.TryConfirmEntity (after guards)
     ///
+    /// All target-selection logic lives in TargetingController, not here.
     /// Subscriptions: OnEnable/OnDisable for OnCellClicked + OnEntityClicked.
     /// Inspector-only wiring.
     /// </summary>
@@ -21,15 +23,15 @@ namespace PF2e.TurnSystem
         [SerializeField] private TurnManager turnManager;
         [SerializeField] private GridManager gridManager;
         [SerializeField] private PlayerActionExecutor actionExecutor;
-        [SerializeField] private EntityManager entityManager;
+        [SerializeField] private TargetingController targetingController;
 
 #if UNITY_EDITOR
         private void OnValidate()
         {
-            if (turnManager == null) Debug.LogError("[TurnInput] Missing TurnManager", this);
-            if (gridManager == null) Debug.LogError("[TurnInput] Missing GridManager", this);
-            if (actionExecutor == null) Debug.LogError("[TurnInput] Missing PlayerActionExecutor", this);
-            if (entityManager == null) Debug.LogError("[TurnInput] Missing EntityManager", this);
+            if (turnManager         == null) Debug.LogError("[TurnInput] Missing TurnManager", this);
+            if (gridManager         == null) Debug.LogError("[TurnInput] Missing GridManager", this);
+            if (actionExecutor      == null) Debug.LogError("[TurnInput] Missing PlayerActionExecutor", this);
+            if (targetingController == null) Debug.LogError("[TurnInput] Missing TargetingController", this);
         }
 #endif
 
@@ -37,7 +39,7 @@ namespace PF2e.TurnSystem
         {
             if (gridManager != null)
             {
-                gridManager.OnCellClicked += HandleCellClicked;
+                gridManager.OnCellClicked   += HandleCellClicked;
                 gridManager.OnEntityClicked += HandleEntityClicked;
             }
         }
@@ -46,7 +48,7 @@ namespace PF2e.TurnSystem
         {
             if (gridManager != null)
             {
-                gridManager.OnCellClicked -= HandleCellClicked;
+                gridManager.OnCellClicked   -= HandleCellClicked;
                 gridManager.OnEntityClicked -= HandleEntityClicked;
             }
         }
@@ -68,33 +70,18 @@ namespace PF2e.TurnSystem
 
         private void HandleCellClicked(Vector3Int cell)
         {
-            if (actionExecutor != null)
-                actionExecutor.TryExecuteStrideToCell(cell);
+            if (!turnManager.IsPlayerTurn) return;
+            if (actionExecutor.IsBusy) return;
+            // TargetingResult ignored until UI (Phase 15 adds tooltip/flash)
+            targetingController.TryConfirmCell(cell);
         }
 
         private void HandleEntityClicked(EntityHandle handle)
         {
-            if (turnManager == null || entityManager == null || actionExecutor == null) return;
             if (!turnManager.IsPlayerTurn) return;
-            if (turnManager.State == TurnState.ExecutingAction) return;
-
-            var currentActor = turnManager.CurrentEntity;
-            if (!currentActor.IsValid) return;
-
-            // Ignore self click
-            if (handle == currentActor) return;
-
-            // Get target data
-            if (entityManager.Registry == null) return;
-            var targetData = entityManager.Registry.Get(handle);
-            if (targetData == null) return;
-
-            // If enemy → attack (Phase 11 placeholder)
-            if (targetData.Team == Team.Enemy)
-            {
-                actionExecutor.TryExecuteStrike(handle);
-            }
-            // else: do nothing (future: inspect/heal/buff)
+            if (actionExecutor.IsBusy) return;
+            // TargetingResult ignored until UI (Phase 15 adds tooltip/flash)
+            targetingController.TryConfirmEntity(handle);
         }
 
         private void Update()
@@ -102,10 +89,13 @@ namespace PF2e.TurnSystem
             if (turnManager == null) return;
 
             var kb = Keyboard.current;
-            if (kb != null && kb.spaceKey.wasPressedThisFrame)
-            {
+            if (kb == null) return;
+
+            if (kb.spaceKey.wasPressedThisFrame)
                 RequestEndTurn();
-            }
+
+            if (kb.escapeKey.wasPressedThisFrame)
+                targetingController.CancelTargeting();
         }
     }
 }

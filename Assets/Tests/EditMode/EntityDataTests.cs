@@ -45,37 +45,42 @@ public class EntityDataTests
         Assert.AreEqual(-10, data.CurrentMAP);
     }
 
+    // BaseAC = 10 + min(DexMod, DexCap) + profBonus + ItemACBonus
+    // Unarmored default: DexCap=99, ItemACBonus=0, UnarmoredProf=Trained (Level+2)
+    // Dex=16 → DexMod=3; Level=3 → prof=5; BaseAC = 10+3+5 = 18
+    // Dex=16 → DexMod=3; Level=5 → prof=7; BaseAC = 10+3+7 = 20
+
     [Test] public void EffectiveAC_NoConditions_EqualsBase()
     {
-        var data = new EntityData { ArmorClass = 18 };
+        var data = new EntityData { Dexterity = 16, Level = 3 };
         Assert.AreEqual(18, data.EffectiveAC);
     }
 
-    [Test] public void EffectiveAC_FlatFooted_MinusTwo()
+    [Test] public void EffectiveAC_OffGuard_MinusTwo()
     {
-        var data = new EntityData { ArmorClass = 18 };
-        data.AddCondition(ConditionType.FlatFooted);
+        var data = new EntityData { Dexterity = 16, Level = 3 };
+        data.AddCondition(ConditionType.OffGuard);
         Assert.AreEqual(16, data.EffectiveAC);
     }
 
     [Test] public void EffectiveAC_Frightened_ReducesByValue()
     {
-        var data = new EntityData { ArmorClass = 18 };
+        var data = new EntityData { Dexterity = 16, Level = 3 };
         data.AddCondition(ConditionType.Frightened, 2);
         Assert.AreEqual(16, data.EffectiveAC);
     }
 
     [Test] public void EffectiveAC_Sickened_ReducesByValue()
     {
-        var data = new EntityData { ArmorClass = 18 };
+        var data = new EntityData { Dexterity = 16, Level = 3 };
         data.AddCondition(ConditionType.Sickened, 1);
         Assert.AreEqual(17, data.EffectiveAC);
     }
 
-    [Test] public void EffectiveAC_FlatFootedAndFrightened_Stacks()
+    [Test] public void EffectiveAC_OffGuardAndFrightened_Stacks()
     {
-        var data = new EntityData { ArmorClass = 20 };
-        data.AddCondition(ConditionType.FlatFooted);
+        var data = new EntityData { Dexterity = 16, Level = 5 };
+        data.AddCondition(ConditionType.OffGuard);
         data.AddCondition(ConditionType.Frightened, 3);
         Assert.AreEqual(15, data.EffectiveAC);
     }
@@ -83,8 +88,8 @@ public class EntityDataTests
     [Test] public void AddCondition_NewCondition_Added()
     {
         var data = new EntityData();
-        data.AddCondition(ConditionType.FlatFooted);
-        Assert.IsTrue(data.HasCondition(ConditionType.FlatFooted));
+        data.AddCondition(ConditionType.OffGuard);
+        Assert.IsTrue(data.HasCondition(ConditionType.OffGuard));
     }
 
     [Test] public void AddCondition_SameType_TakesHigherValue()
@@ -106,9 +111,9 @@ public class EntityDataTests
     [Test] public void RemoveCondition_Removes()
     {
         var data = new EntityData();
-        data.AddCondition(ConditionType.FlatFooted);
-        data.RemoveCondition(ConditionType.FlatFooted);
-        Assert.IsFalse(data.HasCondition(ConditionType.FlatFooted));
+        data.AddCondition(ConditionType.OffGuard);
+        data.RemoveCondition(ConditionType.OffGuard);
+        Assert.IsFalse(data.HasCondition(ConditionType.OffGuard));
     }
 
     [Test] public void RemoveCondition_NonExistent_NoError()

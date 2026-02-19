@@ -2,7 +2,7 @@ namespace PF2e.Core
 {
     public enum ConditionType
     {
-        FlatFooted,
+        OffGuard,
         Frightened,
         Sickened,
         Stunned,

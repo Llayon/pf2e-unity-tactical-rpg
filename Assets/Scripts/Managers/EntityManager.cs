@@ -11,6 +11,7 @@ namespace PF2e.Managers
     {
         [Header("References")]
         [SerializeField] private GridManager gridManager;
+        [SerializeField] private CombatEventBus eventBus;
 
         [Header("Test Setup")]
         [SerializeField] private bool spawnTestEntities = true;
@@ -38,6 +39,8 @@ namespace PF2e.Managers
         private readonly Dictionary<EntityHandle, EntityView> views
             = new Dictionary<EntityHandle, EntityView>();
 
+        private readonly HashSet<EntityHandle> defeatedPublished = new HashSet<EntityHandle>();
+
         // ─── Selection ───
         public EntityHandle SelectedEntity { get; private set; }
 
@@ -60,10 +63,13 @@ namespace PF2e.Managers
         }
 
 #if UNITY_EDITOR
-        private void OnValidate()
+private void OnValidate()
         {
             if (gridManager == null)
                 Debug.LogError("[EntityManager] Missing reference: GridManager. Assign it in Inspector.", this);
+
+            if (eventBus == null)
+                Debug.LogWarning("[EntityManager] CombatEventBus not assigned. Death typed events won't fire.", this);
 
             if (spawnTestEntities)
             {
@@ -317,9 +323,16 @@ namespace PF2e.Managers
 
         // ─── Death Handling ───
 
-        public void HandleDeath(EntityHandle handle)
+public void HandleDeath(EntityHandle handle)
         {
             if (!handle.IsValid) return;
+
+            // Guard: prevent double-processing
+            if (!defeatedPublished.Add(handle)) return;
+
+            // Publish typed event before visual/state changes
+            if (eventBus != null)
+                eventBus.PublishEntityDefeated(handle);
 
             if (SelectedEntity == handle)
                 DeselectEntity();

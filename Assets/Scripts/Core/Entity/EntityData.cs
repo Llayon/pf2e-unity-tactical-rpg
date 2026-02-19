@@ -132,7 +132,11 @@ namespace PF2e.Core
         {
             get
             {
-                return GetConditionValue(ConditionType.Frightened) + GetConditionValue(ConditionType.Sickened);
+                int penalty = GetConditionValue(ConditionType.Frightened)
+                            + GetConditionValue(ConditionType.Sickened);
+                if (HasCondition(ConditionType.Prone))
+                    penalty += 2;
+                return penalty;
             }
         }
 
@@ -184,16 +188,12 @@ namespace PF2e.Core
         {
             get
             {
-                // IMPORTANT: BaseAC DOES NOT subtract conditions.
-                // EffectiveAC subtracts them exactly once.
                 int ac = BaseAC;
-
-                if (HasCondition(ConditionType.FlatFooted))
+                // Off-Guard OR Prone: -2 circumstance to AC (same type = no stacking)
+                if (HasCondition(ConditionType.OffGuard) || HasCondition(ConditionType.Prone))
                     ac -= 2;
-
                 ac -= GetConditionValue(ConditionType.Frightened);
                 ac -= GetConditionValue(ConditionType.Sickened);
-
                 return ac;
             }
         }
@@ -237,18 +237,6 @@ namespace PF2e.Core
                     Conditions.RemoveAt(i);
         }
 
-        private void TickCondition(ConditionType type)
-        {
-            for (int i = Conditions.Count - 1; i >= 0; i--)
-            {
-                if (Conditions[i].Type == type)
-                {
-                    if (Conditions[i].TickDown())
-                        Conditions.RemoveAt(i);
-                }
-            }
-        }
-
         // ─── Turn Management ───
         public void StartTurn()
         {
@@ -268,9 +256,25 @@ namespace PF2e.Core
                 RemoveCondition(ConditionType.Stunned);
         }
 
-        public void EndTurn()
+        public void EndTurn(List<ConditionTick> outTicks = null)
         {
-            TickCondition(ConditionType.Frightened);
+            for (int i = Conditions.Count - 1; i >= 0; i--)
+            {
+                var cond = Conditions[i];
+                if (!ConditionRules.AutoDecrementsAtEndOfTurn(cond.Type)) continue;
+                if (cond.Value <= 0) continue;
+
+                int oldVal = cond.Value;
+                if (cond.TickDown())
+                {
+                    outTicks?.Add(new ConditionTick(cond.Type, oldVal, 0, removed: true));
+                    Conditions.RemoveAt(i);
+                }
+                else
+                {
+                    outTicks?.Add(new ConditionTick(cond.Type, oldVal, cond.Value, removed: false));
+                }
+            }
         }
 
         public void SpendActions(int count)

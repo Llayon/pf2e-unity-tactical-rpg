@@ -18,6 +18,7 @@ namespace PF2e.TurnSystem
         [SerializeField] private EntityManager entityManager;
         [SerializeField] private StrideAction strideAction;
         [SerializeField] private StrikeAction strikeAction;
+        [SerializeField] private StandAction standAction;
 
         private EntityHandle executingActor = EntityHandle.None;
 
@@ -148,6 +149,19 @@ namespace PF2e.TurnSystem
             executionStartTime = -1f;
 #endif
             turnManager.CompleteActionWithCost(1); // miss still spends
+            return true;
+        }
+
+        public bool TryExecuteStand()
+        {
+            if (turnManager == null || standAction == null) return false;
+            if (!CanActNow()) return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!standAction.CanStand(actor)) return false;
+            if (!standAction.TryStand(actor)) return false;
+
+            turnManager.SpendActions(StandAction.ActionCost);
             return true;
         }
 

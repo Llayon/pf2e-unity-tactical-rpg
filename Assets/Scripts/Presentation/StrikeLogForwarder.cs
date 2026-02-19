@@ -63,13 +63,13 @@ namespace PF2e.Presentation
                 if (e.damage > 0)
                 {
                     eventBus.Publish(e.attacker,
-                        $"deals {e.damage} {e.damageType} damage to {targetName} (HP: {e.hpBefore}→{e.hpAfter})",
+                        $"deals {e.damage} {e.damageType} damage to {targetName} (HP {e.hpBefore}→{e.hpAfter})",
                         CombatLogCategory.Attack);
                 }
                 else
                 {
                     eventBus.Publish(e.attacker,
-                        $"hits {targetName} but deals no damage. (HP: {e.hpBefore}→{e.hpAfter})",
+                        $"hits {targetName} but deals no damage (HP {e.hpBefore}→{e.hpAfter})",
                         CombatLogCategory.Attack);
                 }
             }
