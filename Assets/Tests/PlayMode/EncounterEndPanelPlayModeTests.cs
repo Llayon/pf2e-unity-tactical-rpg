@@ -17,10 +17,12 @@ namespace PF2e.Tests
     {
         private const string SampleSceneName = "SampleScene";
         private const float DefaultTimeoutSeconds = 5f;
+        private const float ActionDrivenTimeoutSeconds = 12f;
 
         private TurnManager turnManager;
         private EntityManager entityManager;
         private CombatEventBus eventBus;
+        private PlayerActionExecutor playerActionExecutor;
         private EncounterEndPanelController panelController;
         private CanvasGroup panelCanvasGroup;
         private TextMeshProUGUI titleText;
@@ -263,16 +265,139 @@ namespace PF2e.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator GT_P17_PM_201_ActionDriven_PlayerStrike_Victory_ShowsPanel()
+        {
+            EncounterResult received = EncounterResult.Unknown;
+            bool eventReceived = false;
+
+            void Handler(in CombatEndedEvent e)
+            {
+                received = e.result;
+                eventReceived = true;
+            }
+
+            eventBus.OnCombatEndedTyped += Handler;
+            try
+            {
+                var fighter = GetEntityByName("Fighter");
+                var wizard = GetEntityByName("Wizard");
+                var goblin1 = GetEntityByName("Goblin_1");
+                var goblin2 = GetEntityByName("Goblin_2");
+
+                // Keep exactly one enemy alive for deterministic victory check.
+                wizard.Team = Team.Player;
+                goblin2.Team = Team.Player;
+
+                // Force initiative + hit reliability regardless RNG roll.
+                fighter.Wisdom = 5000;
+                fighter.Level = 20;
+                fighter.Strength = 100;
+                goblin1.Wisdom = 1;
+                goblin1.CurrentHP = 1;
+
+                MoveEntityToCell(goblin1, fighter.GridPosition + Vector3Int.right);
+
+                turnManager.StartCombat();
+
+                yield return WaitUntilOrTimeout(
+                    () => turnManager.State == TurnState.PlayerTurn && turnManager.CurrentEntity == fighter.Handle,
+                    ActionDrivenTimeoutSeconds,
+                    "Fighter did not become current actor for action-driven victory test.");
+
+                bool strikeStarted = playerActionExecutor.TryExecuteStrike(goblin1.Handle);
+                Assert.IsTrue(strikeStarted, "PlayerActionExecutor failed to execute strike in action-driven victory test.");
+
+                // CheckVictory runs on EndTurn in current architecture.
+                turnManager.EndTurn();
+
+                yield return WaitUntilOrTimeout(
+                    () => eventReceived,
+                    ActionDrivenTimeoutSeconds,
+                    "CombatEndedEvent was not raised for action-driven victory.");
+                yield return WaitUntilOrTimeout(
+                    () => IsPanelVisible(panelCanvasGroup),
+                    ActionDrivenTimeoutSeconds,
+                    "Encounter panel did not appear for action-driven victory.");
+
+                Assert.AreEqual(EncounterResult.Victory, received);
+                Assert.AreEqual("Victory", titleText.text);
+                Assert.AreEqual("All enemies defeated.", subtitleText.text);
+                Assert.AreEqual(TurnState.Inactive, turnManager.State);
+            }
+            finally
+            {
+                eventBus.OnCombatEndedTyped -= Handler;
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator GT_P17_PM_202_ActionDriven_EnemyAIStrike_Defeat_ShowsPanel()
+        {
+            EncounterResult received = EncounterResult.Unknown;
+            bool eventReceived = false;
+
+            void Handler(in CombatEndedEvent e)
+            {
+                received = e.result;
+                eventReceived = true;
+            }
+
+            eventBus.OnCombatEndedTyped += Handler;
+            try
+            {
+                var fighter = GetEntityByName("Fighter");
+                var wizard = GetEntityByName("Wizard");
+                var goblin1 = GetEntityByName("Goblin_1");
+                var goblin2 = GetEntityByName("Goblin_2");
+
+                // Keep exactly one player alive for deterministic defeat check.
+                wizard.Team = Team.Enemy;
+
+                // Force enemy first + guaranteed hit/kill through real AI Strike path.
+                fighter.Wisdom = 1;
+                fighter.CurrentHP = 1;
+                goblin1.Wisdom = 5000;
+                goblin1.Level = 20;
+                goblin1.Strength = 100;
+                goblin2.Wisdom = 1;
+
+                MoveEntityToCell(goblin1, fighter.GridPosition + Vector3Int.right);
+
+                turnManager.StartCombat();
+
+                yield return WaitUntilOrTimeout(
+                    () => eventReceived,
+                    ActionDrivenTimeoutSeconds,
+                    "CombatEndedEvent was not raised for action-driven defeat.");
+                yield return WaitUntilOrTimeout(
+                    () => IsPanelVisible(panelCanvasGroup),
+                    ActionDrivenTimeoutSeconds,
+                    "Encounter panel did not appear for action-driven defeat.");
+
+                Assert.AreEqual(EncounterResult.Defeat, received);
+                Assert.AreEqual("Defeat", titleText.text);
+                Assert.AreEqual("All players defeated.", subtitleText.text);
+                Assert.AreEqual(TurnState.Inactive, turnManager.State);
+            }
+            finally
+            {
+                eventBus.OnCombatEndedTyped -= Handler;
+            }
+        }
+
         private void ResolveSceneReferences()
         {
             turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();
             entityManager = UnityEngine.Object.FindFirstObjectByType<EntityManager>();
             eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
+            playerActionExecutor = UnityEngine.Object.FindFirstObjectByType<PlayerActionExecutor>();
             panelController = UnityEngine.Object.FindFirstObjectByType<EncounterEndPanelController>();
 
             Assert.IsNotNull(turnManager, "TurnManager not found in SampleScene.");
             Assert.IsNotNull(entityManager, "EntityManager not found in SampleScene.");
             Assert.IsNotNull(eventBus, "CombatEventBus not found in SampleScene.");
+            Assert.IsNotNull(playerActionExecutor, "PlayerActionExecutor not found in SampleScene.");
             Assert.IsNotNull(panelController, "EncounterEndPanelController not found in SampleScene.");
 
             var panelGo = GameObject.Find("Canvas/EncounterEndPanel");
@@ -309,6 +434,39 @@ namespace PF2e.Tests
                 data.CurrentHP = 0;
                 entityManager.HandleDeath(data.Handle);
             }
+        }
+
+        private EntityData GetEntityByName(string name)
+        {
+            Assert.IsFalse(string.IsNullOrWhiteSpace(name), "Entity name must be provided.");
+
+            foreach (var data in entityManager.Registry.GetAll())
+            {
+                if (data == null) continue;
+                if (string.Equals(data.Name, name, StringComparison.Ordinal))
+                    return data;
+            }
+
+            Assert.Fail($"Entity '{name}' not found in registry.");
+            return null;
+        }
+
+        private void MoveEntityToCell(EntityData data, Vector3Int targetCell)
+        {
+            Assert.IsNotNull(data, "MoveEntityToCell received null EntityData.");
+
+            if (data.GridPosition == targetCell)
+                return;
+
+            bool moved = entityManager.Occupancy.Move(data.Handle, targetCell, data.SizeCells);
+            Assert.IsTrue(moved,
+                $"Failed to move '{data.Name}' to {targetCell} in test setup.");
+
+            data.GridPosition = targetCell;
+
+            var view = entityManager.GetView(data.Handle);
+            if (view != null)
+                view.transform.position = entityManager.GetEntityWorldPosition(targetCell);
         }
 
         private static bool IsPanelVisible(CanvasGroup canvasGroup)
