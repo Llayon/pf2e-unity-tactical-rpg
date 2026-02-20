@@ -1,4 +1,3 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -184,11 +183,6 @@ namespace PF2e.TurnSystem
                     yield return new WaitForSeconds(actionDelay);
                 }
 
-                ForceEndTurn(actor);
-            }
-            catch (Exception exception)
-            {
-                Debug.LogException(exception, this);
                 ForceEndTurn(actor);
             }
             finally
