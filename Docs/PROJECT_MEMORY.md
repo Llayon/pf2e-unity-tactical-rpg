@@ -60,6 +60,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | AI | Partial | Simple melee AI implemented; no advanced tactics/ranged/spell logic |
 | Save/load/progression | Not started | No persistence layer |
 | PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, and multi-round regression (movement + enemy AI + condition ticks); broader system-level coverage is still pending |
+| TurnManager action-lock tests (EditMode) | Done | EditMode now verifies lock metadata lifecycle (begin/complete/endcombat) and executing-actor action-cost ownership |
 | CI test automation | Partial | GitHub Actions (`.github/workflows/unity-tests.yml`) runs EditMode + PlayMode on push/PR to `master`; requires `UNITY_LICENSE` secret |
 
 ## Module Boundaries
