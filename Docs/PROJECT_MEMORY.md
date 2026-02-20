@@ -110,5 +110,52 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 2. Add one more authored content scene and verify it can switch between authored/preset encounter-flow modes without code changes.
 3. Add deterministic AI decision EditMode tests for low-HP focus and no-progress turn bail-out.
 
+## LLM-First Delivery Workflow (Multi-Agent)
+### Operating Model (for non-programmer project owner)
+- Product owner responsibilities: define outcome, approve scope, review playable behavior, and accept/reject by Definition of Done (DoD).
+- Agent responsibilities: produce plan/code/tests in constrained scopes; avoid making product decisions outside assigned task contracts.
+- Repository remains the single source of truth (not chat history): track roadmap, task state, and decisions in versioned markdown files.
+
+### Unified Task Contract (use with every agent)
+Use the same prompt structure for all agents to reduce drift:
+1. **Goal**: one clear outcome statement.
+2. **Scope**: allowed folders/files and systems.
+3. **Non-goals**: explicit exclusions.
+4. **DoD**: acceptance criteria in observable gameplay/behavior terms.
+5. **Validation**: required checks/tests to run and report.
+6. **Output format**: summary, changed files, risks, and follow-up tasks.
+
+### Agent Role Split
+- **Planner Agent**: decomposes feature into implementation steps, identifies architecture risks, and proposes task order.
+- **Builder Agent**: performs implementation exactly within approved scope.
+- **Verifier Agent**: independently runs checks/review against DoD and reports failures with reproduction steps.
+
+Recommended sequence per feature: **Plan -> Build -> Verify -> Fix -> Merge**.
+
+### Token-Budget Strategy
+- Low-context agents: micro-tasks (single script/class or one bug fix).
+- Mid-context agents: feature slices touching a few related files.
+- High-context agents: architecture/refactor work crossing multiple systems.
+
+Rule: if an agent exceeds context budget, split by subsystem boundary (`Core`, `Grid`, `TurnSystem`, `Presentation`) instead of continuing in one oversized pass.
+
+### Branch and Merge Protocol
+- One feature branch per task card.
+- One commit theme per PR (avoid mixed concerns).
+- Require verification evidence in PR body (commands + pass/fail output + warnings).
+- Prefer fast review loops: small PRs merged frequently over large periodic dumps.
+
+### Minimal Planning Artifacts
+- `Docs/ROADMAP.md`: phase-level objectives and milestone outcomes.
+- `Docs/TASKS.md`: prioritized backlog with status (`todo`, `in_progress`, `verify`, `done`) and assigned agent role.
+- Update both files when priorities or acceptance criteria change.
+
+### Suggested Weekly Cadence
+1. Prioritize 3-5 small MVP-critical tasks.
+2. Run Planner agent once on the weekly set.
+3. Execute Builder/Verifier loop per task.
+4. Demo current playable state and collect issues.
+5. Re-plan next week based on verification failures and demo feedback.
+
 ## Project Memory Maintenance Rule
 Whenever systems are added or behavior changes, update this file in the same change set with: what changed, scope impact, new assumptions, and checklist status.
