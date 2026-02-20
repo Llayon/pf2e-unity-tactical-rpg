@@ -1,6 +1,7 @@
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 using PF2e.Core;
 using PF2e.Managers;
 using PF2e.TurnSystem;
@@ -109,7 +110,17 @@ namespace PF2e.Tests
             var entityManagerGo = new GameObject($"{namePrefix}_EntityManager");
 
             var turnManager = turnManagerGo.AddComponent<TurnManager>();
-            var entityManager = entityManagerGo.AddComponent<EntityManager>();
+            EntityManager entityManager;
+            var oldIgnore = LogAssert.ignoreFailingMessages;
+            try
+            {
+                LogAssert.ignoreFailingMessages = true;
+                entityManager = entityManagerGo.AddComponent<EntityManager>();
+            }
+            finally
+            {
+                LogAssert.ignoreFailingMessages = oldIgnore;
+            }
             var registry = new EntityRegistry();
 
             SetPrivateField(turnManager, "entityManager", entityManager);
