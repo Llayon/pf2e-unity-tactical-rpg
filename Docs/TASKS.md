@@ -16,7 +16,8 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-010 | P0 | done | Builder | Migrate UI/gameplay subscribers from `TurnManager` events to `CombatEventBus` typed channels | `InitiativeBarController`, `MovementZoneVisualizer`, `TargetingController`, and encounter flow UI subscribe via typed bus |
 | T-011 | P0 | done | Builder | Deprecate and remove legacy `OnCombatEnded` path + `TurnManagerLogForwarder` | No runtime references to legacy combat-end event or legacy log forwarder remain |
 | T-012 | P1 | done | Builder | Align scene validator and editor autofix with typed-only event path | Validator/autofix stop requiring deprecated forwarder and cover typed forwarders/components |
-| T-013 | P1 | verify | Verifier | Add/refresh regression checks for typed event flow and combat-end UX | EditMode/PlayMode checks prove encounter end + turn UI still react correctly after migration |
+| T-013 | P1 | done | Verifier | Add/refresh regression checks for typed event flow and combat-end UX | EditMode/PlayMode checks prove encounter end + turn UI still react correctly after migration |
+| T-014 | P1 | todo | Builder | Remove temporary `AITurnController` legacy TurnManager fallback and enforce strict bus wiring | `AITurnController` listens only to typed bus events; scene wiring/validator/autofix updated; tests stay green |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal
