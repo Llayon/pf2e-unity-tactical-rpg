@@ -376,7 +376,17 @@ public static class PF2eSceneDependencyValidator
         var all = UnityEngine.Object.FindObjectsByType<T>(FindObjectsSortMode.None);
         if (all == null || all.Length == 0) return 0;
 
-        Debug.LogWarning($"[PF2eValidator] {message} Found: {all.Length}.");
+        int activeCount = 0;
+        for (int i = 0; i < all.Length; i++)
+        {
+            if (all[i] is Behaviour behaviour && !behaviour.enabled)
+                continue;
+            activeCount++;
+        }
+
+        if (activeCount <= 0) return 0;
+
+        Debug.LogWarning($"[PF2eValidator] {message} Found: {activeCount}.");
         return 1;
     }
 
