@@ -63,7 +63,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Save/load/progression | Not started | No persistence layer |
 | PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, cross-scene prefab encounter-flow smoke coverage, and multi-round regression (movement + enemy AI + condition ticks); broader system-level coverage is still pending |
 | TurnManager action-lock tests (EditMode) | Done | EditMode now verifies lock metadata lifecycle (begin/complete/endcombat) and executing-actor action-cost ownership |
-| CI test automation | Partial | GitHub Actions (`.github/workflows/unity-tests.yml`) runs EditMode + PlayMode on push/PR to `master`; requires `UNITY_LICENSE` secret |
+| CI test automation | Done | GitHub Actions (`.github/workflows/unity-tests.yml`) runs EditMode + PlayMode on push/PR to `master`; branch protection on `master` requires `Unity Tests` |
 
 ## Module Boundaries
 - `PF2e.Core`: deterministic rules/data only. No UI concerns.
@@ -82,6 +82,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 
 ## Do Not Break Contracts and Assumptions
 - Build settings keep `Assets/Scenes/SampleScene.unity` as bootstrap scene (index 0); `Assets/Scenes/EncounterFlowPrefabScene.unity` is index 1 for cross-scene UI reuse coverage.
+- `master` branch protection requires successful `Unity Tests` checks before merge.
 - `TurnManager` action execution contract: use `BeginActionExecution` + `CompleteActionWithCost` for atomic cost/state transitions.
 - `TurnManager` action lock tracking contract: if execution starts, lock metadata (`ExecutingActor`, `ExecutingActionSource`, duration) must be reset on completion/rollback/combat end.
 - `TurnManager` combat-end contract: keep both `OnCombatEnded` (legacy) and `OnCombatEndedWithResult` (typed result path).
@@ -105,9 +106,9 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Duplicate-looking armor asset naming (`GoblinArmor_.asset`) should be normalized later.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Add branch protection requiring `Unity Tests` workflow on pull requests.
-2. Extend AI from nearest-melee to basic priority rules (focus low HP, avoid no-progress turns, support ranged enemy profiles).
-3. Add one more authored content scene and verify it can switch between authored/preset encounter-flow modes without code changes.
+1. Extend AI from nearest-melee to basic priority rules (focus low HP, avoid no-progress turns, support ranged enemy profiles).
+2. Add one more authored content scene and verify it can switch between authored/preset encounter-flow modes without code changes.
+3. Add deterministic AI decision EditMode tests for low-HP focus and no-progress turn bail-out.
 
 ## Project Memory Maintenance Rule
 Whenever systems are added or behavior changes, update this file in the same change set with: what changed, scope impact, new assumptions, and checklist status.
