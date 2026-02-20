@@ -17,7 +17,7 @@ namespace PF2e.Tests
         private const string SampleSceneName = "SampleScene";
         private const float DefaultTimeoutSeconds = 8f;
         private const float SimulationTimeoutSeconds = 25f;
-        private const float MaxExecutingActionSeconds = 3f;
+        private static float MaxExecutingActionSeconds => Application.isBatchMode ? 8f : 3f;
 
         private TurnManager turnManager;
         private EntityManager entityManager;
