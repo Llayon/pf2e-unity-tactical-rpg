@@ -110,17 +110,8 @@ namespace PF2e.Tests
             var entityManagerGo = new GameObject($"{namePrefix}_EntityManager");
 
             var turnManager = turnManagerGo.AddComponent<TurnManager>();
-            EntityManager entityManager;
-            var oldIgnore = LogAssert.ignoreFailingMessages;
-            try
-            {
-                LogAssert.ignoreFailingMessages = true;
-                entityManager = entityManagerGo.AddComponent<EntityManager>();
-            }
-            finally
-            {
-                LogAssert.ignoreFailingMessages = oldIgnore;
-            }
+            LogAssert.Expect(LogType.Error, "[EntityManager] Missing reference: GridManager. Assign it in Inspector.");
+            var entityManager = entityManagerGo.AddComponent<EntityManager>();
             var registry = new EntityRegistry();
 
             SetPrivateField(turnManager, "entityManager", entityManager);

@@ -23,6 +23,7 @@ namespace PF2e.Presentation
         [Header("UI")]
         [SerializeField] private Button startEncounterButton;
         [SerializeField] private Button endEncounterButton;
+        [SerializeField] private RectTransform encounterFlowPanelPrefab;
         [SerializeField] private bool autoCreateRuntimeButtons = false;
 
         private RectTransform runtimePanel;
@@ -40,6 +41,10 @@ namespace PF2e.Presentation
                     Debug.LogWarning("[EncounterFlow] startEncounterButton is not assigned (authoring mode).", this);
                 if (endEncounterButton == null)
                     Debug.LogWarning("[EncounterFlow] endEncounterButton is not assigned (authoring mode).", this);
+            }
+            else if (encounterFlowPanelPrefab == null)
+            {
+                Debug.LogWarning("[EncounterFlow] autoCreateRuntimeButtons is enabled without encounterFlowPanelPrefab. Falling back to generated runtime panel.", this);
             }
         }
 #endif
@@ -185,11 +190,22 @@ namespace PF2e.Presentation
             if (existing != null)
             {
                 runtimePanel = existing;
-                if (startEncounterButton == null)
-                    startEncounterButton = runtimePanel.Find("StartEncounterButton")?.GetComponent<Button>();
-                if (endEncounterButton == null)
-                    endEncounterButton = runtimePanel.Find("EndEncounterButton")?.GetComponent<Button>();
+                TryWireButtonsFromRuntimePanel();
                 return;
+            }
+
+            if (encounterFlowPanelPrefab != null)
+            {
+                runtimePanel = Instantiate(encounterFlowPanelPrefab, rootCanvas.transform, false);
+                runtimePanel.name = encounterFlowPanelPrefab.name;
+                TryWireButtonsFromRuntimePanel();
+
+                if (startEncounterButton != null && endEncounterButton != null)
+                    return;
+
+                Debug.LogWarning("[EncounterFlow] Prefab panel is missing StartEncounterButton/EndEncounterButton. Falling back to generated runtime panel.", this);
+                Destroy(runtimePanel.gameObject);
+                runtimePanel = null;
             }
 
             var panelGo = new GameObject("EncounterFlowPanel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
@@ -216,6 +232,18 @@ namespace PF2e.Presentation
             var fitter = panelGo.GetComponent<ContentSizeFitter>();
             fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        }
+
+        private void TryWireButtonsFromRuntimePanel()
+        {
+            if (runtimePanel == null)
+                return;
+
+            if (startEncounterButton == null)
+                startEncounterButton = runtimePanel.Find("StartEncounterButton")?.GetComponent<Button>();
+
+            if (endEncounterButton == null)
+                endEncounterButton = runtimePanel.Find("EndEncounterButton")?.GetComponent<Button>();
         }
 
         private Button FindOrCreateButton(string name, string label)

@@ -125,6 +125,63 @@ namespace PF2e.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator GT_P17_PM_303_AutoCreate_UsesPrefabTemplate_WhenAuthoringPanelMissing()
+        {
+            var canvas = ReadPrivateField<Canvas>(encounterFlowController, "rootCanvas");
+            Assert.IsNotNull(canvas, "EncounterFlowController rootCanvas must be assigned.");
+
+            var authoredPanel = canvas.transform.Find("EncounterFlowPanel") as RectTransform;
+            Assert.IsNotNull(authoredPanel, "Authored EncounterFlowPanel should exist in SampleScene.");
+
+            var templateRoot = new GameObject("EncounterFlowTemplateRoot");
+            var templatePanel = UnityEngine.Object.Instantiate(authoredPanel, templateRoot.transform, false);
+            templatePanel.name = "EncounterFlowPanel";
+
+            try
+            {
+                encounterFlowController.enabled = false;
+                yield return null;
+
+                SetPrivateField(encounterFlowController, "startEncounterButton", null);
+                SetPrivateField(encounterFlowController, "endEncounterButton", null);
+                SetPrivateField(encounterFlowController, "encounterFlowPanelPrefab", templatePanel);
+                SetPrivateField(encounterFlowController, "autoCreateRuntimeButtons", true);
+
+                UnityEngine.Object.Destroy(authoredPanel.gameObject);
+                yield return null;
+
+                Assert.IsNull(canvas.transform.Find("EncounterFlowPanel"), "Authored EncounterFlowPanel should be removed before auto-create fallback.");
+
+                encounterFlowController.enabled = true;
+                yield return WaitUntilOrTimeout(
+                    () => TryResolveButtons(out startEncounterButton, out endEncounterButton),
+                    TimeoutSeconds,
+                    "Auto-create fallback did not recreate encounter flow buttons.");
+
+                var runtimePanel = canvas.transform.Find("EncounterFlowPanel") as RectTransform;
+                Assert.IsNotNull(runtimePanel, "Runtime EncounterFlowPanel should exist after prefab fallback.");
+                Assert.AreNotEqual(templatePanel, runtimePanel, "Controller should instantiate a new runtime panel from template.");
+
+                startEncounterButton.onClick.Invoke();
+                yield return WaitUntilOrTimeout(
+                    () => turnManager.State == TurnState.PlayerTurn || turnManager.State == TurnState.EnemyTurn,
+                    TimeoutSeconds,
+                    "Start button from prefab fallback panel did not start combat.");
+
+                endEncounterButton.onClick.Invoke();
+                yield return WaitUntilOrTimeout(
+                    () => turnManager.State == TurnState.Inactive,
+                    TimeoutSeconds,
+                    "End button from prefab fallback panel did not end combat.");
+            }
+            finally
+            {
+                if (templateRoot != null)
+                    UnityEngine.Object.Destroy(templateRoot);
+            }
+        }
+
         private static bool TryResolveButtons(out Button startButton, out Button endButton)
         {
             startButton = GameObject.Find("Canvas/EncounterFlowPanel/StartEncounterButton")?.GetComponent<Button>();
@@ -141,6 +198,15 @@ namespace PF2e.Tests
 
             object value = field.GetValue(target);
             return (T)value;
+        }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            Assert.IsNotNull(target, $"SetPrivateField target is null for '{fieldName}'.");
+            var type = target.GetType();
+            var field = type.GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(field, $"Field '{fieldName}' was not found on {type.Name}.");
+            field.SetValue(target, value);
         }
 
         private static IEnumerator WaitUntilOrTimeout(Func<bool> predicate, float timeoutSeconds, string timeoutReason)

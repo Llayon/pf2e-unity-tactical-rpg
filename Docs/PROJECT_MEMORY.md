@@ -37,7 +37,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - High scene wiring coupling: `CombatController`, `TacticalGrid`, `EntityManager`, `CombatEventBus` must all be correctly referenced.
 - Runtime dependency chain is tight (`TurnManager -> EntityManager -> GridManager`; input and visualizers depend on both).
 - Hybrid event architecture (typed events + string log forwarders) can drift if contracts are broken.
-- Encounter flow depends on authored UI wiring (`Canvas/EncounterFlowPanel/*`) staying intact.
+- Encounter flow defaults to authored UI wiring; runtime fallback can now reuse `Assets/Prefabs/EncounterFlowPanel.prefab`.
 - `EntityManager` mixes runtime orchestration with test spawning data responsibilities.
 
 ### D) Missing Foundations for Vertical Slice
@@ -55,11 +55,11 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Player actions (Stride/Strike/Stand) | Partial | Core actions implemented; no broader action set |
 | PF2e strike/damage basics | Partial | Melee-focused MVP; ranged/spells not implemented |
 | Conditions | Partial | Basic list + tick rules; simplified behavior |
-| Combat/UI presentation | Partial | Turn HUD, log, initiative, floating damage, and end-of-encounter panel are present |
+| Combat/UI presentation | Partial | Turn HUD, log, initiative, floating damage, and end-of-encounter panel are present; encounter flow panel is extracted as reusable prefab |
 | Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter authoring still manual |
 | AI | Partial | Simple melee AI implemented; no advanced tactics/ranged/spell logic |
 | Save/load/progression | Not started | No persistence layer |
-| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, and multi-round regression (movement + enemy AI + condition ticks); broader system-level coverage is still pending |
+| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, and multi-round regression (movement + enemy AI + condition ticks); broader system-level coverage is still pending |
 | TurnManager action-lock tests (EditMode) | Done | EditMode now verifies lock metadata lifecycle (begin/complete/endcombat) and executing-actor action-cost ownership |
 | CI test automation | Partial | GitHub Actions (`.github/workflows/unity-tests.yml`) runs EditMode + PlayMode on push/PR to `master`; requires `UNITY_LICENSE` secret |
 
@@ -92,7 +92,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 
 ## Known Issues / TODOs
 - AI is intentionally minimal: nearest-target melee only, same-elevation targeting, no tactical scoring.
-- Encounter flow UI is authored directly in `SampleScene`; prefab extraction/reuse is still pending.
+- `SampleScene` still uses authored encounter-flow button references by default, while `EncounterFlowController` can now instantiate `Assets/Prefabs/EncounterFlowPanel.prefab` for new scenes.
 - Restart is scene-reload based (`SceneManager.LoadScene`) and intentionally simple for MVP.
 - Condition model has known simplification TODO (value + duration model evolution).
 - Input System package exists, but most gameplay input is polled directly from keyboard/mouse.
@@ -102,7 +102,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Duplicate-looking armor asset naming (`GoblinArmor_.asset`) should be normalized later.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Extract `EncounterFlowPanel` to a reusable prefab and reuse across scenes.
+1. Wire a second scene to `EncounterFlowPanel.prefab` and validate cross-scene encounter-flow setup.
 2. Add branch protection requiring `Unity Tests` workflow on pull requests.
 3. Extend AI from nearest-melee to basic priority rules (focus low HP, avoid no-progress turns, support ranged enemy profiles).
 
