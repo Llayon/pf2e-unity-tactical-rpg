@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using PF2e.TurnSystem;
+
 namespace PF2e.Core
 {
     public enum EncounterResult : byte
@@ -47,6 +50,28 @@ namespace PF2e.Core
         {
             this.actor = actor;
             this.remaining = remaining;
+        }
+    }
+
+    public readonly struct ConditionsTickedEvent
+    {
+        public readonly EntityHandle actor;
+        public readonly IReadOnlyList<ConditionTick> ticks;
+
+        public ConditionsTickedEvent(EntityHandle actor, IReadOnlyList<ConditionTick> ticks)
+        {
+            this.actor = actor;
+            this.ticks = ticks;
+        }
+    }
+
+    public readonly struct InitiativeRolledEvent
+    {
+        public readonly IReadOnlyList<InitiativeEntry> order;
+
+        public InitiativeRolledEvent(IReadOnlyList<InitiativeEntry> order)
+        {
+            this.order = order;
         }
     }
 }

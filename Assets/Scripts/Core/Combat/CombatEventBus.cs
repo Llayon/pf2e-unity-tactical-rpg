@@ -96,6 +96,8 @@ namespace PF2e.Core
         public delegate void TurnStartedHandler(in TurnStartedEvent e);
         public delegate void TurnEndedHandler(in TurnEndedEvent e);
         public delegate void ActionsChangedHandler(in ActionsChangedEvent e);
+        public delegate void ConditionsTickedHandler(in ConditionsTickedEvent e);
+        public delegate void InitiativeRolledHandler(in InitiativeRolledEvent e);
 
         public event CombatStartedHandler OnCombatStartedTyped;
         public event CombatEndedHandler OnCombatEndedTyped;
@@ -103,6 +105,8 @@ namespace PF2e.Core
         public event TurnStartedHandler OnTurnStartedTyped;
         public event TurnEndedHandler OnTurnEndedTyped;
         public event ActionsChangedHandler OnActionsChangedTyped;
+        public event ConditionsTickedHandler OnConditionsTickedTyped;
+        public event InitiativeRolledHandler OnInitiativeRolledTyped;
 
         public void PublishCombatStarted()
         {
@@ -138,6 +142,18 @@ namespace PF2e.Core
         {
             var e = new ActionsChangedEvent(actor, remaining);
             OnActionsChangedTyped?.Invoke(in e);
+        }
+
+        public void PublishConditionsTicked(EntityHandle actor, System.Collections.Generic.IReadOnlyList<ConditionTick> ticks)
+        {
+            var e = new ConditionsTickedEvent(actor, ticks);
+            OnConditionsTickedTyped?.Invoke(in e);
+        }
+
+        public void PublishInitiativeRolled(System.Collections.Generic.IReadOnlyList<PF2e.TurnSystem.InitiativeEntry> order)
+        {
+            var e = new InitiativeRolledEvent(order);
+            OnInitiativeRolledTyped?.Invoke(in e);
         }
         #endregion
 

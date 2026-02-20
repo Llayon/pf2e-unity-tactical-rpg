@@ -39,6 +39,8 @@ namespace PF2e.Presentation
             turnManager.OnTurnStarted += HandleTurnStarted;
             turnManager.OnTurnEnded += HandleTurnEnded;
             turnManager.OnActionsChanged += HandleActionsChanged;
+            turnManager.OnConditionsTicked += HandleConditionsTicked;
+            turnManager.OnInitiativeRolled += HandleInitiativeRolled;
         }
 
         private void OnDisable()
@@ -50,25 +52,31 @@ namespace PF2e.Presentation
             turnManager.OnTurnStarted -= HandleTurnStarted;
             turnManager.OnTurnEnded -= HandleTurnEnded;
             turnManager.OnActionsChanged -= HandleActionsChanged;
+            turnManager.OnConditionsTicked -= HandleConditionsTicked;
+            turnManager.OnInitiativeRolled -= HandleInitiativeRolled;
         }
 
-        private void HandleCombatStarted() => eventBus.PublishCombatStarted();
-        private void HandleCombatEnded(EncounterResult result) => eventBus.PublishCombatEnded(result);
-        private void HandleRoundStarted(int round) => eventBus.PublishRoundStarted(round);
+        private void HandleCombatStarted(CombatStartedEvent _) => eventBus.PublishCombatStarted();
+        private void HandleCombatEnded(CombatEndedEvent e) => eventBus.PublishCombatEnded(e.result);
+        private void HandleRoundStarted(RoundStartedEvent e) => eventBus.PublishRoundStarted(e.round);
 
-        private void HandleTurnStarted(EntityHandle actor)
+        private void HandleTurnStarted(TurnStartedEvent e)
         {
-            int actionsAtStart = turnManager.ActionsRemaining;
-            eventBus.PublishTurnStarted(actor, actionsAtStart);
+            eventBus.PublishTurnStarted(e.actor, e.actionsAtStart);
         }
 
-        private void HandleTurnEnded(EntityHandle actor) => eventBus.PublishTurnEnded(actor);
+        private void HandleTurnEnded(TurnEndedEvent e) => eventBus.PublishTurnEnded(e.actor);
 
-        private void HandleActionsChanged(int remaining)
+        private void HandleActionsChanged(ActionsChangedEvent e)
         {
-            var actor = turnManager.CurrentEntity;
-            if (!actor.IsValid) return;
-            eventBus.PublishActionsChanged(actor, remaining);
+            if (!e.actor.IsValid) return;
+            eventBus.PublishActionsChanged(e.actor, e.remaining);
         }
+
+        private void HandleConditionsTicked(ConditionsTickedEvent e)
+            => eventBus.PublishConditionsTicked(e.actor, e.ticks);
+
+        private void HandleInitiativeRolled(InitiativeRolledEvent e)
+            => eventBus.PublishInitiativeRolled(e.order);
     }
 }

@@ -81,14 +81,14 @@ namespace PF2e.TurnSystem
 
         // ─── Events ───────────────────────────────────────────────────────────
 
-        public event Action                                   OnCombatStarted;
-        public event Action<EncounterResult>                  OnCombatEndedWithResult;
-        public event Action<int>                              OnRoundStarted;         // roundNumber
-        public event Action<EntityHandle>                     OnTurnStarted;          // entityHandle
-        public event Action<EntityHandle>                     OnTurnEnded;            // entityHandle
-        public event Action<int>                              OnActionsChanged;       // actionsRemaining
-        public event Action<EntityHandle, IReadOnlyList<ConditionTick>> OnConditionsTicked;
-        public event Action<IReadOnlyList<InitiativeEntry>>   OnInitiativeRolled;
+        public event Action<CombatStartedEvent>               OnCombatStarted;
+        public event Action<CombatEndedEvent>                 OnCombatEndedWithResult;
+        public event Action<RoundStartedEvent>                OnRoundStarted;
+        public event Action<TurnStartedEvent>                 OnTurnStarted;
+        public event Action<TurnEndedEvent>                   OnTurnEnded;
+        public event Action<ActionsChangedEvent>              OnActionsChanged;
+        public event Action<ConditionsTickedEvent>            OnConditionsTicked;
+        public event Action<InitiativeRolledEvent>            OnInitiativeRolled;
 
         // ─── Public Methods ───────────────────────────────────────────────────
 
@@ -117,8 +117,8 @@ namespace PF2e.TurnSystem
 
             state = TurnState.RollingInitiative;
             RollInitiative();
-            OnCombatStarted?.Invoke();
-            OnInitiativeRolled?.Invoke(initiativeOrder);
+            OnCombatStarted?.Invoke(default);
+            OnInitiativeRolled?.Invoke(new InitiativeRolledEvent(initiativeOrder));
             roundNumber = 0;
             StartNextRound();
         }
@@ -142,10 +142,10 @@ namespace PF2e.TurnSystem
                 data.EndTurn(conditionTickBuffer);
 
                 if (conditionTickBuffer.Count > 0)
-                    OnConditionsTicked?.Invoke(endingEntity, conditionTickBuffer);
+                    OnConditionsTicked?.Invoke(new ConditionsTickedEvent(endingEntity, conditionTickBuffer));
             }
 
-            OnTurnEnded?.Invoke(endingEntity);
+            OnTurnEnded?.Invoke(new TurnEndedEvent(endingEntity));
 
             // End encounter immediately when one side is wiped.
             if (CheckVictory()) return;
@@ -170,7 +170,7 @@ namespace PF2e.TurnSystem
             if (data == null || data.ActionsRemaining < cost) return false;
 
             data.SpendActions(cost);
-            OnActionsChanged?.Invoke(data.ActionsRemaining);
+            OnActionsChanged?.Invoke(new ActionsChangedEvent(CurrentEntity, data.ActionsRemaining));
 
             if (data.ActionsRemaining <= 0)
                 EndTurn();
@@ -233,7 +233,7 @@ namespace PF2e.TurnSystem
             if (ActionsRemaining <= 0)
                 EndTurn();
             else
-                OnActionsChanged?.Invoke(ActionsRemaining);
+                OnActionsChanged?.Invoke(new ActionsChangedEvent(CurrentEntity, ActionsRemaining));
         }
 
         /// <summary>
@@ -264,7 +264,7 @@ namespace PF2e.TurnSystem
 
             // 3) Notify action count change
             int remaining = (data != null) ? data.ActionsRemaining : ActionsRemaining;
-            OnActionsChanged?.Invoke(remaining);
+            OnActionsChanged?.Invoke(new ActionsChangedEvent(actionActor, remaining));
 
             // 4) Auto-EndTurn if drained
             if (remaining <= 0 && CurrentEntity == actionActor)
@@ -283,7 +283,7 @@ namespace PF2e.TurnSystem
             if (entityManager != null)
                 entityManager.DeselectEntity();
 
-            OnCombatEndedWithResult?.Invoke(result);
+            OnCombatEndedWithResult?.Invoke(new CombatEndedEvent(result));
 
             // Full reset
             state = TurnState.Inactive;
@@ -349,7 +349,7 @@ namespace PF2e.TurnSystem
                 return;
             }
 
-            OnRoundStarted?.Invoke(roundNumber);
+            OnRoundStarted?.Invoke(new RoundStartedEvent(roundNumber));
             StartCurrentTurn();
         }
 
@@ -380,8 +380,8 @@ namespace PF2e.TurnSystem
             if (entityManager != null)
                 entityManager.SelectEntity(entry.Handle);
 
-            OnTurnStarted?.Invoke(entry.Handle);
-            OnActionsChanged?.Invoke(data.ActionsRemaining);
+            OnTurnStarted?.Invoke(new TurnStartedEvent(entry.Handle, data.ActionsRemaining));
+            OnActionsChanged?.Invoke(new ActionsChangedEvent(entry.Handle, data.ActionsRemaining));
 
             Debug.Log($"[TurnManager] Round {roundNumber} — {data.Name} ({data.Team}) starts turn. Actions: {data.ActionsRemaining}");
         }

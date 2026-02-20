@@ -293,7 +293,6 @@ public static class PF2eSceneDependencyValidator
 
     private static void ValidateConditionTickForwarder(ConditionTickForwarder f, ref int errors, ref int warnings)
     {
-        errors += RequireRef(f, "turnManager", "TurnManager");
         errors += RequireRef(f, "eventBus", "CombatEventBus");
     }
 
@@ -310,6 +309,7 @@ public static class PF2eSceneDependencyValidator
     private static void ValidateAITurnController(AITurnController ai, ref int errors, ref int warnings)
     {
         errors += RequireRef(ai, "turnManager", "TurnManager");
+        errors += RequireRef(ai, "eventBus", "CombatEventBus");
         errors += RequireRef(ai, "entityManager", "EntityManager");
         errors += RequireRef(ai, "gridManager", "GridManager");
         errors += RequireRef(ai, "strideAction", "StrideAction");
@@ -560,7 +560,6 @@ public static class PF2eSceneDependencyValidator
             fixedCount += FixAll<StandAction>("eventBus", eventBus);
 
         // ConditionTickForwarder (Phase 15B)
-        fixedCount += FixAll<ConditionTickForwarder>("turnManager", turnManager);
         if (eventBus != null)
             fixedCount += FixAll<ConditionTickForwarder>("eventBus", eventBus);
 
@@ -575,6 +574,8 @@ public static class PF2eSceneDependencyValidator
 
         // AITurnController (Phase 16)
         fixedCount += FixAll<AITurnController>("turnManager", turnManager);
+        if (eventBus != null)
+            fixedCount += FixAll<AITurnController>("eventBus", eventBus);
         fixedCount += FixAll<AITurnController>("entityManager", entityManager);
         fixedCount += FixAll<AITurnController>("gridManager", gridManager);
         if (strideAction != null)

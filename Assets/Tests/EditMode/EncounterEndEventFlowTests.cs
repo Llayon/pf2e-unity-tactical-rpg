@@ -56,10 +56,10 @@ namespace PF2e.Tests
                 EncounterResult received = EncounterResult.Unknown;
                 bool called = false;
 
-                turnManager.OnCombatEndedWithResult += result =>
+                turnManager.OnCombatEndedWithResult += e =>
                 {
                     called = true;
-                    received = result;
+                    received = e.result;
                 };
 
                 turnManager.EndCombat();
@@ -94,7 +94,7 @@ namespace PF2e.Tests
                 registry.Register(CreateEntity(Team.Enemy, alive: false));
 
                 EncounterResult received = EncounterResult.Unknown;
-                turnManager.OnCombatEndedWithResult += result => received = result;
+                turnManager.OnCombatEndedWithResult += e => received = e.result;
 
                 bool ended = InvokeCheckVictory(turnManager);
 
@@ -130,7 +130,7 @@ namespace PF2e.Tests
                 registry.Register(CreateEntity(Team.Enemy, alive: true));
 
                 EncounterResult received = EncounterResult.Unknown;
-                turnManager.OnCombatEndedWithResult += result => received = result;
+                turnManager.OnCombatEndedWithResult += e => received = e.result;
 
                 bool ended = InvokeCheckVictory(turnManager);
 
