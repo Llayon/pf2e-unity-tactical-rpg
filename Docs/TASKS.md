@@ -12,6 +12,11 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-006 | P0 | todo | Planner | Define scope for AI target-priority upgrade (low HP focus + no-progress bail-out) | Task contract names impacted files, invariants, and validation commands |
 | T-007 | P0 | todo | Builder | Implement AI target-priority MVP upgrade in `SimpleMeleeAIDecision`/`AITurnController` | Enemy target selection is deterministic and avoids no-progress turn loops |
 | T-008 | P1 | todo | Verifier | Add deterministic EditMode coverage for AI target-priority and no-progress guards | New tests fail on regressions and pass in CI |
+| T-009 | P0 | done | Planner | Lock typed-events migration contract and update memory/roadmap/task docs | Project memory + roadmap + task board reflect typed-only direction and migration sequence |
+| T-010 | P0 | done | Builder | Migrate UI/gameplay subscribers from `TurnManager` events to `CombatEventBus` typed channels | `InitiativeBarController`, `MovementZoneVisualizer`, `TargetingController`, and encounter flow UI subscribe via typed bus |
+| T-011 | P0 | done | Builder | Deprecate and remove legacy `OnCombatEnded` path + `TurnManagerLogForwarder` | No runtime references to legacy combat-end event or legacy log forwarder remain |
+| T-012 | P1 | done | Builder | Align scene validator and editor autofix with typed-only event path | Validator/autofix stop requiring deprecated forwarder and cover typed forwarders/components |
+| T-013 | P1 | verify | Verifier | Add/refresh regression checks for typed event flow and combat-end UX | EditMode/PlayMode checks prove encounter end + turn UI still react correctly after migration |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

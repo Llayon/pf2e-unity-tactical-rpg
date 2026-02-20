@@ -38,7 +38,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 ### C) Key Dependencies and Risks
 - High scene wiring coupling: `CombatController`, `TacticalGrid`, `EntityManager`, `CombatEventBus` must all be correctly referenced.
 - Runtime dependency chain is tight (`TurnManager -> EntityManager -> GridManager`; input and visualizers depend on both).
-- Hybrid event architecture (typed events + string log forwarders) can drift if contracts are broken.
+- Runtime subscriber migration is complete for core UI/controllers: consumers now listen through typed `CombatEventBus` channels; thin adapters (`TurnManagerTypedForwarder`, `ConditionTickForwarder`) remain by design.
 - Encounter flow can be centralized via `Assets/Data/EncounterFlowUIPreset_RuntimeFallback.asset`; scenes opt in through `EncounterFlowController.useFlowPreset`.
 - `EntityManager` mixes runtime orchestration with test spawning data responsibilities.
 
@@ -58,6 +58,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | PF2e strike/damage basics | Partial | Melee-focused MVP; ranged/spells not implemented |
 | Conditions | Partial | Basic list + tick rules; simplified behavior |
 | Combat/UI presentation | Partial | Turn HUD, log, initiative, floating damage, and end-of-encounter panel are present; encounter flow panel is reusable and can be driven by shared preset |
+| Typed event routing | Partial | Runtime consumers moved to typed `CombatEventBus`; legacy/deprecation cleanup verification is pending (`T-013`) |
 | Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter flow runtime fallback now has a shared UI preset |
 | AI | Partial | Simple melee AI implemented; no advanced tactics/ranged/spell logic |
 | Save/load/progression | Not started | No persistence layer |
@@ -79,13 +80,14 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - ScriptableObjects for authored config/data (`Assets/Data/...`).
 - Keep pure rule logic in plain C# classes/structs; keep scene behavior in MonoBehaviours.
 - Add/extend typed bus events before adding UI-specific direct dependencies.
+- Cross-module/runtime subscribers (UI, visualizers, flow controllers) should listen to `CombatEventBus` typed events, not `TurnManager` events.
 
 ## Do Not Break Contracts and Assumptions
 - Build settings keep `Assets/Scenes/SampleScene.unity` as bootstrap scene (index 0); `Assets/Scenes/EncounterFlowPrefabScene.unity` is index 1 for cross-scene UI reuse coverage.
-- `master` branch protection requires successful `Unity Tests` checks before merge.
+- `master` branch protection requires successful `EditMode` and `PlayMode` checks before merge.
 - `TurnManager` action execution contract: use `BeginActionExecution` + `CompleteActionWithCost` for atomic cost/state transitions.
 - `TurnManager` action lock tracking contract: if execution starts, lock metadata (`ExecutingActor`, `ExecutingActionSource`, duration) must be reset on completion/rollback/combat end.
-- `TurnManager` combat-end contract: keep both `OnCombatEnded` (legacy) and `OnCombatEndedWithResult` (typed result path).
+- `TurnManager` combat-end contract: only typed result path (`OnCombatEndedWithResult` / `EncounterResult`) is supported.
 - `EncounterFlowController` defaults to authored references (`autoCreateRuntimeButtons=false`); runtime auto-create is fallback only.
 - When `EncounterFlowController.useFlowPreset` is enabled, `flowPreset` becomes source-of-truth for runtime fallback fields.
 - `StrideAction` commits occupancy/entity position before animation; `EntityMover` is visual-only.
@@ -104,11 +106,12 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - PlayMode regression now covers multi-round movement/AI/condition-tick flow, but does not yet cover advanced combat domains (ranged/spells/reactions).
 - Combat round regression deadlock assertions now combine lock duration with turn-progress signals to reduce CI timing flakes while still detecting real stuck locks.
 - Duplicate-looking armor asset naming (`GoblinArmor_.asset`) should be normalized later.
+- Deprecated `TurnManagerLogForwarder` is retained only as a disabled compatibility stub for existing scenes; do not use it for new work.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Extend AI from nearest-melee to basic priority rules (focus low HP, avoid no-progress turns, support ranged enemy profiles).
-2. Add one more authored content scene and verify it can switch between authored/preset encounter-flow modes without code changes.
-3. Add deterministic AI decision EditMode tests for low-HP focus and no-progress turn bail-out.
+1. Complete verification for typed-event consolidation (`T-013`): run EditMode + PlayMode and capture evidence.
+2. Optionally remove deprecated `TurnManagerLogForwarder` script file and scene object entries after one release cycle (currently disabled only).
+3. Continue AI target-priority work (`T-006..T-008`) after typed-event regression pass is green.
 
 ## LLM-First Delivery Workflow (Multi-Agent)
 ### Operating Model (for non-programmer project owner)
