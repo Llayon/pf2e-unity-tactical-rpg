@@ -2,6 +2,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using PF2e.Core;
+using PF2e.Data;
 using PF2e.Managers;
 using PF2e.TurnSystem;
 
@@ -20,6 +21,10 @@ namespace PF2e.Presentation
         [SerializeField] private EntityManager entityManager;
         [SerializeField] private Canvas rootCanvas;
 
+        [Header("Preset")]
+        [SerializeField] private bool useFlowPreset = false;
+        [SerializeField] private EncounterFlowUIPreset flowPreset;
+
         [Header("UI")]
         [SerializeField] private Button startEncounterButton;
         [SerializeField] private Button endEncounterButton;
@@ -31,9 +36,13 @@ namespace PF2e.Presentation
 #if UNITY_EDITOR
         private void OnValidate()
         {
+            ApplyFlowPresetIfEnabled();
+
             if (turnManager == null) Debug.LogError("[EncounterFlow] Missing TurnManager", this);
             if (entityManager == null) Debug.LogError("[EncounterFlow] Missing EntityManager", this);
             if (rootCanvas == null) Debug.LogError("[EncounterFlow] Missing root Canvas", this);
+            if (useFlowPreset && flowPreset == null)
+                Debug.LogWarning("[EncounterFlow] useFlowPreset is enabled but flowPreset is not assigned.", this);
 
             if (!autoCreateRuntimeButtons)
             {
@@ -51,6 +60,8 @@ namespace PF2e.Presentation
 
         private void OnEnable()
         {
+            ApplyFlowPresetIfEnabled();
+
             if (turnManager == null || entityManager == null || rootCanvas == null)
             {
                 Debug.LogError("[EncounterFlow] Missing dependencies. Disabling.", this);
@@ -244,6 +255,15 @@ namespace PF2e.Presentation
 
             if (endEncounterButton == null)
                 endEncounterButton = runtimePanel.Find("EndEncounterButton")?.GetComponent<Button>();
+        }
+
+        private void ApplyFlowPresetIfEnabled()
+        {
+            if (!useFlowPreset || flowPreset == null)
+                return;
+
+            autoCreateRuntimeButtons = flowPreset.autoCreateRuntimeButtons;
+            encounterFlowPanelPrefab = flowPreset.encounterFlowPanelPrefab;
         }
 
         private Button FindOrCreateButton(string name, string label)

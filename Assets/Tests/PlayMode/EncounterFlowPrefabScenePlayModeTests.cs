@@ -1,10 +1,12 @@
 using System;
 using System.Collections;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
+using PF2e.Data;
 using PF2e.Presentation;
 using PF2e.TurnSystem;
 
@@ -46,6 +48,9 @@ namespace PF2e.Tests
         [UnityTest]
         public IEnumerator GT_P17_PM_310_PrefabScene_AutoCreatesPanel_AndButtonsControlEncounter()
         {
+            Assert.IsTrue(ReadPrivateField<bool>(encounterFlowController, "useFlowPreset"), "EncounterFlowPrefabScene should use shared preset mode.");
+            Assert.IsNotNull(ReadPrivateField<EncounterFlowUIPreset>(encounterFlowController, "flowPreset"), "EncounterFlowPrefabScene should assign shared encounter-flow preset.");
+
             var templatePanel = GameObject.Find("Canvas/EncounterFlowPanelTemplate");
             var runtimePanel = GameObject.Find("Canvas/EncounterFlowPanel");
 
@@ -74,6 +79,15 @@ namespace PF2e.Tests
 
             Assert.IsTrue(startEncounterButton.interactable, "Start Encounter should re-enable after combat end.");
             Assert.IsFalse(endEncounterButton.interactable, "End Encounter should disable after combat end.");
+        }
+
+        private static T ReadPrivateField<T>(object target, string fieldName)
+        {
+            Assert.IsNotNull(target, $"ReadPrivateField target is null for '{fieldName}'.");
+            var type = target.GetType();
+            var field = type.GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(field, $"Field '{fieldName}' was not found on {type.Name}.");
+            return (T)field.GetValue(target);
         }
 
         private static bool TryResolveButtons(out Button startButton, out Button endButton)

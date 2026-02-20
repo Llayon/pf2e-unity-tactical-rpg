@@ -39,7 +39,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - High scene wiring coupling: `CombatController`, `TacticalGrid`, `EntityManager`, `CombatEventBus` must all be correctly referenced.
 - Runtime dependency chain is tight (`TurnManager -> EntityManager -> GridManager`; input and visualizers depend on both).
 - Hybrid event architecture (typed events + string log forwarders) can drift if contracts are broken.
-- Encounter flow defaults to authored UI wiring; runtime fallback can now reuse `Assets/Prefabs/EncounterFlowPanel.prefab`.
+- Encounter flow can be centralized via `Assets/Data/EncounterFlowUIPreset_RuntimeFallback.asset`; scenes opt in through `EncounterFlowController.useFlowPreset`.
 - `EntityManager` mixes runtime orchestration with test spawning data responsibilities.
 
 ### D) Missing Foundations for Vertical Slice
@@ -57,8 +57,8 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Player actions (Stride/Strike/Stand) | Partial | Core actions implemented; no broader action set |
 | PF2e strike/damage basics | Partial | Melee-focused MVP; ranged/spells not implemented |
 | Conditions | Partial | Basic list + tick rules; simplified behavior |
-| Combat/UI presentation | Partial | Turn HUD, log, initiative, floating damage, and end-of-encounter panel are present; encounter flow panel is extracted as reusable prefab |
-| Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter authoring still manual |
+| Combat/UI presentation | Partial | Turn HUD, log, initiative, floating damage, and end-of-encounter panel are present; encounter flow panel is reusable and can be driven by shared preset |
+| Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter flow runtime fallback now has a shared UI preset |
 | AI | Partial | Simple melee AI implemented; no advanced tactics/ranged/spell logic |
 | Save/load/progression | Not started | No persistence layer |
 | PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, cross-scene prefab encounter-flow smoke coverage, and multi-round regression (movement + enemy AI + condition ticks); broader system-level coverage is still pending |
@@ -86,6 +86,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - `TurnManager` action lock tracking contract: if execution starts, lock metadata (`ExecutingActor`, `ExecutingActionSource`, duration) must be reset on completion/rollback/combat end.
 - `TurnManager` combat-end contract: keep both `OnCombatEnded` (legacy) and `OnCombatEndedWithResult` (typed result path).
 - `EncounterFlowController` defaults to authored references (`autoCreateRuntimeButtons=false`); runtime auto-create is fallback only.
+- When `EncounterFlowController.useFlowPreset` is enabled, `flowPreset` becomes source-of-truth for runtime fallback fields.
 - `StrideAction` commits occupancy/entity position before animation; `EntityMover` is visual-only.
 - `AITurnController` must release action locks on abort/timeout/disable to avoid `ExecutingAction` deadlocks.
 - `CombatEventBus.Publish(actor, message)` messages must not include actor name prefix.
@@ -94,7 +95,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 
 ## Known Issues / TODOs
 - AI is intentionally minimal: nearest-target melee only, same-elevation targeting, no tactical scoring.
-- `SampleScene` remains authored-reference first; `EncounterFlowPrefabScene` is the current prefab-driven fallback example scene.
+- `SampleScene` remains authored-reference first; `EncounterFlowPrefabScene` is the current preset-driven fallback example scene.
 - Restart is scene-reload based (`SceneManager.LoadScene`) and intentionally simple for MVP.
 - Condition model has known simplification TODO (value + duration model evolution).
 - Input System package exists, but most gameplay input is polled directly from keyboard/mouse.
@@ -104,9 +105,9 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Duplicate-looking armor asset naming (`GoblinArmor_.asset`) should be normalized later.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Move scene-specific encounter-flow wiring data into a shared ScriptableObject preset to avoid per-scene drift.
-2. Add branch protection requiring `Unity Tests` workflow on pull requests.
-3. Extend AI from nearest-melee to basic priority rules (focus low HP, avoid no-progress turns, support ranged enemy profiles).
+1. Add branch protection requiring `Unity Tests` workflow on pull requests.
+2. Extend AI from nearest-melee to basic priority rules (focus low HP, avoid no-progress turns, support ranged enemy profiles).
+3. Add one more authored content scene and verify it can switch between authored/preset encounter-flow modes without code changes.
 
 ## Project Memory Maintenance Rule
 Whenever systems are added or behavior changes, update this file in the same change set with: what changed, scope impact, new assumptions, and checklist status.
