@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -94,6 +95,9 @@ namespace PF2e.TurnSystem
                 : null;
             if (data == null || data.Team != Team.Enemy) return;
 
+            // Recover if a previous run crashed/aborted while still holding the action lock.
+            TryRollbackExecutionLock();
+
             // Defensive: stop stale coroutine if still alive from previous actor.
             if (activeCoroutine != null)
             {
@@ -182,6 +186,11 @@ namespace PF2e.TurnSystem
 
                 ForceEndTurn(actor);
             }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception, this);
+                ForceEndTurn(actor);
+            }
             finally
             {
                 // StopCoroutine may bypass coroutine body; this guard keeps action state recoverable.
@@ -194,61 +203,66 @@ namespace PF2e.TurnSystem
 
         private IEnumerator DoStride(EntityHandle actor, Vector3Int targetCell, int token, System.Action<bool> setResult)
         {
+            bool completed = false;
             setResult?.Invoke(false);
 
-            if (strideAction == null || turnManager == null)
-                yield break;
-
-            var data = entityManager.Registry.Get(actor);
-            if (data == null)
-                yield break;
-
-            int availableActions = Mathf.Clamp(data.ActionsRemaining, 0, 3);
-            if (availableActions <= 0)
-                yield break;
-
-            if (!TryBeginExecution(actor))
-                yield break;
-
-            waitingForStride = true;
-            lastStrideCost = 0;
-
-            bool started = strideAction.TryExecuteStride(actor, targetCell, availableActions, HandleStrideComplete);
-            if (!started)
+            try
             {
-                waitingForStride = false;
-                TryRollbackExecutionLock();
-                yield break;
-            }
-
-            float strideStart = Time.time;
-            while (waitingForStride)
-            {
-                if (!IsCurrentRun(token))
-                {
-                    TryRollbackExecutionLock();
+                if (strideAction == null || turnManager == null)
                     yield break;
-                }
 
-                if (Time.time - strideStart > StrideTimeoutSeconds)
+                var data = entityManager.Registry.Get(actor);
+                if (data == null)
+                    yield break;
+
+                int availableActions = Mathf.Clamp(data.ActionsRemaining, 0, 3);
+                if (availableActions <= 0)
+                    yield break;
+
+                if (!TryBeginExecution(actor, "AI.Stride"))
+                    yield break;
+
+                waitingForStride = true;
+                lastStrideCost = 0;
+
+                bool started = strideAction.TryExecuteStride(actor, targetCell, availableActions, HandleStrideComplete);
+                if (!started)
                 {
-                    Debug.LogError("[AITurnController] Stride timeout (30s). Rolling back action execution lock.", this);
                     waitingForStride = false;
-                    TryRollbackExecutionLock();
                     yield break;
                 }
 
-                yield return null;
-            }
+                float strideStart = Time.time;
+                while (waitingForStride)
+                {
+                    if (!IsCurrentRun(token))
+                    {
+                        waitingForStride = false;
+                        yield break;
+                    }
 
-            if (!IsCurrentRun(token))
+                    if (Time.time - strideStart > StrideTimeoutSeconds)
+                    {
+                        Debug.LogError("[AITurnController] Stride timeout (30s). Rolling back action execution lock.", this);
+                        waitingForStride = false;
+                        yield break;
+                    }
+
+                    yield return null;
+                }
+
+                if (!IsCurrentRun(token))
+                    yield break;
+
+                CompleteExecutionWithCost(Mathf.Max(1, lastStrideCost));
+                completed = true;
+                setResult?.Invoke(true);
+            }
+            finally
             {
-                TryRollbackExecutionLock();
-                yield break;
+                if (!completed)
+                    TryRollbackExecutionLock();
             }
-
-            CompleteExecutionWithCost(Mathf.Max(1, lastStrideCost));
-            setResult?.Invoke(true);
         }
 
         private void HandleStrideComplete(int cost)
@@ -260,43 +274,60 @@ namespace PF2e.TurnSystem
         private bool TryExecuteStrike(EntityHandle actor, EntityHandle target)
         {
             if (strikeAction == null || turnManager == null) return false;
-            if (!TryBeginExecution(actor)) return false;
+            if (!TryBeginExecution(actor, "AI.Strike")) return false;
 
-            bool performed = strikeAction.TryStrike(actor, target);
-            if (!performed)
+            bool completed = false;
+            try
             {
-                TryRollbackExecutionLock();
-                return false;
-            }
+                bool performed = strikeAction.TryStrike(actor, target);
+                if (!performed)
+                    return false;
 
-            CompleteExecutionWithCost(1);
-            return true;
+                CompleteExecutionWithCost(1);
+                completed = true;
+                return true;
+            }
+            finally
+            {
+                if (!completed)
+                    TryRollbackExecutionLock();
+            }
         }
 
         private bool TryExecuteStand(EntityHandle actor)
         {
             if (standAction == null || turnManager == null) return false;
             if (!standAction.CanStand(actor)) return false;
-            if (!TryBeginExecution(actor)) return false;
+            if (!TryBeginExecution(actor, "AI.Stand")) return false;
 
-            bool stood = standAction.TryStand(actor);
-            if (!stood)
+            bool completed = false;
+            try
             {
-                TryRollbackExecutionLock();
-                return false;
-            }
+                bool stood = standAction.TryStand(actor);
+                if (!stood)
+                    return false;
 
-            CompleteExecutionWithCost(StandAction.ActionCost);
-            return true;
+                CompleteExecutionWithCost(StandAction.ActionCost);
+                completed = true;
+                return true;
+            }
+            finally
+            {
+                if (!completed)
+                    TryRollbackExecutionLock();
+            }
         }
 
-        private bool TryBeginExecution(EntityHandle actor)
+        private bool TryBeginExecution(EntityHandle actor, string source)
         {
             if (turnManager == null) return false;
             if (!IsMyTurn(actor)) return false;
             if (turnManager.State == TurnState.ExecutingAction) return false;
 
-            turnManager.BeginActionExecution();
+            turnManager.BeginActionExecution(actor, source);
+            if (turnManager.State != TurnState.ExecutingAction || turnManager.ExecutingActor != actor)
+                return false;
+
             ownsExecutionLock = true;
             return true;
         }

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using PF2e.Core;
 using PF2e.Managers;
@@ -24,7 +23,16 @@ namespace PF2e.TurnSystem
 
         private List<InitiativeEntry> initiativeOrder = new();
         private TurnState stateBeforeExecution;
+        private EntityHandle executingActor = EntityHandle.None;
+        private string executingActionSource = string.Empty;
+        private float executingActionStartTime = -1f;
         private readonly List<ConditionTick> conditionTickBuffer = new();
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private const float ActionLockWarnSeconds = 4f;
+        private const float ActionLockForceReleaseSeconds = 30f;
+        private bool actionLockWarned;
+#endif
 
         // ─── Public Properties ────────────────────────────────────────────────
 
@@ -53,6 +61,21 @@ namespace PF2e.TurnSystem
                 if (entityManager == null || entityManager.Registry == null) return 0;
                 var data = entityManager.Registry.Get(CurrentEntity);
                 return data != null ? data.ActionsRemaining : 0;
+            }
+        }
+
+        public EntityHandle ExecutingActor => executingActor;
+
+        public string ExecutingActionSource => executingActionSource;
+
+        public float ExecutingActionDurationSeconds
+        {
+            get
+            {
+                if (state != TurnState.ExecutingAction || executingActionStartTime < 0f)
+                    return 0f;
+
+                return Time.unscaledTime - executingActionStartTime;
             }
         }
 
@@ -90,6 +113,8 @@ namespace PF2e.TurnSystem
                 Debug.LogError("TurnManager: EntityRegistry not ready!");
                 return;
             }
+
+            ResetActionExecutionTracking();
 
             state = TurnState.RollingInitiative;
             RollInitiative();
@@ -169,8 +194,30 @@ namespace PF2e.TurnSystem
         /// </summary>
         public void BeginActionExecution()
         {
+            BeginActionExecution(CurrentEntity, null);
+        }
+
+        /// <summary>
+        /// Transition to ExecutingAction and track actor/source for diagnostics.
+        /// </summary>
+        public void BeginActionExecution(EntityHandle actor, string source = null)
+        {
+            if (state == TurnState.ExecutingAction)
+            {
+                Debug.LogWarning(
+                    $"[TurnManager] BeginActionExecution called while already executing. " +
+                    $"Current lock actor={executingActor.Id}, source={executingActionSource}.");
+                return;
+            }
+
             stateBeforeExecution = state;
             state = TurnState.ExecutingAction;
+            executingActor = actor.IsValid ? actor : CurrentEntity;
+            executingActionSource = string.IsNullOrEmpty(source) ? "unspecified" : source;
+            executingActionStartTime = Time.unscaledTime;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            actionLockWarned = false;
+#endif
         }
 
         /// <summary>
@@ -182,6 +229,7 @@ namespace PF2e.TurnSystem
             if (state != TurnState.ExecutingAction) return;
 
             state = stateBeforeExecution;
+            ResetActionExecutionTracking();
 
             if (ActionsRemaining <= 0)
                 EndTurn();
@@ -202,21 +250,25 @@ namespace PF2e.TurnSystem
 
             // 1) Spend actions directly via EntityData
             EntityData data = null;
+            var actionActor = executingActor.IsValid ? executingActor : CurrentEntity;
             if (entityManager != null && entityManager.Registry != null)
-                data = entityManager.Registry.Get(CurrentEntity);
+                data = entityManager.Registry.Get(actionActor);
 
             if (data != null && actionCost > 0)
                 data.SpendActions(actionCost);
+            else if (data == null && actionCost > 0)
+                Debug.LogWarning($"[TurnManager] CompleteActionWithCost({actionCost}) could not resolve executing actor data.");
 
             // 2) Restore state from ExecutingAction
             state = stateBeforeExecution;
+            ResetActionExecutionTracking();
 
             // 3) Notify action count change
-            int remaining = (data != null) ? data.ActionsRemaining : 0;
+            int remaining = (data != null) ? data.ActionsRemaining : ActionsRemaining;
             OnActionsChanged?.Invoke(remaining);
 
             // 4) Auto-EndTurn if drained
-            if (remaining <= 0)
+            if (remaining <= 0 && CurrentEntity == actionActor)
                 EndTurn();
         }
 
@@ -226,6 +278,7 @@ namespace PF2e.TurnSystem
         /// </summary>
         public void EndCombat(EncounterResult result = EncounterResult.Aborted)
         {
+            ResetActionExecutionTracking();
             state = TurnState.CombatOver;
 
             if (entityManager != null)
@@ -365,5 +418,40 @@ namespace PF2e.TurnSystem
             EndCombat(!anyPlayer ? EncounterResult.Defeat : EncounterResult.Victory);
             return true;
         }
+
+        private void ResetActionExecutionTracking()
+        {
+            executingActor = EntityHandle.None;
+            executingActionSource = string.Empty;
+            executingActionStartTime = -1f;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            actionLockWarned = false;
+#endif
+        }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private void Update()
+        {
+            if (state != TurnState.ExecutingAction || executingActionStartTime < 0f)
+                return;
+
+            float elapsed = Time.unscaledTime - executingActionStartTime;
+            if (!actionLockWarned && elapsed >= ActionLockWarnSeconds)
+            {
+                actionLockWarned = true;
+                Debug.LogWarning(
+                    $"[TurnManager] Action lock running for {elapsed:0.00}s. " +
+                    $"Actor={executingActor.Id}, Source={executingActionSource}, StateBefore={stateBeforeExecution}.");
+            }
+
+            if (elapsed >= ActionLockForceReleaseSeconds)
+            {
+                Debug.LogError(
+                    $"[TurnManager] Action lock exceeded {ActionLockForceReleaseSeconds:0}s. " +
+                    $"Force-releasing lock. Actor={executingActor.Id}, Source={executingActionSource}.");
+                ActionCompleted();
+            }
+        }
+#endif
     }
 }

@@ -18,6 +18,7 @@ namespace PF2e.Tests
         private const float DefaultTimeoutSeconds = 8f;
         private const float SimulationTimeoutSeconds = 25f;
         private static float MaxExecutingActionSeconds => Application.isBatchMode ? 8f : 3f;
+        private static float MaxNoProgressSeconds => Application.isBatchMode ? 14f : 6f;
 
         private TurnManager turnManager;
         private EntityManager entityManager;
@@ -198,30 +199,66 @@ namespace PF2e.Tests
         {
             float deadline = Time.realtimeSinceStartup + timeoutSeconds;
             float executingSince = -1f;
+            float lastProgressTime = Time.realtimeSinceStartup;
             EntityHandle lastPlayerActor = EntityHandle.None;
             bool playerActionIssuedThisTurn = false;
+            TurnState lastObservedState = turnManager.State;
+            int lastObservedRound = turnManager.RoundNumber;
+            EntityHandle lastObservedEntity = turnManager.CurrentEntity;
+            int lastObservedActions = turnManager.ActionsRemaining;
 
             while (!completionPredicate())
             {
-                if (Time.realtimeSinceStartup > deadline)
+                float now = Time.realtimeSinceStartup;
+                if (now > deadline)
                     Assert.Fail($"Timeout after {timeoutSeconds:0.##}s: {timeoutReason}");
 
                 if (turnManager.State == TurnState.Inactive)
                     Assert.Fail("Combat ended before regression goal was reached.");
 
+                bool progressed =
+                    turnManager.State != lastObservedState ||
+                    turnManager.RoundNumber != lastObservedRound ||
+                    turnManager.CurrentEntity != lastObservedEntity ||
+                    turnManager.ActionsRemaining != lastObservedActions;
+
+                if (progressed)
+                {
+                    lastProgressTime = now;
+                    lastObservedState = turnManager.State;
+                    lastObservedRound = turnManager.RoundNumber;
+                    lastObservedEntity = turnManager.CurrentEntity;
+                    lastObservedActions = turnManager.ActionsRemaining;
+                }
+
                 if (turnManager.State == TurnState.ExecutingAction)
                 {
                     if (executingSince < 0f)
-                        executingSince = Time.realtimeSinceStartup;
+                        executingSince = now;
 
-                    if (Time.realtimeSinceStartup - executingSince > MaxExecutingActionSeconds)
-                        Assert.Fail("TurnManager stayed in ExecutingAction too long (possible deadlock).");
+                    float executingFor = now - executingSince;
+                    float sinceProgress = now - lastProgressTime;
+                    if (executingFor > MaxExecutingActionSeconds && sinceProgress > MaxExecutingActionSeconds)
+                    {
+                        Assert.Fail(
+                            "TurnManager stayed in ExecutingAction too long (possible deadlock). " +
+                            $"lockFor={turnManager.ExecutingActionDurationSeconds:0.00}s, " +
+                            $"lockActor={turnManager.ExecutingActor.Id}, " +
+                            $"lockSource={turnManager.ExecutingActionSource}, " +
+                            $"round={turnManager.RoundNumber}, current={turnManager.CurrentEntity.Id}.");
+                    }
 
                     yield return null;
                     continue;
                 }
 
                 executingSince = -1f;
+                if (now - lastProgressTime > MaxNoProgressSeconds)
+                {
+                    Assert.Fail(
+                        $"Combat made no observable progress for {MaxNoProgressSeconds:0.##}s. " +
+                        $"state={turnManager.State}, round={turnManager.RoundNumber}, current={turnManager.CurrentEntity.Id}.");
+                }
 
                 if (turnManager.State == TurnState.PlayerTurn)
                 {

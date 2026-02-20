@@ -83,13 +83,24 @@ Events: TurnManager → TypedForwarder → typed event channel → LogForwarder 
 
 **Zero-alloc:** Caller-owned `List<T>` buffers for pathfinding/neighbors. Object pooling for UI elements. `MaterialPropertyBlock` lazy-init (never static field on MonoBehaviour).
 
-## Mandatory Conventions
+## Do Not Break Contracts
 
 - **CombatEventBus messages:** Publishers MUST NOT include actor name or ": " prefix. The consumer (`CombatLogController`) adds the actor name. Dev builds warn on violation.
 - **Event subscriptions:** Always subscribe in `OnEnable`, unsubscribe in `OnDisable`. No exceptions.
 - **OnEnable vs Awake ordering:** Don't fail-fast check properties initialized in another component's `Awake()` from your `OnEnable()`. Only validate inspector references in `OnEnable`; defer runtime state checks.
 - **TurnManager action contract:** Always use `BeginActionExecution` + `CompleteActionWithCost` pair. Never bypass.
+- **TurnManager combat-end:** Keep both `OnCombatEnded` (legacy) and `OnCombatEndedWithResult` (typed result). Both must fire.
+- **StrideAction commits before animation:** Occupancy/entity position is committed immediately; `EntityMover` is visual-only movement.
+- **AITurnController lock release:** Must release action locks on abort/timeout/disable to prevent `ExecutingAction` deadlocks.
+- **EncounterFlowController:** Defaults to authored inspector references (`autoCreateRuntimeButtons=false`); runtime auto-create is fallback only.
+- **EntityHandle.None:** `Id == 0` means invalid handle. Always check before use.
+- **Layer consistency:** Grid/entity raycasts depend on `EntityView` objects sharing the Grid layer.
 - **EffectiveAC in tests:** Set `Dexterity` + `Level` on EntityData (not `ArmorClass`), because `EffectiveAC` computes from the armor system. Example: Dex=16, Level=3 → BaseAC=18.
+- **Pure rules in PF2e.Core:** No UI/MonoBehaviour logic. Add/extend typed bus events before adding UI-specific direct dependencies.
+
+## Gameplay Controls
+
+Primary: encounter flow buttons (`Start Encounter` / `End Encounter`). In-game: left-click cell/entity, `Space` end turn, `Esc` cancel targeting, `WASD/QE/Scroll` camera, `G` grid toggle, `PageUp/PageDown` floor. `C`/`X` are editor/dev fallback shortcuts.
 
 ## ScriptableObject Assets
 
@@ -101,3 +112,7 @@ Config assets live in `Assets/Data/`:
 ## Scene
 
 Single scene: `Assets/Scenes/SampleScene.unity`. Heavy inspector wiring between `TurnManager`, `EntityManager`, `GridManager`, `CombatEventBus`, and UI controllers.
+
+## Living Documentation
+
+`Docs/PROJECT_MEMORY.md` — canonical project status doc. Contains systems checklist, known issues, next tasks, and maintenance rule: update it in the same changeset when systems are added or behavior changes.
