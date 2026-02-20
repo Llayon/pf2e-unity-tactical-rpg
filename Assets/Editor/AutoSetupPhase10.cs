@@ -13,9 +13,18 @@ public static class AutoSetupPhase10
 {
     static AutoSetupPhase10()
     {
+        // Never mutate scenes during CI/batch runs.
+        if (Application.isBatchMode)
+        {
+            return;
+        }
+
         EditorApplication.delayCall += () =>
         {
-            if (!Application.isPlaying && SceneManager.GetActiveScene().isLoaded)
+            var activeScene = SceneManager.GetActiveScene();
+            if (!Application.isPlaying
+                && activeScene.isLoaded
+                && !string.IsNullOrEmpty(activeScene.path))
             {
                 RunSetupIfNeeded();
             }
@@ -24,6 +33,11 @@ public static class AutoSetupPhase10
 
     private static void RunSetupIfNeeded()
     {
+        if (Application.isBatchMode)
+        {
+            return;
+        }
+
         // Check if CombatEventBus exists
         var existingBus = Object.FindAnyObjectByType<CombatEventBus>();
         bool busCreated = false;
