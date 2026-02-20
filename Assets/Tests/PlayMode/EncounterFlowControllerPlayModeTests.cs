@@ -161,7 +161,8 @@ namespace PF2e.Tests
 
                 var runtimePanel = canvas.transform.Find("EncounterFlowPanel") as RectTransform;
                 Assert.IsNotNull(runtimePanel, "Runtime EncounterFlowPanel should exist after prefab fallback.");
-                Assert.AreNotEqual(templatePanel, runtimePanel, "Controller should instantiate a new runtime panel from template.");
+                Assert.AreEqual(canvas.transform, runtimePanel.parent, "Runtime encounter flow panel should be parented under Canvas.");
+                Assert.AreNotEqual(canvas.transform, templatePanel.parent, "Template panel should stay detached from Canvas.");
 
                 startEncounterButton.onClick.Invoke();
                 yield return WaitUntilOrTimeout(
