@@ -1,0 +1,16 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d299d1f954a042d8bc9bc71e1dba05bb, type: 3}
+  m_Name: EncounterFlowUIPreset_RuntimeFallback
+  m_EditorClassIdentifier: PF2e::PF2e.Data.EncounterFlowUIPreset
+  autoCreateRuntimeButtons: 1
+  encounterFlowPanelPrefab: {fileID: 100996482, guid: 5b373be55f3b48a3ab362cd810cc9b8d, type: 3}

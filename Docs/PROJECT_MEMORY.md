@@ -5,7 +5,8 @@ Last updated: 2026-02-20
 Build a small, playable, turn-based tactical PF2e combat slice in Unity where one player-controlled party can move on a grid, spend 3 actions, strike enemies, and finish encounters with clear visual feedback. Prioritize correctness of core turn/action/combat flow, maintainable architecture, and incremental delivery over full PF2e coverage.
 
 ## Vertical Slice Definition
-- Single scene (`Assets/Scenes/SampleScene.unity`) with one encounter.
+- Primary playable scene: `Assets/Scenes/SampleScene.unity` with one encounter.
+- Secondary wiring-validation scene: `Assets/Scenes/EncounterFlowPrefabScene.unity` (prefab-driven encounter flow UI fallback).
 - Player can: start combat, move (Stride), Strike, Stand, end turn.
 - Enemy side takes turns via simple melee AI (stand if prone, stride toward nearest player, strike in range).
 - Combat presents: turn HUD, initiative bar, combat log, floating damage, and end-of-encounter panel.
@@ -25,6 +26,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 
 ### B) Gameplay Loop Status (Current)
 - Scene boots to `SampleScene`; test grid and test entities spawn from inspector-wired managers.
+- `EncounterFlowPrefabScene` validates cross-scene reuse of `EncounterFlowPanel.prefab` via runtime auto-create path.
 - Controls currently in code: encounter flow buttons (`Start Encounter` / `End Encounter`) as primary path, `C`/`X` as editor/development fallback, left-click cell/entity, `Space` end turn, `Esc` cancel targeting, `WASD/QE/Scroll` camera, `G` grid toggle, `PageUp/PageDown` floor.
 - Turn flow works: initiative roll, per-entity turns, 3 actions, action spending, condition end-turn ticks.
 - Movement works: occupancy-aware, multi-stride pathing, 5/10 diagonal parity, movement zone/path preview, animated movement.
@@ -37,7 +39,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - High scene wiring coupling: `CombatController`, `TacticalGrid`, `EntityManager`, `CombatEventBus` must all be correctly referenced.
 - Runtime dependency chain is tight (`TurnManager -> EntityManager -> GridManager`; input and visualizers depend on both).
 - Hybrid event architecture (typed events + string log forwarders) can drift if contracts are broken.
-- Encounter flow defaults to authored UI wiring; runtime fallback can now reuse `Assets/Prefabs/EncounterFlowPanel.prefab`.
+- Encounter flow can be centralized via `Assets/Data/EncounterFlowUIPreset_RuntimeFallback.asset`; scenes opt in through `EncounterFlowController.useFlowPreset`.
 - `EntityManager` mixes runtime orchestration with test spawning data responsibilities.
 
 ### D) Missing Foundations for Vertical Slice
@@ -55,13 +57,13 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Player actions (Stride/Strike/Stand) | Partial | Core actions implemented; no broader action set |
 | PF2e strike/damage basics | Partial | Melee-focused MVP; ranged/spells not implemented |
 | Conditions | Partial | Basic list + tick rules; simplified behavior |
-| Combat/UI presentation | Partial | Turn HUD, log, initiative, floating damage, and end-of-encounter panel are present; encounter flow panel is extracted as reusable prefab |
-| Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter authoring still manual |
+| Combat/UI presentation | Partial | Turn HUD, log, initiative, floating damage, and end-of-encounter panel are present; encounter flow panel is reusable and can be driven by shared preset |
+| Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter flow runtime fallback now has a shared UI preset |
 | AI | Partial | Simple melee AI implemented; no advanced tactics/ranged/spell logic |
 | Save/load/progression | Not started | No persistence layer |
-| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, and multi-round regression (movement + enemy AI + condition ticks); broader system-level coverage is still pending |
+| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, cross-scene prefab encounter-flow smoke coverage, and multi-round regression (movement + enemy AI + condition ticks); broader system-level coverage is still pending |
 | TurnManager action-lock tests (EditMode) | Done | EditMode now verifies lock metadata lifecycle (begin/complete/endcombat) and executing-actor action-cost ownership |
-| CI test automation | Partial | GitHub Actions (`.github/workflows/unity-tests.yml`) runs EditMode + PlayMode on push/PR to `master`; requires `UNITY_LICENSE` secret |
+| CI test automation | Done | GitHub Actions (`.github/workflows/unity-tests.yml`) runs EditMode + PlayMode on push/PR to `master`; branch protection on `master` requires `Unity Tests` |
 
 ## Module Boundaries
 - `PF2e.Core`: deterministic rules/data only. No UI concerns.
@@ -79,11 +81,13 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Add/extend typed bus events before adding UI-specific direct dependencies.
 
 ## Do Not Break Contracts and Assumptions
-- `Assets/Scenes/SampleScene.unity` is the active/bootstrap scene in build settings.
+- Build settings keep `Assets/Scenes/SampleScene.unity` as bootstrap scene (index 0); `Assets/Scenes/EncounterFlowPrefabScene.unity` is index 1 for cross-scene UI reuse coverage.
+- `master` branch protection requires successful `Unity Tests` checks before merge.
 - `TurnManager` action execution contract: use `BeginActionExecution` + `CompleteActionWithCost` for atomic cost/state transitions.
 - `TurnManager` action lock tracking contract: if execution starts, lock metadata (`ExecutingActor`, `ExecutingActionSource`, duration) must be reset on completion/rollback/combat end.
 - `TurnManager` combat-end contract: keep both `OnCombatEnded` (legacy) and `OnCombatEndedWithResult` (typed result path).
 - `EncounterFlowController` defaults to authored references (`autoCreateRuntimeButtons=false`); runtime auto-create is fallback only.
+- When `EncounterFlowController.useFlowPreset` is enabled, `flowPreset` becomes source-of-truth for runtime fallback fields.
 - `StrideAction` commits occupancy/entity position before animation; `EntityMover` is visual-only.
 - `AITurnController` must release action locks on abort/timeout/disable to avoid `ExecutingAction` deadlocks.
 - `CombatEventBus.Publish(actor, message)` messages must not include actor name prefix.
@@ -92,7 +96,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 
 ## Known Issues / TODOs
 - AI is intentionally minimal: nearest-target melee only, same-elevation targeting, no tactical scoring.
-- `SampleScene` still uses authored encounter-flow button references by default, while `EncounterFlowController` can now instantiate `Assets/Prefabs/EncounterFlowPanel.prefab` for new scenes.
+- `SampleScene` remains authored-reference first; `EncounterFlowPrefabScene` is the current preset-driven fallback example scene.
 - Restart is scene-reload based (`SceneManager.LoadScene`) and intentionally simple for MVP.
 - Condition model has known simplification TODO (value + duration model evolution).
 - Input System package exists, but most gameplay input is polled directly from keyboard/mouse.
@@ -102,9 +106,9 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Duplicate-looking armor asset naming (`GoblinArmor_.asset`) should be normalized later.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Wire a second scene to `EncounterFlowPanel.prefab` and validate cross-scene encounter-flow setup.
-2. Add branch protection requiring `Unity Tests` workflow on pull requests.
-3. Extend AI from nearest-melee to basic priority rules (focus low HP, avoid no-progress turns, support ranged enemy profiles).
+1. Extend AI from nearest-melee to basic priority rules (focus low HP, avoid no-progress turns, support ranged enemy profiles).
+2. Add one more authored content scene and verify it can switch between authored/preset encounter-flow modes without code changes.
+3. Add deterministic AI decision EditMode tests for low-HP focus and no-progress turn bail-out.
 
 ## LLM-First Delivery Workflow (Multi-Agent)
 ### Operating Model (for non-programmer project owner)
