@@ -28,13 +28,41 @@ jobs:
 
       - name: Validate Unity license secret
         env:
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_LICENSING_SERVER: ${{ secrets.UNITY_LICENSING_SERVER }}
         run: |
-          if [ -z "$UNITY_LICENSE" ]; then
-            echo "UNITY_LICENSE secret is required for Unity CI runs."
-            exit 1
+          has_email=0
+          has_password=0
+          has_serial=0
+          has_license=0
+          has_server=0
+
+          if [ -n "$UNITY_EMAIL" ]; then has_email=1; fi
+          if [ -n "$UNITY_PASSWORD" ]; then has_password=1; fi
+          if [ -n "$UNITY_SERIAL" ]; then has_serial=1; fi
+          if [ -n "$UNITY_LICENSE" ]; then has_license=1; fi
+          if [ -n "$UNITY_LICENSING_SERVER" ]; then has_server=1; fi
+
+          if [ "$has_server" -eq 1 ]; then
+            echo "Using UNITY_LICENSING_SERVER strategy."
+            exit 0
           fi
 
+          if [ "$has_email" -eq 1 ] && [ "$has_password" -eq 1 ] && { [ "$has_serial" -eq 1 ] || [ "$has_license" -eq 1 ]; }; then
+            echo "Unity credentials strategy is configured."
+            exit 0
+          fi
+
+          if [ "$has_license" -eq 1 ]; then
+            echo "UNITY_LICENSE is configured."
+            exit 0
+          fi
+
+          echo "Missing Unity CI secrets. Provide UNITY_LICENSE, or UNITY_EMAIL+UNITY_PASSWORD with UNITY_SERIAL/UNITY_LICENSE, or UNITY_LICENSING_SERVER."
+          exit 1
       - name: Cache Library
         uses: actions/cache@v4
         with:
@@ -47,10 +75,15 @@ jobs:
       - name: Run Unity tests
         uses: game-ci/unity-test-runner@v4
         env:
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_LICENSING_SERVER: ${{ secrets.UNITY_LICENSING_SERVER }}
         with:
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           unityVersion: 6000.3.2f1
+          projectPath: .
           testMode: ${{ matrix.testMode }}
           artifactsPath: test-results
 
@@ -60,3 +93,4 @@ jobs:
         with:
           name: test-results-${{ matrix.testMode }}
           path: test-results
+          if-no-files-found: warn
