@@ -27,17 +27,12 @@ namespace PF2e.Presentation
 
         private void OnEnable()
         {
-            if (turnManager != null)
-            {
-                turnManager.OnCombatStarted     += HandleCombatStarted;
-                turnManager.OnCombatEnded        += HandleCombatEnded;
-                turnManager.OnInitiativeRolled   += HandleInitiativeRolled;
-                turnManager.OnRoundStarted       += HandleRoundStarted;
-                turnManager.OnTurnStarted        += HandleTurnStarted;
-            }
-
             if (eventBus != null)
             {
+                eventBus.OnCombatStartedTyped += HandleCombatStarted;
+                eventBus.OnCombatEndedTyped += HandleCombatEnded;
+                eventBus.OnRoundStartedTyped += HandleRoundStarted;
+                eventBus.OnTurnStartedTyped += HandleTurnStarted;
                 eventBus.OnStrikeResolved  += HandleStrikeResolved;
                 eventBus.OnEntityDefeated  += HandleEntityDefeated;
             }
@@ -47,17 +42,12 @@ namespace PF2e.Presentation
 
         private void OnDisable()
         {
-            if (turnManager != null)
-            {
-                turnManager.OnCombatStarted     -= HandleCombatStarted;
-                turnManager.OnCombatEnded        -= HandleCombatEnded;
-                turnManager.OnInitiativeRolled   -= HandleInitiativeRolled;
-                turnManager.OnRoundStarted       -= HandleRoundStarted;
-                turnManager.OnTurnStarted        -= HandleTurnStarted;
-            }
-
             if (eventBus != null)
             {
+                eventBus.OnCombatStartedTyped -= HandleCombatStarted;
+                eventBus.OnCombatEndedTyped -= HandleCombatEnded;
+                eventBus.OnRoundStartedTyped -= HandleRoundStarted;
+                eventBus.OnTurnStartedTyped -= HandleTurnStarted;
                 eventBus.OnStrikeResolved  -= HandleStrikeResolved;
                 eventBus.OnEntityDefeated  -= HandleEntityDefeated;
             }
@@ -65,32 +55,30 @@ namespace PF2e.Presentation
 
         // ─── Event Handlers ───────────────────────────────────────────────────
 
-        private void HandleCombatStarted()
+        private void HandleCombatStarted(in CombatStartedEvent e)
         {
+            if (turnManager == null) return;
+
             SetPanelVisible(true);
-            HandleRoundStarted(turnManager.RoundNumber);
-            // slots built by HandleInitiativeRolled
+            if (roundLabel != null)
+                roundLabel.SetText("Round {0}", turnManager.RoundNumber);
+            BuildSlots(turnManager.InitiativeOrder);
+            UpdateHighlight();
         }
 
-        private void HandleCombatEnded()
+        private void HandleCombatEnded(in CombatEndedEvent e)
         {
             SetPanelVisible(false);
             ClearSlotsToPool();
         }
 
-        private void HandleInitiativeRolled(IReadOnlyList<InitiativeEntry> order)
-        {
-            BuildSlots(order);
-            UpdateHighlight();
-        }
-
-        private void HandleRoundStarted(int round)
+        private void HandleRoundStarted(in RoundStartedEvent e)
         {
             if (roundLabel != null)
-                roundLabel.SetText("Round {0}", round);
+                roundLabel.SetText("Round {0}", e.round);
         }
 
-        private void HandleTurnStarted(EntityHandle actor)
+        private void HandleTurnStarted(in TurnStartedEvent e)
         {
             UpdateHighlight();
         }

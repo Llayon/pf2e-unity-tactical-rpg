@@ -19,6 +19,7 @@ namespace PF2e.Presentation
         [Header("Dependencies (Inspector-only)")]
         [SerializeField] private TurnManager turnManager;
         [SerializeField] private EntityManager entityManager;
+        [SerializeField] private CombatEventBus eventBus;
         [SerializeField] private Canvas rootCanvas;
 
         [Header("Preset")]
@@ -40,6 +41,7 @@ namespace PF2e.Presentation
 
             if (turnManager == null) Debug.LogError("[EncounterFlow] Missing TurnManager", this);
             if (entityManager == null) Debug.LogError("[EncounterFlow] Missing EntityManager", this);
+            if (eventBus == null) Debug.LogError("[EncounterFlow] Missing CombatEventBus", this);
             if (rootCanvas == null) Debug.LogError("[EncounterFlow] Missing root Canvas", this);
             if (useFlowPreset && flowPreset == null)
                 Debug.LogWarning("[EncounterFlow] useFlowPreset is enabled but flowPreset is not assigned.", this);
@@ -62,7 +64,7 @@ namespace PF2e.Presentation
         {
             ApplyFlowPresetIfEnabled();
 
-            if (turnManager == null || entityManager == null || rootCanvas == null)
+            if (turnManager == null || entityManager == null || eventBus == null || rootCanvas == null)
             {
                 Debug.LogError("[EncounterFlow] Missing dependencies. Disabling.", this);
                 enabled = false;
@@ -80,8 +82,8 @@ namespace PF2e.Presentation
             startEncounterButton.onClick.AddListener(OnStartEncounterClicked);
             endEncounterButton.onClick.AddListener(OnEndEncounterClicked);
 
-            turnManager.OnCombatStarted += HandleCombatStarted;
-            turnManager.OnCombatEndedWithResult += HandleCombatEnded;
+            eventBus.OnCombatStartedTyped += HandleCombatStarted;
+            eventBus.OnCombatEndedTyped += HandleCombatEnded;
 
             RefreshButtons();
         }
@@ -99,10 +101,10 @@ namespace PF2e.Presentation
             if (endEncounterButton != null)
                 endEncounterButton.onClick.RemoveListener(OnEndEncounterClicked);
 
-            if (turnManager != null)
+            if (eventBus != null)
             {
-                turnManager.OnCombatStarted -= HandleCombatStarted;
-                turnManager.OnCombatEndedWithResult -= HandleCombatEnded;
+                eventBus.OnCombatStartedTyped -= HandleCombatStarted;
+                eventBus.OnCombatEndedTyped -= HandleCombatEnded;
             }
         }
 
@@ -130,12 +132,12 @@ namespace PF2e.Presentation
             RefreshButtons();
         }
 
-        private void HandleCombatStarted()
+        private void HandleCombatStarted(in CombatStartedEvent e)
         {
             RefreshButtons();
         }
 
-        private void HandleCombatEnded(EncounterResult _)
+        private void HandleCombatEnded(in CombatEndedEvent e)
         {
             RefreshButtons();
         }

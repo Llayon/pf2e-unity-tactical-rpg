@@ -56,7 +56,6 @@ public static class PF2eSceneDependencyValidator
         errors += ValidateAll<EntityManager>(ValidateEntityManager);
         errors += ValidateAll<TurnManager>(ValidateTurnManager);
         errors += ValidateAll<CombatEventBus>(ValidateCombatEventBus);
-        errors += ValidateAll<TurnManagerLogForwarder>(ValidateTurnManagerLogForwarder);
         errors += ValidateAll<TurnManagerTypedForwarder>(ValidateTurnManagerTypedForwarder);
         errors += ValidateAll<TurnLogForwarder>(ValidateTurnLogForwarder);
         errors += ValidateAll<StrideLogForwarder>(ValidateStrideLogForwarder);
@@ -86,7 +85,6 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<EntityManager>();
         errors += ErrorIfMoreThanOne<TurnManager>();
         errors += ErrorIfMoreThanOne<CombatEventBus>();
-        errors += ErrorIfMoreThanOne<TurnManagerLogForwarder>();
         errors += ErrorIfMoreThanOne<TurnManagerTypedForwarder>();
         errors += ErrorIfMoreThanOne<TurnLogForwarder>();
         errors += ErrorIfMoreThanOne<StrideLogForwarder>();
@@ -115,6 +113,8 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnIfNone<AITurnController>();
         warnings += WarnIfNone<EncounterEndPanelController>();
         warnings += WarnIfNone<EncounterFlowController>();
+        warnings += WarnIfAny<TurnManagerLogForwarder>(
+            "TurnManagerLogForwarder is deprecated. Disable/remove it and use TurnManagerTypedForwarder + TurnLogForwarder.");
 
         string summary = $"[PF2eValidator] Done. Errors: {errors}, Warnings: {warnings}";
         if (errors > 0) Debug.LogError(summary);
@@ -180,6 +180,7 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(tc, "actionExecutor", "PlayerActionExecutor");
         errors += RequireRef(tc, "entityManager",  "EntityManager");
         errors += RequireRef(tc, "turnManager",    "TurnManager");
+        errors += RequireRef(tc, "eventBus",       "CombatEventBus");
     }
 
     private static void ValidateTurnInputController(TurnInputController tic, ref int errors, ref int warnings)
@@ -201,6 +202,7 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(mz, "gridManager", "GridManager");
         errors += RequireRef(mz, "highlightPool", "CellHighlightPool");
         errors += RequireRef(mz, "turnManager", "TurnManager");
+        errors += RequireRef(mz, "eventBus", "CombatEventBus");
         errors += RequireRef(mz, "strideAction", "StrideAction");
         errors += RequireRef(mz, "entityMover", "EntityMover");
     }
@@ -242,16 +244,10 @@ public static class PF2eSceneDependencyValidator
     {
         errors += RequireRef(c, "turnManager", "TurnManager");
         errors += RequireRef(c, "entityManager", "EntityManager");
+        errors += RequireRef(c, "eventBus", "CombatEventBus");
         errors += RequireRef(c, "rootCanvas", "Canvas");
         errors += RequireRef(c, "startEncounterButton", "Button");
         errors += RequireRef(c, "endEncounterButton", "Button");
-    }
-
-    private static void ValidateTurnManagerLogForwarder(TurnManagerLogForwarder f, ref int errors, ref int warnings)
-    {
-        errors += RequireRef(f, "turnManager", "TurnManager");
-        errors += RequireRef(f, "entityManager", "EntityManager");
-        errors += RequireRef(f, "eventBus", "CombatEventBus");
     }
 
     private static void ValidateStrikeLogForwarder(StrikeLogForwarder f, ref int errors, ref int warnings)
@@ -375,6 +371,15 @@ public static class PF2eSceneDependencyValidator
         return 0;
     }
 
+    private static int WarnIfAny<T>(string message) where T : UnityEngine.Object
+    {
+        var all = UnityEngine.Object.FindObjectsByType<T>(FindObjectsSortMode.None);
+        if (all == null || all.Length == 0) return 0;
+
+        Debug.LogWarning($"[PF2eValidator] {message} Found: {all.Length}.");
+        return 1;
+    }
+
     private static int RequireRef(Component c, string fieldName, string friendlyTypeName)
     {
         var t = c.GetType();
@@ -463,6 +468,8 @@ public static class PF2eSceneDependencyValidator
         fixedCount += FixAll<TargetingController>("turnManager", turnManager);
         if (actionExecutor != null)
             fixedCount += FixAll<TargetingController>("actionExecutor", actionExecutor);
+        if (eventBus != null)
+            fixedCount += FixAll<TargetingController>("eventBus", eventBus);
 
         // TurnInputController (delegates to TargetingController)
         fixedCount += FixAll<TurnInputController>("turnManager", turnManager);
@@ -475,6 +482,8 @@ public static class PF2eSceneDependencyValidator
         fixedCount += FixAll<MovementZoneVisualizer>("entityManager", entityManager);
         fixedCount += FixAll<MovementZoneVisualizer>("gridManager", gridManager);
         fixedCount += FixAll<MovementZoneVisualizer>("turnManager", turnManager);
+        if (eventBus != null)
+            fixedCount += FixAll<MovementZoneVisualizer>("eventBus", eventBus);
         if (highlightPool != null)
             fixedCount += FixAll<MovementZoneVisualizer>("highlightPool", highlightPool);
         if (strideAction != null)
@@ -498,14 +507,13 @@ public static class PF2eSceneDependencyValidator
         // EncounterFlowController (Phase 17.5)
         fixedCount += FixAll<EncounterFlowController>("turnManager", turnManager);
         fixedCount += FixAll<EncounterFlowController>("entityManager", entityManager);
+        if (eventBus != null)
+            fixedCount += FixAll<EncounterFlowController>("eventBus", eventBus);
         if (rootCanvas != null)
             fixedCount += FixAll<EncounterFlowController>("rootCanvas", rootCanvas);
 
-        // TurnManagerLogForwarder (Phase 10.2 - bus adapter)
-        fixedCount += FixAll<TurnManagerLogForwarder>("turnManager", turnManager);
-        fixedCount += FixAll<TurnManagerLogForwarder>("entityManager", entityManager);
-        if (eventBus != null)
-            fixedCount += FixAll<TurnManagerLogForwarder>("eventBus", eventBus);
+        // Disable deprecated legacy forwarder if still present in scene.
+        fixedCount += DisableAllIfEnabled<TurnManagerLogForwarder>();
 
         // StrikeLogForwarder (Phase 11.TypedEvents - typed strike events)
         fixedCount += FixAll<StrikeLogForwarder>("entityManager", entityManager);
@@ -622,6 +630,22 @@ public static class PF2eSceneDependencyValidator
         for (int i = 0; i < all.Length; i++)
             fixedCount += TryAssignIfNull(all[i], fieldName, value);
 
+        return fixedCount;
+    }
+
+    private static int DisableAllIfEnabled<TTarget>() where TTarget : Behaviour
+    {
+        int fixedCount = 0;
+        var all = UnityEngine.Object.FindObjectsByType<TTarget>(FindObjectsSortMode.None);
+        for (int i = 0; i < all.Length; i++)
+        {
+            var target = all[i];
+            if (target == null || !target.enabled) continue;
+            Undo.RecordObject(target, $"Disable {typeof(TTarget).Name}");
+            target.enabled = false;
+            EditorUtility.SetDirty(target);
+            fixedCount++;
+        }
         return fixedCount;
     }
 

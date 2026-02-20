@@ -82,7 +82,6 @@ namespace PF2e.TurnSystem
         // ─── Events ───────────────────────────────────────────────────────────
 
         public event Action                                   OnCombatStarted;
-        public event Action                                   OnCombatEnded;
         public event Action<EncounterResult>                  OnCombatEndedWithResult;
         public event Action<int>                              OnRoundStarted;         // roundNumber
         public event Action<EntityHandle>                     OnTurnStarted;          // entityHandle
@@ -285,7 +284,6 @@ namespace PF2e.TurnSystem
                 entityManager.DeselectEntity();
 
             OnCombatEndedWithResult?.Invoke(result);
-            OnCombatEnded?.Invoke();
 
             // Full reset
             state = TurnState.Inactive;

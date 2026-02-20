@@ -1962,6 +1962,7 @@ MonoBehaviour:
   actionExecutor: {fileID: 456169787}
   entityManager: {fileID: 569346726}
   turnManager: {fileID: 456169784}
+  eventBus: {fileID: 939543823}
 --- !u!114 &456169793
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2088,6 +2089,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PF2e::PF2e.Presentation.EncounterFlowController
   turnManager: {fileID: 456169784}
   entityManager: {fileID: 569346726}
+  eventBus: {fileID: 939543823}
   rootCanvas: {fileID: 35781846}
   useFlowPreset: 1
   flowPreset: {fileID: 11400000, guid: 90416c1de2df43ff87695c28e5ff0d34, type: 2}
@@ -4574,6 +4576,7 @@ MonoBehaviour:
   gridManager: {fileID: 2005884550}
   highlightPool: {fileID: 2005884553}
   turnManager: {fileID: 456169784}
+  eventBus: {fileID: 939543823}
   strideAction: {fileID: 456169783}
   entityMover: {fileID: 456169781}
   action1Color: {r: 0, g: 0.8, b: 0, a: 0.35}

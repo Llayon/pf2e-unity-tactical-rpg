@@ -37,6 +37,7 @@ namespace PF2e.TurnSystem
         [SerializeField] private PlayerActionExecutor actionExecutor;
         [SerializeField] private EntityManager entityManager;
         [SerializeField] private TurnManager turnManager;
+        [SerializeField] private CombatEventBus eventBus;
 
         public TargetingMode ActiveMode { get; private set; } = TargetingMode.None;
 
@@ -52,25 +53,32 @@ namespace PF2e.TurnSystem
             if (actionExecutor == null) Debug.LogError("[TargetingController] Missing PlayerActionExecutor", this);
             if (entityManager  == null) Debug.LogError("[TargetingController] Missing EntityManager", this);
             if (turnManager    == null) Debug.LogError("[TargetingController] Missing TurnManager", this);
+            if (eventBus       == null) Debug.LogError("[TargetingController] Missing CombatEventBus", this);
         }
 #endif
 
         private void OnEnable()
         {
-            if (turnManager == null) { Debug.LogError("[TargetingController] Missing TurnManager", this); enabled = false; return; }
-            turnManager.OnTurnEnded   += OnTurnEnded;
-            turnManager.OnCombatEnded += OnCombatEnded;
+            if (turnManager == null || eventBus == null)
+            {
+                Debug.LogError("[TargetingController] Missing dependencies", this);
+                enabled = false;
+                return;
+            }
+
+            eventBus.OnTurnEndedTyped += OnTurnEnded;
+            eventBus.OnCombatEndedTyped += OnCombatEnded;
         }
 
         private void OnDisable()
         {
-            if (turnManager == null) return;
-            turnManager.OnTurnEnded   -= OnTurnEnded;
-            turnManager.OnCombatEnded -= OnCombatEnded;
+            if (eventBus == null) return;
+            eventBus.OnTurnEndedTyped -= OnTurnEnded;
+            eventBus.OnCombatEndedTyped -= OnCombatEnded;
         }
 
-        private void OnTurnEnded(EntityHandle _) => ClearTargeting();
-        private void OnCombatEnded()              => ClearTargeting();
+        private void OnTurnEnded(in TurnEndedEvent e) => ClearTargeting();
+        private void OnCombatEnded(in CombatEndedEvent e) => ClearTargeting();
 
         // — Public API —
 

@@ -27,6 +27,7 @@ namespace PF2e.Presentation
 
         [Header("Combat")]
         [SerializeField] private TurnManager turnManager;
+        [SerializeField] private CombatEventBus eventBus;
         [SerializeField] private StrideAction strideAction;
         [SerializeField] private EntityMover entityMover;
 
@@ -93,17 +94,24 @@ namespace PF2e.Presentation
                 return;
             }
 
+            if (turnManager != null && eventBus == null)
+            {
+                Debug.LogError("[MovementZoneVisualizer] Missing CombatEventBus for typed combat events. Disabling.", this);
+                enabled = false;
+                return;
+            }
+
             // Selection-driven zone (exploration mode; guarded in handlers for combat)
             entityManager.OnEntitySelected += OnEntitySelected;
             entityManager.OnEntityDeselected += OnEntityDeselected;
 
             // TurnManager-driven zone (combat mode)
-            if (turnManager != null)
+            if (turnManager != null && eventBus != null)
             {
-                turnManager.OnTurnStarted += HandleTurnStarted;
-                turnManager.OnTurnEnded += HandleTurnEnded;
-                turnManager.OnActionsChanged += HandleActionsChanged;
-                turnManager.OnCombatEnded += HandleCombatEnded;
+                eventBus.OnTurnStartedTyped += HandleTurnStarted;
+                eventBus.OnTurnEndedTyped += HandleTurnEnded;
+                eventBus.OnActionsChangedTyped += HandleActionsChanged;
+                eventBus.OnCombatEndedTyped += HandleCombatEnded;
             }
 
             if (strideAction != null)
@@ -125,12 +133,12 @@ namespace PF2e.Presentation
                 entityManager.OnEntitySelected -= OnEntitySelected;
                 entityManager.OnEntityDeselected -= OnEntityDeselected;
             }
-            if (turnManager != null)
+            if (turnManager != null && eventBus != null)
             {
-                turnManager.OnTurnStarted -= HandleTurnStarted;
-                turnManager.OnTurnEnded -= HandleTurnEnded;
-                turnManager.OnActionsChanged -= HandleActionsChanged;
-                turnManager.OnCombatEnded -= HandleCombatEnded;
+                eventBus.OnTurnStartedTyped -= HandleTurnStarted;
+                eventBus.OnTurnEndedTyped -= HandleTurnEnded;
+                eventBus.OnActionsChangedTyped -= HandleActionsChanged;
+                eventBus.OnCombatEndedTyped -= HandleCombatEnded;
             }
             if (strideAction != null)
                 strideAction.OnStrideStarted -= HandleStrideStarted;
@@ -145,24 +153,24 @@ namespace PF2e.Presentation
 
         // ─── TurnManager event handlers ─────────────────────────────────────
 
-        private void HandleTurnStarted(EntityHandle handle)
+        private void HandleTurnStarted(in TurnStartedEvent e)
         {
             RefreshCombatZone();
         }
 
-        private void HandleTurnEnded(EntityHandle handle)
+        private void HandleTurnEnded(in TurnEndedEvent e)
         {
             if (IsCombatMode)
                 ClearZone();
         }
 
-        private void HandleActionsChanged(int remaining)
+        private void HandleActionsChanged(in ActionsChangedEvent e)
         {
             if (IsCombatMode)
                 RefreshCombatZone();
         }
 
-        private void HandleCombatEnded()
+        private void HandleCombatEnded(in CombatEndedEvent e)
         {
             ClearZone();
         }
