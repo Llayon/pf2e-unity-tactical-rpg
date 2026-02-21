@@ -126,5 +126,58 @@ namespace PF2e.Tests
                 Object.DestroyImmediate(def);
             }
         }
+
+        [Test]
+        public void EntityData_EffectiveAC_IncludesShieldBonusOnlyWhenRaised()
+        {
+            var def = CreateShieldDef(acBonus: 2, maxHP: 10);
+            try
+            {
+                var data = new EntityData
+                {
+                    Level = 1,
+                    Dexterity = 10,
+                    EquippedShield = ShieldInstance.CreateEquipped(def)
+                };
+
+                int withoutShield = data.EffectiveAC;
+                data.SetShieldRaised(true);
+                int withShield = data.EffectiveAC;
+
+                Assert.AreEqual(withoutShield + 2, withShield);
+
+                data.SetShieldRaised(false);
+                Assert.AreEqual(withoutShield, data.EffectiveAC);
+            }
+            finally
+            {
+                Object.DestroyImmediate(def);
+            }
+        }
+
+        [Test]
+        public void ConditionService_TickStartTurn_ResetsRaisedShield()
+        {
+            var def = CreateShieldDef(maxHP: 10);
+            try
+            {
+                var data = new EntityData
+                {
+                    EquippedShield = ShieldInstance.CreateEquipped(def)
+                };
+                data.SetShieldRaised(true);
+                Assert.IsTrue(data.EquippedShield.isRaised);
+
+                var service = new ConditionService();
+                var deltas = new System.Collections.Generic.List<ConditionDelta>();
+                service.TickStartTurn(data, deltas);
+
+                Assert.IsFalse(data.EquippedShield.isRaised);
+            }
+            finally
+            {
+                Object.DestroyImmediate(def);
+            }
+        }
     }
 }

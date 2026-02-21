@@ -100,6 +100,7 @@ namespace PF2e.Core
             entity.ActionsRemaining = 3;
             entity.MAPCount = 0;
             entity.ReactionAvailable = true;
+            entity.SetShieldRaised(false);
 
             int slowed = entity.GetConditionValue(ConditionType.Slowed);
             entity.ActionsRemaining -= slowed;

@@ -83,6 +83,9 @@ namespace PF2e.Core
         private int snapshotArmorItemACBonus;
         private ArmorCategory snapshotArmorCategory;
         private int snapshotArmorPotencyBonus;
+        private ShieldDefinition snapshotShieldDefinition;
+        private bool snapshotShieldIsRaised;
+        private int snapshotShieldACBonus;
         private int snapshotConditionsFingerprint;
 
         // ─── Computed: Multiple Attack Penalty ───
@@ -249,6 +252,9 @@ namespace PF2e.Core
             if (snapshotArmorItemACBonus != EquippedArmor.ItemACBonus) return false;
             if (snapshotArmorCategory != EquippedArmor.Category) return false;
             if (snapshotArmorPotencyBonus != EquippedArmor.potencyBonus) return false;
+            if (snapshotShieldDefinition != EquippedShield.def) return false;
+            if (snapshotShieldIsRaised != EquippedShield.isRaised) return false;
+            if (snapshotShieldACBonus != EquippedShield.ACBonus) return false;
             if (snapshotConditionsFingerprint != ComputeConditionsFingerprint()) return false;
             return true;
         }
@@ -262,6 +268,9 @@ namespace PF2e.Core
             snapshotArmorItemACBonus = EquippedArmor.ItemACBonus;
             snapshotArmorCategory = EquippedArmor.Category;
             snapshotArmorPotencyBonus = EquippedArmor.potencyBonus;
+            snapshotShieldDefinition = EquippedShield.def;
+            snapshotShieldIsRaised = EquippedShield.isRaised;
+            snapshotShieldACBonus = EquippedShield.ACBonus;
             snapshotConditionsFingerprint = ComputeConditionsFingerprint();
         }
 
@@ -272,7 +281,8 @@ namespace PF2e.Core
                 out cachedConditionPenaltyToAttack,
                 out int acPenalty);
 
-            cachedEffectiveAC = BaseAC - acPenalty;
+            int shieldCircumstanceBonus = EquippedShield.ACBonus;
+            cachedEffectiveAC = BaseAC + shieldCircumstanceBonus - acPenalty;
         }
 
         private int ComputeConditionsFingerprint()
