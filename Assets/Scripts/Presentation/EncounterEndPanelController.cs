@@ -78,21 +78,9 @@ namespace PF2e.Presentation
 
         private void HandleCombatEnded(in CombatEndedEvent e)
         {
-            switch (e.result)
-            {
-                case EncounterResult.Victory:
-                    if (titleText != null) titleText.text = "Victory";
-                    if (subtitleText != null) subtitleText.text = "All enemies defeated.";
-                    break;
-                case EncounterResult.Defeat:
-                    if (titleText != null) titleText.text = "Defeat";
-                    if (subtitleText != null) subtitleText.text = "All players defeated.";
-                    break;
-                default:
-                    if (titleText != null) titleText.text = "Encounter Ended";
-                    if (subtitleText != null) subtitleText.text = "Combat was ended manually.";
-                    break;
-            }
+            var text = EncounterEndTextMap.For(e.result);
+            if (titleText != null) titleText.text = text.Title;
+            if (subtitleText != null) subtitleText.text = text.Subtitle;
 
             ShowPanel();
         }

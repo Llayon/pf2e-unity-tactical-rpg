@@ -64,18 +64,8 @@ namespace PF2e.Presentation
 
         private void OnCombatEndedTyped(in CombatEndedEvent e)
         {
-            switch (e.result)
-            {
-                case EncounterResult.Victory:
-                    eventBus.PublishSystem("Combat ended. Victory.", CombatLogCategory.CombatEnd);
-                    break;
-                case EncounterResult.Defeat:
-                    eventBus.PublishSystem("Combat ended. Defeat.", CombatLogCategory.CombatEnd);
-                    break;
-                default:
-                    eventBus.PublishSystem("Combat ended.", CombatLogCategory.CombatEnd);
-                    break;
-            }
+            string message = EncounterEndLogMessageMap.For(e.result);
+            eventBus.PublishSystem(message, CombatLogCategory.CombatEnd);
             lastActor = EntityHandle.None;
             lastActions = -1;
         }
@@ -132,6 +122,25 @@ namespace PF2e.Presentation
             }
 
             lastActions = e.remaining;
+        }
+    }
+
+    /// <summary>
+    /// Central mapping for encounter result text used in combat-end log messages.
+    /// </summary>
+    public static class EncounterEndLogMessageMap
+    {
+        public static string For(EncounterResult result)
+        {
+            switch (result)
+            {
+                case EncounterResult.Victory:
+                    return "Combat ended. Victory.";
+                case EncounterResult.Defeat:
+                    return "Combat ended. Defeat.";
+                default:
+                    return "Combat ended.";
+            }
         }
     }
 }

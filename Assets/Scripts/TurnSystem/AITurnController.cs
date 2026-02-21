@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using PF2e.Core;
 using PF2e.Grid;
@@ -33,6 +32,7 @@ namespace PF2e.TurnSystem
 
         private Coroutine activeCoroutine;
         private int runId;
+        private IAIDecisionPolicy decisionPolicy;
 
         // Async stride state
         private bool waitingForStride;
@@ -40,10 +40,6 @@ namespace PF2e.TurnSystem
 
         // Tracks lock ownership for safe cleanup on abort/disable.
         private bool ownsExecutionLock;
-
-        // Reusable buffers (avoid per-turn allocations)
-        private readonly List<Vector3Int> pathBuffer = new(32);
-        private readonly Dictionary<Vector3Int, int> zoneBuffer = new();
 
 #if UNITY_EDITOR
         private void OnValidate()
@@ -85,6 +81,7 @@ namespace PF2e.TurnSystem
 
             waitingForStride = false;
             TryRollbackExecutionLock();
+            decisionPolicy = null;
         }
 
         private void HandleTurnStartedTyped(in TurnStartedEvent e)
@@ -101,6 +98,7 @@ namespace PF2e.TurnSystem
                 ? entityManager.Registry.Get(actor)
                 : null;
             if (data == null || data.Team != Team.Enemy) return;
+            if (!EnsureDecisionPolicy()) return;
 
             // Recover if a previous run crashed/aborted while still holding the action lock.
             TryRollbackExecutionLock();
@@ -119,12 +117,14 @@ namespace PF2e.TurnSystem
         private IEnumerator ExecuteAITurn(EntityHandle actor, int token)
         {
             var progressGuard = new AITurnProgressGuard(NoProgressLoopThreshold);
-            var targetLock = new AITurnTargetLock();
+            EntityHandle lockedTarget = EntityHandle.None;
             try
             {
                 yield return new WaitForSeconds(thinkDelay);
 
                 if (!IsCurrentRun(token) || !IsMyTurn(actor))
+                    yield break;
+                if (!EnsureDecisionPolicy())
                     yield break;
 
                 var actorData = entityManager.Registry.Get(actor);
@@ -150,8 +150,20 @@ namespace PF2e.TurnSystem
                     actorData = entityManager.Registry.Get(actor);
                     if (actorData == null || !actorData.IsAlive) break;
 
-                    EntityHandle target = targetLock.ResolveTarget(actorData, entityManager.Registry.GetAll());
-                    if (!target.IsValid) break;
+                    EntityHandle target = lockedTarget;
+                    var targetData = target.IsValid ? entityManager.Registry.Get(target) : null;
+                    if (!AITurnTargetLock.IsValidTarget(actorData, targetData))
+                    {
+                        lockedTarget = EntityHandle.None;
+                        target = decisionPolicy.SelectTarget(actorData);
+                        if (!target.IsValid) break;
+
+                        targetData = entityManager.Registry.Get(target);
+                        if (!AITurnTargetLock.IsValidTarget(actorData, targetData))
+                            break;
+
+                        lockedTarget = target;
+                    }
 
                     if (progressGuard.RegisterStep(actorData.GridPosition, actorData.ActionsRemaining, target))
                     {
@@ -162,14 +174,7 @@ namespace PF2e.TurnSystem
                         yield break;
                     }
 
-                    var targetData = entityManager.Registry.Get(target);
-                    if (!AITurnTargetLock.IsValidTarget(actorData, targetData))
-                    {
-                        targetLock.Invalidate();
-                        continue;
-                    }
-
-                    if (SimpleMeleeAIDecision.IsInMeleeRange(actorData, targetData))
+                    if (decisionPolicy.IsInMeleeRange(actorData, targetData))
                     {
                         bool struck = TryExecuteStrike(actor, target);
                         if (!IsCurrentRun(token) || !IsMyTurn(actor))
@@ -182,15 +187,10 @@ namespace PF2e.TurnSystem
 
                     if (actorData.ActionsRemaining <= 0) break;
 
-                    var moveCell = SimpleMeleeAIDecision.FindBestMoveCell(
-                        gridManager.Data,
-                        entityManager.Pathfinding,
-                        entityManager.Occupancy,
+                    var moveCell = decisionPolicy.SelectStrideCell(
                         actorData,
                         targetData,
-                        Mathf.Clamp(actorData.ActionsRemaining, 0, 3),
-                        pathBuffer,
-                        zoneBuffer);
+                        Mathf.Clamp(actorData.ActionsRemaining, 0, 3));
 
                     if (!moveCell.HasValue || moveCell.Value == actorData.GridPosition)
                         break;
@@ -210,7 +210,6 @@ namespace PF2e.TurnSystem
             }
             finally
             {
-                targetLock.Reset();
                 progressGuard.Reset();
 
                 // StopCoroutine may bypass coroutine body; this guard keeps action state recoverable.
@@ -372,6 +371,21 @@ namespace PF2e.TurnSystem
                 turnManager.ActionCompleted();
 
             ownsExecutionLock = false;
+        }
+
+        private bool EnsureDecisionPolicy()
+        {
+            if (decisionPolicy != null) return true;
+
+            if (entityManager == null || gridManager == null)
+            {
+                Debug.LogError("[AITurnController] Missing EntityManager/GridManager for AI policy. Disabling.", this);
+                enabled = false;
+                return false;
+            }
+
+            decisionPolicy = new SimpleMeleeDecisionPolicy(entityManager, gridManager);
+            return true;
         }
 
         private bool IsCurrentRun(int token) => token == runId;

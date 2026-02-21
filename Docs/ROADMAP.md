@@ -9,6 +9,7 @@
 - Expand strike/check resolution coverage (degrees of success, condition interactions).
 - Add additional enemy profiles and action variants.
 - Improve AI decision quality while keeping deterministic tests.
+- Add AI decision-policy seam (`IAIDecisionPolicy`) to prepare Utility-AI migration without changing current behavior. (Done)
 - Consolidate runtime event architecture to typed `CombatEventBus` channels and retire legacy TurnManager log adapters. (Done)
 - Enforce strict AI typed-event wiring (remove `AITurnController` direct TurnManager subscription fallback). (Done)
 

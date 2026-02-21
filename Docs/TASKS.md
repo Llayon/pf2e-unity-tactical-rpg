@@ -29,6 +29,9 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-023 | P1 | done | Verifier | Add PlayMode initiative payload integrity regression on typed bus | New PlayMode test validates `OnInitiativeRolledTyped` payload count/uniqueness/team composition/sort order under real scene flow |
 | T-024 | P1 | done | Verifier | Add PlayMode consistency regression for combat-end payload and panel text mapping | New PlayMode test validates payload-to-UI text consistency across live victory (`CheckVictory`) and manual abort (`EndCombat`) flows |
 | T-025 | P1 | done | Verifier | Add explicit PlayMode defeat consistency contract-case for combat-end payload mapping | New PlayMode test validates `EncounterResult.Defeat` maps to correct panel title/subtitle in live `CheckVictory` flow |
+| T-026 | P1 | done | Builder | Extract encounter-end text mapping to pure helper + cover with EditMode tests | `EncounterEndTextMap` is runtime source-of-truth for `EncounterResult -> title/subtitle`; EditMode test covers Victory/Defeat/Aborted/Unknown mappings |
+| T-027 | P1 | done | Builder | Extract combat-end log message mapping to pure helper + cover with EditMode tests | `EncounterEndLogMessageMap` is source-of-truth for `EncounterResult -> TurnLogForwarder` message mapping; EditMode tests cover Victory/Defeat/Aborted/Unknown |
+| T-028 | P1 | done | Builder | Introduce AI decision policy seam (`IAIDecisionPolicy`) with behavior parity | `AITurnController` keeps orchestration + sticky lock; decision selection routes through `SimpleMeleeDecisionPolicy`; EditMode policy tests added; no gameplay behavior drift |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

@@ -16,7 +16,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 ### A) Current Folder Map + Responsibilities
 - `Assets/Scripts/Core`: pure rules/data structures (entities, conditions, attack/damage math, occupancy, item models, event contracts).
 - `Assets/Scripts/Grid`: grid data, pathfinding, rendering, floor controls, click/hover interaction.
-- `Assets/Scripts/TurnSystem`: turn state machine, input routing, action execution (`StrideAction`, `StrikeAction`, `StandAction`), targeting, enemy AI orchestration (`AITurnController`) and pure AI decisions (`SimpleMeleeAIDecision`).
+- `Assets/Scripts/TurnSystem`: turn state machine, input routing, action execution (`StrideAction`, `StrikeAction`, `StandAction`), targeting, enemy AI orchestration (`AITurnController`), and AI decision seam (`IAIDecisionPolicy` + `SimpleMeleeDecisionPolicy`) backed by pure helpers (`SimpleMeleeAIDecision`).
 - `Assets/Scripts/Managers`: `EntityManager` scene orchestration, spawning test entities, view management.
 - `Assets/Scripts/Presentation`: UI/controllers/log forwarders, initiative/floating damage visuals.
 - `Assets/Scripts/Data`: ScriptableObject configs (`GridConfig`).
@@ -57,10 +57,12 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Player actions (Stride/Strike/Stand) | Partial | Core actions implemented; no broader action set |
 | PF2e strike/damage basics | Partial | Melee-focused MVP; ranged/spells not implemented |
 | Conditions | Partial | Basic list + tick rules; simplified behavior |
-| Combat/UI presentation | Partial | Turn HUD, log, initiative, floating damage, and end-of-encounter panel are present; encounter flow panel is reusable and can be driven by shared preset |
+| Combat/UI presentation | Partial | Turn HUD, log, initiative, floating damage, and end-of-encounter panel are present; end-panel text now maps through `EncounterEndTextMap`; encounter flow panel is reusable and can be driven by shared preset |
 | Typed event routing | Done | `TurnManager` source events are typed and published directly to `CombatEventBus`; runtime subscribers consume typed bus events |
+| Encounter-end text mapping | Done | `EncounterEndTextMap` is source-of-truth for `EncounterResult -> title/subtitle`, consumed by `EncounterEndPanelController` and covered by EditMode unit tests |
+| Encounter-end log mapping | Done | `EncounterEndLogMessageMap` is source-of-truth for `EncounterResult -> combat-end log message`, consumed by `TurnLogForwarder` and covered by EditMode unit tests |
 | Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter flow runtime fallback now has a shared UI preset |
-| AI | Partial | Simple melee AI implemented with deterministic target priority (`distance -> HP -> handle`), sticky per-turn target lock (reacquire only on invalid target), and no-progress bailout; EditMode + PlayMode regressions now cover lock behavior; no advanced tactics/ranged/spell logic |
+| AI | Partial | Simple melee AI implemented with deterministic target priority (`distance -> HP -> handle`), sticky per-turn target lock (reacquire only on invalid target), and no-progress bailout; `AITurnController` now routes decisions through `IAIDecisionPolicy` (`SimpleMeleeDecisionPolicy`) to preserve behavior while preparing Utility-AI migration; no advanced tactics/ranged/spell logic |
 | Save/load/progression | Not started | No persistence layer |
 | PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, cross-scene prefab encounter-flow smoke coverage, multi-round regression (movement + enemy AI + condition ticks), blocked-enemy regression (turn exits without `ExecutingAction` deadlock), sticky-target lock E2E regression (enemy does not retarget mid-turn), EndTurn typed-event order regression (`ConditionsTicked -> TurnEnded -> TurnStarted(next)`), initiative typed payload integrity regression (count/uniqueness/team composition/sort order), and combat-end payload-to-panel consistency regressions for live victory/defeat and manual abort; broader system-level coverage is still pending |
 | Typed bus direct-publish tests (EditMode) | Done | EditMode now asserts direct `TurnManager -> CombatEventBus` lifecycle publish for `StartCombat` path and `EndTurn` path (`TurnEnded` + `ConditionsTicked`) without forwarder adapters |
@@ -70,7 +72,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 ## Module Boundaries
 - `PF2e.Core`: deterministic rules/data only. No UI concerns.
 - `PF2e.Grid`: spatial model + pathfinding + grid-facing MonoBehaviours.
-- `PF2e.TurnSystem`: turn orchestration, player action routing, and enemy turn orchestration.
+- `PF2e.TurnSystem`: turn orchestration, player action routing, and enemy turn orchestration; AI decisions flow through `IAIDecisionPolicy`, while lock/progress/action execution stay in `AITurnController`.
 - `PF2e.Managers`: scene composition/orchestration objects.
 - `PF2e.Presentation`: view/UI/log adapters only; should not own combat rules.
 - `PF2e.Data`: ScriptableObject config/authoring types.
@@ -91,11 +93,14 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - `TurnManager` combat-end contract: only typed result path (`OnCombatEndedWithResult` / `EncounterResult`) is supported.
 - `TurnManager` typed turn-event contract: `eventBus` must be assigned; turn/combat lifecycle events are emitted both via `TurnManager` typed source events and direct `CombatEventBus` publish.
 - Runtime subscriber contract: new systems should subscribe via `CombatEventBus`, not directly to `TurnManager`.
+- End-of-encounter UI text contract: use `EncounterEndTextMap` for `EncounterResult` labels/messages instead of duplicating string switches in controllers/tests.
+- End-of-encounter log text contract: use `EncounterEndLogMessageMap` for combat-end messages instead of duplicating string switches in forwarders/tests.
 - `EncounterFlowController` defaults to authored references (`autoCreateRuntimeButtons=false`); runtime auto-create is fallback only.
 - When `EncounterFlowController.useFlowPreset` is enabled, `flowPreset` becomes source-of-truth for runtime fallback fields.
 - `StrideAction` commits occupancy/entity position before animation; `EntityMover` is visual-only.
 - `AITurnController` must release action locks on abort/timeout/disable to avoid `ExecutingAction` deadlocks.
 - AI target selection contract is deterministic: nearest target first, then lower HP, then lower handle id as final tie-break.
+- AI policy seam contract: `IAIDecisionPolicy` must remain decision-only (target/range/stride choice); sticky lock and turn-loop orchestration remain controller responsibilities.
 - AI target lock contract: once selected, enemy keeps target for the turn unless target becomes invalid (dead/non-player/different elevation/missing).
 - `CombatEventBus.Publish(actor, message)` messages must not include actor name prefix.
 - `EntityHandle.None` means invalid handle (`Id == 0`).
@@ -115,9 +120,9 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Legacy forwarder stubs (`TurnManagerLogForwarder`, `TurnManagerTypedForwarder`) were removed from scenes and code; turn/combat typed flow is direct `TurnManager -> CombatEventBus`.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Add one bounded AI behavior increment (for example: avoid ending turn adjacent to multiple enemies when a same-cost safer cell exists) without introducing Utility-AI framework yet.
-2. Extract panel text mapping into a tiny pure helper (`EncounterEndTextMap`) and add EditMode unit tests for `EncounterResult -> title/subtitle` mapping.
-3. Draft Utility-AI migration seam (`IAIDecisionPolicy`) and adapter plan while preserving current deterministic tests as mandatory baseline.
+1. Add one bounded AI behavior increment in `SimpleMeleeDecisionPolicy` (for example: avoid ending turn adjacent to multiple enemies when a same-cost safer cell exists) without introducing full Utility-AI framework yet.
+2. Add a second policy implementation spike (`UtilityScoreDecisionPolicy` behind feature flag) while preserving `SimpleMeleeDecisionPolicy` as deterministic baseline.
+3. Add one typed-event integration assertion for condition tick payload integrity in a real PlayMode round (source actor + old/new values + removed flag).
 
 ## LLM-First Delivery Workflow (Multi-Agent)
 ### Operating Model (for non-programmer project owner)

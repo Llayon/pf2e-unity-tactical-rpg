@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.TestTools;
 using PF2e.Core;
 using PF2e.Managers;
+using PF2e.Presentation;
 using PF2e.TurnSystem;
 
 namespace PF2e.Tests
@@ -17,6 +18,16 @@ namespace PF2e.Tests
         {
             var e = new CombatEndedEvent(EncounterResult.Victory);
             Assert.AreEqual(EncounterResult.Victory, e.result);
+        }
+
+        [TestCase(EncounterResult.Victory, "Combat ended. Victory.")]
+        [TestCase(EncounterResult.Defeat, "Combat ended. Defeat.")]
+        [TestCase(EncounterResult.Aborted, "Combat ended.")]
+        [TestCase(EncounterResult.Unknown, "Combat ended.")]
+        public void EncounterEndLogMessageMap_For_ReturnsExpectedMessage(EncounterResult result, string expected)
+        {
+            string message = EncounterEndLogMessageMap.For(result);
+            Assert.AreEqual(expected, message);
         }
 
         [Test]
