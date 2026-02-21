@@ -56,7 +56,6 @@ public static class PF2eSceneDependencyValidator
         errors += ValidateAll<EntityManager>(ValidateEntityManager);
         errors += ValidateAll<TurnManager>(ValidateTurnManager);
         errors += ValidateAll<CombatEventBus>(ValidateCombatEventBus);
-        errors += ValidateAll<TurnManagerTypedForwarder>(ValidateTurnManagerTypedForwarder);
         errors += ValidateAll<TurnLogForwarder>(ValidateTurnLogForwarder);
         errors += ValidateAll<StrideLogForwarder>(ValidateStrideLogForwarder);
         errors += ValidateAll<StrikeLogForwarder>(ValidateStrikeLogForwarder);
@@ -85,7 +84,6 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<EntityManager>();
         errors += ErrorIfMoreThanOne<TurnManager>();
         errors += ErrorIfMoreThanOne<CombatEventBus>();
-        errors += ErrorIfMoreThanOne<TurnManagerTypedForwarder>();
         errors += ErrorIfMoreThanOne<TurnLogForwarder>();
         errors += ErrorIfMoreThanOne<StrideLogForwarder>();
         errors += ErrorIfMoreThanOne<StrikeLogForwarder>();
@@ -114,7 +112,9 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnIfNone<EncounterEndPanelController>();
         warnings += WarnIfNone<EncounterFlowController>();
         warnings += WarnIfAny<TurnManagerLogForwarder>(
-            "TurnManagerLogForwarder is deprecated. Disable/remove it and use TurnManagerTypedForwarder + TurnLogForwarder.");
+            "TurnManagerLogForwarder is deprecated. Disable/remove it and use TurnLogForwarder.");
+        warnings += WarnIfAny<TurnManagerTypedForwarder>(
+            "TurnManagerTypedForwarder is deprecated. Remove it; TurnManager now publishes typed events directly to CombatEventBus.");
 
         string summary = $"[PF2eValidator] Done. Errors: {errors}, Warnings: {warnings}";
         if (errors > 0) Debug.LogError(summary);
@@ -146,6 +146,7 @@ public static class PF2eSceneDependencyValidator
     private static void ValidateTurnManager(TurnManager tm, ref int errors, ref int warnings)
     {
         errors += RequireRef(tm, "entityManager", "EntityManager");
+        errors += RequireRef(tm, "eventBus", "CombatEventBus");
     }
 
     private static void ValidateCombatEventBus(CombatEventBus bus, ref int errors, ref int warnings)
@@ -254,12 +255,6 @@ public static class PF2eSceneDependencyValidator
     {
         errors += RequireRef(f, "eventBus", "CombatEventBus");
         errors += RequireRef(f, "entityManager", "EntityManager");
-    }
-
-    private static void ValidateTurnManagerTypedForwarder(TurnManagerTypedForwarder f, ref int errors, ref int warnings)
-    {
-        errors += RequireRef(f, "turnManager", "TurnManager");
-        errors += RequireRef(f, "eventBus", "CombatEventBus");
     }
 
     private static void ValidateTurnLogForwarder(TurnLogForwarder f, ref int errors, ref int warnings)
@@ -453,6 +448,8 @@ public static class PF2eSceneDependencyValidator
             fixedCount += FixAll<EntityManager>("eventBus", eventBus);
 
         fixedCount += FixAll<TurnManager>("entityManager", entityManager);
+        if (eventBus != null)
+            fixedCount += FixAll<TurnManager>("eventBus", eventBus);
 
         fixedCount += FixAll<GridInteraction>("entityManager", entityManager);
         fixedCount += FixAll<GridInteraction>("turnManager", turnManager);
@@ -524,16 +521,12 @@ public static class PF2eSceneDependencyValidator
 
         // Disable deprecated legacy forwarder if still present in scene.
         fixedCount += DisableAllIfEnabled<TurnManagerLogForwarder>();
+        fixedCount += DisableAllIfEnabled<TurnManagerTypedForwarder>();
 
         // StrikeLogForwarder (Phase 11.TypedEvents - typed strike events)
         fixedCount += FixAll<StrikeLogForwarder>("entityManager", entityManager);
         if (eventBus != null)
             fixedCount += FixAll<StrikeLogForwarder>("eventBus", eventBus);
-
-        // TurnManagerTypedForwarder (Phase 11.TypedEvents-B - typed turn events adapter)
-        fixedCount += FixAll<TurnManagerTypedForwarder>("turnManager", turnManager);
-        if (eventBus != null)
-            fixedCount += FixAll<TurnManagerTypedForwarder>("eventBus", eventBus);
 
         // TurnLogForwarder (Phase 11.TypedEvents-B - typed turn to string)
         fixedCount += FixAll<TurnLogForwarder>("entityManager", entityManager);

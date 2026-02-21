@@ -15,6 +15,7 @@ namespace PF2e.TurnSystem
     {
         [Header("Dependencies")]
         [SerializeField] private EntityManager entityManager;
+        [SerializeField] private CombatEventBus eventBus;
 
         [Header("Debug — visible in Inspector")]
         [SerializeField] private TurnState state = TurnState.Inactive;
@@ -92,6 +93,11 @@ namespace PF2e.TurnSystem
 
         // ─── Public Methods ───────────────────────────────────────────────────
 
+        private void Awake()
+        {
+            ResolveEventBusIfMissing();
+        }
+
         /// <summary>
         /// Kicks off a new combat encounter: roll initiative, fire events, begin round 1.
         /// </summary>
@@ -114,11 +120,12 @@ namespace PF2e.TurnSystem
             }
 
             ResetActionExecutionTracking();
+            ResolveEventBusIfMissing();
 
             state = TurnState.RollingInitiative;
             RollInitiative();
-            OnCombatStarted?.Invoke(default);
-            OnInitiativeRolled?.Invoke(new InitiativeRolledEvent(initiativeOrder));
+            PublishCombatStarted();
+            PublishInitiativeRolled(new InitiativeRolledEvent(initiativeOrder));
             roundNumber = 0;
             StartNextRound();
         }
@@ -142,10 +149,10 @@ namespace PF2e.TurnSystem
                 data.EndTurn(conditionTickBuffer);
 
                 if (conditionTickBuffer.Count > 0)
-                    OnConditionsTicked?.Invoke(new ConditionsTickedEvent(endingEntity, conditionTickBuffer));
+                    PublishConditionsTicked(new ConditionsTickedEvent(endingEntity, conditionTickBuffer));
             }
 
-            OnTurnEnded?.Invoke(new TurnEndedEvent(endingEntity));
+            PublishTurnEnded(new TurnEndedEvent(endingEntity));
 
             // End encounter immediately when one side is wiped.
             if (CheckVictory()) return;
@@ -170,7 +177,7 @@ namespace PF2e.TurnSystem
             if (data == null || data.ActionsRemaining < cost) return false;
 
             data.SpendActions(cost);
-            OnActionsChanged?.Invoke(new ActionsChangedEvent(CurrentEntity, data.ActionsRemaining));
+            PublishActionsChanged(new ActionsChangedEvent(CurrentEntity, data.ActionsRemaining));
 
             if (data.ActionsRemaining <= 0)
                 EndTurn();
@@ -233,7 +240,7 @@ namespace PF2e.TurnSystem
             if (ActionsRemaining <= 0)
                 EndTurn();
             else
-                OnActionsChanged?.Invoke(new ActionsChangedEvent(CurrentEntity, ActionsRemaining));
+                PublishActionsChanged(new ActionsChangedEvent(CurrentEntity, ActionsRemaining));
         }
 
         /// <summary>
@@ -264,7 +271,7 @@ namespace PF2e.TurnSystem
 
             // 3) Notify action count change
             int remaining = (data != null) ? data.ActionsRemaining : ActionsRemaining;
-            OnActionsChanged?.Invoke(new ActionsChangedEvent(actionActor, remaining));
+            PublishActionsChanged(new ActionsChangedEvent(actionActor, remaining));
 
             // 4) Auto-EndTurn if drained
             if (remaining <= 0 && CurrentEntity == actionActor)
@@ -283,7 +290,7 @@ namespace PF2e.TurnSystem
             if (entityManager != null)
                 entityManager.DeselectEntity();
 
-            OnCombatEndedWithResult?.Invoke(new CombatEndedEvent(result));
+            PublishCombatEnded(new CombatEndedEvent(result));
 
             // Full reset
             state = TurnState.Inactive;
@@ -349,7 +356,7 @@ namespace PF2e.TurnSystem
                 return;
             }
 
-            OnRoundStarted?.Invoke(new RoundStartedEvent(roundNumber));
+            PublishRoundStarted(new RoundStartedEvent(roundNumber));
             StartCurrentTurn();
         }
 
@@ -380,8 +387,8 @@ namespace PF2e.TurnSystem
             if (entityManager != null)
                 entityManager.SelectEntity(entry.Handle);
 
-            OnTurnStarted?.Invoke(new TurnStartedEvent(entry.Handle, data.ActionsRemaining));
-            OnActionsChanged?.Invoke(new ActionsChangedEvent(entry.Handle, data.ActionsRemaining));
+            PublishTurnStarted(new TurnStartedEvent(entry.Handle, data.ActionsRemaining));
+            PublishActionsChanged(new ActionsChangedEvent(entry.Handle, data.ActionsRemaining));
 
             Debug.Log($"[TurnManager] Round {roundNumber} — {data.Name} ({data.Team}) starts turn. Actions: {data.ActionsRemaining}");
         }
@@ -425,6 +432,64 @@ namespace PF2e.TurnSystem
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             actionLockWarned = false;
 #endif
+        }
+
+        private void ResolveEventBusIfMissing()
+        {
+            if (eventBus != null) return;
+
+            eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
+            if (eventBus == null)
+                Debug.LogWarning("[TurnManager] CombatEventBus not found. Typed bus publish is disabled.", this);
+        }
+
+        private void PublishCombatStarted()
+        {
+            OnCombatStarted?.Invoke(default);
+            eventBus?.PublishCombatStarted();
+        }
+
+        private void PublishCombatEnded(CombatEndedEvent e)
+        {
+            OnCombatEndedWithResult?.Invoke(e);
+            eventBus?.PublishCombatEnded(e.result);
+        }
+
+        private void PublishRoundStarted(RoundStartedEvent e)
+        {
+            OnRoundStarted?.Invoke(e);
+            eventBus?.PublishRoundStarted(e.round);
+        }
+
+        private void PublishTurnStarted(TurnStartedEvent e)
+        {
+            OnTurnStarted?.Invoke(e);
+            eventBus?.PublishTurnStarted(e.actor, e.actionsAtStart);
+        }
+
+        private void PublishTurnEnded(TurnEndedEvent e)
+        {
+            OnTurnEnded?.Invoke(e);
+            eventBus?.PublishTurnEnded(e.actor);
+        }
+
+        private void PublishActionsChanged(ActionsChangedEvent e)
+        {
+            OnActionsChanged?.Invoke(e);
+            if (e.actor.IsValid)
+                eventBus?.PublishActionsChanged(e.actor, e.remaining);
+        }
+
+        private void PublishConditionsTicked(ConditionsTickedEvent e)
+        {
+            OnConditionsTicked?.Invoke(e);
+            eventBus?.PublishConditionsTicked(e.actor, e.ticks);
+        }
+
+        private void PublishInitiativeRolled(InitiativeRolledEvent e)
+        {
+            OnInitiativeRolled?.Invoke(e);
+            eventBus?.PublishInitiativeRolled(e.order);
         }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
