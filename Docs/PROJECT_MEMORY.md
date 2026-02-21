@@ -111,11 +111,11 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - PlayMode regression now covers multi-round movement/AI/condition-tick flow, blocked-turn recovery, and sticky-target lock behavior, but does not yet cover advanced combat domains (ranged/spells/reactions).
 - Combat round regression deadlock assertions now combine lock duration with turn-progress signals to reduce CI timing flakes while still detecting real stuck locks.
 - Duplicate-looking armor asset naming (`GoblinArmor_.asset`) should be normalized later.
-- Deprecated `TurnManagerLogForwarder` and `TurnManagerTypedForwarder` are retained only as disabled compatibility stubs for existing scenes; do not use them for new work.
+- Legacy forwarder stubs (`TurnManagerLogForwarder`, `TurnManagerTypedForwarder`) were removed from scenes and code; turn/combat typed flow is direct `TurnManager -> CombatEventBus`.
 
 ## Next 3 Recommended Tasks (Small, High Value)
 1. Add one bounded AI behavior increment (for example: avoid ending turn adjacent to multiple enemies when a same-cost safer cell exists) without introducing Utility-AI framework yet.
-2. Remove deprecated forwarder components (`TurnManagerTypedForwarder`, `TurnManagerLogForwarder`) from authored scenes/prefabs and then delete compatibility stubs.
+2. Add a narrow EditMode test that asserts `TurnManager` publishes typed bus turn lifecycle events directly (without adapter components).
 3. Draft Utility-AI migration seam (`IAIDecisionPolicy`) and adapter plan while preserving current deterministic tests as mandatory baseline.
 
 ## LLM-First Delivery Workflow (Multi-Agent)

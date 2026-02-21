@@ -111,10 +111,6 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnIfNone<AITurnController>();
         warnings += WarnIfNone<EncounterEndPanelController>();
         warnings += WarnIfNone<EncounterFlowController>();
-        warnings += WarnIfAny<TurnManagerLogForwarder>(
-            "TurnManagerLogForwarder is deprecated. Disable/remove it and use TurnLogForwarder.");
-        warnings += WarnIfAny<TurnManagerTypedForwarder>(
-            "TurnManagerTypedForwarder is deprecated. Remove it; TurnManager now publishes typed events directly to CombatEventBus.");
 
         string summary = $"[PF2eValidator] Done. Errors: {errors}, Warnings: {warnings}";
         if (errors > 0) Debug.LogError(summary);
@@ -518,10 +514,6 @@ public static class PF2eSceneDependencyValidator
             fixedCount += FixAll<EncounterFlowController>("eventBus", eventBus);
         if (rootCanvas != null)
             fixedCount += FixAll<EncounterFlowController>("rootCanvas", rootCanvas);
-
-        // Disable deprecated legacy forwarder if still present in scene.
-        fixedCount += DisableAllIfEnabled<TurnManagerLogForwarder>();
-        fixedCount += DisableAllIfEnabled<TurnManagerTypedForwarder>();
 
         // StrikeLogForwarder (Phase 11.TypedEvents - typed strike events)
         fixedCount += FixAll<StrikeLogForwarder>("entityManager", entityManager);

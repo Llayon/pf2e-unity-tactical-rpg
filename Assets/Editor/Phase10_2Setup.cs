@@ -1,47 +1,21 @@
 #if UNITY_EDITOR
 using UnityEngine;
 using UnityEditor;
-using PF2e.Presentation;
 
 /// <summary>
-/// Legacy helper kept for backward compatibility.
-/// Current typed path: TurnManagerTypedForwarder + TurnLogForwarder.
+/// Legacy menu item kept for discoverability.
+/// Phase 10.2 forwarders were removed; use validator/autofix on current architecture.
 /// </summary>
 public static class Phase10_2Setup
 {
     [MenuItem("Tools/PF2e/Phase 10.2 Setup (Deprecated)")]
     public static void SetupPhase10_2()
     {
-        int disabledCount = 0;
-        var legacyForwarders = Object.FindObjectsByType<TurnManagerLogForwarder>(
-            FindObjectsInactive.Include, FindObjectsSortMode.None);
-
-        foreach (var forwarder in legacyForwarders)
-        {
-            if (forwarder == null || !forwarder.enabled) continue;
-            Undo.RecordObject(forwarder, "Disable TurnManagerLogForwarder");
-            forwarder.enabled = false;
-            EditorUtility.SetDirty(forwarder);
-            disabledCount++;
-        }
-
-        if (disabledCount > 0)
-        {
-            UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
-                UnityEngine.SceneManagement.SceneManager.GetActiveScene());
-        }
-
-        Debug.Log(
-            $"[Phase10.2Setup] Deprecated legacy forwarders disabled: {disabledCount}. " +
-            "Use TurnManagerTypedForwarder + TurnLogForwarder.");
+        Debug.Log("[Phase10.2Setup] Deprecated workflow removed. Use Tools/PF2e/Auto-Fix Scene Dependencies (Safe) + Validate Scene Dependencies.");
 
         EditorUtility.DisplayDialog(
             "Phase 10.2 Setup (Deprecated)",
-            "Legacy TurnManagerLogForwarder is deprecated.\n\n" +
-            "Use:\n" +
-            "- TurnManagerTypedForwarder\n" +
-            "- TurnLogForwarder\n\n" +
-            "Run Tools > PF2e > Auto-Fix + Validate to wire typed dependencies.",
+            "Phase 10.2 forwarders were removed.\n\nRun:\n- Tools > PF2e > Auto-Fix Scene Dependencies (Safe)\n- Tools > PF2e > Validate Scene Dependencies",
             "OK");
     }
 }

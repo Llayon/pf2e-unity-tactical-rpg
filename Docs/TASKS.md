@@ -22,6 +22,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-016 | P1 | done | Builder | Add sticky target lock per enemy turn (reacquire only when target invalid) | Enemy AI keeps current target through the turn, only reacquires on invalid target; deterministic EditMode tests cover lock behavior |
 | T-017 | P1 | done | Verifier | Add PlayMode E2E regression for sticky target lock under dynamic retarget pressure | New PlayMode scenario proves enemy keeps locked target for the same turn even when another player becomes a better candidate after first strike |
 | T-018 | P0 | done | Builder | Complete typed turn-event migration by removing runtime `TurnManager` subscribers | `TurnManager` now publishes typed turn events directly to `CombatEventBus`; `TurnManagerTypedForwarder` is deprecated/disabled and validator-autofix enforces `TurnManager.eventBus` wiring |
+| T-019 | P0 | done | Builder | Remove deprecated turn forwarder components and compatibility stubs | Deprecated `TurnManagerTypedForwarder`/`TurnManagerLogForwarder` components removed from authored scenes; stub scripts deleted; validator/autofix no longer depends on them |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

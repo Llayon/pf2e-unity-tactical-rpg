@@ -1763,7 +1763,6 @@ GameObject:
   - component: {fileID: 456169786}
   - component: {fileID: 456169787}
   - component: {fileID: 456169788}
-  - component: {fileID: 456169789}
   - component: {fileID: 456169790}
   - component: {fileID: 456169791}
   - component: {fileID: 456169792}
@@ -1842,6 +1841,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PF2e::PF2e.TurnSystem.TurnManager
   entityManager: {fileID: 569346726}
+  eventBus: {fileID: 939543823}
   state: 0
   currentIndex: -1
   roundNumber: 0
@@ -1906,20 +1906,6 @@ MonoBehaviour:
   entityManager: {fileID: 569346726}
   eventBus: {fileID: 939543823}
   requireSameElevation: 1
---- !u!114 &456169789
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 456169780}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b01a2fd0cb3010d4180da45a2df2ab61, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PF2e::PF2e.Presentation.TurnManagerTypedForwarder
-  turnManager: {fileID: 456169784}
-  eventBus: {fileID: 939543823}
 --- !u!114 &456169790
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2053,7 +2039,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 43e3d6bd68f6bbd45b17ff2eb3c79907, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PF2e::PF2e.Presentation.ConditionTickForwarder
-  turnManager: {fileID: 456169784}
   eventBus: {fileID: 939543823}
 --- !u!114 &456169798
 MonoBehaviour:
@@ -2092,8 +2077,11 @@ MonoBehaviour:
   entityManager: {fileID: 569346726}
   eventBus: {fileID: 939543823}
   rootCanvas: {fileID: 35781846}
+  useFlowPreset: 0
+  flowPreset: {fileID: 0}
   startEncounterButton: {fileID: 1975502630}
   endEncounterButton: {fileID: 2069959939}
+  encounterFlowPanelPrefab: {fileID: 0}
   autoCreateRuntimeButtons: 0
 --- !u!1 &467295943
 GameObject:
@@ -3834,7 +3822,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1603683880}
-  - component: {fileID: 1603683879}
   m_Layer: 0
   m_Name: TurnManagerLogForwarder
   m_TagString: Untagged
@@ -3842,21 +3829,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 0
---- !u!114 &1603683879
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1603683878}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cb225c704ab38074882dbdf5f384697a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PF2e::PF2e.Presentation.TurnManagerLogForwarder
-  turnManager: {fileID: 456169784}
-  entityManager: {fileID: 569346726}
-  eventBus: {fileID: 939543823}
 --- !u!4 &1603683880
 Transform:
   m_ObjectHideFlags: 0
