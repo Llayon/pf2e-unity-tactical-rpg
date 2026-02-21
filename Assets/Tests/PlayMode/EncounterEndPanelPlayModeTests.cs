@@ -470,6 +470,44 @@ namespace PF2e.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator GT_P18_PM_204_PayloadToPanelText_Consistency_Defeat()
+        {
+            EncounterResult received = EncounterResult.Unknown;
+            bool eventReceived = false;
+
+            void Handler(in CombatEndedEvent e)
+            {
+                received = e.result;
+                eventReceived = true;
+            }
+
+            eventBus.OnCombatEndedTyped += Handler;
+            try
+            {
+                yield return StartCombatAndWaitForTurnState();
+
+                WipeTeam(Team.Player);
+                turnManager.EndTurn();
+
+                yield return WaitUntilOrTimeout(
+                    () => eventReceived,
+                    DefaultTimeoutSeconds,
+                    "CombatEndedEvent was not raised for defeat consistency check.");
+                yield return WaitUntilOrTimeout(
+                    () => IsPanelVisible(panelCanvasGroup),
+                    DefaultTimeoutSeconds,
+                    "Encounter panel did not appear for defeat consistency check.");
+
+                Assert.AreEqual(EncounterResult.Defeat, received);
+                AssertPanelTextMatchesResult(received, titleText.text, subtitleText.text);
+            }
+            finally
+            {
+                eventBus.OnCombatEndedTyped -= Handler;
+            }
+        }
+
         private void ResolveSceneReferences()
         {
             turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();
