@@ -71,6 +71,19 @@ namespace PF2e.Core
         // ─── Conditions ───
         public List<ActiveCondition> Conditions = new List<ActiveCondition>();
 
+        // ─── Derived Stats Cache (Phase 18.6) ───
+        private int cachedEffectiveAC;
+        private int cachedConditionPenaltyToAttack;
+        private bool derivedStatsCacheValid;
+        private int snapshotDexterity;
+        private int snapshotLevel;
+        private ArmorDefinition snapshotArmorDefinition;
+        private int snapshotArmorDexCap;
+        private int snapshotArmorItemACBonus;
+        private ArmorCategory snapshotArmorCategory;
+        private int snapshotArmorPotencyBonus;
+        private int snapshotConditionsFingerprint;
+
         // ─── Computed: Multiple Attack Penalty ───
         public int CurrentMAP
         {
@@ -132,11 +145,8 @@ namespace PF2e.Core
         {
             get
             {
-                int penalty = GetConditionValue(ConditionType.Frightened)
-                            + GetConditionValue(ConditionType.Sickened);
-                if (HasCondition(ConditionType.Prone))
-                    penalty += 2;
-                return penalty;
+                EnsureDerivedStatsUpToDate();
+                return cachedConditionPenaltyToAttack;
             }
         }
 
@@ -188,13 +198,8 @@ namespace PF2e.Core
         {
             get
             {
-                int ac = BaseAC;
-                // Off-Guard OR Prone: -2 circumstance to AC (same type = no stacking)
-                if (HasCondition(ConditionType.OffGuard) || HasCondition(ConditionType.Prone))
-                    ac -= 2;
-                ac -= GetConditionValue(ConditionType.Frightened);
-                ac -= GetConditionValue(ConditionType.Sickened);
-                return ac;
+                EnsureDerivedStatsUpToDate();
+                return cachedEffectiveAC;
             }
         }
 
@@ -213,6 +218,116 @@ namespace PF2e.Core
             for (int i = 0; i < Conditions.Count; i++)
                 if (Conditions[i].Type == type) return Conditions[i].Value;
             return 0;
+        }
+
+        /// <summary>
+        /// Optional invalidation hint.
+        /// Correctness does not depend on this call because getters also verify a snapshot.
+        /// </summary>
+        public void MarkDerivedStatsDirty()
+        {
+            derivedStatsCacheValid = false;
+        }
+
+        private void EnsureDerivedStatsUpToDate()
+        {
+            if (derivedStatsCacheValid && IsDerivedStatsSnapshotValid())
+                return;
+
+            RecomputeDerivedStats();
+            CaptureDerivedStatsSnapshot();
+            derivedStatsCacheValid = true;
+        }
+
+        private bool IsDerivedStatsSnapshotValid()
+        {
+            if (snapshotDexterity != Dexterity) return false;
+            if (snapshotLevel != Level) return false;
+            if (snapshotArmorDefinition != EquippedArmor.def) return false;
+            if (snapshotArmorDexCap != EquippedArmor.DexCap) return false;
+            if (snapshotArmorItemACBonus != EquippedArmor.ItemACBonus) return false;
+            if (snapshotArmorCategory != EquippedArmor.Category) return false;
+            if (snapshotArmorPotencyBonus != EquippedArmor.potencyBonus) return false;
+            if (snapshotConditionsFingerprint != ComputeConditionsFingerprint()) return false;
+            return true;
+        }
+
+        private void CaptureDerivedStatsSnapshot()
+        {
+            snapshotDexterity = Dexterity;
+            snapshotLevel = Level;
+            snapshotArmorDefinition = EquippedArmor.def;
+            snapshotArmorDexCap = EquippedArmor.DexCap;
+            snapshotArmorItemACBonus = EquippedArmor.ItemACBonus;
+            snapshotArmorCategory = EquippedArmor.Category;
+            snapshotArmorPotencyBonus = EquippedArmor.potencyBonus;
+            snapshotConditionsFingerprint = ComputeConditionsFingerprint();
+        }
+
+        private void RecomputeDerivedStats()
+        {
+            bool hasOffGuard = false;
+            bool hasProne = false;
+            int frightenedValue = 0;
+            int sickenedValue = 0;
+            bool seenFrightened = false;
+            bool seenSickened = false;
+
+            for (int i = 0; i < Conditions.Count; i++)
+            {
+                var condition = Conditions[i];
+                switch (condition.Type)
+                {
+                    case ConditionType.OffGuard:
+                        hasOffGuard = true;
+                        break;
+                    case ConditionType.Prone:
+                        hasProne = true;
+                        break;
+                    case ConditionType.Frightened:
+                        if (!seenFrightened)
+                        {
+                            frightenedValue = condition.Value;
+                            seenFrightened = true;
+                        }
+                        break;
+                    case ConditionType.Sickened:
+                        if (!seenSickened)
+                        {
+                            sickenedValue = condition.Value;
+                            seenSickened = true;
+                        }
+                        break;
+                }
+            }
+
+            int penalty = frightenedValue + sickenedValue;
+            if (hasProne)
+                penalty += 2;
+            cachedConditionPenaltyToAttack = penalty;
+
+            int ac = BaseAC;
+            if (hasOffGuard || hasProne)
+                ac -= 2;
+            ac -= frightenedValue;
+            ac -= sickenedValue;
+            cachedEffectiveAC = ac;
+        }
+
+        private int ComputeConditionsFingerprint()
+        {
+            unchecked
+            {
+                int hash = 17;
+                for (int i = 0; i < Conditions.Count; i++)
+                {
+                    var condition = Conditions[i];
+                    hash = (hash * 31) + (int)condition.Type;
+                    hash = (hash * 31) + condition.Value;
+                    hash = (hash * 31) + condition.RemainingRounds;
+                }
+                return hash;
+            }
         }
 
         // ─── Condition Management ───

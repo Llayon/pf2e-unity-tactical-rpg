@@ -45,6 +45,7 @@ namespace PF2e.Core
 
                 cond.Value = mergedValue;
                 cond.RemainingRounds = mergedRounds;
+                entity.MarkDerivedStatsDirty();
 
                 outDeltas.Add(new ConditionDelta(
                     entity.Handle,
@@ -58,6 +59,7 @@ namespace PF2e.Core
             }
 
             entity.Conditions.Add(new ActiveCondition(type, incomingValue, incomingRounds));
+            entity.MarkDerivedStatsDirty();
             outDeltas.Add(new ConditionDelta(
                 entity.Handle,
                 type,
@@ -87,6 +89,7 @@ namespace PF2e.Core
                     0));
 
                 entity.Conditions.RemoveAt(i);
+                entity.MarkDerivedStatsDirty();
             }
         }
 
@@ -136,6 +139,7 @@ namespace PF2e.Core
                         0));
 
                     entity.Conditions.RemoveAt(i);
+                    entity.MarkDerivedStatsDirty();
                     continue;
                 }
 
@@ -151,6 +155,7 @@ namespace PF2e.Core
                     cond.Value,
                     oldRounds,
                     cond.RemainingRounds));
+                entity.MarkDerivedStatsDirty();
             }
         }
 
