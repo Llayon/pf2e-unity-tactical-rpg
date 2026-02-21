@@ -315,6 +315,11 @@ namespace PF2e.Core
         }
 
         // ─── Turn Management ───
+        /// <summary>
+        /// Compatibility-only legacy helper.
+        /// Runtime/gameplay code should use ConditionService.TickStartTurn.
+        /// </summary>
+        [System.Obsolete("Compatibility-only. Use ConditionService.TickStartTurn.")]
         public void StartTurn()
         {
             ActionsRemaining = 3;
@@ -339,6 +344,11 @@ namespace PF2e.Core
             }
         }
 
+        /// <summary>
+        /// Compatibility-only legacy helper.
+        /// Runtime/gameplay code should use ConditionService.TickEndTurn.
+        /// </summary>
+        [System.Obsolete("Compatibility-only. Use ConditionService.TickEndTurn.")]
         public void EndTurn(List<ConditionTick> outTicks = null)
         {
             for (int i = Conditions.Count - 1; i >= 0; i--)

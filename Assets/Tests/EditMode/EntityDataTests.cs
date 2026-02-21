@@ -19,6 +19,20 @@ public class EntityDataTests
         ConditionService.Remove(data, type, deltas);
     }
 
+    private static System.Collections.Generic.List<ConditionDelta> TickStart(EntityData data)
+    {
+        var deltas = new System.Collections.Generic.List<ConditionDelta>(4);
+        ConditionService.TickStartTurn(data, deltas);
+        return deltas;
+    }
+
+    private static System.Collections.Generic.List<ConditionDelta> TickEnd(EntityData data)
+    {
+        var deltas = new System.Collections.Generic.List<ConditionDelta>(4);
+        ConditionService.TickEndTurn(data, deltas);
+        return deltas;
+    }
+
     [TestCase(10, 0)]
     [TestCase(12, 1)]
     [TestCase(14, 2)]
@@ -152,69 +166,75 @@ public class EntityDataTests
         Assert.DoesNotThrow(() => Remove(data, ConditionType.Prone));
     }
 
-    [Test] public void StartTurn_Defaults()
+    [Test] public void TickStartTurn_Defaults()
     {
         var data = new EntityData();
-        data.StartTurn();
+        TickStart(data);
         Assert.AreEqual(3, data.ActionsRemaining);
         Assert.AreEqual(0, data.MAPCount);
         Assert.IsTrue(data.ReactionAvailable);
     }
 
-    [Test] public void StartTurn_Slowed_ReducesActions()
+    [Test] public void TickStartTurn_Slowed_ReducesActions()
     {
         var data = new EntityData();
         Apply(data, ConditionType.Slowed, 1);
-        data.StartTurn();
+        TickStart(data);
         Assert.AreEqual(2, data.ActionsRemaining);
     }
 
-    [Test] public void StartTurn_Stunned_ReducesActionsAndRemoves()
+    [Test] public void TickStartTurn_Stunned_ReducesActionsAndRemoves()
     {
         var data = new EntityData();
         Apply(data, ConditionType.Stunned, 2);
-        data.StartTurn();
+        var deltas = TickStart(data);
         Assert.AreEqual(1, data.ActionsRemaining);
         Assert.IsFalse(data.HasCondition(ConditionType.Stunned));
+        Assert.AreEqual(1, deltas.Count);
+        Assert.AreEqual(ConditionChangeType.Removed, deltas[0].changeType);
     }
 
-    [Test] public void StartTurn_SlowedAndStunned_CombinedReduction()
+    [Test] public void TickStartTurn_SlowedAndStunned_CombinedReduction()
     {
         var data = new EntityData();
         Apply(data, ConditionType.Slowed, 1);
         Apply(data, ConditionType.Stunned, 1);
-        data.StartTurn();
+        TickStart(data);
         Assert.AreEqual(1, data.ActionsRemaining);
     }
 
-    [Test] public void StartTurn_HeavyStun_ClampedToZero()
+    [Test] public void TickStartTurn_HeavyStun_ClampedToZero()
     {
         var data = new EntityData();
         Apply(data, ConditionType.Stunned, 5);
-        data.StartTurn();
+        TickStart(data);
         Assert.AreEqual(0, data.ActionsRemaining);
     }
 
-    [Test] public void EndTurn_FrightenedTicksDown()
+    [Test] public void TickEndTurn_FrightenedTicksDown()
     {
         var data = new EntityData();
         Apply(data, ConditionType.Frightened, 2);
-        data.EndTurn();
+        var deltas = TickEnd(data);
         Assert.AreEqual(1, data.GetConditionValue(ConditionType.Frightened));
+        Assert.AreEqual(1, deltas.Count);
+        Assert.AreEqual(ConditionChangeType.ValueChanged, deltas[0].changeType);
     }
 
-    [Test] public void EndTurn_Frightened1_RemovedCompletely()
+    [Test] public void TickEndTurn_Frightened1_RemovedCompletely()
     {
         var data = new EntityData();
         Apply(data, ConditionType.Frightened, 1);
-        data.EndTurn();
+        var deltas = TickEnd(data);
         Assert.IsFalse(data.HasCondition(ConditionType.Frightened));
+        Assert.AreEqual(1, deltas.Count);
+        Assert.AreEqual(ConditionChangeType.Removed, deltas[0].changeType);
     }
 
     [Test] public void SpendActions_ReducesRemaining()
     {
         var data = new EntityData();
-        data.StartTurn();
+        TickStart(data);
         data.SpendActions(2);
         Assert.AreEqual(1, data.ActionsRemaining);
     }
@@ -222,7 +242,7 @@ public class EntityDataTests
     [Test] public void SpendActions_ClampsToZero()
     {
         var data = new EntityData();
-        data.StartTurn();
+        TickStart(data);
         data.SpendActions(5);
         Assert.AreEqual(0, data.ActionsRemaining);
     }

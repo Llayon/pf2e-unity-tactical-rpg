@@ -65,7 +65,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter flow runtime fallback now has a shared UI preset |
 | AI | Partial | Simple melee AI implemented with deterministic target priority (`distance -> HP -> handle`), sticky per-turn target lock (reacquire only on invalid target), and no-progress bailout; `AITurnController` now routes decisions through `IAIDecisionPolicy` (`SimpleMeleeDecisionPolicy`) to preserve behavior while preparing Utility-AI migration; no advanced tactics/ranged/spell logic |
 | Save/load/progression | Not started | No persistence layer |
-| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, cross-scene prefab encounter-flow smoke coverage, multi-round regression (movement + enemy AI + condition ticks), blocked-enemy regression (turn exits without `ExecutingAction` deadlock), sticky-target lock E2E regression (enemy does not retarget mid-turn), EndTurn typed-event order regression (`ConditionsTicked -> TurnEnded -> TurnStarted(next)`), initiative typed payload integrity regression (count/uniqueness/team composition/sort order), duration-condition lifecycle regressions (`DurationChanged` and duration-expire removal with matching log output), and combat-end payload-to-panel consistency regressions for live victory/defeat and manual abort; broader system-level coverage is still pending |
+| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, cross-scene prefab encounter-flow smoke coverage, multi-round regression (movement + enemy AI + condition ticks), blocked-enemy regression (turn exits without `ExecutingAction` deadlock), sticky-target lock E2E regression (enemy does not retarget mid-turn), EndTurn typed-event order regression (`ConditionsTicked -> TurnEnded -> TurnStarted(next)`), initiative typed payload integrity regression (count/uniqueness/team composition/sort order), duration-condition lifecycle regressions (`DurationChanged` and duration-expire removal with matching log output), live status-stacking strike regressions (max status, single circumstance), and combat-end payload-to-panel consistency regressions for live victory/defeat and manual abort; broader system-level coverage is still pending |
 | Typed bus direct-publish tests (EditMode) | Done | EditMode now asserts direct `TurnManager -> CombatEventBus` lifecycle publish for `StartCombat` path and `EndTurn` path (`TurnEnded` + `ConditionsTicked`) without forwarder adapters |
 | TurnManager action-lock tests (EditMode) | Done | EditMode now verifies lock metadata lifecycle (begin/complete/endcombat) and executing-actor action-cost ownership |
 | CI test automation | Done | GitHub Actions (`.github/workflows/unity-tests.yml`) runs EditMode + PlayMode on push/PR to `master`; branch protection on `master` requires `Unity Tests` |
@@ -95,6 +95,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - `TurnManager` typed turn-event contract: `eventBus` must be assigned; turn/combat lifecycle events are emitted both via `TurnManager` typed source events and direct `CombatEventBus` publish.
 - Conditions mutation contract: gameplay/turn/action code must mutate conditions through `ConditionService` (caller-owned `List<ConditionDelta>` buffers), not direct `EntityData` mutation helpers.
 - `EntityData.AddCondition/RemoveCondition` are internal guardrail APIs for core-only usage; cross-module/gameplay code must use `ConditionService`.
+- `EntityData.StartTurn/EndTurn` are compatibility-only legacy helpers; gameplay/tests should prefer `ConditionService.TickStartTurn/TickEndTurn`.
 - Condition lifecycle payload contract: `ConditionsTickedEvent` now uses `ConditionDelta` entries as canonical payload.
 - Condition changed event contract: duration-only ticks use `ConditionChangeType.DurationChanged`, with `oldRemainingRounds/newRemainingRounds` populated on `ConditionChangedEvent`.
 - Condition tick semantics contract: on end turn, value auto-decay and duration countdown are independent; remove on `RemainingRounds == 0`, or on valued infinite conditions when `Value <= 0`.
@@ -121,7 +122,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - `SampleScene` remains authored-reference first; `EncounterFlowPrefabScene` is the current preset-driven fallback example scene.
 - Restart is scene-reload based (`SceneManager.LoadScene`) and intentionally simple for MVP.
 - `EntityData.AddCondition/RemoveCondition` are now `internal` guardrails; avoid introducing new callers outside core condition infrastructure.
-- Legacy `ConditionTick` struct remains only for compatibility in `EntityData.EndTurn`; typed event flow is now `ConditionDelta`-based.
+- Legacy `ConditionTick` struct remains only for compatibility in `EntityData.EndTurn`; typed event flow is now `ConditionDelta`-based and EditMode turn-condition tests use `ConditionService` ticks directly.
 - Condition model now supports simultaneous `Value + RemainingRounds`; stacking/implied helpers exist for current attack/AC penalties, but broader PF2e condition interactions are still pending.
 - Derived-stat cache is currently an architecture/correctness foundation; for the present simple formulas it is not guaranteed to be a net performance win yet.
 - Input System package exists, but most gameplay input is polled directly from keyboard/mouse.
@@ -133,8 +134,8 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 
 ## Next 3 Recommended Tasks (Small, High Value)
 1. Expand `ConditionRules` helpers to additional PF2e interactions (e.g., future implied states and non-penalty effects) with test-first coverage.
-2. Migrate remaining legacy `EntityData.StartTurn/EndTurn` direct-condition test usage to `ConditionService`-driven paths and keep legacy methods as compatibility-only.
-3. Add PlayMode coverage for status-stacking behavior in live combat flow (`Frightened + Sickened` max-status semantics).
+2. Add PlayMode coverage for stacking edge-cases with mixed teams/targets (e.g., attacking prone+off-guard targets across multiple turns).
+3. Decide long-term fate of legacy `EntityData.StartTurn/EndTurn` (keep compatibility wrappers vs remove after full migration window).
 
 ## LLM-First Delivery Workflow (Multi-Agent)
 ### Operating Model (for non-programmer project owner)
