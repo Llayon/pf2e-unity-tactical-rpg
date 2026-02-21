@@ -60,7 +60,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Combat/UI presentation | Partial | Turn HUD, log, initiative, floating damage, and end-of-encounter panel are present; encounter flow panel is reusable and can be driven by shared preset |
 | Typed event routing | Done | `TurnManager` source events are typed, bridge forwarding is centralized in `TurnManagerTypedForwarder`, runtime subscribers consume typed `CombatEventBus` events |
 | Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter flow runtime fallback now has a shared UI preset |
-| AI | Partial | Simple melee AI implemented with deterministic target priority (`distance -> HP -> handle`) and no-progress bailout; no advanced tactics/ranged/spell logic |
+| AI | Partial | Simple melee AI implemented with deterministic target priority (`distance -> HP -> handle`), sticky per-turn target lock (reacquire only on invalid target), and no-progress bailout; no advanced tactics/ranged/spell logic |
 | Save/load/progression | Not started | No persistence layer |
 | PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, cross-scene prefab encounter-flow smoke coverage, multi-round regression (movement + enemy AI + condition ticks), and blocked-enemy regression (turn exits without `ExecutingAction` deadlock); broader system-level coverage is still pending |
 | TurnManager action-lock tests (EditMode) | Done | EditMode now verifies lock metadata lifecycle (begin/complete/endcombat) and executing-actor action-cost ownership |
@@ -94,6 +94,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - `StrideAction` commits occupancy/entity position before animation; `EntityMover` is visual-only.
 - `AITurnController` must release action locks on abort/timeout/disable to avoid `ExecutingAction` deadlocks.
 - AI target selection contract is deterministic: nearest target first, then lower HP, then lower handle id as final tie-break.
+- AI target lock contract: once selected, enemy keeps target for the turn unless target becomes invalid (dead/non-player/different elevation/missing).
 - `CombatEventBus.Publish(actor, message)` messages must not include actor name prefix.
 - `EntityHandle.None` means invalid handle (`Id == 0`).
 - Grid/entity raycasts rely on layer consistency (`EntityView` objects share grid layer).
@@ -113,7 +114,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 
 ## Next 3 Recommended Tasks (Small, High Value)
 1. Define next AI behavior increment (positioning/targeting heuristic beyond melee rush) without introducing Utility-AI framework yet.
-2. Add PlayMode regression specifically asserting no-progress bailout path in a blocked map scenario.
+2. Add PlayMode regression that explicitly verifies sticky-target behavior under changing target distances during one enemy turn.
 3. Plan migration path from heuristic AI to future Utility-AI while preserving current deterministic tests as baseline.
 
 ## LLM-First Delivery Workflow (Multi-Agent)

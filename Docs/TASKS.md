@@ -19,6 +19,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-013 | P1 | done | Verifier | Add/refresh regression checks for typed event flow and combat-end UX | EditMode/PlayMode checks prove encounter end + turn UI still react correctly after migration |
 | T-014 | P1 | done | Builder | Remove temporary `AITurnController` legacy TurnManager fallback and enforce strict bus wiring | `AITurnController` listens only to typed bus events; scene wiring/validator/autofix updated; tests stay green |
 | T-015 | P1 | done | Verifier | Add PlayMode regression for blocked enemy no-progress handling | New PlayMode scenario proves blocked enemy turn exits quickly and does not leave `TurnManager` in `ExecutingAction` |
+| T-016 | P1 | done | Builder | Add sticky target lock per enemy turn (reacquire only when target invalid) | Enemy AI keeps current target through the turn, only reacquires on invalid target; deterministic EditMode tests cover lock behavior |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

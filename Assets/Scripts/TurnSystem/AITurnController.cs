@@ -119,6 +119,7 @@ namespace PF2e.TurnSystem
         private IEnumerator ExecuteAITurn(EntityHandle actor, int token)
         {
             var progressGuard = new AITurnProgressGuard(NoProgressLoopThreshold);
+            var targetLock = new AITurnTargetLock();
             try
             {
                 yield return new WaitForSeconds(thinkDelay);
@@ -149,7 +150,7 @@ namespace PF2e.TurnSystem
                     actorData = entityManager.Registry.Get(actor);
                     if (actorData == null || !actorData.IsAlive) break;
 
-                    EntityHandle target = SimpleMeleeAIDecision.FindBestTarget(actorData, entityManager.Registry.GetAll());
+                    EntityHandle target = targetLock.ResolveTarget(actorData, entityManager.Registry.GetAll());
                     if (!target.IsValid) break;
 
                     if (progressGuard.RegisterStep(actorData.GridPosition, actorData.ActionsRemaining, target))
@@ -162,7 +163,11 @@ namespace PF2e.TurnSystem
                     }
 
                     var targetData = entityManager.Registry.Get(target);
-                    if (targetData == null || !targetData.IsAlive) break;
+                    if (!AITurnTargetLock.IsValidTarget(actorData, targetData))
+                    {
+                        targetLock.Invalidate();
+                        continue;
+                    }
 
                     if (SimpleMeleeAIDecision.IsInMeleeRange(actorData, targetData))
                     {
@@ -205,6 +210,7 @@ namespace PF2e.TurnSystem
             }
             finally
             {
+                targetLock.Reset();
                 progressGuard.Reset();
 
                 // StopCoroutine may bypass coroutine body; this guard keeps action state recoverable.
