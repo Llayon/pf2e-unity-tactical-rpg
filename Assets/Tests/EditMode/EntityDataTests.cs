@@ -2,6 +2,8 @@ using NUnit.Framework;
 using UnityEngine;
 using PF2e.Core;
 
+#pragma warning disable CS0618
+
 [TestFixture]
 public class EntityDataTests
 {
@@ -215,3 +217,5 @@ public class EntityDataTests
         Assert.AreEqual(2, data.SizeCells);
     }
 }
+
+#pragma warning restore CS0618

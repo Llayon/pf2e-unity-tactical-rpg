@@ -14,7 +14,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 
 ## Architecture Snapshot
 ### A) Current Folder Map + Responsibilities
-- `Assets/Scripts/Core`: pure rules/data structures (entities, conditions, attack/damage math, occupancy, item models, event contracts).
+- `Assets/Scripts/Core`: pure rules/data structures (entities, condition rules/service/deltas, attack/damage math, occupancy, item models, event contracts).
 - `Assets/Scripts/Grid`: grid data, pathfinding, rendering, floor controls, click/hover interaction.
 - `Assets/Scripts/TurnSystem`: turn state machine, input routing, action execution (`StrideAction`, `StrikeAction`, `StandAction`), targeting, enemy AI orchestration (`AITurnController`), and AI decision seam (`IAIDecisionPolicy` + `SimpleMeleeDecisionPolicy`) backed by pure helpers (`SimpleMeleeAIDecision`).
 - `Assets/Scripts/Managers`: `EntityManager` scene orchestration, spawning test entities, view management.
@@ -28,7 +28,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Scene boots to `SampleScene`; test grid and test entities spawn from inspector-wired managers.
 - `EncounterFlowPrefabScene` validates cross-scene reuse of `EncounterFlowPanel.prefab` via runtime auto-create path.
 - Controls currently in code: encounter flow buttons (`Start Encounter` / `End Encounter`) as primary path, `C`/`X` as editor/development fallback, left-click cell/entity, `Space` end turn, `Esc` cancel targeting, `WASD/QE/Scroll` camera, `G` grid toggle, `PageUp/PageDown` floor.
-- Turn flow works: initiative roll, per-entity turns, 3 actions, action spending, condition end-turn ticks.
+- Turn flow works: initiative roll, per-entity turns, 3 actions, action spending, and condition lifecycle processing via `ConditionService` (start/end turn deltas).
 - Movement works: occupancy-aware, multi-stride pathing, 5/10 diagonal parity, movement zone/path preview, animated movement.
 - Combat works at MVP level: melee strike resolution, MAP increment, damage apply, defeat hide + events.
 - Enemy turns execute simple AI behavior; combat no longer auto-skips enemy turns.
@@ -39,6 +39,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - High scene wiring coupling: `CombatController`, `TacticalGrid`, `EntityManager`, `CombatEventBus` must all be correctly referenced.
 - Runtime dependency chain is tight (`TurnManager -> EntityManager -> GridManager`; input and visualizers depend on both).
 - Turn flow now uses typed payloads end-to-end: `TurnManager` publishes typed structs to its own events and directly to `CombatEventBus`; runtime consumers subscribe on typed bus channels.
+- Condition flow is now centralized through `ConditionService`; future rule expansion risk is concentrated in one place (good), but expanding stacking/implied rules must preserve deterministic tests.
 - Encounter flow can be centralized via `Assets/Data/EncounterFlowUIPreset_RuntimeFallback.asset`; scenes opt in through `EncounterFlowController.useFlowPreset`.
 - `EntityManager` mixes runtime orchestration with test spawning data responsibilities.
 
@@ -56,7 +57,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Turn state machine + actions economy | Done | Core loop works for both player and enemy turns; action lock now tracks actor/source/duration with watchdog diagnostics |
 | Player actions (Stride/Strike/Stand) | Partial | Core actions implemented; no broader action set |
 | PF2e strike/damage basics | Partial | Melee-focused MVP; ranged/spells not implemented |
-| Conditions | Partial | Basic list + tick rules; simplified behavior |
+| Conditions | Partial | `ConditionService` is now the mutation entrypoint for turn/action flows with caller-owned `ConditionDelta` buffers; event publication is domain-driven; model is still simplified vs full PF2e stacking/duration semantics |
 | Combat/UI presentation | Partial | Turn HUD, log, initiative, floating damage, and end-of-encounter panel are present; end-panel text now maps through `EncounterEndTextMap`; encounter flow panel is reusable and can be driven by shared preset |
 | Typed event routing | Done | `TurnManager` source events are typed and published directly to `CombatEventBus`; runtime subscribers consume typed bus events |
 | Encounter-end text mapping | Done | `EncounterEndTextMap` is source-of-truth for `EncounterResult -> title/subtitle`, consumed by `EncounterEndPanelController` and covered by EditMode unit tests |
@@ -92,7 +93,10 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - `TurnManager` action lock tracking contract: if execution starts, lock metadata (`ExecutingActor`, `ExecutingActionSource`, duration) must be reset on completion/rollback/combat end.
 - `TurnManager` combat-end contract: only typed result path (`OnCombatEndedWithResult` / `EncounterResult`) is supported.
 - `TurnManager` typed turn-event contract: `eventBus` must be assigned; turn/combat lifecycle events are emitted both via `TurnManager` typed source events and direct `CombatEventBus` publish.
+- Conditions mutation contract: gameplay/turn/action code must mutate conditions through `ConditionService` (caller-owned `List<ConditionDelta>` buffers), not direct `EntityData` mutation helpers.
+- Condition lifecycle payload contract: `ConditionsTickedEvent` now uses `ConditionDelta` entries as canonical payload.
 - Runtime subscriber contract: new systems should subscribe via `CombatEventBus`, not directly to `TurnManager`.
+- Presentation/domain boundary contract: presentation components must not generate domain condition mutations/events; `ConditionTickForwarder` is deprecated and inert.
 - End-of-encounter UI text contract: use `EncounterEndTextMap` for `EncounterResult` labels/messages instead of duplicating string switches in controllers/tests.
 - End-of-encounter log text contract: use `EncounterEndLogMessageMap` for combat-end messages instead of duplicating string switches in forwarders/tests.
 - `EncounterFlowController` defaults to authored references (`autoCreateRuntimeButtons=false`); runtime auto-create is fallback only.
@@ -111,7 +115,9 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - AI no-progress bailout uses threshold 2 repeated identical loop snapshots; tune only with matching regression tests.
 - `SampleScene` remains authored-reference first; `EncounterFlowPrefabScene` is the current preset-driven fallback example scene.
 - Restart is scene-reload based (`SceneManager.LoadScene`) and intentionally simple for MVP.
-- Condition model has known simplification TODO (value + duration model evolution).
+- `EntityData.AddCondition/RemoveCondition` are marked `[Obsolete]` guardrails; next step is tightening to `internal` once legacy callers are removed.
+- Legacy `ConditionTick` struct remains only for compatibility in `EntityData.EndTurn`; typed event flow is now `ConditionDelta`-based.
+- Condition model still has simplification TODO (full `value + duration` semantics and richer PF2e stacking/implied conditions).
 - Input System package exists, but most gameplay input is polled directly from keyboard/mouse.
 - CI requires repository-level `UNITY_LICENSE` secret; workflow fails fast when missing.
 - PlayMode regression now covers multi-round movement/AI/condition-tick flow, blocked-turn recovery, and sticky-target lock behavior, but does not yet cover advanced combat domains (ranged/spells/reactions).
@@ -120,9 +126,9 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Legacy forwarder stubs (`TurnManagerLogForwarder`, `TurnManagerTypedForwarder`) were removed from scenes and code; turn/combat typed flow is direct `TurnManager -> CombatEventBus`.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Add one bounded AI behavior increment in `SimpleMeleeDecisionPolicy` (for example: avoid ending turn adjacent to multiple enemies when a same-cost safer cell exists) without introducing full Utility-AI framework yet.
-2. Add a second policy implementation spike (`UtilityScoreDecisionPolicy` behind feature flag) while preserving `SimpleMeleeDecisionPolicy` as deterministic baseline.
-3. Add one typed-event integration assertion for condition tick payload integrity in a real PlayMode round (source actor + old/new values + removed flag).
+1. Tighten condition guardrails: migrate remaining direct `EntityData.AddCondition/RemoveCondition` callers to `ConditionService`, then switch these helpers from `[Obsolete]` to `internal`.
+2. Implement full condition model support for simultaneous `Value + RemainingRounds` in `ConditionService` + targeted EditMode tests.
+3. Add `DerivedStatsCache` (dirty-flag recompute on condition deltas) before expanding implied/stacking rule depth.
 
 ## LLM-First Delivery Workflow (Multi-Agent)
 ### Operating Model (for non-programmer project owner)

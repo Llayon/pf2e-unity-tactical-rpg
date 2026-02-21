@@ -144,7 +144,7 @@ namespace PF2e.Core
             OnActionsChangedTyped?.Invoke(in e);
         }
 
-        public void PublishConditionsTicked(EntityHandle actor, System.Collections.Generic.IReadOnlyList<ConditionTick> ticks)
+        public void PublishConditionsTicked(EntityHandle actor, System.Collections.Generic.IReadOnlyList<ConditionDelta> ticks)
         {
             var e = new ConditionsTickedEvent(actor, ticks);
             OnConditionsTickedTyped?.Invoke(in e);

@@ -104,7 +104,9 @@ namespace PF2e.Tests
         {
             var fighter = GetEntityByName("Fighter");
             fighter.Wisdom = 5000; // deterministic first actor
-            fighter.AddCondition(ConditionType.Frightened, value: 2);
+            var conditionService = new ConditionService();
+            var seedDeltas = new List<ConditionDelta>(2);
+            conditionService.Apply(fighter, ConditionType.Frightened, value: 2, rounds: -1, seedDeltas);
 
             ConditionChangedEvent observed = default;
             bool tickSeen = false;
@@ -185,7 +187,9 @@ namespace PF2e.Tests
         {
             var fighter = GetEntityByName("Fighter");
             fighter.Wisdom = 5000; // deterministic first actor
-            fighter.AddCondition(ConditionType.Frightened, value: 2);
+            var conditionService = new ConditionService();
+            var seedDeltas = new List<ConditionDelta>(2);
+            conditionService.Apply(fighter, ConditionType.Frightened, value: 2, rounds: -1, seedDeltas);
 
             var order = new List<string>(4);
             bool nextTurnStarted = false;

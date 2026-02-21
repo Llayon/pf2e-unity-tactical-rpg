@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using PF2e.Core;
 using PF2e.Managers;
@@ -8,6 +9,8 @@ namespace PF2e.TurnSystem
     {
         [SerializeField] private EntityManager entityManager;
         [SerializeField] private CombatEventBus eventBus;
+        private readonly ConditionService conditionService = new();
+        private readonly List<ConditionDelta> conditionDeltaBuffer = new();
 
         public const int ActionCost = 1;
 
@@ -23,12 +26,25 @@ namespace PF2e.TurnSystem
         {
             if (!CanStand(actor)) return false;
             var data = entityManager.Registry.Get(actor);
-            data.RemoveCondition(ConditionType.Prone);
+            if (data == null) return false;
+
+            conditionDeltaBuffer.Clear();
+            conditionService.Remove(data, ConditionType.Prone, conditionDeltaBuffer);
+            if (conditionDeltaBuffer.Count <= 0) return false;
 
             if (eventBus != null)
-                eventBus.PublishConditionChanged(
-                    actor, ConditionType.Prone,
-                    ConditionChangeType.Removed, 0, 0);
+            {
+                for (int i = 0; i < conditionDeltaBuffer.Count; i++)
+                {
+                    var delta = conditionDeltaBuffer[i];
+                    eventBus.PublishConditionChanged(
+                        delta.entity,
+                        delta.type,
+                        delta.changeType,
+                        delta.oldValue,
+                        delta.newValue);
+                }
+            }
 
             return true;
         }

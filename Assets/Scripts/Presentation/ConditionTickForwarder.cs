@@ -10,37 +10,19 @@ namespace PF2e.Presentation
 #if UNITY_EDITOR
         private void OnValidate()
         {
-            if (eventBus == null) Debug.LogError("[ConditionTickForwarder] Missing CombatEventBus", this);
+            if (eventBus == null) Debug.LogWarning("[ConditionTickForwarder] Deprecated component still present with missing CombatEventBus.", this);
         }
 #endif
 
         private void OnEnable()
         {
-            if (eventBus == null)
-            {
-                Debug.LogError("[ConditionTickForwarder] Missing deps. Disabling.", this);
-                enabled = false;
-                return;
-            }
-            eventBus.OnConditionsTickedTyped += HandleTicks;
+            // Deprecated: keep component inert for scene compatibility.
+            enabled = false;
         }
 
         private void OnDisable()
         {
-            if (eventBus != null)
-                eventBus.OnConditionsTickedTyped -= HandleTicks;
-        }
-
-        private void HandleTicks(in ConditionsTickedEvent e)
-        {
-            for (int i = 0; i < e.ticks.Count; i++)
-            {
-                var t = e.ticks[i];
-                eventBus.PublishConditionChanged(
-                    e.actor, t.type,
-                    t.removed ? ConditionChangeType.Removed : ConditionChangeType.ValueChanged,
-                    t.oldValue, t.newValue);
-            }
+            // no-op
         }
     }
 }

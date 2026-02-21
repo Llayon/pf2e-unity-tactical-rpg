@@ -74,7 +74,6 @@ public static class PF2eSceneDependencyValidator
         errors += ValidateAll<CombatLogController>(ValidateCombatLogController);
         errors += ValidateAll<FloatingDamageUI>(ValidateFloatingDamageUI);
         errors += ValidateAll<InitiativeBarController>(ValidateInitiativeBarController);
-        errors += ValidateAll<ConditionTickForwarder>(ValidateConditionTickForwarder);
         errors += ValidateAll<ConditionLogForwarder>(ValidateConditionLogForwarder);
         errors += ValidateAll<StandAction>(ValidateStandAction);
         errors += ValidateAll<AITurnController>(ValidateAITurnController);
@@ -91,7 +90,6 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<EncounterEndPanelController>();
         errors += ErrorIfMoreThanOne<EncounterFlowController>();
         errors += ErrorIfMoreThanOne<InitiativeBarController>();
-        errors += ErrorIfMoreThanOne<ConditionTickForwarder>();
         errors += ErrorIfMoreThanOne<ConditionLogForwarder>();
         errors += ErrorIfMoreThanOne<StandAction>();
 
@@ -111,6 +109,8 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnIfNone<AITurnController>();
         warnings += WarnIfNone<EncounterEndPanelController>();
         warnings += WarnIfNone<EncounterFlowController>();
+        warnings += WarnIfAny<ConditionTickForwarder>(
+            "ConditionTickForwarder is deprecated and should be removed from scene.");
 
         string summary = $"[PF2eValidator] Done. Errors: {errors}, Warnings: {warnings}";
         if (errors > 0) Debug.LogError(summary);
@@ -280,11 +280,6 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(c, "roundLabel",     "TextMeshProUGUI");
         errors += RequireRef(c, "slotsContainer", "Transform");
         errors += RequireRef(c, "slotPrefab",     "InitiativeSlot");
-    }
-
-    private static void ValidateConditionTickForwarder(ConditionTickForwarder f, ref int errors, ref int warnings)
-    {
-        errors += RequireRef(f, "eventBus", "CombatEventBus");
     }
 
     private static void ValidateConditionLogForwarder(ConditionLogForwarder f, ref int errors, ref int warnings)
@@ -543,10 +538,6 @@ public static class PF2eSceneDependencyValidator
         fixedCount += FixAll<StandAction>("entityManager", entityManager);
         if (eventBus != null)
             fixedCount += FixAll<StandAction>("eventBus", eventBus);
-
-        // ConditionTickForwarder (Phase 15B)
-        if (eventBus != null)
-            fixedCount += FixAll<ConditionTickForwarder>("eventBus", eventBus);
 
         // ConditionLogForwarder (Phase 15B)
         if (eventBus != null)

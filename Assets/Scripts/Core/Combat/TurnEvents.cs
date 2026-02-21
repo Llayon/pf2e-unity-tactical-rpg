@@ -56,9 +56,9 @@ namespace PF2e.Core
     public readonly struct ConditionsTickedEvent
     {
         public readonly EntityHandle actor;
-        public readonly IReadOnlyList<ConditionTick> ticks;
+        public readonly IReadOnlyList<ConditionDelta> ticks;
 
-        public ConditionsTickedEvent(EntityHandle actor, IReadOnlyList<ConditionTick> ticks)
+        public ConditionsTickedEvent(EntityHandle actor, IReadOnlyList<ConditionDelta> ticks)
         {
             this.actor = actor;
             this.ticks = ticks;

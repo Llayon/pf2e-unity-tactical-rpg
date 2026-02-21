@@ -27,7 +27,8 @@ namespace PF2e.TurnSystem
         private EntityHandle executingActor = EntityHandle.None;
         private string executingActionSource = string.Empty;
         private float executingActionStartTime = -1f;
-        private readonly List<ConditionTick> conditionTickBuffer = new();
+        private readonly List<ConditionDelta> conditionDeltaBuffer = new();
+        private readonly ConditionService conditionService = new();
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         private const float ActionLockWarnSeconds = 4f;
@@ -145,11 +146,14 @@ namespace PF2e.TurnSystem
             var data = entityManager.Registry.Get(endingEntity);
             if (data != null)
             {
-                conditionTickBuffer.Clear();
-                data.EndTurn(conditionTickBuffer);
+                conditionDeltaBuffer.Clear();
+                conditionService.TickEndTurn(data, conditionDeltaBuffer);
 
-                if (conditionTickBuffer.Count > 0)
-                    PublishConditionsTicked(new ConditionsTickedEvent(endingEntity, conditionTickBuffer));
+                for (int i = 0; i < conditionDeltaBuffer.Count; i++)
+                    PublishConditionChanged(conditionDeltaBuffer[i]);
+
+                if (conditionDeltaBuffer.Count > 0)
+                    PublishConditionsTicked(new ConditionsTickedEvent(endingEntity, conditionDeltaBuffer));
             }
 
             PublishTurnEnded(new TurnEndedEvent(endingEntity));
@@ -381,7 +385,11 @@ namespace PF2e.TurnSystem
                 return;
             }
 
-            data.StartTurn();
+            conditionDeltaBuffer.Clear();
+            conditionService.TickStartTurn(data, conditionDeltaBuffer);
+            for (int i = 0; i < conditionDeltaBuffer.Count; i++)
+                PublishConditionChanged(conditionDeltaBuffer[i]);
+
             state = data.Team == Team.Player ? TurnState.PlayerTurn : TurnState.EnemyTurn;
 
             if (entityManager != null)
@@ -484,6 +492,16 @@ namespace PF2e.TurnSystem
         {
             OnConditionsTicked?.Invoke(e);
             eventBus?.PublishConditionsTicked(e.actor, e.ticks);
+        }
+
+        private void PublishConditionChanged(ConditionDelta delta)
+        {
+            eventBus?.PublishConditionChanged(
+                delta.entity,
+                delta.type,
+                delta.changeType,
+                delta.oldValue,
+                delta.newValue);
         }
 
         private void PublishInitiativeRolled(InitiativeRolledEvent e)

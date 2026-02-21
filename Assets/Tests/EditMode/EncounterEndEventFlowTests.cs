@@ -185,13 +185,15 @@ namespace PF2e.Tests
 
                 var endingData = registry.Get(endingActor);
                 Assert.IsNotNull(endingData, "Current actor data was not found in registry.");
-                endingData.AddCondition(ConditionType.Frightened, value: 2);
+                var conditionService = new ConditionService();
+                var seedDeltas = new System.Collections.Generic.List<ConditionDelta>(2);
+                conditionService.Apply(endingData, ConditionType.Frightened, value: 2, rounds: -1, seedDeltas);
 
                 int turnEndedCount = 0;
                 EntityHandle turnEndedActor = EntityHandle.None;
                 int conditionsTickedCount = 0;
                 EntityHandle conditionsActor = EntityHandle.None;
-                ConditionTick firstTick = default;
+                ConditionDelta firstTick = default;
                 bool firstTickCaptured = false;
 
                 eventBus.OnTurnEndedTyped += (in TurnEndedEvent e) =>
@@ -223,6 +225,69 @@ namespace PF2e.Tests
                 Assert.AreEqual(1, firstTick.newValue);
                 Assert.IsFalse(firstTick.removed);
                 Assert.AreEqual(1, endingData.GetConditionValue(ConditionType.Frightened));
+            }
+            finally
+            {
+                LogAssert.ignoreFailingMessages = oldIgnore;
+                Object.DestroyImmediate(turnManagerGo);
+                Object.DestroyImmediate(entityManagerGo);
+                Object.DestroyImmediate(eventBusGo);
+            }
+        }
+
+        [Test]
+        public void TurnManager_StartTurn_StunnedRemoval_PublishesConditionChanged()
+        {
+            var eventBusGo = new GameObject("CombatEventBus_StartTurnCondition_Test");
+            var turnManagerGo = new GameObject("TurnManager_StartTurnCondition_Test");
+            var entityManagerGo = new GameObject("EntityManager_StartTurnCondition_Test");
+            bool oldIgnore = LogAssert.ignoreFailingMessages;
+            LogAssert.ignoreFailingMessages = true;
+
+            try
+            {
+                var eventBus = eventBusGo.AddComponent<CombatEventBus>();
+                var turnManager = turnManagerGo.AddComponent<TurnManager>();
+                var entityManager = entityManagerGo.AddComponent<EntityManager>();
+                var conditionService = new ConditionService();
+                var deltas = new System.Collections.Generic.List<ConditionDelta>(4);
+
+                SetPrivateField(turnManager, "entityManager", entityManager);
+                SetPrivateField(turnManager, "eventBus", eventBus);
+
+                var registry = entityManager.Registry ?? new EntityRegistry();
+                if (entityManager.Registry == null)
+                    SetAutoPropertyBackingField(entityManager, "Registry", registry);
+
+                var player = CreateEntity(Team.Player, alive: true);
+                var enemy = CreateEntity(Team.Enemy, alive: true);
+                player.Wisdom = 5000;
+                enemy.Wisdom = 1;
+                registry.Register(player);
+                registry.Register(enemy);
+
+                deltas.Clear();
+                conditionService.Apply(player, ConditionType.Stunned, value: 2, rounds: -1, deltas);
+
+                int changedCount = 0;
+                ConditionChangedEvent observed = default;
+                eventBus.OnConditionChangedTyped += (in ConditionChangedEvent e) =>
+                {
+                    if (e.entity != player.Handle) return;
+                    if (e.conditionType != ConditionType.Stunned) return;
+                    if (e.changeType != ConditionChangeType.Removed) return;
+                    changedCount++;
+                    observed = e;
+                };
+
+                turnManager.StartCombat();
+
+                Assert.AreEqual(player.Handle, turnManager.CurrentEntity, "Expected stunned player to start the turn.");
+                Assert.AreEqual(1, changedCount, "Expected exactly one stunned removal event at turn start.");
+                Assert.AreEqual(2, observed.oldValue);
+                Assert.AreEqual(0, observed.newValue);
+                Assert.IsFalse(player.HasCondition(ConditionType.Stunned));
+                Assert.AreEqual(1, turnManager.ActionsRemaining, "Actions should be reduced before stunned is removed.");
             }
             finally
             {

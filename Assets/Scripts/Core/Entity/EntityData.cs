@@ -216,6 +216,7 @@ namespace PF2e.Core
         }
 
         // ─── Condition Management ───
+        [System.Obsolete("Use ConditionService for condition mutations.")]
         public void AddCondition(ConditionType type, int value = 0, int rounds = -1)
         {
             for (int i = 0; i < Conditions.Count; i++)
@@ -230,6 +231,7 @@ namespace PF2e.Core
             Conditions.Add(new ActiveCondition(type, value, rounds));
         }
 
+        [System.Obsolete("Use ConditionService for condition mutations.")]
         public void RemoveCondition(ConditionType type)
         {
             for (int i = Conditions.Count - 1; i >= 0; i--)
@@ -253,7 +255,13 @@ namespace PF2e.Core
             if (ActionsRemaining < 0) ActionsRemaining = 0;
 
             if (stunned > 0)
-                RemoveCondition(ConditionType.Stunned);
+            {
+                for (int i = Conditions.Count - 1; i >= 0; i--)
+                {
+                    if (Conditions[i].Type == ConditionType.Stunned)
+                        Conditions.RemoveAt(i);
+                }
+            }
         }
 
         public void EndTurn(List<ConditionTick> outTicks = null)

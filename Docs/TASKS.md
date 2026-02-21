@@ -32,6 +32,8 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-026 | P1 | done | Builder | Extract encounter-end text mapping to pure helper + cover with EditMode tests | `EncounterEndTextMap` is runtime source-of-truth for `EncounterResult -> title/subtitle`; EditMode test covers Victory/Defeat/Aborted/Unknown mappings |
 | T-027 | P1 | done | Builder | Extract combat-end log message mapping to pure helper + cover with EditMode tests | `EncounterEndLogMessageMap` is source-of-truth for `EncounterResult -> TurnLogForwarder` message mapping; EditMode tests cover Victory/Defeat/Aborted/Unknown |
 | T-028 | P1 | done | Builder | Introduce AI decision policy seam (`IAIDecisionPolicy`) with behavior parity | `AITurnController` keeps orchestration + sticky lock; decision selection routes through `SimpleMeleeDecisionPolicy`; EditMode policy tests added; no gameplay behavior drift |
+| T-029 | P0 | done | Builder | Introduce `ConditionService` as single mutation entrypoint with caller-owned delta buffers | `TurnManager` and `StandAction` mutate conditions via `ConditionService`; start-turn stunned removal now emits typed `ConditionChanged`; new EditMode service/event tests pass |
+| T-030 | P1 | done | Builder | Unify condition tick payload to `ConditionDelta` and deprecate presentation-domain bridge | `ConditionsTickedEvent` now carries `ConditionDelta`; `ConditionTickForwarder` is inert/deprecated and validator warns if present |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal
