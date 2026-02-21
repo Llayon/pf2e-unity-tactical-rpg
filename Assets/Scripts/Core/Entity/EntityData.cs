@@ -30,6 +30,7 @@ namespace PF2e.Core
         // ─── Equipment & Proficiency (Phase 11 UNIFIED) ───
         public WeaponInstance EquippedWeapon;
         public ArmorInstance EquippedArmor;
+        public ShieldInstance EquippedShield;
 
         public ProficiencyRank SimpleWeaponProf = ProficiencyRank.Trained;
         public ProficiencyRank MartialWeaponProf = ProficiencyRank.Trained;
@@ -374,6 +375,33 @@ namespace PF2e.Core
         {
             ActionsRemaining -= count;
             if (ActionsRemaining < 0) ActionsRemaining = 0;
+        }
+
+        public void SetShieldRaised(bool raised)
+        {
+            if (!EquippedShield.IsEquipped) return;
+            if (EquippedShield.isRaised == raised) return;
+
+            var shield = EquippedShield;
+            shield.isRaised = raised;
+            EquippedShield = shield;
+            MarkDerivedStatsDirty();
+        }
+
+        public void ApplyShieldDamage(int damage)
+        {
+            if (damage <= 0) return;
+            if (!EquippedShield.IsEquipped) return;
+
+            var shield = EquippedShield;
+            if (shield.currentHP <= 0) return;
+
+            shield.currentHP = Mathf.Max(0, shield.currentHP - damage);
+            if (shield.currentHP <= 0)
+                shield.isRaised = false;
+
+            EquippedShield = shield;
+            MarkDerivedStatsDirty();
         }
     }
 }
