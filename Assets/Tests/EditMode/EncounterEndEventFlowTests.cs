@@ -74,6 +74,76 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void TurnManager_StartCombat_PublishesTypedBusLifecycleEvents_Directly()
+        {
+            var eventBusGo = new GameObject("CombatEventBus_Test");
+            var turnManagerGo = new GameObject("TurnManager_TypedBus_Test");
+            var entityManagerGo = new GameObject("EntityManager_TypedBus_Test");
+            bool oldIgnore = LogAssert.ignoreFailingMessages;
+            LogAssert.ignoreFailingMessages = true;
+
+            try
+            {
+                var eventBus = eventBusGo.AddComponent<CombatEventBus>();
+                var turnManager = turnManagerGo.AddComponent<TurnManager>();
+                var entityManager = entityManagerGo.AddComponent<EntityManager>();
+
+                SetPrivateField(turnManager, "entityManager", entityManager);
+                SetPrivateField(turnManager, "eventBus", eventBus);
+
+                var registry = entityManager.Registry ?? new EntityRegistry();
+                if (entityManager.Registry == null)
+                    SetAutoPropertyBackingField(entityManager, "Registry", registry);
+
+                registry.Register(CreateEntity(Team.Player, alive: true));
+                registry.Register(CreateEntity(Team.Enemy, alive: true));
+
+                int combatStartedCount = 0;
+                int initiativeRolledCount = 0;
+                int roundStartedCount = 0;
+                int turnStartedCount = 0;
+                int actionsChangedCount = 0;
+
+                eventBus.OnCombatStartedTyped += (in CombatStartedEvent _) => combatStartedCount++;
+                eventBus.OnInitiativeRolledTyped += (in InitiativeRolledEvent e) =>
+                {
+                    initiativeRolledCount++;
+                    Assert.GreaterOrEqual(e.order.Count, 2, "Initiative order should include both teams.");
+                };
+                eventBus.OnRoundStartedTyped += (in RoundStartedEvent e) =>
+                {
+                    roundStartedCount++;
+                    Assert.AreEqual(1, e.round);
+                };
+                eventBus.OnTurnStartedTyped += (in TurnStartedEvent e) =>
+                {
+                    turnStartedCount++;
+                    Assert.IsTrue(e.actor.IsValid, "TurnStarted actor should be valid.");
+                };
+                eventBus.OnActionsChangedTyped += (in ActionsChangedEvent e) =>
+                {
+                    actionsChangedCount++;
+                    Assert.IsTrue(e.actor.IsValid, "ActionsChanged actor should be valid.");
+                };
+
+                turnManager.StartCombat();
+
+                Assert.AreEqual(1, combatStartedCount, "CombatStarted typed event should publish once.");
+                Assert.AreEqual(1, initiativeRolledCount, "InitiativeRolled typed event should publish once.");
+                Assert.AreEqual(1, roundStartedCount, "RoundStarted typed event should publish once.");
+                Assert.AreEqual(1, turnStartedCount, "TurnStarted typed event should publish once at combat start.");
+                Assert.AreEqual(1, actionsChangedCount, "ActionsChanged typed event should publish once at turn start.");
+            }
+            finally
+            {
+                LogAssert.ignoreFailingMessages = oldIgnore;
+                Object.DestroyImmediate(turnManagerGo);
+                Object.DestroyImmediate(entityManagerGo);
+                Object.DestroyImmediate(eventBusGo);
+            }
+        }
+
+        [Test]
         public void TurnManager_CheckVictory_EnemyWiped_IsVictory()
         {
             var turnManagerGo = new GameObject("TurnManager_Victory_Test");
