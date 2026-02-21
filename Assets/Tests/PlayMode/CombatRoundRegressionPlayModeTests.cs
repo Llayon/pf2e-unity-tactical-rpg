@@ -338,6 +338,125 @@ namespace PF2e.Tests
         }
 
         [UnityTest]
+        public IEnumerator GT_P18_PM_410_StrikeAttackBonus_UsesMaxStatusPenalty_NotSum()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var goblin1 = GetEntityByName("Goblin_1");
+            fighter.Wisdom = 5000; // deterministic first actor
+            MoveEntityToCell(goblin1, fighter.GridPosition + Vector3Int.right);
+
+            var conditionService = new ConditionService();
+            var seedDeltas = new List<ConditionDelta>(4);
+            conditionService.Apply(fighter, ConditionType.Frightened, value: 2, rounds: -1, seedDeltas);
+            conditionService.Apply(fighter, ConditionType.Sickened, value: 3, rounds: -1, seedDeltas);
+
+            StrikeResolvedEvent observed = default;
+            bool strikeSeen = false;
+
+            void StrikeHandler(in StrikeResolvedEvent e)
+            {
+                if (e.attacker != fighter.Handle) return;
+                if (e.target != goblin1.Handle) return;
+                observed = e;
+                strikeSeen = true;
+            }
+
+            eventBus.OnStrikeResolved += StrikeHandler;
+
+            try
+            {
+                turnManager.StartCombat();
+
+                yield return WaitUntilOrTimeout(
+                    () => turnManager.State == TurnState.PlayerTurn && turnManager.CurrentEntity == fighter.Handle,
+                    DefaultTimeoutSeconds,
+                    "Fighter did not become the first actor.");
+
+                int expectedStatusPenalty = Mathf.Max(2, 3);
+                int expectedAttackBonus =
+                    fighter.GetProficiencyBonus(fighter.GetWeaponProfRank(fighter.EquippedWeapon.Category))
+                    + fighter.GetAttackAbilityMod(fighter.EquippedWeapon)
+                    + fighter.EquippedWeapon.Potency
+                    - expectedStatusPenalty;
+
+                Assert.AreEqual(expectedStatusPenalty, fighter.ConditionPenaltyToAttack, "Attack penalty should use max status value, not sum.");
+
+                bool started = playerActionExecutor.TryExecuteStrike(goblin1.Handle);
+                Assert.IsTrue(started, "Player strike did not start.");
+
+                yield return WaitUntilOrTimeout(
+                    () => strikeSeen,
+                    DefaultTimeoutSeconds,
+                    "Did not receive strike event for fighter.");
+
+                Assert.AreEqual(expectedAttackBonus, observed.attackBonus, "Strike attack bonus should use max(Frightened,Sickened) status penalty.");
+                Assert.AreEqual(0, observed.mapPenalty, "First strike in turn should have MAP 0.");
+            }
+            finally
+            {
+                eventBus.OnStrikeResolved -= StrikeHandler;
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator GT_P18_PM_411_StrikeDC_TargetPenalties_UseMaxStatusAndSingleCircumstance()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var goblin1 = GetEntityByName("Goblin_1");
+            fighter.Wisdom = 5000; // deterministic first actor
+            MoveEntityToCell(goblin1, fighter.GridPosition + Vector3Int.right);
+
+            var conditionService = new ConditionService();
+            var seedDeltas = new List<ConditionDelta>(6);
+            conditionService.Apply(goblin1, ConditionType.OffGuard, value: 0, rounds: -1, seedDeltas);
+            conditionService.Apply(goblin1, ConditionType.Prone, value: 0, rounds: -1, seedDeltas);
+            conditionService.Apply(goblin1, ConditionType.Frightened, value: 2, rounds: -1, seedDeltas);
+            conditionService.Apply(goblin1, ConditionType.Sickened, value: 3, rounds: -1, seedDeltas);
+
+            StrikeResolvedEvent observed = default;
+            bool strikeSeen = false;
+
+            void StrikeHandler(in StrikeResolvedEvent e)
+            {
+                if (e.attacker != fighter.Handle) return;
+                if (e.target != goblin1.Handle) return;
+                observed = e;
+                strikeSeen = true;
+            }
+
+            eventBus.OnStrikeResolved += StrikeHandler;
+
+            try
+            {
+                turnManager.StartCombat();
+
+                yield return WaitUntilOrTimeout(
+                    () => turnManager.State == TurnState.PlayerTurn && turnManager.CurrentEntity == fighter.Handle,
+                    DefaultTimeoutSeconds,
+                    "Fighter did not become the first actor.");
+
+                int expectedStatusPenalty = Mathf.Max(2, 3);
+                int expectedCircumstancePenalty = 2; // OffGuard || Prone, no double count
+                int expectedDC = goblin1.BaseAC - expectedStatusPenalty - expectedCircumstancePenalty;
+
+                bool started = playerActionExecutor.TryExecuteStrike(goblin1.Handle);
+                Assert.IsTrue(started, "Player strike did not start.");
+
+                yield return WaitUntilOrTimeout(
+                    () => strikeSeen,
+                    DefaultTimeoutSeconds,
+                    "Did not receive strike event against goblin.");
+
+                Assert.AreEqual(expectedDC, observed.dc, "Target AC/DC should use max status + single circumstance penalty.");
+                Assert.AreEqual(expectedDC, goblin1.EffectiveAC, "Entity EffectiveAC should match strike payload DC.");
+            }
+            finally
+            {
+                eventBus.OnStrikeResolved -= StrikeHandler;
+            }
+        }
+
+        [UnityTest]
         public IEnumerator GT_P17_PM_403_NoExecutingActionDeadlock_ThroughRound3()
         {
             int latestRound = 0;
