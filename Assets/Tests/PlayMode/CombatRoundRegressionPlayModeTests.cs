@@ -233,6 +233,99 @@ namespace PF2e.Tests
                 "TurnManager stayed in ExecutingAction after blocked enemy turn.");
         }
 
+        [UnityTest]
+        public IEnumerator GT_P18_PM_405_StickyTargetLock_DoesNotSwitchMidTurn()
+        {
+            BoostAllCombatantsHP(220);
+
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+
+            MoveEntityToCell(goblin1, fighter.GridPosition + Vector3Int.right);
+            MoveEntityToCell(wizard, FindFarthestAvailableCell(goblin1.GridPosition, wizard.Handle, minDistFeet: 20));
+
+            int goblinStrikeCount = 0;
+            EntityHandle firstTarget = EntityHandle.None;
+            EntityHandle secondTarget = EntityHandle.None;
+            bool wizardRelocated = false;
+            string relocateFailure = null;
+
+            void StrikeHandler(in StrikeResolvedEvent e)
+            {
+                if (e.attacker != goblin1.Handle) return;
+
+                goblinStrikeCount++;
+                if (goblinStrikeCount == 1)
+                {
+                    firstTarget = e.target;
+
+                    try
+                    {
+                        Vector3Int wizardNearCell = FindAvailableAdjacentCell(
+                            goblin1.GridPosition,
+                            wizard.Handle,
+                            fighter.GridPosition);
+                        MoveEntityToCell(wizard, wizardNearCell);
+                        wizard.CurrentHP = 1;
+                        wizardRelocated = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        relocateFailure = ex.Message;
+                    }
+                }
+                else if (goblinStrikeCount == 2)
+                {
+                    secondTarget = e.target;
+                }
+            }
+
+            eventBus.OnStrikeResolved += StrikeHandler;
+
+            try
+            {
+                turnManager.StartCombat();
+
+                yield return WaitUntilOrTimeout(
+                    () =>
+                    {
+                        if (turnManager.State == TurnState.PlayerTurn)
+                            turnManager.EndTurn();
+
+                        return turnManager.State == TurnState.EnemyTurn
+                            && turnManager.CurrentEntity == goblin1.Handle;
+                    },
+                    DefaultTimeoutSeconds,
+                    "Goblin_1 did not receive an enemy turn for sticky-target regression.");
+
+                yield return WaitUntilOrTimeout(
+                    () =>
+                        goblinStrikeCount >= 2
+                        || turnManager.State != TurnState.EnemyTurn
+                        || turnManager.CurrentEntity != goblin1.Handle,
+                    SimulationTimeoutSeconds,
+                    "Did not observe two Goblin_1 strikes in one turn.");
+
+                Assert.IsNull(relocateFailure, $"Failed to reposition Wizard after first strike: {relocateFailure}");
+                Assert.IsTrue(wizardRelocated, "Wizard was not repositioned after first Goblin_1 strike.");
+                Assert.AreEqual(fighter.Handle, firstTarget, "Setup invalid: first Goblin_1 strike should target Fighter.");
+                Assert.GreaterOrEqual(goblinStrikeCount, 2, "Goblin_1 did not perform two strikes in the same turn.");
+                Assert.AreEqual(
+                    firstTarget,
+                    secondTarget,
+                    "Sticky target lock regression: Goblin_1 switched targets mid-turn after Wizard became a better candidate.");
+                Assert.AreEqual(
+                    fighter.Handle,
+                    secondTarget,
+                    "Goblin_1 should keep attacking Fighter for the rest of the turn once target lock is set.");
+            }
+            finally
+            {
+                eventBus.OnStrikeResolved -= StrikeHandler;
+            }
+        }
+
         private void ResolveSceneReferences()
         {
             turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();
@@ -415,6 +508,34 @@ namespace PF2e.Tests
             var view = entityManager.GetView(data.Handle);
             if (view != null)
                 view.transform.position = entityManager.GetEntityWorldPosition(targetCell);
+        }
+
+        private Vector3Int FindAvailableAdjacentCell(Vector3Int center, EntityHandle mover, Vector3Int blockedCell)
+        {
+            // Prefer cardinal neighbors first to make tie-break by HP deterministic at equal melee distance.
+            Vector3Int[] directions =
+            {
+                Vector3Int.right,
+                Vector3Int.left,
+                Vector3Int.forward,
+                Vector3Int.back,
+                new Vector3Int(1, 0, 1),
+                new Vector3Int(1, 0, -1),
+                new Vector3Int(-1, 0, 1),
+                new Vector3Int(-1, 0, -1)
+            };
+
+            foreach (var direction in directions)
+            {
+                Vector3Int candidate = center + direction;
+                if (candidate == blockedCell) continue;
+                if (!gridManager.Data.HasCell(candidate)) continue;
+                if (!entityManager.Occupancy.CanOccupy(candidate, mover)) continue;
+                return candidate;
+            }
+
+            Assert.Fail($"No available adjacent cell around {center} for mover {mover.Id}.");
+            return center;
         }
 
         private int CountExistingCardinalNeighbors(Vector3Int center)

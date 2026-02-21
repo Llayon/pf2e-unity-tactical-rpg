@@ -60,9 +60,9 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Combat/UI presentation | Partial | Turn HUD, log, initiative, floating damage, and end-of-encounter panel are present; encounter flow panel is reusable and can be driven by shared preset |
 | Typed event routing | Done | `TurnManager` source events are typed, bridge forwarding is centralized in `TurnManagerTypedForwarder`, runtime subscribers consume typed `CombatEventBus` events |
 | Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter flow runtime fallback now has a shared UI preset |
-| AI | Partial | Simple melee AI implemented with deterministic target priority (`distance -> HP -> handle`), sticky per-turn target lock (reacquire only on invalid target), and no-progress bailout; no advanced tactics/ranged/spell logic |
+| AI | Partial | Simple melee AI implemented with deterministic target priority (`distance -> HP -> handle`), sticky per-turn target lock (reacquire only on invalid target), and no-progress bailout; EditMode + PlayMode regressions now cover lock behavior; no advanced tactics/ranged/spell logic |
 | Save/load/progression | Not started | No persistence layer |
-| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, cross-scene prefab encounter-flow smoke coverage, multi-round regression (movement + enemy AI + condition ticks), and blocked-enemy regression (turn exits without `ExecutingAction` deadlock); broader system-level coverage is still pending |
+| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, cross-scene prefab encounter-flow smoke coverage, multi-round regression (movement + enemy AI + condition ticks), blocked-enemy regression (turn exits without `ExecutingAction` deadlock), and sticky-target lock E2E regression (enemy does not retarget mid-turn); broader system-level coverage is still pending |
 | TurnManager action-lock tests (EditMode) | Done | EditMode now verifies lock metadata lifecycle (begin/complete/endcombat) and executing-actor action-cost ownership |
 | CI test automation | Done | GitHub Actions (`.github/workflows/unity-tests.yml`) runs EditMode + PlayMode on push/PR to `master`; branch protection on `master` requires `Unity Tests` |
 
@@ -107,15 +107,15 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Condition model has known simplification TODO (value + duration model evolution).
 - Input System package exists, but most gameplay input is polled directly from keyboard/mouse.
 - CI requires repository-level `UNITY_LICENSE` secret; workflow fails fast when missing.
-- PlayMode regression now covers multi-round movement/AI/condition-tick flow, but does not yet cover advanced combat domains (ranged/spells/reactions).
+- PlayMode regression now covers multi-round movement/AI/condition-tick flow, blocked-turn recovery, and sticky-target lock behavior, but does not yet cover advanced combat domains (ranged/spells/reactions).
 - Combat round regression deadlock assertions now combine lock duration with turn-progress signals to reduce CI timing flakes while still detecting real stuck locks.
 - Duplicate-looking armor asset naming (`GoblinArmor_.asset`) should be normalized later.
 - Deprecated `TurnManagerLogForwarder` is retained only as a disabled compatibility stub for existing scenes; do not use it for new work.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Define next AI behavior increment (positioning/targeting heuristic beyond melee rush) without introducing Utility-AI framework yet.
-2. Add PlayMode regression that explicitly verifies sticky-target behavior under changing target distances during one enemy turn.
-3. Plan migration path from heuristic AI to future Utility-AI while preserving current deterministic tests as baseline.
+1. Add one bounded AI behavior increment (for example: avoid ending turn adjacent to multiple enemies when a same-cost safer cell exists) without introducing Utility-AI framework yet.
+2. Remove remaining direct runtime `TurnManager` event subscriptions (`ConditionTickForwarder`/other adapters) in favor of typed `CombatEventBus` channels only.
+3. Draft Utility-AI migration seam (`IAIDecisionPolicy`) and adapter plan while preserving current deterministic tests as mandatory baseline.
 
 ## LLM-First Delivery Workflow (Multi-Agent)
 ### Operating Model (for non-programmer project owner)
