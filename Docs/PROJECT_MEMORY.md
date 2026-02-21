@@ -60,7 +60,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Combat/UI presentation | Partial | Turn HUD, log, initiative, floating damage, and end-of-encounter panel are present; encounter flow panel is reusable and can be driven by shared preset |
 | Typed event routing | Done | `TurnManager` source events are typed, bridge forwarding is centralized in `TurnManagerTypedForwarder`, runtime subscribers consume typed `CombatEventBus` events |
 | Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter flow runtime fallback now has a shared UI preset |
-| AI | Partial | Simple melee AI implemented; no advanced tactics/ranged/spell logic |
+| AI | Partial | Simple melee AI implemented with deterministic target priority (`distance -> HP -> handle`) and no-progress bailout; no advanced tactics/ranged/spell logic |
 | Save/load/progression | Not started | No persistence layer |
 | PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, cross-scene prefab encounter-flow smoke coverage, and multi-round regression (movement + enemy AI + condition ticks); broader system-level coverage is still pending |
 | TurnManager action-lock tests (EditMode) | Done | EditMode now verifies lock metadata lifecycle (begin/complete/endcombat) and executing-actor action-cost ownership |
@@ -93,12 +93,14 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - When `EncounterFlowController.useFlowPreset` is enabled, `flowPreset` becomes source-of-truth for runtime fallback fields.
 - `StrideAction` commits occupancy/entity position before animation; `EntityMover` is visual-only.
 - `AITurnController` must release action locks on abort/timeout/disable to avoid `ExecutingAction` deadlocks.
+- AI target selection contract is deterministic: nearest target first, then lower HP, then lower handle id as final tie-break.
 - `CombatEventBus.Publish(actor, message)` messages must not include actor name prefix.
 - `EntityHandle.None` means invalid handle (`Id == 0`).
 - Grid/entity raycasts rely on layer consistency (`EntityView` objects share grid layer).
 
 ## Known Issues / TODOs
 - AI is intentionally minimal: nearest-target melee only, same-elevation targeting, no tactical scoring.
+- AI no-progress bailout uses threshold 2 repeated identical loop snapshots; tune only with matching regression tests.
 - `SampleScene` remains authored-reference first; `EncounterFlowPrefabScene` is the current preset-driven fallback example scene.
 - Restart is scene-reload based (`SceneManager.LoadScene`) and intentionally simple for MVP.
 - Condition model has known simplification TODO (value + duration model evolution).
@@ -110,9 +112,9 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Deprecated `TurnManagerLogForwarder` is retained only as a disabled compatibility stub for existing scenes; do not use it for new work.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Start AI target-priority planning (`T-006`) with deterministic scoring rules (low HP tie-break + no-progress guard contract).
-2. Implement AI target-priority MVP (`T-007`) in `SimpleMeleeAIDecision`/`AITurnController`.
-3. Add deterministic EditMode coverage for AI priority/no-progress scenarios (`T-008`).
+1. Define next AI behavior increment (positioning/targeting heuristic beyond melee rush) without introducing Utility-AI framework yet.
+2. Add PlayMode regression specifically asserting no-progress bailout path in a blocked map scenario.
+3. Plan migration path from heuristic AI to future Utility-AI while preserving current deterministic tests as baseline.
 
 ## LLM-First Delivery Workflow (Multi-Agent)
 ### Operating Model (for non-programmer project owner)

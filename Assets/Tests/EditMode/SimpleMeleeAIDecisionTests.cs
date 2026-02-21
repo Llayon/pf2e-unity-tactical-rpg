@@ -16,7 +16,8 @@ namespace PF2e.Tests
             Team team,
             Vector3Int pos,
             bool alive = true,
-            int speedFeet = 25)
+            int speedFeet = 25,
+            int currentHp = 20)
         {
             var data = new EntityData
             {
@@ -24,7 +25,7 @@ namespace PF2e.Tests
                 Team = team,
                 Size = CreatureSize.Medium,
                 MaxHP = 20,
-                CurrentHP = alive ? 20 : 0,
+                CurrentHP = alive ? Mathf.Max(1, currentHp) : 0,
                 Speed = speedFeet,
                 GridPosition = pos,
                 EquippedWeapon = new WeaponInstance
@@ -79,6 +80,38 @@ namespace PF2e.Tests
             var target = SimpleMeleeAIDecision.FindBestTarget(actorData, registry.GetAll());
 
             Assert.AreEqual(EntityHandle.None, target);
+        }
+
+        [Test]
+        public void FindBestTarget_TieOnDistance_PicksLowerHP()
+        {
+            var registry = new EntityRegistry();
+            var occupancy = new OccupancyMap(registry);
+
+            var actor = RegisterEntity(registry, occupancy, Team.Enemy, new Vector3Int(0, 0, 0));
+            RegisterEntity(registry, occupancy, Team.Player, new Vector3Int(2, 0, 0), currentHp: 12);
+            var lowHpTarget = RegisterEntity(registry, occupancy, Team.Player, new Vector3Int(0, 0, 2), currentHp: 5);
+
+            var actorData = registry.Get(actor);
+            var target = SimpleMeleeAIDecision.FindBestTarget(actorData, registry.GetAll());
+
+            Assert.AreEqual(lowHpTarget, target);
+        }
+
+        [Test]
+        public void FindBestTarget_TieOnDistanceAndHP_PicksLowerHandleId()
+        {
+            var registry = new EntityRegistry();
+            var occupancy = new OccupancyMap(registry);
+
+            var actor = RegisterEntity(registry, occupancy, Team.Enemy, new Vector3Int(0, 0, 0));
+            var first = RegisterEntity(registry, occupancy, Team.Player, new Vector3Int(2, 0, 0), currentHp: 8);
+            RegisterEntity(registry, occupancy, Team.Player, new Vector3Int(0, 0, 2), currentHp: 8);
+
+            var actorData = registry.Get(actor);
+            var target = SimpleMeleeAIDecision.FindBestTarget(actorData, registry.GetAll());
+
+            Assert.AreEqual(first, target);
         }
 
         [Test]

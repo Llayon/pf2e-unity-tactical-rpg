@@ -28,6 +28,7 @@ namespace PF2e.TurnSystem
         [SerializeField] private float actionDelay = 0.4f;
 
         private const int MaxActionAttemptsPerTurn = 6;
+        private const int NoProgressLoopThreshold = 2;
         private const float StrideTimeoutSeconds = 30f;
 
         private Coroutine activeCoroutine;
@@ -117,6 +118,7 @@ namespace PF2e.TurnSystem
 
         private IEnumerator ExecuteAITurn(EntityHandle actor, int token)
         {
+            var progressGuard = new AITurnProgressGuard(NoProgressLoopThreshold);
             try
             {
                 yield return new WaitForSeconds(thinkDelay);
@@ -149,6 +151,15 @@ namespace PF2e.TurnSystem
 
                     EntityHandle target = SimpleMeleeAIDecision.FindBestTarget(actorData, entityManager.Registry.GetAll());
                     if (!target.IsValid) break;
+
+                    if (progressGuard.RegisterStep(actorData.GridPosition, actorData.ActionsRemaining, target))
+                    {
+                        Debug.LogWarning(
+                            $"[AITurnController] No-progress guard triggered for actor {actor.Id}. Ending turn early.",
+                            this);
+                        ForceEndTurn(actor);
+                        yield break;
+                    }
 
                     var targetData = entityManager.Registry.Get(target);
                     if (targetData == null || !targetData.IsAlive) break;
@@ -194,6 +205,8 @@ namespace PF2e.TurnSystem
             }
             finally
             {
+                progressGuard.Reset();
+
                 // StopCoroutine may bypass coroutine body; this guard keeps action state recoverable.
                 TryRollbackExecutionLock();
 

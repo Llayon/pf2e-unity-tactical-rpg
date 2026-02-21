@@ -21,6 +21,8 @@ namespace PF2e.TurnSystem
 
             EntityHandle best = EntityHandle.None;
             int bestDistFeet = int.MaxValue;
+            int bestHp = int.MaxValue;
+            int bestHandleId = int.MaxValue;
 
             foreach (var data in allEntities)
             {
@@ -30,9 +32,31 @@ namespace PF2e.TurnSystem
                 if (data.GridPosition.y != actor.GridPosition.y) continue;
 
                 int distFeet = GridDistancePF2e.DistanceFeetXZ(actor.GridPosition, data.GridPosition);
+                int hp = data.CurrentHP;
+                int handleId = data.Handle.Id;
+
+                bool isBetter = false;
                 if (distFeet < bestDistFeet)
                 {
+                    isBetter = true;
+                }
+                else if (distFeet == bestDistFeet)
+                {
+                    if (hp < bestHp)
+                    {
+                        isBetter = true;
+                    }
+                    else if (hp == bestHp && handleId < bestHandleId)
+                    {
+                        isBetter = true;
+                    }
+                }
+
+                if (isBetter)
+                {
                     bestDistFeet = distFeet;
+                    bestHp = hp;
+                    bestHandleId = handleId;
                     best = data.Handle;
                 }
             }

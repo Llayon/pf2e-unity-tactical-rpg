@@ -9,9 +9,9 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-003 | P0 | done | Verifier | Validate encounter flow and combat-end UX regressions | Test evidence attached with pass/fail per command |
 | T-004 | P1 | done | Builder | Prepare second-scene wiring path for `EncounterFlowPanel.prefab` | Scene wiring documented + smoke validation steps |
 | T-005 | P1 | done | Verifier | Audit `TurnManager` action-lock invariants on latest changes | Repro case list + no stuck lock in test run |
-| T-006 | P0 | todo | Planner | Define scope for AI target-priority upgrade (low HP focus + no-progress bail-out) | Task contract names impacted files, invariants, and validation commands |
-| T-007 | P0 | todo | Builder | Implement AI target-priority MVP upgrade in `SimpleMeleeAIDecision`/`AITurnController` | Enemy target selection is deterministic and avoids no-progress turn loops |
-| T-008 | P1 | todo | Verifier | Add deterministic EditMode coverage for AI target-priority and no-progress guards | New tests fail on regressions and pass in CI |
+| T-006 | P0 | done | Planner | Define scope for AI target-priority upgrade (low HP focus + no-progress bail-out) | Task contract names impacted files, invariants, and validation commands |
+| T-007 | P0 | done | Builder | Implement AI target-priority MVP upgrade in `SimpleMeleeAIDecision`/`AITurnController` | Enemy target selection is deterministic and avoids no-progress turn loops |
+| T-008 | P1 | done | Verifier | Add deterministic EditMode coverage for AI target-priority and no-progress guards | New tests fail on regressions and pass in CI |
 | T-009 | P0 | done | Planner | Lock typed-events migration contract and update memory/roadmap/task docs | Project memory + roadmap + task board reflect typed-only direction and migration sequence |
 | T-010 | P0 | done | Builder | Migrate UI/gameplay subscribers from `TurnManager` events to `CombatEventBus` typed channels | `InitiativeBarController`, `MovementZoneVisualizer`, `TargetingController`, and encounter flow UI subscribe via typed bus |
 | T-011 | P0 | done | Builder | Deprecate and remove legacy `OnCombatEnded` path + `TurnManagerLogForwarder` | No runtime references to legacy combat-end event or legacy log forwarder remain |
