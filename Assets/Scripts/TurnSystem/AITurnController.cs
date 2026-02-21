@@ -32,7 +32,6 @@ namespace PF2e.TurnSystem
 
         private Coroutine activeCoroutine;
         private int runId;
-        private bool usingTypedTurnStartSubscription;
 
         // Async stride state
         private bool waitingForStride;
@@ -49,7 +48,7 @@ namespace PF2e.TurnSystem
         private void OnValidate()
         {
             if (turnManager == null) Debug.LogError("[AITurnController] Missing TurnManager", this);
-            // eventBus is optional for backward compatibility; OnEnable auto-resolves it.
+            if (eventBus == null) Debug.LogError("[AITurnController] Missing CombatEventBus", this);
             if (entityManager == null) Debug.LogError("[AITurnController] Missing EntityManager", this);
             if (gridManager == null) Debug.LogError("[AITurnController] Missing GridManager", this);
             if (strideAction == null) Debug.LogError("[AITurnController] Missing StrideAction", this);
@@ -60,46 +59,20 @@ namespace PF2e.TurnSystem
 
         private void OnEnable()
         {
-            if (turnManager == null)
+            if (turnManager == null || eventBus == null)
             {
-                Debug.LogError("[AITurnController] Missing TurnManager. Disabling.", this);
+                Debug.LogError("[AITurnController] Missing TurnManager/CombatEventBus. Disabling.", this);
                 enabled = false;
                 return;
             }
 
-            // Backward-compatible self-heal for existing scenes: TurnManager and CombatEventBus
-            // live on the same CombatController in current setup.
-            if (eventBus == null)
-                eventBus = turnManager.GetComponent<CombatEventBus>();
-
-            if (eventBus == null)
-                eventBus = FindFirstObjectByType<CombatEventBus>();
-
-            if (eventBus != null)
-            {
-                eventBus.OnTurnStartedTyped += HandleTurnStartedTyped;
-                usingTypedTurnStartSubscription = true;
-                return;
-            }
-
-            // Legacy fallback for scenes/tests that do not yet wire CombatEventBus.
-            turnManager.OnTurnStarted += HandleTurnStartedLegacy;
-            usingTypedTurnStartSubscription = false;
+            eventBus.OnTurnStartedTyped += HandleTurnStartedTyped;
         }
 
         private void OnDisable()
         {
-            if (usingTypedTurnStartSubscription)
-            {
-                if (eventBus != null)
-                    eventBus.OnTurnStartedTyped -= HandleTurnStartedTyped;
-            }
-            else if (turnManager != null)
-            {
-                turnManager.OnTurnStarted -= HandleTurnStartedLegacy;
-            }
-
-            usingTypedTurnStartSubscription = false;
+            if (eventBus != null)
+                eventBus.OnTurnStartedTyped -= HandleTurnStartedTyped;
 
             runId++; // invalidate any in-flight coroutine work
 
@@ -114,11 +87,6 @@ namespace PF2e.TurnSystem
         }
 
         private void HandleTurnStartedTyped(in TurnStartedEvent e)
-        {
-            HandleTurnStarted(e.actor);
-        }
-
-        private void HandleTurnStartedLegacy(TurnStartedEvent e)
         {
             HandleTurnStarted(e.actor);
         }

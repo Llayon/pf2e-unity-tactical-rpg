@@ -10,7 +10,7 @@
 - Add additional enemy profiles and action variants.
 - Improve AI decision quality while keeping deterministic tests.
 - Consolidate runtime event architecture to typed `CombatEventBus` channels and retire legacy TurnManager log adapters. (Done)
-- Remove temporary AI legacy fallback (`AITurnController` direct TurnManager subscription fallback) after all scenes/prefabs are explicitly wired to `CombatEventBus`.
+- Enforce strict AI typed-event wiring (remove `AITurnController` direct TurnManager subscription fallback). (Done)
 
 ## Phase 3 — Content & UX Polish (Planned)
 - Add more encounter layouts and data-driven authoring flow.

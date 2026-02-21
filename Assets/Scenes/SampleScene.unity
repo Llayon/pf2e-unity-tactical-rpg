@@ -2068,6 +2068,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PF2e::PF2e.TurnSystem.AITurnController
   turnManager: {fileID: 456169784}
+  eventBus: {fileID: 939543823}
   entityManager: {fileID: 569346726}
   gridManager: {fileID: 2005884550}
   strideAction: {fileID: 456169783}

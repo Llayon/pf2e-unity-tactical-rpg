@@ -1,5 +1,5 @@
 # Project Memory
-Last updated: 2026-02-20
+Last updated: 2026-02-21
 
 ## Vision
 Build a small, playable, turn-based tactical PF2e combat slice in Unity where one player-controlled party can move on a grid, spend 3 actions, strike enemies, and finish encounters with clear visual feedback. Prioritize correctness of core turn/action/combat flow, maintainable architecture, and incremental delivery over full PF2e coverage.
@@ -108,12 +108,11 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Combat round regression deadlock assertions now combine lock duration with turn-progress signals to reduce CI timing flakes while still detecting real stuck locks.
 - Duplicate-looking armor asset naming (`GoblinArmor_.asset`) should be normalized later.
 - Deprecated `TurnManagerLogForwarder` is retained only as a disabled compatibility stub for existing scenes; do not use it for new work.
-- `AITurnController` currently keeps a legacy subscription fallback for scenes/tests missing `CombatEventBus` wiring; target removal after scene wiring pass.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Remove `AITurnController` legacy `TurnManager` fallback after confirming all scenes/prefabs wire `CombatEventBus`.
-2. Optionally remove deprecated `TurnManagerLogForwarder` script file and scene object entries after one release cycle (currently disabled only).
-3. Continue AI target-priority work (`T-006..T-008`) now that typed-event regression is green.
+1. Start AI target-priority planning (`T-006`) with deterministic scoring rules (low HP tie-break + no-progress guard contract).
+2. Implement AI target-priority MVP (`T-007`) in `SimpleMeleeAIDecision`/`AITurnController`.
+3. Add deterministic EditMode coverage for AI priority/no-progress scenarios (`T-008`).
 
 ## LLM-First Delivery Workflow (Multi-Agent)
 ### Operating Model (for non-programmer project owner)
