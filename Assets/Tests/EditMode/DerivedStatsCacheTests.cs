@@ -63,6 +63,21 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void DerivedStats_UseStackingRules_MaxStatusAndCircumstance()
+        {
+            var data = CreateEntity();
+            var service = new ConditionService();
+            var deltas = new List<ConditionDelta>(4);
+
+            service.Apply(data, ConditionType.Frightened, value: 2, rounds: -1, deltas);
+            service.Apply(data, ConditionType.Sickened, value: 3, rounds: -1, deltas);
+            service.Apply(data, ConditionType.Prone, value: 0, rounds: -1, deltas);
+
+            Assert.AreEqual(5, data.ConditionPenaltyToAttack, "Max status (3) + prone circumstance (2).");
+            Assert.AreEqual(13, data.EffectiveAC, "Base 18 - max status 3 - circumstance 2.");
+        }
+
+        [Test]
         public void RepeatedReads_NoMutation_StableValues()
         {
             var data = CreateEntity();

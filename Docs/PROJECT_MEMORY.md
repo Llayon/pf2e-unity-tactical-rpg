@@ -57,7 +57,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Turn state machine + actions economy | Done | Core loop works for both player and enemy turns; action lock now tracks actor/source/duration with watchdog diagnostics |
 | Player actions (Stride/Strike/Stand) | Partial | Core actions implemented; no broader action set |
 | PF2e strike/damage basics | Partial | Melee-focused MVP; ranged/spells not implemented |
-| Conditions | Partial | `ConditionService` is the mutation entrypoint for turn/action flows with caller-owned `ConditionDelta` buffers; model supports independent `Value + RemainingRounds` tick semantics; `EntityData` now uses strict snapshot-based derived-stat cache invalidation for AC/attack-penalty reads |
+| Conditions | Partial | `ConditionService` is the mutation entrypoint for turn/action flows with caller-owned `ConditionDelta` buffers; model supports independent `Value + RemainingRounds` tick semantics; `ConditionRules` now owns implied/stacking helpers for current combat penalties; `EntityData` uses strict snapshot-based derived-stat cache invalidation for AC/attack-penalty reads |
 | Combat/UI presentation | Partial | Turn HUD, log, initiative, floating damage, and end-of-encounter panel are present; end-panel text now maps through `EncounterEndTextMap`; encounter flow panel is reusable and can be driven by shared preset |
 | Typed event routing | Done | `TurnManager` source events are typed and published directly to `CombatEventBus`; runtime subscribers consume typed bus events |
 | Encounter-end text mapping | Done | `EncounterEndTextMap` is source-of-truth for `EncounterResult -> title/subtitle`, consumed by `EncounterEndPanelController` and covered by EditMode unit tests |
@@ -98,6 +98,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Condition lifecycle payload contract: `ConditionsTickedEvent` now uses `ConditionDelta` entries as canonical payload.
 - Condition changed event contract: duration-only ticks use `ConditionChangeType.DurationChanged`, with `oldRemainingRounds/newRemainingRounds` populated on `ConditionChangedEvent`.
 - Condition tick semantics contract: on end turn, value auto-decay and duration countdown are independent; remove on `RemainingRounds == 0`, or on valued infinite conditions when `Value <= 0`.
+- Condition stacking/implied contract (current slice): status penalties from `Frightened/Sickened` use max (not sum); attack circumstance uses `Prone` only; AC circumstance uses `OffGuard || Prone` (no double-count; `Prone` implies off-guard for AC context).
 - Derived-stat cache contract: `EntityData` validates `EffectiveAC`/`ConditionPenaltyToAttack` against strict snapshot/fingerprint (`Dexterity`, `Level`, armor state, condition fingerprint including `RemainingRounds`) to prevent stale reads under direct public-field mutations.
 - Runtime subscriber contract: new systems should subscribe via `CombatEventBus`, not directly to `TurnManager`.
 - Presentation/domain boundary contract: presentation components must not generate domain condition mutations/events; `ConditionTickForwarder` is deprecated and inert.
@@ -121,7 +122,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Restart is scene-reload based (`SceneManager.LoadScene`) and intentionally simple for MVP.
 - `EntityData.AddCondition/RemoveCondition` are now `internal` guardrails; avoid introducing new callers outside core condition infrastructure.
 - Legacy `ConditionTick` struct remains only for compatibility in `EntityData.EndTurn`; typed event flow is now `ConditionDelta`-based.
-- Condition model now supports simultaneous `Value + RemainingRounds`; remaining TODO is richer PF2e stacking/implied-condition behavior.
+- Condition model now supports simultaneous `Value + RemainingRounds`; stacking/implied helpers exist for current attack/AC penalties, but broader PF2e condition interactions are still pending.
 - Derived-stat cache is currently an architecture/correctness foundation; for the present simple formulas it is not guaranteed to be a net performance win yet.
 - Input System package exists, but most gameplay input is polled directly from keyboard/mouse.
 - CI requires repository-level `UNITY_LICENSE` secret; workflow fails fast when missing.
@@ -131,8 +132,8 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Legacy forwarder stubs (`TurnManagerLogForwarder`, `TurnManagerTypedForwarder`) were removed from scenes and code; turn/combat typed flow is direct `TurnManager -> CombatEventBus`.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Introduce explicit implied-condition and stacking-rule helpers (`ConditionRules`-driven, test-first) without moving rules into presentation.
-2. Add targeted PlayMode regression for duration-based conditions (finite-duration removal + log/event consistency under real turn flow).
+1. Add targeted PlayMode regression for duration-based conditions (finite-duration removal + log/event consistency under real turn flow).
+2. Expand `ConditionRules` helpers to additional PF2e interactions (e.g., future implied states and non-penalty effects) with test-first coverage.
 3. Migrate remaining legacy `EntityData.StartTurn/EndTurn` direct-condition test usage to `ConditionService`-driven paths and keep legacy methods as compatibility-only.
 
 ## LLM-First Delivery Workflow (Multi-Agent)

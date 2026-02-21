@@ -38,6 +38,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-032 | P0 | done | Builder | Implement Phase 18.5 condition semantics (`Value + RemainingRounds`) in `ConditionService` | End-turn tick now applies independent value auto-decay + duration countdown; `ConditionDelta` includes value/duration old/new payload; EditMode tests cover duration-only, mixed, and removal cases |
 | T-033 | P1 | done | Builder | Enforce `one public type per file` for encounter-end log mapping | `EncounterEndLogMessageMap` moved to `Assets/Scripts/Presentation/EncounterEndLogMessageMap.cs`; `TurnLogForwarder.cs` now contains only `TurnLogForwarder` |
 | T-034 | P0 | done | Builder | Implement Phase 18.6 strict snapshot-based DerivedStatsCache in `EntityData` | `EffectiveAC` and `ConditionPenaltyToAttack` now use snapshot/fingerprint validation (`Dexterity`, `Level`, armor state, conditions including `RemainingRounds`) to avoid stale reads under direct field mutations; EditMode coverage added |
+| T-035 | P0 | done | Builder | Implement Phase 18.7 implied/stacking helpers in `ConditionRules` and route derived stats through them | `ConditionRules` now computes attack/AC penalties with status max + implied prone/off-guard logic; `EntityData` derived cache uses these helpers; new EditMode tests cover stacking contracts |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

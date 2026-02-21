@@ -266,52 +266,12 @@ namespace PF2e.Core
 
         private void RecomputeDerivedStats()
         {
-            bool hasOffGuard = false;
-            bool hasProne = false;
-            int frightenedValue = 0;
-            int sickenedValue = 0;
-            bool seenFrightened = false;
-            bool seenSickened = false;
+            ConditionRules.ComputeAttackAndAcPenalties(
+                Conditions,
+                out cachedConditionPenaltyToAttack,
+                out int acPenalty);
 
-            for (int i = 0; i < Conditions.Count; i++)
-            {
-                var condition = Conditions[i];
-                switch (condition.Type)
-                {
-                    case ConditionType.OffGuard:
-                        hasOffGuard = true;
-                        break;
-                    case ConditionType.Prone:
-                        hasProne = true;
-                        break;
-                    case ConditionType.Frightened:
-                        if (!seenFrightened)
-                        {
-                            frightenedValue = condition.Value;
-                            seenFrightened = true;
-                        }
-                        break;
-                    case ConditionType.Sickened:
-                        if (!seenSickened)
-                        {
-                            sickenedValue = condition.Value;
-                            seenSickened = true;
-                        }
-                        break;
-                }
-            }
-
-            int penalty = frightenedValue + sickenedValue;
-            if (hasProne)
-                penalty += 2;
-            cachedConditionPenaltyToAttack = penalty;
-
-            int ac = BaseAC;
-            if (hasOffGuard || hasProne)
-                ac -= 2;
-            ac -= frightenedValue;
-            ac -= sickenedValue;
-            cachedEffectiveAC = ac;
+            cachedEffectiveAC = BaseAC - acPenalty;
         }
 
         private int ComputeConditionsFingerprint()

@@ -99,6 +99,22 @@ public class EntityDataTests
         Assert.AreEqual(15, data.EffectiveAC);
     }
 
+    [Test] public void EffectiveAC_FrightenedAndSickened_UsesMaxStatusPenalty()
+    {
+        var data = new EntityData { Dexterity = 16, Level = 3 };
+        Apply(data, ConditionType.Frightened, 2);
+        Apply(data, ConditionType.Sickened, 1);
+        Assert.AreEqual(16, data.EffectiveAC);
+    }
+
+    [Test] public void ConditionPenaltyToAttack_FrightenedAndSickened_UsesMaxStatusPenalty()
+    {
+        var data = new EntityData();
+        Apply(data, ConditionType.Frightened, 1);
+        Apply(data, ConditionType.Sickened, 3);
+        Assert.AreEqual(3, data.ConditionPenaltyToAttack);
+    }
+
     [Test] public void ApplyCondition_NewCondition_Added()
     {
         var data = new EntityData();
