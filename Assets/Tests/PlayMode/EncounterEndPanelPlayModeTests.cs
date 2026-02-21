@@ -386,6 +386,90 @@ namespace PF2e.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator GT_P18_PM_203_PayloadToPanelText_Consistency_VictoryAndAborted()
+        {
+            // Flow A: live victory from CheckVictory path.
+            EncounterResult victoryResult = EncounterResult.Unknown;
+            bool victoryReceived = false;
+
+            void VictoryHandler(in CombatEndedEvent e)
+            {
+                victoryResult = e.result;
+                victoryReceived = true;
+            }
+
+            eventBus.OnCombatEndedTyped += VictoryHandler;
+            try
+            {
+                yield return StartCombatAndWaitForTurnState();
+
+                WipeTeam(Team.Enemy);
+                turnManager.EndTurn();
+
+                yield return WaitUntilOrTimeout(
+                    () => victoryReceived,
+                    DefaultTimeoutSeconds,
+                    "CombatEndedEvent was not raised for live-flow victory consistency check.");
+                yield return WaitUntilOrTimeout(
+                    () => IsPanelVisible(panelCanvasGroup),
+                    DefaultTimeoutSeconds,
+                    "Encounter panel did not appear for live-flow victory consistency check.");
+
+                Assert.AreEqual(EncounterResult.Victory, victoryResult);
+                AssertPanelTextMatchesResult(victoryResult, titleText.text, subtitleText.text);
+            }
+            finally
+            {
+                eventBus.OnCombatEndedTyped -= VictoryHandler;
+            }
+
+            // Reload scene to start a clean second flow.
+            SceneManager.LoadScene(SampleSceneName);
+            yield return WaitUntilOrTimeout(
+                () => SceneManager.GetActiveScene().name == SampleSceneName,
+                DefaultTimeoutSeconds,
+                "SampleScene did not reload for aborted consistency flow.");
+            yield return null;
+            ResolveSceneReferences();
+            yield return WaitUntilOrTimeout(
+                () => entityManager.Registry != null && entityManager.Registry.Count >= 2,
+                DefaultTimeoutSeconds,
+                "EntityManager registry was not repopulated after scene reload.");
+
+            // Flow B: manual abort path.
+            EncounterResult abortedResult = EncounterResult.Unknown;
+            bool abortedReceived = false;
+
+            void AbortedHandler(in CombatEndedEvent e)
+            {
+                abortedResult = e.result;
+                abortedReceived = true;
+            }
+
+            eventBus.OnCombatEndedTyped += AbortedHandler;
+            try
+            {
+                turnManager.EndCombat();
+
+                yield return WaitUntilOrTimeout(
+                    () => abortedReceived,
+                    DefaultTimeoutSeconds,
+                    "CombatEndedEvent was not raised for manual abort consistency check.");
+                yield return WaitUntilOrTimeout(
+                    () => IsPanelVisible(panelCanvasGroup),
+                    DefaultTimeoutSeconds,
+                    "Encounter panel did not appear for manual abort consistency check.");
+
+                Assert.AreEqual(EncounterResult.Aborted, abortedResult);
+                AssertPanelTextMatchesResult(abortedResult, titleText.text, subtitleText.text);
+            }
+            finally
+            {
+                eventBus.OnCombatEndedTyped -= AbortedHandler;
+            }
+        }
+
         private void ResolveSceneReferences()
         {
             turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();
@@ -475,6 +559,28 @@ namespace PF2e.Tests
                 && canvasGroup.alpha > 0.99f
                 && canvasGroup.interactable
                 && canvasGroup.blocksRaycasts;
+        }
+
+        private static void AssertPanelTextMatchesResult(EncounterResult result, string title, string subtitle)
+        {
+            switch (result)
+            {
+                case EncounterResult.Victory:
+                    Assert.AreEqual("Victory", title);
+                    Assert.AreEqual("All enemies defeated.", subtitle);
+                    return;
+                case EncounterResult.Defeat:
+                    Assert.AreEqual("Defeat", title);
+                    Assert.AreEqual("All players defeated.", subtitle);
+                    return;
+                case EncounterResult.Aborted:
+                    Assert.AreEqual("Encounter Ended", title);
+                    Assert.AreEqual("Combat was ended manually.", subtitle);
+                    return;
+                default:
+                    Assert.Fail($"Unexpected EncounterResult for panel mapping: {result}");
+                    return;
+            }
         }
 
         private static IEnumerator WaitUntilOrTimeout(Func<bool> predicate, float timeoutSeconds, string timeoutReason)

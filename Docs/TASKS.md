@@ -27,6 +27,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-021 | P1 | done | Verifier | Add EditMode proof for `EndTurn` direct typed publish path | New EditMode test validates direct `TurnEnded` + `ConditionsTicked` publication from `TurnManager.EndTurn` to `CombatEventBus` |
 | T-022 | P1 | done | Verifier | Add PlayMode event-order regression for `EndTurn` lifecycle | New PlayMode test validates typed event order `ConditionsTicked -> TurnEnded -> TurnStarted(next)` during real scene flow |
 | T-023 | P1 | done | Verifier | Add PlayMode initiative payload integrity regression on typed bus | New PlayMode test validates `OnInitiativeRolledTyped` payload count/uniqueness/team composition/sort order under real scene flow |
+| T-024 | P1 | done | Verifier | Add PlayMode consistency regression for combat-end payload and panel text mapping | New PlayMode test validates payload-to-UI text consistency across live victory (`CheckVictory`) and manual abort (`EndCombat`) flows |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal
