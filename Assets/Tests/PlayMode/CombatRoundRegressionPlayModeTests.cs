@@ -181,6 +181,69 @@ namespace PF2e.Tests
         }
 
         [UnityTest]
+        public IEnumerator GT_P18_PM_406_EndTurnEventOrder_ConditionsThenTurnEndedThenNextTurnStarted()
+        {
+            var fighter = GetEntityByName("Fighter");
+            fighter.Wisdom = 5000; // deterministic first actor
+            fighter.AddCondition(ConditionType.Frightened, value: 2);
+
+            var order = new List<string>(4);
+            bool nextTurnStarted = false;
+
+            void ConditionsHandler(in ConditionsTickedEvent e)
+            {
+                if (e.actor != fighter.Handle) return;
+                order.Add("conditions");
+            }
+
+            void TurnEndedHandler(in TurnEndedEvent e)
+            {
+                if (e.actor != fighter.Handle) return;
+                order.Add("turn_ended");
+            }
+
+            void TurnStartedHandler(in TurnStartedEvent e)
+            {
+                if (e.actor == fighter.Handle) return; // ignore initial fighter turn-start
+                if (nextTurnStarted) return;
+                nextTurnStarted = true;
+                order.Add("next_turn_started");
+            }
+
+            try
+            {
+                turnManager.StartCombat();
+
+                yield return WaitUntilOrTimeout(
+                    () => turnManager.State == TurnState.PlayerTurn && turnManager.CurrentEntity == fighter.Handle,
+                    DefaultTimeoutSeconds,
+                    "Fighter did not become the first actor.");
+
+                eventBus.OnConditionsTickedTyped += ConditionsHandler;
+                eventBus.OnTurnEndedTyped += TurnEndedHandler;
+                eventBus.OnTurnStartedTyped += TurnStartedHandler;
+
+                turnManager.EndTurn();
+
+                yield return WaitUntilOrTimeout(
+                    () => nextTurnStarted,
+                    DefaultTimeoutSeconds,
+                    "Did not observe next turn start after fighter EndTurn.");
+
+                Assert.AreEqual(3, order.Count, "Unexpected number of tracked lifecycle events.");
+                Assert.AreEqual("conditions", order[0], "ConditionsTicked should be published before TurnEnded.");
+                Assert.AreEqual("turn_ended", order[1], "TurnEnded should be published after ConditionsTicked.");
+                Assert.AreEqual("next_turn_started", order[2], "Next TurnStarted should be published after TurnEnded.");
+            }
+            finally
+            {
+                eventBus.OnConditionsTickedTyped -= ConditionsHandler;
+                eventBus.OnTurnEndedTyped -= TurnEndedHandler;
+                eventBus.OnTurnStartedTyped -= TurnStartedHandler;
+            }
+        }
+
+        [UnityTest]
         public IEnumerator GT_P18_PM_404_BlockedEnemyTurn_EndsWithoutDeadlock()
         {
             BoostAllCombatantsHP(220);

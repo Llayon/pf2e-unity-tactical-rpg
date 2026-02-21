@@ -25,6 +25,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-019 | P0 | done | Builder | Remove deprecated turn forwarder components and compatibility stubs | Deprecated `TurnManagerTypedForwarder`/`TurnManagerLogForwarder` components removed from authored scenes; stub scripts deleted; validator/autofix no longer depends on them |
 | T-020 | P1 | done | Verifier | Add EditMode proof that `TurnManager` publishes typed lifecycle events directly to `CombatEventBus` | New EditMode test validates direct bus publication for combat start / initiative / round / turn / actions lifecycle without adapter components |
 | T-021 | P1 | done | Verifier | Add EditMode proof for `EndTurn` direct typed publish path | New EditMode test validates direct `TurnEnded` + `ConditionsTicked` publication from `TurnManager.EndTurn` to `CombatEventBus` |
+| T-022 | P1 | done | Verifier | Add PlayMode event-order regression for `EndTurn` lifecycle | New PlayMode test validates typed event order `ConditionsTicked -> TurnEnded -> TurnStarted(next)` during real scene flow |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

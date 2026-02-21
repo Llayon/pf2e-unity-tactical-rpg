@@ -62,7 +62,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter flow runtime fallback now has a shared UI preset |
 | AI | Partial | Simple melee AI implemented with deterministic target priority (`distance -> HP -> handle`), sticky per-turn target lock (reacquire only on invalid target), and no-progress bailout; EditMode + PlayMode regressions now cover lock behavior; no advanced tactics/ranged/spell logic |
 | Save/load/progression | Not started | No persistence layer |
-| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, cross-scene prefab encounter-flow smoke coverage, multi-round regression (movement + enemy AI + condition ticks), blocked-enemy regression (turn exits without `ExecutingAction` deadlock), and sticky-target lock E2E regression (enemy does not retarget mid-turn); broader system-level coverage is still pending |
+| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, cross-scene prefab encounter-flow smoke coverage, multi-round regression (movement + enemy AI + condition ticks), blocked-enemy regression (turn exits without `ExecutingAction` deadlock), sticky-target lock E2E regression (enemy does not retarget mid-turn), and EndTurn typed-event order regression (`ConditionsTicked -> TurnEnded -> TurnStarted(next)`); broader system-level coverage is still pending |
 | Typed bus direct-publish tests (EditMode) | Done | EditMode now asserts direct `TurnManager -> CombatEventBus` lifecycle publish for `StartCombat` path and `EndTurn` path (`TurnEnded` + `ConditionsTicked`) without forwarder adapters |
 | TurnManager action-lock tests (EditMode) | Done | EditMode now verifies lock metadata lifecycle (begin/complete/endcombat) and executing-actor action-cost ownership |
 | CI test automation | Done | GitHub Actions (`.github/workflows/unity-tests.yml`) runs EditMode + PlayMode on push/PR to `master`; branch protection on `master` requires `Unity Tests` |
@@ -116,7 +116,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 
 ## Next 3 Recommended Tasks (Small, High Value)
 1. Add one bounded AI behavior increment (for example: avoid ending turn adjacent to multiple enemies when a same-cost safer cell exists) without introducing Utility-AI framework yet.
-2. Add one small PlayMode assertion that typed `TurnEnded` and `ConditionsTicked` events stay ordered under real scene flow (no adapter present).
+2. Add one PlayMode regression for direct typed bus initiative payload integrity (order count/team composition) under real scene flow.
 3. Draft Utility-AI migration seam (`IAIDecisionPolicy`) and adapter plan while preserving current deterministic tests as mandatory baseline.
 
 ## LLM-First Delivery Workflow (Multi-Agent)
