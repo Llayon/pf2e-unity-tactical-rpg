@@ -244,6 +244,79 @@ namespace PF2e.Tests
         }
 
         [UnityTest]
+        public IEnumerator GT_P18_PM_407_InitiativePayloadIntegrity_TypedBus()
+        {
+            var expectedAlive = new List<EntityHandle>(8);
+            foreach (var data in entityManager.Registry.GetAll())
+            {
+                if (data == null || !data.IsAlive) continue;
+                expectedAlive.Add(data.Handle);
+            }
+
+            List<InitiativeEntry> receivedOrder = null;
+            bool received = false;
+
+            void InitiativeHandler(in InitiativeRolledEvent e)
+            {
+                received = true;
+                receivedOrder = new List<InitiativeEntry>(e.order);
+            }
+
+            eventBus.OnInitiativeRolledTyped += InitiativeHandler;
+
+            try
+            {
+                turnManager.StartCombat();
+
+                yield return WaitUntilOrTimeout(
+                    () => received,
+                    DefaultTimeoutSeconds,
+                    "Did not receive typed InitiativeRolled event.");
+
+                Assert.IsNotNull(receivedOrder, "Initiative payload list is null.");
+                Assert.Greater(receivedOrder.Count, 0, "Initiative payload list is empty.");
+                Assert.AreEqual(expectedAlive.Count, receivedOrder.Count, "Initiative payload count mismatch.");
+
+                var seenHandles = new HashSet<int>();
+                int playerCount = 0;
+                int enemyCount = 0;
+
+                for (int i = 0; i < receivedOrder.Count; i++)
+                {
+                    var entry = receivedOrder[i];
+                    Assert.IsTrue(entry.Handle.IsValid, "Initiative payload contains invalid handle.");
+                    Assert.IsTrue(seenHandles.Add(entry.Handle.Id), $"Duplicate handle in initiative payload: {entry.Handle.Id}.");
+                    Assert.That(entry.Roll, Is.InRange(1, 20), "Initiative roll must be in [1, 20].");
+
+                    var data = entityManager.Registry.Get(entry.Handle);
+                    Assert.IsNotNull(data, $"Initiative entry handle {entry.Handle.Id} not found in registry.");
+                    Assert.IsTrue(data.IsAlive, $"Initiative entry handle {entry.Handle.Id} is not alive.");
+
+                    if (data.Team == Team.Player) playerCount++;
+                    if (data.Team == Team.Enemy) enemyCount++;
+
+                    bool expectedIsPlayer = data.Team == Team.Player;
+                    Assert.AreEqual(expectedIsPlayer, entry.IsPlayer, "Initiative IsPlayer flag mismatch.");
+                }
+
+                Assert.GreaterOrEqual(playerCount, 1, "Initiative payload has no player entries.");
+                Assert.GreaterOrEqual(enemyCount, 1, "Initiative payload has no enemy entries.");
+
+                for (int i = 1; i < receivedOrder.Count; i++)
+                {
+                    Assert.GreaterOrEqual(
+                        receivedOrder[i - 1].SortValue,
+                        receivedOrder[i].SortValue,
+                        "Initiative payload is not sorted descending by SortValue.");
+                }
+            }
+            finally
+            {
+                eventBus.OnInitiativeRolledTyped -= InitiativeHandler;
+            }
+        }
+
+        [UnityTest]
         public IEnumerator GT_P18_PM_404_BlockedEnemyTurn_EndsWithoutDeadlock()
         {
             BoostAllCombatantsHP(220);
