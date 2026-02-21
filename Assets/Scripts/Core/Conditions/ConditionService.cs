@@ -9,9 +9,24 @@ namespace PF2e.Core
     /// </summary>
     public sealed class ConditionService
     {
+        /// <summary>
+        /// Backward-compatible alias. Prefer AddOrRefresh for new code.
+        /// </summary>
         public void Apply(EntityData entity, ConditionType type, int value, int rounds, List<ConditionDelta> outDeltas)
         {
+            AddOrRefresh(entity, type, value, rounds, outDeltas);
+        }
+
+        /// <summary>
+        /// Add a condition or refresh an existing instance.
+        /// Value and duration are merged independently.
+        /// </summary>
+        public void AddOrRefresh(EntityData entity, ConditionType type, int value, int rounds, List<ConditionDelta> outDeltas)
+        {
             if (entity == null || outDeltas == null) return;
+
+            int incomingValue = NormalizeValue(type, value);
+            int incomingRounds = NormalizeRounds(rounds);
 
             for (int i = 0; i < entity.Conditions.Count; i++)
             {
@@ -19,26 +34,38 @@ namespace PF2e.Core
                 if (cond.Type != type) continue;
 
                 int oldValue = cond.Value;
-                if (value > cond.Value)
-                {
-                    cond.Value = value;
-                    outDeltas.Add(new ConditionDelta(
-                        entity.Handle,
-                        type,
-                        ConditionChangeType.ValueChanged,
-                        oldValue,
-                        cond.Value));
-                }
+                int oldRounds = cond.RemainingRounds;
+                int mergedValue = Mathf.Max(cond.Value, incomingValue);
+                int mergedRounds = MergeRounds(cond.RemainingRounds, incomingRounds);
+                bool valueChanged = mergedValue != oldValue;
+                bool roundsChanged = mergedRounds != oldRounds;
+
+                if (!valueChanged && !roundsChanged)
+                    return;
+
+                cond.Value = mergedValue;
+                cond.RemainingRounds = mergedRounds;
+
+                outDeltas.Add(new ConditionDelta(
+                    entity.Handle,
+                    type,
+                    valueChanged ? ConditionChangeType.ValueChanged : ConditionChangeType.DurationChanged,
+                    oldValue,
+                    cond.Value,
+                    oldRounds,
+                    cond.RemainingRounds));
                 return;
             }
 
-            entity.Conditions.Add(new ActiveCondition(type, value, rounds));
+            entity.Conditions.Add(new ActiveCondition(type, incomingValue, incomingRounds));
             outDeltas.Add(new ConditionDelta(
                 entity.Handle,
                 type,
                 ConditionChangeType.Added,
                 0,
-                Mathf.Max(0, value)));
+                incomingValue,
+                0,
+                incomingRounds));
         }
 
         public void Remove(EntityData entity, ConditionType type, List<ConditionDelta> outDeltas)
@@ -55,6 +82,8 @@ namespace PF2e.Core
                     type,
                     ConditionChangeType.Removed,
                     cond.Value,
+                    0,
+                    cond.RemainingRounds,
                     0));
 
                 entity.Conditions.RemoveAt(i);
@@ -87,30 +116,63 @@ namespace PF2e.Core
             for (int i = entity.Conditions.Count - 1; i >= 0; i--)
             {
                 var cond = entity.Conditions[i];
-                if (!ConditionRules.AutoDecrementsAtEndOfTurn(cond.Type)) continue;
-                if (cond.Value <= 0) continue;
+
+                bool decrementValue = ConditionRules.AutoDecrementsAtEndOfTurn(cond.Type) && cond.Value > 0;
+                bool decrementRounds = cond.RemainingRounds > 0;
+                if (!decrementValue && !decrementRounds) continue;
 
                 int oldValue = cond.Value;
-                if (cond.TickDown())
+                int oldRounds = cond.RemainingRounds;
+
+                if (cond.TickDown(decrementValue, decrementRounds))
                 {
-                    entity.Conditions.RemoveAt(i);
                     outDeltas.Add(new ConditionDelta(
                         entity.Handle,
                         cond.Type,
                         ConditionChangeType.Removed,
                         oldValue,
+                        0,
+                        oldRounds,
                         0));
+
+                    entity.Conditions.RemoveAt(i);
+                    continue;
                 }
-                else
-                {
-                    outDeltas.Add(new ConditionDelta(
-                        entity.Handle,
-                        cond.Type,
-                        ConditionChangeType.ValueChanged,
-                        oldValue,
-                        cond.Value));
-                }
+
+                bool valueChanged = cond.Value != oldValue;
+                bool roundsChanged = cond.RemainingRounds != oldRounds;
+                if (!valueChanged && !roundsChanged) continue;
+
+                outDeltas.Add(new ConditionDelta(
+                    entity.Handle,
+                    cond.Type,
+                    valueChanged ? ConditionChangeType.ValueChanged : ConditionChangeType.DurationChanged,
+                    oldValue,
+                    cond.Value,
+                    oldRounds,
+                    cond.RemainingRounds));
             }
+        }
+
+        private static int NormalizeValue(ConditionType type, int value)
+        {
+            if (!ConditionRules.IsValued(type))
+                return 0;
+
+            return Mathf.Max(0, value);
+        }
+
+        private static int NormalizeRounds(int rounds)
+        {
+            return rounds < 0 ? -1 : rounds;
+        }
+
+        private static int MergeRounds(int currentRounds, int incomingRounds)
+        {
+            if (currentRounds < 0 || incomingRounds < 0)
+                return -1;
+
+            return Mathf.Max(currentRounds, incomingRounds);
         }
     }
 }

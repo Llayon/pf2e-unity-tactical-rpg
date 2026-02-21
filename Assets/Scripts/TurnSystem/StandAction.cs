@@ -42,7 +42,9 @@ namespace PF2e.TurnSystem
                         delta.type,
                         delta.changeType,
                         delta.oldValue,
-                        delta.newValue);
+                        delta.newValue,
+                        delta.oldRemainingRounds,
+                        delta.newRemainingRounds);
                 }
             }
 

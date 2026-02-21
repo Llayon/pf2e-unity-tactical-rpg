@@ -13,8 +13,10 @@
 - Introduce condition mutation pipeline (`ConditionService`) and publish condition lifecycle via typed deltas from turn/domain layer. (Done)
 - Migrate condition tick payloads to `ConditionDelta` and retire presentation-side condition domain bridge (`ConditionTickForwarder`). (Done)
 - Tighten condition mutation guardrails by migrating legacy callsites and restricting `EntityData.AddCondition/RemoveCondition` to internal use. (Done)
+- Expand condition lifecycle model to support independent `Value + RemainingRounds` semantics in `ConditionService` and typed deltas. (Done)
 - Consolidate runtime event architecture to typed `CombatEventBus` channels and retire legacy TurnManager log adapters. (Done)
 - Enforce strict AI typed-event wiring (remove `AITurnController` direct TurnManager subscription fallback). (Done)
+- Normalize encounter-end log mapping into standalone `EncounterEndLogMessageMap` (`one public type per file`). (Done)
 
 ## Phase 3 — Content & UX Polish (Planned)
 - Add more encounter layouts and data-driven authoring flow.

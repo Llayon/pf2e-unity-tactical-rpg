@@ -35,6 +35,8 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-029 | P0 | done | Builder | Introduce `ConditionService` as single mutation entrypoint with caller-owned delta buffers | `TurnManager` and `StandAction` mutate conditions via `ConditionService`; start-turn stunned removal now emits typed `ConditionChanged`; new EditMode service/event tests pass |
 | T-030 | P1 | done | Builder | Unify condition tick payload to `ConditionDelta` and deprecate presentation-domain bridge | `ConditionsTickedEvent` now carries `ConditionDelta`; `ConditionTickForwarder` is inert/deprecated and validator warns if present |
 | T-031 | P1 | done | Builder | Tighten condition guardrails by removing legacy direct condition mutations | Remaining legacy callers migrated to `ConditionService`; `EntityData.AddCondition/RemoveCondition` scope tightened to `internal` |
+| T-032 | P0 | done | Builder | Implement Phase 18.5 condition semantics (`Value + RemainingRounds`) in `ConditionService` | End-turn tick now applies independent value auto-decay + duration countdown; `ConditionDelta` includes value/duration old/new payload; EditMode tests cover duration-only, mixed, and removal cases |
+| T-033 | P1 | done | Builder | Enforce `one public type per file` for encounter-end log mapping | `EncounterEndLogMessageMap` moved to `Assets/Scripts/Presentation/EncounterEndLogMessageMap.cs`; `TurnLogForwarder.cs` now contains only `TurnLogForwarder` |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

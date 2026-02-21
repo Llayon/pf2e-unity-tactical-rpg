@@ -57,11 +57,11 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Turn state machine + actions economy | Done | Core loop works for both player and enemy turns; action lock now tracks actor/source/duration with watchdog diagnostics |
 | Player actions (Stride/Strike/Stand) | Partial | Core actions implemented; no broader action set |
 | PF2e strike/damage basics | Partial | Melee-focused MVP; ranged/spells not implemented |
-| Conditions | Partial | `ConditionService` is now the mutation entrypoint for turn/action flows with caller-owned `ConditionDelta` buffers; event publication is domain-driven; model is still simplified vs full PF2e stacking/duration semantics |
+| Conditions | Partial | `ConditionService` is the mutation entrypoint for turn/action flows with caller-owned `ConditionDelta` buffers; model now supports independent `Value + RemainingRounds` tick semantics, but full PF2e stacking/implied-condition rules are still pending |
 | Combat/UI presentation | Partial | Turn HUD, log, initiative, floating damage, and end-of-encounter panel are present; end-panel text now maps through `EncounterEndTextMap`; encounter flow panel is reusable and can be driven by shared preset |
 | Typed event routing | Done | `TurnManager` source events are typed and published directly to `CombatEventBus`; runtime subscribers consume typed bus events |
 | Encounter-end text mapping | Done | `EncounterEndTextMap` is source-of-truth for `EncounterResult -> title/subtitle`, consumed by `EncounterEndPanelController` and covered by EditMode unit tests |
-| Encounter-end log mapping | Done | `EncounterEndLogMessageMap` is source-of-truth for `EncounterResult -> combat-end log message`, consumed by `TurnLogForwarder` and covered by EditMode unit tests |
+| Encounter-end log mapping | Done | `EncounterEndLogMessageMap` (`Assets/Scripts/Presentation/EncounterEndLogMessageMap.cs`) is source-of-truth for `EncounterResult -> combat-end log message`, consumed by `TurnLogForwarder` and covered by EditMode unit tests |
 | Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter flow runtime fallback now has a shared UI preset |
 | AI | Partial | Simple melee AI implemented with deterministic target priority (`distance -> HP -> handle`), sticky per-turn target lock (reacquire only on invalid target), and no-progress bailout; `AITurnController` now routes decisions through `IAIDecisionPolicy` (`SimpleMeleeDecisionPolicy`) to preserve behavior while preparing Utility-AI migration; no advanced tactics/ranged/spell logic |
 | Save/load/progression | Not started | No persistence layer |
@@ -96,6 +96,8 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Conditions mutation contract: gameplay/turn/action code must mutate conditions through `ConditionService` (caller-owned `List<ConditionDelta>` buffers), not direct `EntityData` mutation helpers.
 - `EntityData.AddCondition/RemoveCondition` are internal guardrail APIs for core-only usage; cross-module/gameplay code must use `ConditionService`.
 - Condition lifecycle payload contract: `ConditionsTickedEvent` now uses `ConditionDelta` entries as canonical payload.
+- Condition changed event contract: duration-only ticks use `ConditionChangeType.DurationChanged`, with `oldRemainingRounds/newRemainingRounds` populated on `ConditionChangedEvent`.
+- Condition tick semantics contract: on end turn, value auto-decay and duration countdown are independent; remove on `RemainingRounds == 0`, or on valued infinite conditions when `Value <= 0`.
 - Runtime subscriber contract: new systems should subscribe via `CombatEventBus`, not directly to `TurnManager`.
 - Presentation/domain boundary contract: presentation components must not generate domain condition mutations/events; `ConditionTickForwarder` is deprecated and inert.
 - End-of-encounter UI text contract: use `EncounterEndTextMap` for `EncounterResult` labels/messages instead of duplicating string switches in controllers/tests.
@@ -118,7 +120,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Restart is scene-reload based (`SceneManager.LoadScene`) and intentionally simple for MVP.
 - `EntityData.AddCondition/RemoveCondition` are now `internal` guardrails; avoid introducing new callers outside core condition infrastructure.
 - Legacy `ConditionTick` struct remains only for compatibility in `EntityData.EndTurn`; typed event flow is now `ConditionDelta`-based.
-- Condition model still has simplification TODO (full `value + duration` semantics and richer PF2e stacking/implied conditions).
+- Condition model now supports simultaneous `Value + RemainingRounds`; remaining TODO is richer PF2e stacking/implied-condition behavior.
 - Input System package exists, but most gameplay input is polled directly from keyboard/mouse.
 - CI requires repository-level `UNITY_LICENSE` secret; workflow fails fast when missing.
 - PlayMode regression now covers multi-round movement/AI/condition-tick flow, blocked-turn recovery, and sticky-target lock behavior, but does not yet cover advanced combat domains (ranged/spells/reactions).
@@ -127,9 +129,9 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Legacy forwarder stubs (`TurnManagerLogForwarder`, `TurnManagerTypedForwarder`) were removed from scenes and code; turn/combat typed flow is direct `TurnManager -> CombatEventBus`.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Implement full condition model support for simultaneous `Value + RemainingRounds` in `ConditionService` + targeted EditMode tests.
-2. Add `DerivedStatsCache` (dirty-flag recompute on condition deltas) before expanding implied/stacking rule depth.
-3. Normalize `EncounterEndLogMessageMap` into its own file (`one public type per file`) without behavior changes.
+1. Add `DerivedStatsCache` (dirty-flag recompute on condition deltas) before expanding implied/stacking rule depth.
+2. Introduce explicit implied-condition and stacking-rule helpers (`ConditionRules`-driven, test-first) without moving rules into presentation.
+3. Add targeted PlayMode regression for duration-based conditions (finite-duration removal + log/event consistency under real turn flow).
 
 ## LLM-First Delivery Workflow (Multi-Agent)
 ### Operating Model (for non-programmer project owner)

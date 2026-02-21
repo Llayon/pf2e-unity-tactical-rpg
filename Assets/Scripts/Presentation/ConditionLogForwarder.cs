@@ -39,6 +39,9 @@ namespace PF2e.Presentation
                 ConditionChangeType.ValueChanged => e.newValue < e.oldValue
                     ? $"{name} decreases to {e.newValue}"
                     : $"{name} increases to {e.newValue}",
+                ConditionChangeType.DurationChanged => e.newRemainingRounds >= 0
+                    ? $"{name} duration decreases to {e.newRemainingRounds}"
+                    : $"{name} duration changed",
                 _ => $"{name} changed"
             };
 

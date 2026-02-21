@@ -273,7 +273,7 @@ namespace PF2e.Core
                 if (cond.Value <= 0) continue;
 
                 int oldVal = cond.Value;
-                if (cond.TickDown())
+                if (cond.TickDown(decrementValue: true, decrementRounds: false))
                 {
                     outTicks?.Add(new ConditionTick(cond.Type, oldVal, 0, removed: true));
                     Conditions.RemoveAt(i);

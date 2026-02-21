@@ -2,16 +2,8 @@ namespace PF2e.Core
 {
     /// <summary>
     /// A condition currently affecting an entity.
-    ///
-    /// CURRENT MODEL (Phase 7):
-    /// - Conditions with Value (frightened, sickened): Value decreases by 1 each tick.
-    ///   Do NOT set RemainingRounds for these — use Value only, RemainingRounds = -1.
-    /// - Conditions with duration only (buff lasting N rounds):
-    ///   Set Value = 0, RemainingRounds = N.
-    /// - Do NOT combine Value > 0 AND RemainingRounds > 0 on same condition.
-    ///
-    /// TODO Phase 10+: redesign to support Value + Duration simultaneously
-    /// (e.g. "slowed 1 for 2 rounds").
+    /// Value and RemainingRounds are independent.
+    /// RemainingRounds = -1 means infinite duration.
     /// </summary>
     [System.Serializable]
     public class ActiveCondition
@@ -28,21 +20,23 @@ namespace PF2e.Core
         }
 
         /// <summary>
-        /// Returns true if the condition should be removed after ticking.
+        /// Apply one tick and return true if the condition should be removed.
+        /// - Value and duration countdown are independent.
+        /// - Duration reaching 0 always removes.
+        /// - Valued conditions with infinite duration remove when value reaches 0.
         /// </summary>
-        public bool TickDown()
+        public bool TickDown(bool decrementValue, bool decrementRounds)
         {
-            if (Value > 0)
-            {
+            if (decrementValue && Value > 0)
                 Value--;
-                return Value <= 0;
-            }
-            if (RemainingRounds > 0)
-            {
+
+            if (decrementRounds && RemainingRounds > 0)
                 RemainingRounds--;
-                return RemainingRounds <= 0;
-            }
-            return false;
+
+            if (RemainingRounds == 0)
+                return true;
+
+            return ConditionRules.IsValued(Type) && Value <= 0 && RemainingRounds < 0;
         }
     }
 }

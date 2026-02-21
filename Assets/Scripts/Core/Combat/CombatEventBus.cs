@@ -183,9 +183,17 @@ namespace PF2e.Core
 
         public void PublishConditionChanged(
             EntityHandle entity, ConditionType type,
-            ConditionChangeType changeType, int oldValue, int newValue)
+            ConditionChangeType changeType, int oldValue, int newValue,
+            int oldRemainingRounds = -1, int newRemainingRounds = -1)
         {
-            var e = new ConditionChangedEvent(entity, type, changeType, oldValue, newValue);
+            var e = new ConditionChangedEvent(
+                entity,
+                type,
+                changeType,
+                oldValue,
+                newValue,
+                oldRemainingRounds,
+                newRemainingRounds);
             OnConditionChangedTyped?.Invoke(in e);
         }
 

@@ -286,6 +286,8 @@ namespace PF2e.Tests
                 Assert.AreEqual(1, changedCount, "Expected exactly one stunned removal event at turn start.");
                 Assert.AreEqual(2, observed.oldValue);
                 Assert.AreEqual(0, observed.newValue);
+                Assert.AreEqual(-1, observed.oldRemainingRounds);
+                Assert.AreEqual(0, observed.newRemainingRounds);
                 Assert.IsFalse(player.HasCondition(ConditionType.Stunned));
                 Assert.AreEqual(1, turnManager.ActionsRemaining, "Actions should be reduced before stunned is removed.");
             }
