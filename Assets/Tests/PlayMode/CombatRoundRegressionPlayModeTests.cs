@@ -180,6 +180,59 @@ namespace PF2e.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator GT_P18_PM_404_BlockedEnemyTurn_EndsWithoutDeadlock()
+        {
+            BoostAllCombatantsHP(220);
+
+            var goblin1 = GetEntityByName("Goblin_1");
+            Assert.IsNotNull(goblin1, "Goblin_1 not found for blocked-turn regression.");
+
+            int existingCardinals = CountExistingCardinalNeighbors(goblin1.GridPosition);
+            int blockedEdges = BlockCardinalEdges(goblin1.GridPosition);
+
+            Assert.Greater(existingCardinals, 0, "Goblin_1 has no cardinal neighbors in current grid setup.");
+            Assert.AreEqual(existingCardinals, blockedEdges, "Failed to block all cardinal exits around Goblin_1.");
+
+            MoveAllPlayersAwayFrom(goblin1.GridPosition, minDistFeet: 10);
+
+            turnManager.StartCombat();
+
+            // Advance the battle until Goblin_1 starts an enemy turn.
+            yield return WaitUntilOrTimeout(
+                () =>
+                {
+                    if (turnManager.State == TurnState.PlayerTurn)
+                        turnManager.EndTurn();
+
+                    return turnManager.State == TurnState.EnemyTurn
+                        && turnManager.CurrentEntity == goblin1.Handle;
+                },
+                DefaultTimeoutSeconds,
+                "Goblin_1 did not receive an enemy turn.");
+
+            float enemyTurnStartTime = Time.realtimeSinceStartup;
+
+            // Goblin_1 is boxed in; AI must end turn promptly and never stick in ExecutingAction.
+            yield return WaitUntilOrTimeout(
+                () =>
+                    turnManager.State != TurnState.EnemyTurn
+                    || turnManager.CurrentEntity != goblin1.Handle,
+                DefaultTimeoutSeconds,
+                "Blocked Goblin_1 turn did not end.");
+
+            float enemyTurnDuration = Time.realtimeSinceStartup - enemyTurnStartTime;
+            Assert.Less(
+                enemyTurnDuration,
+                3f,
+                $"Blocked enemy turn took too long ({enemyTurnDuration:0.00}s).");
+
+            Assert.AreNotEqual(
+                TurnState.ExecutingAction,
+                turnManager.State,
+                "TurnManager stayed in ExecutingAction after blocked enemy turn.");
+        }
+
         private void ResolveSceneReferences()
         {
             turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();
@@ -362,6 +415,79 @@ namespace PF2e.Tests
             var view = entityManager.GetView(data.Handle);
             if (view != null)
                 view.transform.position = entityManager.GetEntityWorldPosition(targetCell);
+        }
+
+        private int CountExistingCardinalNeighbors(Vector3Int center)
+        {
+            var data = gridManager.Data;
+            int count = 0;
+
+            if (data.HasCell(center + Vector3Int.right)) count++;
+            if (data.HasCell(center + Vector3Int.left)) count++;
+            if (data.HasCell(center + Vector3Int.forward)) count++;
+            if (data.HasCell(center + Vector3Int.back)) count++;
+
+            return count;
+        }
+
+        private int BlockCardinalEdges(Vector3Int center)
+        {
+            var data = gridManager.Data;
+            int blocked = 0;
+
+            void BlockIfCellExists(Vector3Int neighbor)
+            {
+                if (!data.HasCell(neighbor)) return;
+                data.SetEdge(new EdgeKey(center, neighbor), EdgeData.CreateWall());
+                blocked++;
+            }
+
+            BlockIfCellExists(center + Vector3Int.right);
+            BlockIfCellExists(center + Vector3Int.left);
+            BlockIfCellExists(center + Vector3Int.forward);
+            BlockIfCellExists(center + Vector3Int.back);
+
+            return blocked;
+        }
+
+        private void MoveAllPlayersAwayFrom(Vector3Int center, int minDistFeet)
+        {
+            foreach (var data in entityManager.Registry.GetAll())
+            {
+                if (data == null || !data.IsAlive) continue;
+                if (data.Team != Team.Player) continue;
+
+                int distFeet = GridDistancePF2e.DistanceFeetXZ(center, data.GridPosition);
+                if (distFeet >= minDistFeet) continue;
+
+                Vector3Int targetCell = FindFarthestAvailableCell(center, data.Handle, minDistFeet);
+                MoveEntityToCell(data, targetCell);
+            }
+        }
+
+        private Vector3Int FindFarthestAvailableCell(Vector3Int from, EntityHandle mover, int minDistFeet)
+        {
+            Vector3Int bestCell = default;
+            int bestDist = int.MinValue;
+            bool found = false;
+
+            foreach (var kvp in gridManager.Data.Cells)
+            {
+                Vector3Int cell = kvp.Key;
+                if (!kvp.Value.IsWalkable) continue;
+                if (!entityManager.Occupancy.CanOccupy(cell, mover)) continue;
+
+                int distFeet = GridDistancePF2e.DistanceFeetXZ(from, cell);
+                if (distFeet < minDistFeet) continue;
+                if (distFeet <= bestDist) continue;
+
+                bestDist = distFeet;
+                bestCell = cell;
+                found = true;
+            }
+
+            Assert.IsTrue(found, $"Could not find a walkable free cell at distance >= {minDistFeet}.");
+            return bestCell;
         }
 
         private void BoostAllCombatantsHP(int hpValue)

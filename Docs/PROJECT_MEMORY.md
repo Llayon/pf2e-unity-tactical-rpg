@@ -62,7 +62,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter flow runtime fallback now has a shared UI preset |
 | AI | Partial | Simple melee AI implemented with deterministic target priority (`distance -> HP -> handle`) and no-progress bailout; no advanced tactics/ranged/spell logic |
 | Save/load/progression | Not started | No persistence layer |
-| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, cross-scene prefab encounter-flow smoke coverage, and multi-round regression (movement + enemy AI + condition ticks); broader system-level coverage is still pending |
+| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, cross-scene prefab encounter-flow smoke coverage, multi-round regression (movement + enemy AI + condition ticks), and blocked-enemy regression (turn exits without `ExecutingAction` deadlock); broader system-level coverage is still pending |
 | TurnManager action-lock tests (EditMode) | Done | EditMode now verifies lock metadata lifecycle (begin/complete/endcombat) and executing-actor action-cost ownership |
 | CI test automation | Done | GitHub Actions (`.github/workflows/unity-tests.yml`) runs EditMode + PlayMode on push/PR to `master`; branch protection on `master` requires `Unity Tests` |
 
