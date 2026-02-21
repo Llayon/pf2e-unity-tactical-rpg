@@ -1,0 +1,97 @@
+using PF2e.Core;
+
+namespace PF2e.TurnSystem
+{
+    /// <summary>
+    /// Immutable payload carried through strike phases.
+    /// </summary>
+    public readonly struct StrikePhaseResult
+    {
+        public readonly EntityHandle attacker;
+        public readonly EntityHandle target;
+        public readonly string weaponName;
+        public readonly int naturalRoll;
+        public readonly int attackBonus;
+        public readonly int mapPenalty;
+        public readonly int total;
+        public readonly int dc;
+        public readonly DegreeOfSuccess degree;
+        public readonly int damageRolled;
+        public readonly DamageType damageType;
+        public readonly bool damageDealt;
+
+        private StrikePhaseResult(
+            EntityHandle attacker,
+            EntityHandle target,
+            string weaponName,
+            int naturalRoll,
+            int attackBonus,
+            int mapPenalty,
+            int total,
+            int dc,
+            DegreeOfSuccess degree,
+            int damageRolled,
+            DamageType damageType,
+            bool damageDealt)
+        {
+            this.attacker = attacker;
+            this.target = target;
+            this.weaponName = weaponName;
+            this.naturalRoll = naturalRoll;
+            this.attackBonus = attackBonus;
+            this.mapPenalty = mapPenalty;
+            this.total = total;
+            this.dc = dc;
+            this.degree = degree;
+            this.damageRolled = damageRolled;
+            this.damageType = damageType;
+            this.damageDealt = damageDealt;
+        }
+
+        public static StrikePhaseResult FromAttackRoll(
+            EntityHandle attacker,
+            EntityHandle target,
+            string weaponName,
+            int naturalRoll,
+            int attackBonus,
+            int mapPenalty,
+            int total)
+        {
+            return new StrikePhaseResult(
+                attacker,
+                target,
+                weaponName,
+                naturalRoll,
+                attackBonus,
+                mapPenalty,
+                total,
+                dc: 0,
+                degree: DegreeOfSuccess.CriticalFailure,
+                damageRolled: 0,
+                damageType: DamageType.Bludgeoning,
+                damageDealt: false);
+        }
+
+        public StrikePhaseResult WithHitAndDamage(
+            int dc,
+            DegreeOfSuccess degree,
+            int damageRolled,
+            DamageType damageType,
+            bool damageDealt)
+        {
+            return new StrikePhaseResult(
+                attacker,
+                target,
+                weaponName,
+                naturalRoll,
+                attackBonus,
+                mapPenalty,
+                total,
+                dc,
+                degree,
+                damageRolled,
+                damageType,
+                damageDealt);
+        }
+    }
+}

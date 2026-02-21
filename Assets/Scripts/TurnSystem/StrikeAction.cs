@@ -23,71 +23,157 @@ namespace PF2e.TurnSystem
 
         public bool TryStrike(EntityHandle attacker, EntityHandle target)
         {
-            if (!attacker.IsValid || !target.IsValid) return false;
-            if (entityManager == null || entityManager.Registry == null) return false;
+            var phase = ResolveAttackRoll(attacker, target, UnityRng.Shared);
+            if (!phase.HasValue) return false;
 
-            var a = entityManager.Registry.Get(attacker);
-            var t = entityManager.Registry.Get(target);
-            if (a == null || t == null) return false;
+            var resolved = DetermineHitAndDamage(phase.Value, target, UnityRng.Shared);
+            return ApplyStrikeDamage(resolved, damageReduction: 0);
+        }
 
-            // 1. Resolve attack (pure)
-            var check = AttackResolver.ResolveMeleeStrike(
-                a, t, requireSameElevation, UnityRng.Shared);
+        public StrikePhaseResult? ResolveAttackRoll(EntityHandle attacker, EntityHandle target, IRng rng)
+        {
+            if (!attacker.IsValid || !target.IsValid) return null;
+            if (!TryGetParticipants(attacker, target, out var attackerData, out var targetData))
+                return null;
+            if (!CanResolveMeleeStrike(attackerData, targetData))
+                return null;
 
-            if (!check.performed) return false;
+            if (rng == null)
+                rng = UnityRng.Shared;
 
-            // 2. MAP increment (exactly once, only here)
-            a.MAPCount++;
+            int naturalRoll = rng.RollD20();
+            int attackBonus = attackerData.GetAttackBonus(attackerData.EquippedWeapon);
+            int mapPenalty = attackerData.GetMAPPenalty(attackerData.EquippedWeapon);
+            int total = naturalRoll + attackBonus + mapPenalty;
 
-            // 3. Resolve damage (pure)
-            var weapon = a.EquippedWeapon;
-            var dmg = DamageResolver.RollStrikeDamage(
-                a, check.degree, UnityRng.Shared);
+            // Contract: MAP increments once per strike attempt at phase 1.
+            attackerData.MAPCount++;
 
-            // 4. Apply damage
-            int damageDealt = 0;
-            DamageType damageType = DamageType.Bludgeoning;
-            int hpBefore = t.CurrentHP;
+            return StrikePhaseResult.FromAttackRoll(
+                attacker,
+                target,
+                attackerData.EquippedWeapon.Name,
+                naturalRoll,
+                attackBonus,
+                mapPenalty,
+                total);
+        }
 
-            if (dmg.dealt)
+        public StrikePhaseResult DetermineHitAndDamage(StrikePhaseResult phase, EntityHandle target, IRng rng)
+        {
+            if (rng == null)
+                rng = UnityRng.Shared;
+
+            if (entityManager == null || entityManager.Registry == null)
+                return phase.WithHitAndDamage(0, DegreeOfSuccess.CriticalFailure, 0, DamageType.Bludgeoning, false);
+
+            var attackerData = entityManager.Registry.Get(phase.attacker);
+            var targetData = entityManager.Registry.Get(target);
+
+            // Guard: target/attacker can change between phases (future pre-hit reaction window).
+            if (attackerData == null || targetData == null || !attackerData.IsAlive || !targetData.IsAlive)
+                return phase.WithHitAndDamage(0, DegreeOfSuccess.CriticalFailure, 0, DamageType.Bludgeoning, false);
+
+            int dc = targetData.EffectiveAC;
+            var degree = DegreeOfSuccessResolver.Resolve(phase.total, phase.naturalRoll, dc);
+            var damage = DamageResolver.RollStrikeDamage(attackerData, degree, rng);
+
+            int damageRolled = damage.dealt ? damage.damage : 0;
+            DamageType damageType = attackerData.EquippedWeapon.def != null
+                ? attackerData.EquippedWeapon.def.damageType
+                : DamageType.Bludgeoning;
+
+            var resolved = phase.WithHitAndDamage(dc, degree, damageRolled, damageType, damage.dealt);
+
+            eventBus?.PublishStrikePreDamage(
+                resolved.attacker,
+                resolved.target,
+                resolved.naturalRoll,
+                resolved.total,
+                resolved.dc,
+                resolved.degree,
+                resolved.damageRolled,
+                resolved.damageType);
+
+            return resolved;
+        }
+
+        public bool ApplyStrikeDamage(StrikePhaseResult phase, int damageReduction)
+        {
+            if (!phase.attacker.IsValid || !phase.target.IsValid) return false;
+            if (!TryGetParticipants(phase.attacker, phase.target, out var attackerData, out var targetData))
+                return false;
+            if (!attackerData.IsAlive || !targetData.IsAlive)
+                return false;
+
+            int hpBefore = targetData.CurrentHP;
+            int finalDamage = 0;
+
+            if (phase.damageDealt && phase.damageRolled > 0)
             {
-                damageDealt = dmg.damage;
-                damageType = weapon.def != null ? weapon.def.damageType : DamageType.Bludgeoning;
-
-                t.CurrentHP -= damageDealt;
-                if (t.CurrentHP < 0) t.CurrentHP = 0;
+                finalDamage = Mathf.Max(0, phase.damageRolled - Mathf.Max(0, damageReduction));
+                if (finalDamage > 0)
+                {
+                    targetData.CurrentHP -= finalDamage;
+                    if (targetData.CurrentHP < 0) targetData.CurrentHP = 0;
+                }
             }
 
-            int hpAfter = t.CurrentHP;
+            int hpAfter = targetData.CurrentHP;
+            bool defeated = hpAfter <= 0;
 
-            // 5. Build and publish typed event BEFORE HandleDeath
-            bool defeated = (hpAfter <= 0);
-
-            var ev = new StrikeResolvedEvent(
-                attacker: attacker,
-                target: target,
-                weaponName: weapon.Name,
-                naturalRoll: check.naturalRoll,
-                attackBonus: check.attackBonus,
-                mapPenalty: check.mapPenalty,
-                total: check.total,
-                dc: check.dc,
-                degree: check.degree,
-                damage: damageDealt,
-                damageType: damageType,
+            var resolvedEvent = new StrikeResolvedEvent(
+                attacker: phase.attacker,
+                target: phase.target,
+                weaponName: phase.weaponName,
+                naturalRoll: phase.naturalRoll,
+                attackBonus: phase.attackBonus,
+                mapPenalty: phase.mapPenalty,
+                total: phase.total,
+                dc: phase.dc,
+                degree: phase.degree,
+                damage: finalDamage,
+                damageType: phase.damageType,
                 hpBefore: hpBefore,
                 hpAfter: hpAfter,
                 targetDefeated: defeated);
 
-            eventBus?.PublishStrikeResolved(in ev);
+            eventBus?.PublishStrikeResolved(in resolvedEvent);
 
-            // 6. Handle death AFTER event published
             if (defeated)
-            {
-                entityManager.HandleDeath(target);
-            }
+                entityManager.HandleDeath(phase.target);
 
             return true;
+        }
+
+        private bool TryGetParticipants(
+            EntityHandle attacker,
+            EntityHandle target,
+            out EntityData attackerData,
+            out EntityData targetData)
+        {
+            attackerData = null;
+            targetData = null;
+
+            if (entityManager == null || entityManager.Registry == null)
+                return false;
+
+            attackerData = entityManager.Registry.Get(attacker);
+            targetData = entityManager.Registry.Get(target);
+            return attackerData != null && targetData != null;
+        }
+
+        private bool CanResolveMeleeStrike(EntityData attacker, EntityData target)
+        {
+            if (attacker == null || target == null) return false;
+            if (!attacker.IsAlive || !target.IsAlive) return false;
+            if (attacker.Team == target.Team) return false;
+            if (requireSameElevation && attacker.GridPosition.y != target.GridPosition.y) return false;
+            if (attacker.EquippedWeapon.IsRanged) return false;
+
+            int distanceFeet = GridDistancePF2e.DistanceFeetXZ(attacker.GridPosition, target.GridPosition);
+            int reachFeet = attacker.EquippedWeapon.ReachFeet;
+            return distanceFeet <= reachFeet;
         }
     }
 }

@@ -37,10 +37,12 @@ namespace PF2e.Core
     /// </summary>
     public class CombatEventBus : MonoBehaviour
     {
+        public delegate void StrikePreDamageHandler(in StrikePreDamageEvent e);
         public delegate void StrikeResolvedHandler(in StrikeResolvedEvent e);
         public delegate void ShieldRaisedHandler(in ShieldRaisedEvent e);
 
         public event Action<CombatLogEntry> OnLogEntry;
+        public event StrikePreDamageHandler OnStrikePreDamageTyped;
         public event StrikeResolvedHandler OnStrikeResolved;
         public event ShieldRaisedHandler OnShieldRaisedTyped;
 
@@ -89,6 +91,29 @@ namespace PF2e.Core
         public void PublishStrikeResolved(in StrikeResolvedEvent ev)
         {
             OnStrikeResolved?.Invoke(in ev);
+        }
+
+        public void PublishStrikePreDamage(
+            EntityHandle attacker,
+            EntityHandle target,
+            int naturalRoll,
+            int total,
+            int dc,
+            DegreeOfSuccess degree,
+            int damageRolled,
+            DamageType damageType)
+        {
+            var e = new StrikePreDamageEvent(
+                attacker,
+                target,
+                naturalRoll,
+                total,
+                dc,
+                degree,
+                damageRolled,
+                damageType);
+
+            OnStrikePreDamageTyped?.Invoke(in e);
         }
 
         public void PublishShieldRaised(EntityHandle actor, int acBonus, int shieldHP, int shieldMaxHP)
