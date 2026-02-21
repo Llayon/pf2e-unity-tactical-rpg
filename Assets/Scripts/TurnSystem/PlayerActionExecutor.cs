@@ -19,6 +19,7 @@ namespace PF2e.TurnSystem
         [SerializeField] private StrideAction strideAction;
         [SerializeField] private StrikeAction strikeAction;
         [SerializeField] private StandAction standAction;
+        [SerializeField] private RaiseShieldAction raiseShieldAction;
 
         private EntityHandle executingActor = EntityHandle.None;
 
@@ -34,6 +35,7 @@ namespace PF2e.TurnSystem
             if (entityManager == null) Debug.LogError("[Executor] Missing EntityManager", this);
             if (strideAction == null) Debug.LogError("[Executor] Missing StrideAction", this);
             if (strikeAction == null) Debug.LogError("[Executor] Missing StrikeAction", this);
+            if (raiseShieldAction == null) Debug.LogWarning("[Executor] Missing RaiseShieldAction", this);
         }
 #endif
 
@@ -162,6 +164,39 @@ namespace PF2e.TurnSystem
             if (!standAction.TryStand(actor)) return false;
 
             turnManager.SpendActions(StandAction.ActionCost);
+            return true;
+        }
+
+        public bool TryExecuteRaiseShield()
+        {
+            if (turnManager == null || entityManager == null || raiseShieldAction == null) return false;
+            if (!CanActNow()) return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!raiseShieldAction.CanRaiseShield(actor)) return false;
+
+            executingActor = actor;
+            turnManager.BeginActionExecution(actor, "Player.RaiseShield");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = Time.time;
+#endif
+
+            bool raised = raiseShieldAction.TryRaiseShield(actor);
+            if (!raised)
+            {
+                executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                executionStartTime = -1f;
+#endif
+                turnManager.ActionCompleted(); // rollback (no action spent)
+                return false;
+            }
+
+            executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = -1f;
+#endif
+            turnManager.CompleteActionWithCost(RaiseShieldAction.ActionCost);
             return true;
         }
 

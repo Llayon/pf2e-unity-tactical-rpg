@@ -38,9 +38,11 @@ namespace PF2e.Core
     public class CombatEventBus : MonoBehaviour
     {
         public delegate void StrikeResolvedHandler(in StrikeResolvedEvent e);
+        public delegate void ShieldRaisedHandler(in ShieldRaisedEvent e);
 
         public event Action<CombatLogEntry> OnLogEntry;
         public event StrikeResolvedHandler OnStrikeResolved;
+        public event ShieldRaisedHandler OnShieldRaisedTyped;
 
         public void Publish(CombatLogEntry entry)
         {
@@ -87,6 +89,12 @@ namespace PF2e.Core
         public void PublishStrikeResolved(in StrikeResolvedEvent ev)
         {
             OnStrikeResolved?.Invoke(in ev);
+        }
+
+        public void PublishShieldRaised(EntityHandle actor, int acBonus, int shieldHP, int shieldMaxHP)
+        {
+            var e = new ShieldRaisedEvent(actor, acBonus, shieldHP, shieldMaxHP);
+            OnShieldRaisedTyped?.Invoke(in e);
         }
 
         #region Typed: Turn

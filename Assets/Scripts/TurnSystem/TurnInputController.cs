@@ -96,6 +96,9 @@ namespace PF2e.TurnSystem
 
             if (kb.escapeKey.wasPressedThisFrame)
                 targetingController.CancelTargeting();
+
+            if (kb.rKey.wasPressedThisFrame)
+                actionExecutor.TryExecuteRaiseShield();
         }
     }
 }
