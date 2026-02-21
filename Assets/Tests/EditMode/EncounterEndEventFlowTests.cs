@@ -144,6 +144,85 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void TurnManager_EndTurn_PublishesTurnEnded_AndConditionsTicked_ToTypedBus()
+        {
+            var eventBusGo = new GameObject("CombatEventBus_EndTurn_Test");
+            var turnManagerGo = new GameObject("TurnManager_EndTurn_Test");
+            var entityManagerGo = new GameObject("EntityManager_EndTurn_Test");
+            bool oldIgnore = LogAssert.ignoreFailingMessages;
+            LogAssert.ignoreFailingMessages = true;
+
+            try
+            {
+                var eventBus = eventBusGo.AddComponent<CombatEventBus>();
+                var turnManager = turnManagerGo.AddComponent<TurnManager>();
+                var entityManager = entityManagerGo.AddComponent<EntityManager>();
+
+                SetPrivateField(turnManager, "entityManager", entityManager);
+                SetPrivateField(turnManager, "eventBus", eventBus);
+
+                var registry = entityManager.Registry ?? new EntityRegistry();
+                if (entityManager.Registry == null)
+                    SetAutoPropertyBackingField(entityManager, "Registry", registry);
+
+                registry.Register(CreateEntity(Team.Player, alive: true));
+                registry.Register(CreateEntity(Team.Enemy, alive: true));
+
+                turnManager.StartCombat();
+                var endingActor = turnManager.CurrentEntity;
+                Assert.IsTrue(endingActor.IsValid, "Current actor should be valid after StartCombat.");
+
+                var endingData = registry.Get(endingActor);
+                Assert.IsNotNull(endingData, "Current actor data was not found in registry.");
+                endingData.AddCondition(ConditionType.Frightened, value: 2);
+
+                int turnEndedCount = 0;
+                EntityHandle turnEndedActor = EntityHandle.None;
+                int conditionsTickedCount = 0;
+                EntityHandle conditionsActor = EntityHandle.None;
+                ConditionTick firstTick = default;
+                bool firstTickCaptured = false;
+
+                eventBus.OnTurnEndedTyped += (in TurnEndedEvent e) =>
+                {
+                    turnEndedCount++;
+                    turnEndedActor = e.actor;
+                };
+
+                eventBus.OnConditionsTickedTyped += (in ConditionsTickedEvent e) =>
+                {
+                    conditionsTickedCount++;
+                    conditionsActor = e.actor;
+                    if (e.ticks != null && e.ticks.Count > 0)
+                    {
+                        firstTick = e.ticks[0];
+                        firstTickCaptured = true;
+                    }
+                };
+
+                turnManager.EndTurn();
+
+                Assert.AreEqual(1, turnEndedCount, "TurnEnded typed event should publish exactly once.");
+                Assert.AreEqual(endingActor, turnEndedActor, "TurnEnded actor should match ending actor.");
+                Assert.AreEqual(1, conditionsTickedCount, "ConditionsTicked typed event should publish exactly once.");
+                Assert.AreEqual(endingActor, conditionsActor, "ConditionsTicked actor should match ending actor.");
+                Assert.IsTrue(firstTickCaptured, "Expected at least one condition tick entry.");
+                Assert.AreEqual(ConditionType.Frightened, firstTick.type);
+                Assert.AreEqual(2, firstTick.oldValue);
+                Assert.AreEqual(1, firstTick.newValue);
+                Assert.IsFalse(firstTick.removed);
+                Assert.AreEqual(1, endingData.GetConditionValue(ConditionType.Frightened));
+            }
+            finally
+            {
+                LogAssert.ignoreFailingMessages = oldIgnore;
+                Object.DestroyImmediate(turnManagerGo);
+                Object.DestroyImmediate(entityManagerGo);
+                Object.DestroyImmediate(eventBusGo);
+            }
+        }
+
+        [Test]
         public void TurnManager_CheckVictory_EnemyWiped_IsVictory()
         {
             var turnManagerGo = new GameObject("TurnManager_Victory_Test");
