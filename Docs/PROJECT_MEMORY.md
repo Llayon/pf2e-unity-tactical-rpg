@@ -94,6 +94,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - `TurnManager` combat-end contract: only typed result path (`OnCombatEndedWithResult` / `EncounterResult`) is supported.
 - `TurnManager` typed turn-event contract: `eventBus` must be assigned; turn/combat lifecycle events are emitted both via `TurnManager` typed source events and direct `CombatEventBus` publish.
 - Conditions mutation contract: gameplay/turn/action code must mutate conditions through `ConditionService` (caller-owned `List<ConditionDelta>` buffers), not direct `EntityData` mutation helpers.
+- `EntityData.AddCondition/RemoveCondition` are internal guardrail APIs for core-only usage; cross-module/gameplay code must use `ConditionService`.
 - Condition lifecycle payload contract: `ConditionsTickedEvent` now uses `ConditionDelta` entries as canonical payload.
 - Runtime subscriber contract: new systems should subscribe via `CombatEventBus`, not directly to `TurnManager`.
 - Presentation/domain boundary contract: presentation components must not generate domain condition mutations/events; `ConditionTickForwarder` is deprecated and inert.
@@ -115,7 +116,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - AI no-progress bailout uses threshold 2 repeated identical loop snapshots; tune only with matching regression tests.
 - `SampleScene` remains authored-reference first; `EncounterFlowPrefabScene` is the current preset-driven fallback example scene.
 - Restart is scene-reload based (`SceneManager.LoadScene`) and intentionally simple for MVP.
-- `EntityData.AddCondition/RemoveCondition` are marked `[Obsolete]` guardrails; next step is tightening to `internal` once legacy callers are removed.
+- `EntityData.AddCondition/RemoveCondition` are now `internal` guardrails; avoid introducing new callers outside core condition infrastructure.
 - Legacy `ConditionTick` struct remains only for compatibility in `EntityData.EndTurn`; typed event flow is now `ConditionDelta`-based.
 - Condition model still has simplification TODO (full `value + duration` semantics and richer PF2e stacking/implied conditions).
 - Input System package exists, but most gameplay input is polled directly from keyboard/mouse.
@@ -126,9 +127,9 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Legacy forwarder stubs (`TurnManagerLogForwarder`, `TurnManagerTypedForwarder`) were removed from scenes and code; turn/combat typed flow is direct `TurnManager -> CombatEventBus`.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Tighten condition guardrails: migrate remaining direct `EntityData.AddCondition/RemoveCondition` callers to `ConditionService`, then switch these helpers from `[Obsolete]` to `internal`.
-2. Implement full condition model support for simultaneous `Value + RemainingRounds` in `ConditionService` + targeted EditMode tests.
-3. Add `DerivedStatsCache` (dirty-flag recompute on condition deltas) before expanding implied/stacking rule depth.
+1. Implement full condition model support for simultaneous `Value + RemainingRounds` in `ConditionService` + targeted EditMode tests.
+2. Add `DerivedStatsCache` (dirty-flag recompute on condition deltas) before expanding implied/stacking rule depth.
+3. Normalize `EncounterEndLogMessageMap` into its own file (`one public type per file`) without behavior changes.
 
 ## LLM-First Delivery Workflow (Multi-Agent)
 ### Operating Model (for non-programmer project owner)

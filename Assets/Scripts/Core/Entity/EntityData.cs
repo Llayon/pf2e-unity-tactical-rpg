@@ -217,7 +217,7 @@ namespace PF2e.Core
 
         // ─── Condition Management ───
         [System.Obsolete("Use ConditionService for condition mutations.")]
-        public void AddCondition(ConditionType type, int value = 0, int rounds = -1)
+        internal void AddCondition(ConditionType type, int value = 0, int rounds = -1)
         {
             for (int i = 0; i < Conditions.Count; i++)
             {
@@ -232,7 +232,7 @@ namespace PF2e.Core
         }
 
         [System.Obsolete("Use ConditionService for condition mutations.")]
-        public void RemoveCondition(ConditionType type)
+        internal void RemoveCondition(ConditionType type)
         {
             for (int i = Conditions.Count - 1; i >= 0; i--)
                 if (Conditions[i].Type == type)

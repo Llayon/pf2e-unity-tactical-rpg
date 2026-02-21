@@ -2,11 +2,23 @@ using NUnit.Framework;
 using UnityEngine;
 using PF2e.Core;
 
-#pragma warning disable CS0618
-
 [TestFixture]
 public class EntityDataTests
 {
+    private static readonly ConditionService ConditionService = new();
+
+    private static void Apply(EntityData data, ConditionType type, int value = 0, int rounds = -1)
+    {
+        var deltas = new System.Collections.Generic.List<ConditionDelta>(2);
+        ConditionService.Apply(data, type, value, rounds, deltas);
+    }
+
+    private static void Remove(EntityData data, ConditionType type)
+    {
+        var deltas = new System.Collections.Generic.List<ConditionDelta>(2);
+        ConditionService.Remove(data, type, deltas);
+    }
+
     [TestCase(10, 0)]
     [TestCase(12, 1)]
     [TestCase(14, 2)]
@@ -61,67 +73,67 @@ public class EntityDataTests
     [Test] public void EffectiveAC_OffGuard_MinusTwo()
     {
         var data = new EntityData { Dexterity = 16, Level = 3 };
-        data.AddCondition(ConditionType.OffGuard);
+        Apply(data, ConditionType.OffGuard);
         Assert.AreEqual(16, data.EffectiveAC);
     }
 
     [Test] public void EffectiveAC_Frightened_ReducesByValue()
     {
         var data = new EntityData { Dexterity = 16, Level = 3 };
-        data.AddCondition(ConditionType.Frightened, 2);
+        Apply(data, ConditionType.Frightened, 2);
         Assert.AreEqual(16, data.EffectiveAC);
     }
 
     [Test] public void EffectiveAC_Sickened_ReducesByValue()
     {
         var data = new EntityData { Dexterity = 16, Level = 3 };
-        data.AddCondition(ConditionType.Sickened, 1);
+        Apply(data, ConditionType.Sickened, 1);
         Assert.AreEqual(17, data.EffectiveAC);
     }
 
     [Test] public void EffectiveAC_OffGuardAndFrightened_Stacks()
     {
         var data = new EntityData { Dexterity = 16, Level = 5 };
-        data.AddCondition(ConditionType.OffGuard);
-        data.AddCondition(ConditionType.Frightened, 3);
+        Apply(data, ConditionType.OffGuard);
+        Apply(data, ConditionType.Frightened, 3);
         Assert.AreEqual(15, data.EffectiveAC);
     }
 
-    [Test] public void AddCondition_NewCondition_Added()
+    [Test] public void ApplyCondition_NewCondition_Added()
     {
         var data = new EntityData();
-        data.AddCondition(ConditionType.OffGuard);
+        Apply(data, ConditionType.OffGuard);
         Assert.IsTrue(data.HasCondition(ConditionType.OffGuard));
     }
 
-    [Test] public void AddCondition_SameType_TakesHigherValue()
+    [Test] public void ApplyCondition_SameType_TakesHigherValue()
     {
         var data = new EntityData();
-        data.AddCondition(ConditionType.Frightened, 1);
-        data.AddCondition(ConditionType.Frightened, 3);
+        Apply(data, ConditionType.Frightened, 1);
+        Apply(data, ConditionType.Frightened, 3);
         Assert.AreEqual(3, data.GetConditionValue(ConditionType.Frightened));
     }
 
-    [Test] public void AddCondition_SameType_DoesNotDowngrade()
+    [Test] public void ApplyCondition_SameType_DoesNotDowngrade()
     {
         var data = new EntityData();
-        data.AddCondition(ConditionType.Frightened, 3);
-        data.AddCondition(ConditionType.Frightened, 1);
+        Apply(data, ConditionType.Frightened, 3);
+        Apply(data, ConditionType.Frightened, 1);
         Assert.AreEqual(3, data.GetConditionValue(ConditionType.Frightened));
     }
 
     [Test] public void RemoveCondition_Removes()
     {
         var data = new EntityData();
-        data.AddCondition(ConditionType.OffGuard);
-        data.RemoveCondition(ConditionType.OffGuard);
+        Apply(data, ConditionType.OffGuard);
+        Remove(data, ConditionType.OffGuard);
         Assert.IsFalse(data.HasCondition(ConditionType.OffGuard));
     }
 
     [Test] public void RemoveCondition_NonExistent_NoError()
     {
         var data = new EntityData();
-        Assert.DoesNotThrow(() => data.RemoveCondition(ConditionType.Prone));
+        Assert.DoesNotThrow(() => Remove(data, ConditionType.Prone));
     }
 
     [Test] public void StartTurn_Defaults()
@@ -136,7 +148,7 @@ public class EntityDataTests
     [Test] public void StartTurn_Slowed_ReducesActions()
     {
         var data = new EntityData();
-        data.AddCondition(ConditionType.Slowed, 1);
+        Apply(data, ConditionType.Slowed, 1);
         data.StartTurn();
         Assert.AreEqual(2, data.ActionsRemaining);
     }
@@ -144,7 +156,7 @@ public class EntityDataTests
     [Test] public void StartTurn_Stunned_ReducesActionsAndRemoves()
     {
         var data = new EntityData();
-        data.AddCondition(ConditionType.Stunned, 2);
+        Apply(data, ConditionType.Stunned, 2);
         data.StartTurn();
         Assert.AreEqual(1, data.ActionsRemaining);
         Assert.IsFalse(data.HasCondition(ConditionType.Stunned));
@@ -153,8 +165,8 @@ public class EntityDataTests
     [Test] public void StartTurn_SlowedAndStunned_CombinedReduction()
     {
         var data = new EntityData();
-        data.AddCondition(ConditionType.Slowed, 1);
-        data.AddCondition(ConditionType.Stunned, 1);
+        Apply(data, ConditionType.Slowed, 1);
+        Apply(data, ConditionType.Stunned, 1);
         data.StartTurn();
         Assert.AreEqual(1, data.ActionsRemaining);
     }
@@ -162,7 +174,7 @@ public class EntityDataTests
     [Test] public void StartTurn_HeavyStun_ClampedToZero()
     {
         var data = new EntityData();
-        data.AddCondition(ConditionType.Stunned, 5);
+        Apply(data, ConditionType.Stunned, 5);
         data.StartTurn();
         Assert.AreEqual(0, data.ActionsRemaining);
     }
@@ -170,7 +182,7 @@ public class EntityDataTests
     [Test] public void EndTurn_FrightenedTicksDown()
     {
         var data = new EntityData();
-        data.AddCondition(ConditionType.Frightened, 2);
+        Apply(data, ConditionType.Frightened, 2);
         data.EndTurn();
         Assert.AreEqual(1, data.GetConditionValue(ConditionType.Frightened));
     }
@@ -178,7 +190,7 @@ public class EntityDataTests
     [Test] public void EndTurn_Frightened1_RemovedCompletely()
     {
         var data = new EntityData();
-        data.AddCondition(ConditionType.Frightened, 1);
+        Apply(data, ConditionType.Frightened, 1);
         data.EndTurn();
         Assert.IsFalse(data.HasCondition(ConditionType.Frightened));
     }
@@ -217,5 +229,3 @@ public class EntityDataTests
         Assert.AreEqual(2, data.SizeCells);
     }
 }
-
-#pragma warning restore CS0618
