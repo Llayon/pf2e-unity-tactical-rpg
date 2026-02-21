@@ -39,6 +39,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-033 | P1 | done | Builder | Enforce `one public type per file` for encounter-end log mapping | `EncounterEndLogMessageMap` moved to `Assets/Scripts/Presentation/EncounterEndLogMessageMap.cs`; `TurnLogForwarder.cs` now contains only `TurnLogForwarder` |
 | T-034 | P0 | done | Builder | Implement Phase 18.6 strict snapshot-based DerivedStatsCache in `EntityData` | `EffectiveAC` and `ConditionPenaltyToAttack` now use snapshot/fingerprint validation (`Dexterity`, `Level`, armor state, conditions including `RemainingRounds`) to avoid stale reads under direct field mutations; EditMode coverage added |
 | T-035 | P0 | done | Builder | Implement Phase 18.7 implied/stacking helpers in `ConditionRules` and route derived stats through them | `ConditionRules` now computes attack/AC penalties with status max + implied prone/off-guard logic; `EntityData` derived cache uses these helpers; new EditMode tests cover stacking contracts |
+| T-036 | P1 | done | Builder | Add PlayMode regression for duration-based condition lifecycle and log consistency | Real scene turn-flow now has coverage for `DurationChanged` (round decrement) and finite-duration removal events for `Slowed`, including `ConditionsTicked` payload and condition-log output consistency |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

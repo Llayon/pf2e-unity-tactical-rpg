@@ -150,6 +150,194 @@ namespace PF2e.Tests
         }
 
         [UnityTest]
+        public IEnumerator GT_P18_PM_408_ConditionTick_SlowedDurationOnly_DecrementsWithoutRemoval_AndPublishesLog()
+        {
+            var fighter = GetEntityByName("Fighter");
+            fighter.Wisdom = 5000; // deterministic first actor
+            var conditionService = new ConditionService();
+            var seedDeltas = new List<ConditionDelta>(2);
+            conditionService.Apply(fighter, ConditionType.Slowed, value: 1, rounds: 3, seedDeltas);
+
+            ConditionChangedEvent observedChange = default;
+            ConditionDelta observedTick = default;
+            bool durationChangeSeen = false;
+            bool tickSeen = false;
+            bool logSeen = false;
+            string logMessage = null;
+
+            void ChangeHandler(in ConditionChangedEvent e)
+            {
+                if (e.entity != fighter.Handle) return;
+                if (e.conditionType != ConditionType.Slowed) return;
+                if (e.changeType != ConditionChangeType.DurationChanged) return;
+                observedChange = e;
+                durationChangeSeen = true;
+            }
+
+            void TickHandler(in ConditionsTickedEvent e)
+            {
+                if (e.actor != fighter.Handle) return;
+                if (e.ticks == null || e.ticks.Count == 0) return;
+
+                for (int i = 0; i < e.ticks.Count; i++)
+                {
+                    if (e.ticks[i].type != ConditionType.Slowed) continue;
+                    observedTick = e.ticks[i];
+                    tickSeen = true;
+                    break;
+                }
+            }
+
+            void LogHandler(CombatLogEntry entry)
+            {
+                if (entry.Actor != fighter.Handle) return;
+                if (entry.Category != CombatLogCategory.Condition) return;
+                if (string.IsNullOrEmpty(entry.Message)) return;
+                if (!entry.Message.Contains("slowed duration decreases to 2")) return;
+                logMessage = entry.Message;
+                logSeen = true;
+            }
+
+            eventBus.OnConditionChangedTyped += ChangeHandler;
+            eventBus.OnConditionsTickedTyped += TickHandler;
+            eventBus.OnLogEntry += LogHandler;
+
+            try
+            {
+                turnManager.StartCombat();
+
+                yield return WaitUntilOrTimeout(
+                    () => turnManager.State == TurnState.PlayerTurn && turnManager.CurrentEntity == fighter.Handle,
+                    DefaultTimeoutSeconds,
+                    "Fighter did not become the first actor.");
+
+                Assert.AreEqual(2, turnManager.ActionsRemaining, "Slowed 1 should reduce first-turn actions to 2.");
+
+                turnManager.EndTurn();
+
+                yield return WaitUntilOrTimeout(
+                    () => durationChangeSeen && tickSeen && logSeen,
+                    DefaultTimeoutSeconds,
+                    "Did not receive duration-changed condition signals/log for slowed.");
+
+                Assert.AreEqual(1, observedChange.oldValue);
+                Assert.AreEqual(1, observedChange.newValue);
+                Assert.AreEqual(3, observedChange.oldRemainingRounds);
+                Assert.AreEqual(2, observedChange.newRemainingRounds);
+
+                Assert.AreEqual(ConditionChangeType.DurationChanged, observedTick.changeType);
+                Assert.AreEqual(1, observedTick.oldValue);
+                Assert.AreEqual(1, observedTick.newValue);
+                Assert.AreEqual(3, observedTick.oldRemainingRounds);
+                Assert.AreEqual(2, observedTick.newRemainingRounds);
+                Assert.IsFalse(observedTick.removed);
+
+                var slowed = fighter.Conditions.Find(c => c.Type == ConditionType.Slowed);
+                Assert.IsNotNull(slowed, "Slowed should remain after one duration decrement.");
+                Assert.AreEqual(2, slowed.RemainingRounds);
+                Assert.AreEqual("slowed duration decreases to 2", logMessage);
+            }
+            finally
+            {
+                eventBus.OnConditionChangedTyped -= ChangeHandler;
+                eventBus.OnConditionsTickedTyped -= TickHandler;
+                eventBus.OnLogEntry -= LogHandler;
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator GT_P18_PM_409_ConditionTick_SlowedDurationOne_RemovesOnEndTurn_WithEventsAndLog()
+        {
+            var fighter = GetEntityByName("Fighter");
+            fighter.Wisdom = 5000; // deterministic first actor
+            var conditionService = new ConditionService();
+            var seedDeltas = new List<ConditionDelta>(2);
+            conditionService.Apply(fighter, ConditionType.Slowed, value: 1, rounds: 1, seedDeltas);
+
+            ConditionChangedEvent observedChange = default;
+            ConditionDelta observedTick = default;
+            bool removedSeen = false;
+            bool tickSeen = false;
+            bool logSeen = false;
+            string logMessage = null;
+
+            void ChangeHandler(in ConditionChangedEvent e)
+            {
+                if (e.entity != fighter.Handle) return;
+                if (e.conditionType != ConditionType.Slowed) return;
+                if (e.changeType != ConditionChangeType.Removed) return;
+                observedChange = e;
+                removedSeen = true;
+            }
+
+            void TickHandler(in ConditionsTickedEvent e)
+            {
+                if (e.actor != fighter.Handle) return;
+                if (e.ticks == null || e.ticks.Count == 0) return;
+
+                for (int i = 0; i < e.ticks.Count; i++)
+                {
+                    if (e.ticks[i].type != ConditionType.Slowed) continue;
+                    observedTick = e.ticks[i];
+                    tickSeen = true;
+                    break;
+                }
+            }
+
+            void LogHandler(CombatLogEntry entry)
+            {
+                if (entry.Actor != fighter.Handle) return;
+                if (entry.Category != CombatLogCategory.Condition) return;
+                if (!string.Equals(entry.Message, "loses slowed", StringComparison.Ordinal)) return;
+                logMessage = entry.Message;
+                logSeen = true;
+            }
+
+            eventBus.OnConditionChangedTyped += ChangeHandler;
+            eventBus.OnConditionsTickedTyped += TickHandler;
+            eventBus.OnLogEntry += LogHandler;
+
+            try
+            {
+                turnManager.StartCombat();
+
+                yield return WaitUntilOrTimeout(
+                    () => turnManager.State == TurnState.PlayerTurn && turnManager.CurrentEntity == fighter.Handle,
+                    DefaultTimeoutSeconds,
+                    "Fighter did not become the first actor.");
+
+                Assert.AreEqual(2, turnManager.ActionsRemaining, "Slowed 1 should reduce first-turn actions to 2.");
+
+                turnManager.EndTurn();
+
+                yield return WaitUntilOrTimeout(
+                    () => removedSeen && tickSeen && logSeen,
+                    DefaultTimeoutSeconds,
+                    "Did not receive slowed removal condition signals/log.");
+
+                Assert.AreEqual(1, observedChange.oldValue);
+                Assert.AreEqual(0, observedChange.newValue);
+                Assert.AreEqual(1, observedChange.oldRemainingRounds);
+                Assert.AreEqual(0, observedChange.newRemainingRounds);
+
+                Assert.AreEqual(ConditionChangeType.Removed, observedTick.changeType);
+                Assert.AreEqual(1, observedTick.oldValue);
+                Assert.AreEqual(0, observedTick.newValue);
+                Assert.AreEqual(1, observedTick.oldRemainingRounds);
+                Assert.AreEqual(0, observedTick.newRemainingRounds);
+                Assert.IsTrue(observedTick.removed);
+                Assert.IsFalse(fighter.HasCondition(ConditionType.Slowed));
+                Assert.AreEqual("loses slowed", logMessage);
+            }
+            finally
+            {
+                eventBus.OnConditionChangedTyped -= ChangeHandler;
+                eventBus.OnConditionsTickedTyped -= TickHandler;
+                eventBus.OnLogEntry -= LogHandler;
+            }
+        }
+
+        [UnityTest]
         public IEnumerator GT_P17_PM_403_NoExecutingActionDeadlock_ThroughRound3()
         {
             int latestRound = 0;

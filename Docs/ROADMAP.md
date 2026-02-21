@@ -16,6 +16,7 @@
 - Expand condition lifecycle model to support independent `Value + RemainingRounds` semantics in `ConditionService` and typed deltas. (Done)
 - Add strict snapshot-based `DerivedStatsCache` for `EntityData` (`EffectiveAC`, `ConditionPenaltyToAttack`) to prevent stale reads under public-field mutations; treat as architecture foundation before broader stacking/implied-rule expansion. (Done)
 - Centralize current implied/stacking combat penalties in `ConditionRules` (status max, implied off-guard from prone, no double-count circumstance) with test-first coverage. (Done)
+- Add PlayMode duration-condition regression coverage for real turn flow (`DurationChanged`, duration-expire removal, and condition-log consistency). (Done)
 - Consolidate runtime event architecture to typed `CombatEventBus` channels and retire legacy TurnManager log adapters. (Done)
 - Enforce strict AI typed-event wiring (remove `AITurnController` direct TurnManager subscription fallback). (Done)
 - Normalize encounter-end log mapping into standalone `EncounterEndLogMessageMap` (`one public type per file`). (Done)
