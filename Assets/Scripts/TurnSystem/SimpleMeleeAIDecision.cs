@@ -12,13 +12,28 @@ namespace PF2e.TurnSystem
     public static class SimpleMeleeAIDecision
     {
         /// <summary>
-        /// Select nearest alive player on the same elevation.
+        /// Select nearest alive player.
+        /// Priority:
+        /// 1) Same elevation as actor (distance -> HP -> handle id).
+        /// 2) If none exist, fallback to any elevation with the same tie-break order.
         /// </summary>
         public static EntityHandle FindBestTarget(EntityData actor, IEnumerable<EntityData> allEntities)
         {
             if (actor == null || allEntities == null)
                 return EntityHandle.None;
 
+            EntityHandle best = FindBestTargetWithElevationFilter(actor, allEntities, sameElevationOnly: true);
+            if (best.IsValid)
+                return best;
+
+            return FindBestTargetWithElevationFilter(actor, allEntities, sameElevationOnly: false);
+        }
+
+        private static EntityHandle FindBestTargetWithElevationFilter(
+            EntityData actor,
+            IEnumerable<EntityData> allEntities,
+            bool sameElevationOnly)
+        {
             EntityHandle best = EntityHandle.None;
             int bestDistFeet = int.MaxValue;
             int bestHp = int.MaxValue;
@@ -29,30 +44,13 @@ namespace PF2e.TurnSystem
                 if (data == null) continue;
                 if (!data.IsAlive) continue;
                 if (data.Team != Team.Player) continue;
-                if (data.GridPosition.y != actor.GridPosition.y) continue;
+                if (sameElevationOnly && data.GridPosition.y != actor.GridPosition.y) continue;
 
                 int distFeet = GridDistancePF2e.DistanceFeetXZ(actor.GridPosition, data.GridPosition);
                 int hp = data.CurrentHP;
                 int handleId = data.Handle.Id;
 
-                bool isBetter = false;
-                if (distFeet < bestDistFeet)
-                {
-                    isBetter = true;
-                }
-                else if (distFeet == bestDistFeet)
-                {
-                    if (hp < bestHp)
-                    {
-                        isBetter = true;
-                    }
-                    else if (hp == bestHp && handleId < bestHandleId)
-                    {
-                        isBetter = true;
-                    }
-                }
-
-                if (isBetter)
+                if (IsBetterTarget(distFeet, hp, handleId, bestDistFeet, bestHp, bestHandleId))
                 {
                     bestDistFeet = distFeet;
                     bestHp = hp;
@@ -62,6 +60,21 @@ namespace PF2e.TurnSystem
             }
 
             return best;
+        }
+
+        private static bool IsBetterTarget(
+            int distFeet,
+            int hp,
+            int handleId,
+            int bestDistFeet,
+            int bestHp,
+            int bestHandleId)
+        {
+            if (distFeet < bestDistFeet) return true;
+            if (distFeet > bestDistFeet) return false;
+            if (hp < bestHp) return true;
+            if (hp > bestHp) return false;
+            return handleId < bestHandleId;
         }
 
         public static bool IsInMeleeRange(EntityData attacker, EntityData target)

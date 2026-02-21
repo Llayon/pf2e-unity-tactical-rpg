@@ -83,6 +83,23 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void FindBestTarget_WhenNoSameElevationTarget_FallsBackToAnyElevation()
+        {
+            var registry = new EntityRegistry();
+            var occupancy = new OccupancyMap(registry);
+
+            var actor = RegisterEntity(registry, occupancy, Team.Enemy, new Vector3Int(0, 0, 0), alive: true);
+            var fartherHigh = RegisterEntity(registry, occupancy, Team.Player, new Vector3Int(5, 2, 0), alive: true);
+            var nearerHigh = RegisterEntity(registry, occupancy, Team.Player, new Vector3Int(2, 1, 0), alive: true);
+
+            var actorData = registry.Get(actor);
+            var target = SimpleMeleeAIDecision.FindBestTarget(actorData, registry.GetAll());
+
+            Assert.AreEqual(nearerHigh, target);
+            Assert.AreNotEqual(fartherHigh, target);
+        }
+
+        [Test]
         public void FindBestTarget_TieOnDistance_PicksLowerHP()
         {
             var registry = new EntityRegistry();

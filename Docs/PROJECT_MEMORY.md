@@ -8,7 +8,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Primary playable scene: `Assets/Scenes/SampleScene.unity` with one encounter.
 - Secondary wiring-validation scene: `Assets/Scenes/EncounterFlowPrefabScene.unity` (prefab-driven encounter flow UI fallback).
 - Player can: start combat, move (Stride), Strike, Stand, end turn.
-- Enemy side takes turns via simple melee AI (stand if prone, stride toward nearest player, strike in range).
+- Enemy side takes turns via simple melee AI (stand if prone, stride toward nearest player, strike in range; if no same-floor targets exist, target selection now falls back to any elevation).
 - Combat presents: turn HUD, initiative bar, combat log, floating damage, and end-of-encounter panel.
 - Basic PF2e rules included: 3-action economy, MAP, basic melee strike check, damage roll, simple conditions.
 
@@ -63,7 +63,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Encounter-end text mapping | Done | `EncounterEndTextMap` is source-of-truth for `EncounterResult -> title/subtitle`, consumed by `EncounterEndPanelController` and covered by EditMode unit tests |
 | Encounter-end log mapping | Done | `EncounterEndLogMessageMap` (`Assets/Scripts/Presentation/EncounterEndLogMessageMap.cs`) is source-of-truth for `EncounterResult -> combat-end log message`, consumed by `TurnLogForwarder` and covered by EditMode unit tests |
 | Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter flow runtime fallback now has a shared UI preset |
-| AI | Partial | Simple melee AI implemented with deterministic target priority (`distance -> HP -> handle`), sticky per-turn target lock (reacquire only on invalid target), and no-progress bailout; `AITurnController` now routes decisions through `IAIDecisionPolicy` (`SimpleMeleeDecisionPolicy`) to preserve behavior while preparing Utility-AI migration; no advanced tactics/ranged/spell logic |
+| AI | Partial | Simple melee AI implemented with deterministic target priority (`distance -> HP -> handle`), same-elevation preference with any-elevation fallback, sticky per-turn target lock (reacquire only on invalid target), and no-progress bailout; `AITurnController` now routes decisions through `IAIDecisionPolicy` (`SimpleMeleeDecisionPolicy`) to preserve behavior while preparing Utility-AI migration; no advanced tactics/ranged/spell logic |
 | Save/load/progression | Not started | No persistence layer |
 | PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, cross-scene prefab encounter-flow smoke coverage, multi-round regression (movement + enemy AI + condition ticks), blocked-enemy regression (turn exits without `ExecutingAction` deadlock), sticky-target lock E2E regression (enemy does not retarget mid-turn), EndTurn typed-event order regression (`ConditionsTicked -> TurnEnded -> TurnStarted(next)`), initiative typed payload integrity regression (count/uniqueness/team composition/sort order), duration-condition lifecycle regressions (`DurationChanged` and duration-expire removal with matching log output), live status-stacking strike regressions (max status, single circumstance), and combat-end payload-to-panel consistency regressions for live victory/defeat and manual abort; broader system-level coverage is still pending |
 | Typed bus direct-publish tests (EditMode) | Done | EditMode now asserts direct `TurnManager -> CombatEventBus` lifecycle publish for `StartCombat` path and `EndTurn` path (`TurnEnded` + `ConditionsTicked`) without forwarder adapters |
@@ -117,7 +117,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Grid/entity raycasts rely on layer consistency (`EntityView` objects share grid layer).
 
 ## Known Issues / TODOs
-- AI is intentionally minimal: nearest-target melee only, same-elevation targeting, no tactical scoring.
+- AI is intentionally minimal: nearest-target melee only (prefers same elevation, then falls back to any elevation), no tactical scoring.
 - AI no-progress bailout uses threshold 2 repeated identical loop snapshots; tune only with matching regression tests.
 - `SampleScene` remains authored-reference first; `EncounterFlowPrefabScene` is the current preset-driven fallback example scene.
 - Restart is scene-reload based (`SceneManager.LoadScene`) and intentionally simple for MVP.
