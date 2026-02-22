@@ -21,6 +21,7 @@ namespace PF2e.TurnSystem
         [SerializeField] private StrideAction strideAction;
         [SerializeField] private StrikeAction strikeAction;
         [SerializeField] private StandAction standAction;
+        [SerializeField] private ShieldBlockAction shieldBlockAction;
 
         [Header("Timing")]
         [SerializeField] private float thinkDelay = 0.6f;
@@ -33,6 +34,8 @@ namespace PF2e.TurnSystem
         private Coroutine activeCoroutine;
         private int runId;
         private IAIDecisionPolicy decisionPolicy;
+        private IReactionDecisionPolicy reactionPolicy;
+        private readonly System.Collections.Generic.List<ReactionOption> reactionBuffer = new(2);
 
         // Async stride state
         private bool waitingForStride;
@@ -51,6 +54,7 @@ namespace PF2e.TurnSystem
             if (strideAction == null) Debug.LogError("[AITurnController] Missing StrideAction", this);
             if (strikeAction == null) Debug.LogError("[AITurnController] Missing StrikeAction", this);
             if (standAction == null) Debug.LogError("[AITurnController] Missing StandAction", this);
+            if (shieldBlockAction == null) Debug.LogWarning("[AITurnController] Missing ShieldBlockAction", this);
         }
 #endif
 
@@ -82,6 +86,7 @@ namespace PF2e.TurnSystem
             waitingForStride = false;
             TryRollbackExecutionLock();
             decisionPolicy = null;
+            reactionPolicy = null;
         }
 
         private void HandleTurnStartedTyped(in TurnStartedEvent e)
@@ -98,7 +103,7 @@ namespace PF2e.TurnSystem
                 ? entityManager.Registry.Get(actor)
                 : null;
             if (data == null || data.Team != Team.Enemy) return;
-            if (!EnsureDecisionPolicy()) return;
+            if (!EnsureDecisionPolicy() || !EnsureReactionPolicy()) return;
 
             // Recover if a previous run crashed/aborted while still holding the action lock.
             TryRollbackExecutionLock();
@@ -125,6 +130,8 @@ namespace PF2e.TurnSystem
                 if (!IsCurrentRun(token) || !IsMyTurn(actor))
                     yield break;
                 if (!EnsureDecisionPolicy())
+                    yield break;
+                if (!EnsureReactionPolicy())
                     yield break;
 
                 var actorData = entityManager.Registry.Get(actor);
@@ -293,12 +300,20 @@ namespace PF2e.TurnSystem
         private bool TryExecuteStrike(EntityHandle actor, EntityHandle target)
         {
             if (strikeAction == null || turnManager == null) return false;
+            if (!EnsureReactionPolicy()) return false;
             if (!TryBeginExecution(actor, "AI.Strike")) return false;
 
             bool completed = false;
             try
             {
-                bool performed = strikeAction.TryStrike(actor, target);
+                var phase = strikeAction.ResolveAttackRoll(actor, target, UnityRng.Shared);
+                if (!phase.HasValue)
+                    return false;
+
+                var resolved = strikeAction.DetermineHitAndDamage(phase.Value, target, UnityRng.Shared);
+                int damageReduction = ResolvePostHitReactionReduction(resolved);
+
+                bool performed = strikeAction.ApplyStrikeDamage(resolved, damageReduction);
                 if (!performed)
                     return false;
 
@@ -311,6 +326,59 @@ namespace PF2e.TurnSystem
                 if (!completed)
                     TryRollbackExecutionLock();
             }
+        }
+
+        private int ResolvePostHitReactionReduction(StrikePhaseResult resolved)
+        {
+            if (!resolved.damageDealt || resolved.damageRolled <= 0)
+                return 0;
+            if (reactionPolicy == null || entityManager == null || entityManager.Registry == null || turnManager == null)
+                return 0;
+
+            reactionBuffer.Clear();
+            ReactionService.CollectEligibleReactions(
+                ReactionTriggerPhase.PostHit,
+                resolved.attacker,
+                resolved.target,
+                turnManager.InitiativeOrder,
+                handle => entityManager.Registry.Get(handle),
+                reactionBuffer);
+
+            if (reactionBuffer.Count <= 0)
+                return 0;
+
+            // MVP invariant: max 1 eligible option (target self-only Shield Block).
+            var option = reactionBuffer[0];
+            var reactorData = entityManager.Registry.Get(option.entity);
+            if (reactorData == null || !reactorData.IsAlive)
+                return 0;
+
+            bool? decided = null;
+            reactionPolicy.DecideReaction(
+                option,
+                reactorData,
+                resolved.damageRolled,
+                result => decided = result);
+
+            if (!decided.HasValue)
+            {
+                Debug.LogWarning("[Reaction] DecideReaction did not invoke callback synchronously. Treating as decline.");
+                return 0;
+            }
+
+            if (!decided.Value)
+                return 0;
+
+            var blockResult = ShieldBlockRules.Calculate(reactorData.EquippedShield, resolved.damageRolled);
+            if (shieldBlockAction == null)
+            {
+                Debug.LogWarning("[AITurnController] ShieldBlockAction is missing. Skipping Shield Block reaction.", this);
+                return 0;
+            }
+
+            return shieldBlockAction.Execute(option.entity, resolved.damageRolled, in blockResult)
+                ? blockResult.targetDamageReduction
+                : 0;
         }
 
         private bool TryExecuteStand(EntityHandle actor)
@@ -385,6 +453,13 @@ namespace PF2e.TurnSystem
             }
 
             decisionPolicy = new SimpleMeleeDecisionPolicy(entityManager, gridManager);
+            return true;
+        }
+
+        private bool EnsureReactionPolicy()
+        {
+            if (reactionPolicy != null) return true;
+            reactionPolicy = new AutoShieldBlockPolicy();
             return true;
         }
 

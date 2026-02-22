@@ -2,6 +2,7 @@ using UnityEngine;
 using PF2e.Core;
 using PF2e.Grid;
 using PF2e.Managers;
+using System.Collections.Generic;
 
 namespace PF2e.TurnSystem
 {
@@ -20,8 +21,11 @@ namespace PF2e.TurnSystem
         [SerializeField] private StrikeAction strikeAction;
         [SerializeField] private StandAction standAction;
         [SerializeField] private RaiseShieldAction raiseShieldAction;
+        [SerializeField] private ShieldBlockAction shieldBlockAction;
 
         private EntityHandle executingActor = EntityHandle.None;
+        private readonly List<ReactionOption> reactionBuffer = new(2);
+        private IReactionDecisionPolicy reactionPolicy;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         private float executionStartTime = -1f;
@@ -36,6 +40,7 @@ namespace PF2e.TurnSystem
             if (strideAction == null) Debug.LogError("[Executor] Missing StrideAction", this);
             if (strikeAction == null) Debug.LogError("[Executor] Missing StrikeAction", this);
             if (raiseShieldAction == null) Debug.LogWarning("[Executor] Missing RaiseShieldAction", this);
+            if (shieldBlockAction == null) Debug.LogWarning("[Executor] Missing ShieldBlockAction", this);
         }
 #endif
 
@@ -124,17 +129,32 @@ namespace PF2e.TurnSystem
         {
             if (turnManager == null || entityManager == null || strikeAction == null) return false;
             if (!CanActNow()) return false;
+            if (!EnsureReactionPolicy()) return false;
 
             var actor = turnManager.CurrentEntity;
             if (!actor.IsValid) return false;
 
             executingActor = actor;
-            turnManager.BeginActionExecution();
+            turnManager.BeginActionExecution(actor, "Player.Strike");
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             executionStartTime = Time.time;
 #endif
 
-            bool performed = strikeAction.TryStrike(actor, target);
+            var phase = strikeAction.ResolveAttackRoll(actor, target, UnityRng.Shared);
+            if (!phase.HasValue)
+            {
+                executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                executionStartTime = -1f;
+#endif
+                turnManager.ActionCompleted();
+                return false;
+            }
+
+            var resolved = strikeAction.DetermineHitAndDamage(phase.Value, target, UnityRng.Shared);
+            int damageReduction = ResolvePostHitReactionReduction(resolved);
+
+            bool performed = strikeAction.ApplyStrikeDamage(resolved, damageReduction);
 
             if (!performed)
             {
@@ -151,6 +171,66 @@ namespace PF2e.TurnSystem
             executionStartTime = -1f;
 #endif
             turnManager.CompleteActionWithCost(1); // miss still spends
+            return true;
+        }
+
+        private int ResolvePostHitReactionReduction(StrikePhaseResult resolved)
+        {
+            if (!resolved.damageDealt || resolved.damageRolled <= 0)
+                return 0;
+            if (turnManager == null || entityManager == null || entityManager.Registry == null)
+                return 0;
+
+            reactionBuffer.Clear();
+            ReactionService.CollectEligibleReactions(
+                ReactionTriggerPhase.PostHit,
+                resolved.attacker,
+                resolved.target,
+                turnManager.InitiativeOrder,
+                handle => entityManager.Registry.Get(handle),
+                reactionBuffer);
+
+            if (reactionBuffer.Count <= 0)
+                return 0;
+
+            // MVP invariant: at most one option (self-only shield block).
+            var option = reactionBuffer[0];
+            var reactorData = entityManager.Registry.Get(option.entity);
+            if (reactorData == null || !reactorData.IsAlive)
+                return 0;
+
+            bool? decided = null;
+            reactionPolicy.DecideReaction(
+                option,
+                reactorData,
+                resolved.damageRolled,
+                result => decided = result);
+
+            if (!decided.HasValue)
+            {
+                Debug.LogWarning("[Reaction] DecideReaction did not invoke callback synchronously. Treating as decline.");
+                return 0;
+            }
+
+            if (!decided.Value)
+                return 0;
+
+            var blockResult = ShieldBlockRules.Calculate(reactorData.EquippedShield, resolved.damageRolled);
+            if (shieldBlockAction == null)
+            {
+                Debug.LogWarning("[Executor] ShieldBlockAction is missing. Skipping Shield Block reaction.", this);
+                return 0;
+            }
+
+            return shieldBlockAction.Execute(option.entity, resolved.damageRolled, in blockResult)
+                ? blockResult.targetDamageReduction
+                : 0;
+        }
+
+        private bool EnsureReactionPolicy()
+        {
+            if (reactionPolicy != null) return true;
+            reactionPolicy = new AutoShieldBlockPolicy();
             return true;
         }
 

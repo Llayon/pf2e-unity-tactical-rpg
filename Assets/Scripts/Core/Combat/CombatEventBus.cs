@@ -40,11 +40,13 @@ namespace PF2e.Core
         public delegate void StrikePreDamageHandler(in StrikePreDamageEvent e);
         public delegate void StrikeResolvedHandler(in StrikeResolvedEvent e);
         public delegate void ShieldRaisedHandler(in ShieldRaisedEvent e);
+        public delegate void ShieldBlockResolvedHandler(in ShieldBlockResolvedEvent e);
 
         public event Action<CombatLogEntry> OnLogEntry;
         public event StrikePreDamageHandler OnStrikePreDamageTyped;
         public event StrikeResolvedHandler OnStrikeResolved;
         public event ShieldRaisedHandler OnShieldRaisedTyped;
+        public event ShieldBlockResolvedHandler OnShieldBlockResolvedTyped;
 
         public void Publish(CombatLogEntry entry)
         {
@@ -120,6 +122,25 @@ namespace PF2e.Core
         {
             var e = new ShieldRaisedEvent(actor, acBonus, shieldHP, shieldMaxHP);
             OnShieldRaisedTyped?.Invoke(in e);
+        }
+
+        public void PublishShieldBlockResolved(
+            EntityHandle reactor,
+            int incomingDamage,
+            int damageReduction,
+            int shieldSelfDamage,
+            int shieldHpBefore,
+            int shieldHpAfter)
+        {
+            var e = new ShieldBlockResolvedEvent(
+                reactor,
+                incomingDamage,
+                damageReduction,
+                shieldSelfDamage,
+                shieldHpBefore,
+                shieldHpAfter);
+
+            OnShieldBlockResolvedTyped?.Invoke(in e);
         }
 
         #region Typed: Turn
