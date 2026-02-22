@@ -71,7 +71,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter flow runtime fallback now has a shared UI preset |
 | AI | Partial | Simple melee AI implemented with deterministic target priority (`distance -> HP -> handle`), same-elevation preference with any-elevation fallback, sticky per-turn target lock (reacquire only on invalid target), and no-progress bailout; `AITurnController` now routes decisions through `IAIDecisionPolicy` (`SimpleMeleeDecisionPolicy`) to preserve behavior while preparing Utility-AI migration; no advanced tactics/ranged/spell logic |
 | Save/load/progression | Not started | No persistence layer |
-| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, cross-scene prefab encounter-flow smoke coverage, multi-round regression (movement + enemy AI + condition ticks), blocked-enemy regression (turn exits without `ExecutingAction` deadlock), sticky-target lock E2E regression (enemy does not retarget mid-turn), EndTurn typed-event order regression (`ConditionsTicked -> TurnEnded -> TurnStarted(next)`), initiative typed payload integrity regression (count/uniqueness/team composition/sort order), duration-condition lifecycle regressions (`DurationChanged` and duration-expire removal with matching log output), live status-stacking strike regressions (max status, single circumstance), `ReactionPromptController` PlayMode coverage (Yes/No/timeout/disable/double-request), and combat-end payload-to-panel consistency regressions for live victory/defeat and manual abort; broader system-level coverage is still pending |
+| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, cross-scene prefab encounter-flow smoke coverage, multi-round regression (movement + enemy AI + condition ticks), blocked-enemy regression (turn exits without `ExecutingAction` deadlock), sticky-target lock E2E regression (enemy does not retarget mid-turn), EndTurn typed-event order regression (`ConditionsTicked -> TurnEnded -> TurnStarted(next)`), initiative typed payload integrity regression (count/uniqueness/team composition/sort order), duration-condition lifecycle regressions (`DurationChanged` and duration-expire removal with matching log output), live status-stacking strike regressions (max status, single circumstance), `ReactionPromptController` PlayMode coverage (Yes/No/timeout/disable/double-request), enemy->player Shield Block prompt-timeout E2E lock-release regression (`ExecutingAction` timeout path releases cleanly), and combat-end payload-to-panel consistency regressions for live victory/defeat and manual abort; broader system-level coverage is still pending |
 | Typed bus direct-publish tests (EditMode) | Done | EditMode now asserts direct `TurnManager -> CombatEventBus` lifecycle publish for `StartCombat` path and `EndTurn` path (`TurnEnded` + `ConditionsTicked`) without forwarder adapters |
 | TurnManager action-lock tests (EditMode) | Done | EditMode now verifies lock metadata lifecycle (begin/complete/endcombat) and executing-actor action-cost ownership |
 | CI test automation | Done | GitHub Actions (`.github/workflows/unity-tests.yml`) runs EditMode + PlayMode on push/PR to `master`; branch protection on `master` requires `Unity Tests` |
@@ -83,6 +83,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - `PF2e.Managers`: scene composition/orchestration objects.
 - `PF2e.Presentation`: view/UI/log adapters only; should not own combat rules.
 - `PF2e.Data`: ScriptableObject config/authoring types.
+- Future feat/rule integration boundary (design guardrail): `EntityData` remains source-of-truth for persistent/base+derived character state, while resolvers (`AttackResolver`, `DamageResolver`, future check resolvers) own context-specific calculation (MAP, weapon/situational/conditional logic for a specific check).
 
 ## Conventions
 - Namespaces follow folder domain (`PF2e.Core`, `PF2e.Grid`, `PF2e.TurnSystem`, etc.).
@@ -118,6 +119,8 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Enemy strike reaction-window contract: `AITurnController` may legitimately keep `TurnManager.State == ExecutingAction` while awaiting modal reaction input; timeout/abort/disable must resolve as decline and release the lock.
 - Reaction policy runtime-default contract: `AITurnController` and `PlayerActionExecutor` instantiate `ModalReactionPolicy` (not `AutoShieldBlockPolicy`) for Shield Block decisions; `AutoShieldBlockPolicy` is retained primarily for tests/helpers.
 - Shield Block log contract: `ShieldBlockResolvedEvent` is forwarded to combat log via `StrikeLogForwarder`; changes to event payload/message format should keep actor-prefix rules (`CombatEventBus.Publish(actor, message)`).
+- Future PF2e modifier-model guardrail: numeric bonuses/penalties should evolve toward `Modifier { value, type, source }` (for stacking + provenance), while feat-granted actions/reactions/capabilities stay a separate subsystem (not modifier buckets).
+- Future PF2e stat-resolution guardrail: avoid introducing a parallel runtime stat source (`CharacterRulesRuntime` companion) while `EntityData` is still mutated directly in gameplay/tests; if modifier caching becomes necessary, prefer `EntityData`-owned derived cache first.
 - AI target selection contract is deterministic: nearest target first, then lower HP, then lower handle id as final tie-break.
 - AI policy seam contract: `IAIDecisionPolicy` must remain decision-only (target/range/stride choice); sticky lock and turn-loop orchestration remain controller responsibilities.
 - AI target lock contract: once selected, enemy keeps target for the turn unless target becomes invalid (dead/non-player/different elevation/missing).
@@ -140,13 +143,14 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - PlayMode regression now covers multi-round movement/AI/condition-tick flow, blocked-turn recovery, and sticky-target lock behavior, but does not yet cover advanced combat domains (ranged/spells/reactions).
 - `ModalReactionPolicy` is the runtime default for both controllers; `AutoShieldBlockPolicy` remains in code for tests and simple synchronous policy scenarios.
 - Combat round regression deadlock assertions now combine lock duration with turn-progress signals to reduce CI timing flakes while still detecting real stuck locks.
+- PF2e feat/rule-engine architecture is intentionally deferred: no generic `FeatDefinition`/rule-engine/modifier-stack runtime is built yet. Current guardrails are documented (modifier `{value,type,source}`, capability grants separate, `EntityData` state + resolver context split) and should be implemented only when concrete gameplay features require them (second typed-bonus conflict, first feat-granted capability, etc.).
 - Duplicate-looking armor asset naming (`GoblinArmor_.asset`) should be normalized later.
 - Legacy forwarder stubs (`TurnManagerLogForwarder`, `TurnManagerTypedForwarder`) were removed from scenes and code; turn/combat typed flow is direct `TurnManager -> CombatEventBus`.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Add end-to-end PlayMode coverage for enemy->player Shield Block timeout path (prompt timeout + `TurnManager` lock release assertion in live combat flow).
-2. Plan Phase 20 reaction expansion (pre-hit windows, non-self reactions, multi-reactor sequential queue) before converting `PlayerActionExecutor` strike flow to coroutine.
-3. Expand shield UX/gameplay depth (broken-shield feedback, repair/re-equip flow, additional shield data variants) with test-first coverage.
+1. Plan Phase 20 reaction expansion (pre-hit windows, non-self reactions, multi-reactor sequential queue) before converting `PlayerActionExecutor` strike flow to coroutine.
+2. Expand shield UX/gameplay depth (broken-shield feedback, repair/re-equip flow, additional shield data variants) with test-first coverage.
+3. Add the first typed-modifier conflict gameplay case (e.g., shield + cover to AC) with regression tests, then introduce a minimal modifier model (`ModifierType` + source/provenance) only as needed.
 
 ## LLM-First Delivery Workflow (Multi-Agent)
 ### Operating Model (for non-programmer project owner)
