@@ -47,10 +47,27 @@ namespace PF2e.Tests
                 damageType: DamageType.Slashing,
                 damageDealt: true);
 
-            LogAssert.Expect(LogType.Warning, "[Reaction] DecideReaction did not invoke callback synchronously. Treating as decline.");
+            const string expectedWarning = "[Reaction] DecideReaction did not invoke callback synchronously. Treating as decline.";
+            bool sawExpectedWarning = false;
+            void Capture(string condition, string stackTrace, LogType type)
+            {
+                _ = stackTrace;
+                if (type == LogType.Warning && condition == expectedWarning)
+                    sawExpectedWarning = true;
+            }
 
-            int reduction = ctx.InvokeResolvePostHitReactionReduction(phase);
-            Assert.AreEqual(0, reduction);
+            Application.logMessageReceived += Capture;
+            try
+            {
+                int reduction = ctx.InvokeResolvePostHitReactionReduction(phase);
+                Assert.AreEqual(0, reduction);
+            }
+            finally
+            {
+                Application.logMessageReceived -= Capture;
+            }
+
+            Assert.IsTrue(sawExpectedWarning, "Expected sync fail-safe warning was not observed.");
 
             var targetData = ctx.Registry.Get(ctx.Target);
             Assert.IsTrue(targetData.ReactionAvailable, "Fail-safe decline should not spend reaction.");

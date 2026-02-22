@@ -22,6 +22,11 @@
 - Consolidate runtime event architecture to typed `CombatEventBus` channels and retire legacy TurnManager log adapters. (Done)
 - Enforce strict AI typed-event wiring (remove `AITurnController` direct TurnManager subscription fallback). (Done)
 - Normalize encounter-end log mapping into standalone `EncounterEndLogMessageMap` (`one public type per file`). (Done)
+- Add shield equipment + `RaiseShieldAction` with AC integration in `EntityData` derived stats cache pipeline. (Done)
+- Split `StrikeAction` into phased strike flow (`ResolveAttackRoll` / `DetermineHitAndDamage` / `ApplyStrikeDamage`) with pre/post reaction extension points. (Done)
+- Add deterministic `ReactionService` + `ShieldBlockRules` and integrate auto Shield Block reactions into player/AI strike flow (`19.5a`). (Done)
+- Add modal Shield Block reaction prompt UX (`ReactionPromptController` + `ModalReactionPolicy`) with async enemy strike reaction window and timeout-safe lock release (`19.5b`). (Done)
+- Wire SampleScene shield demo + validator/autofix support for `RaiseShieldAction` / `ShieldBlockAction` / `ReactionPromptController`, and surface Shield Block in combat log (`19.6`). (Done)
 
 ## Phase 3 — Content & UX Polish (Planned)
 - Add more encounter layouts and data-driven authoring flow.

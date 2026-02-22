@@ -1,5 +1,5 @@
 # Project Memory
-Last updated: 2026-02-21
+Last updated: 2026-02-22
 
 ## Vision
 Build a small, playable, turn-based tactical PF2e combat slice in Unity where one player-controlled party can move on a grid, spend 3 actions, strike enemies, and finish encounters with clear visual feedback. Prioritize correctness of core turn/action/combat flow, maintainable architecture, and incremental delivery over full PF2e coverage.
@@ -7,17 +7,17 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 ## Vertical Slice Definition
 - Primary playable scene: `Assets/Scenes/SampleScene.unity` with one encounter.
 - Secondary wiring-validation scene: `Assets/Scenes/EncounterFlowPrefabScene.unity` (prefab-driven encounter flow UI fallback).
-- Player can: start combat, move (Stride), Strike, Stand, end turn.
+- Player can: start combat, move (Stride), Strike, Stand, Raise Shield, end turn.
 - Enemy side takes turns via simple melee AI (stand if prone, stride toward nearest player, strike in range; if no same-floor targets exist, target selection now falls back to any elevation).
-- Combat presents: turn HUD, initiative bar, combat log, floating damage, and end-of-encounter panel.
+- Combat presents: turn HUD, initiative bar, combat log, floating damage, modal Shield Block reaction prompt, and end-of-encounter panel.
 - Basic PF2e rules included: 3-action economy, MAP, basic melee strike check, damage roll, simple conditions.
 
 ## Architecture Snapshot
 ### A) Current Folder Map + Responsibilities
 - `Assets/Scripts/Core`: pure rules/data structures (entities, condition rules/service/deltas, attack/damage math, occupancy, item models, event contracts).
 - `Assets/Scripts/Grid`: grid data, pathfinding, rendering, floor controls, click/hover interaction.
-- `Assets/Scripts/TurnSystem`: turn state machine, input routing, action execution (`StrideAction`, `StrikeAction`, `StandAction`), targeting, enemy AI orchestration (`AITurnController`), and AI decision seam (`IAIDecisionPolicy` + `SimpleMeleeDecisionPolicy`) backed by pure helpers (`SimpleMeleeAIDecision`).
-- `Assets/Scripts/Managers`: `EntityManager` scene orchestration, spawning test entities, view management.
+- `Assets/Scripts/TurnSystem`: turn state machine, input routing, action execution (`StrideAction`, `StrikeAction`, `StandAction`, `RaiseShieldAction`, `ShieldBlockAction`), phased strike/reaction windows, targeting, enemy AI orchestration (`AITurnController`), and AI decision seam (`IAIDecisionPolicy` + `SimpleMeleeDecisionPolicy`) plus reaction decision seam (`IReactionDecisionPolicy`, runtime default `ModalReactionPolicy`).
+- `Assets/Scripts/Managers`: `EntityManager` scene orchestration, spawning test entities (now including optional fighter shield + reaction preference), view management.
 - `Assets/Scripts/Presentation`: UI/controllers/log forwarders, initiative/floating damage visuals.
 - `Assets/Scripts/Data`: ScriptableObject configs (`GridConfig`).
 - `Assets/Tests/EditMode`: NUnit EditMode coverage for grid/pathfinding/occupancy/turn primitives.
@@ -30,16 +30,21 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Controls currently in code: encounter flow buttons (`Start Encounter` / `End Encounter`) as primary path, `C`/`X` as editor/development fallback, left-click cell/entity, `Space` end turn, `Esc` cancel targeting, `WASD/QE/Scroll` camera, `G` grid toggle, `PageUp/PageDown` floor.
 - Turn flow works: initiative roll, per-entity turns, 3 actions, action spending, and condition lifecycle processing via `ConditionService` (start/end turn deltas).
 - Movement works: occupancy-aware, multi-stride pathing, 5/10 diagonal parity, movement zone/path preview, animated movement.
-- Combat works at MVP level: melee strike resolution, MAP increment, damage apply, defeat hide + events.
+- Combat works at MVP level: melee strike resolution, MAP increment, phased strike flow (pre/post reaction extension points), damage apply, defeat hide + events.
+- Shield flow works at MVP level: `Raise Shield` grants temporary AC via `EntityData` derived stats; `Shield Block` can reduce post-hit damage, damage the shield, and spend reaction.
+- Enemy strike flow can pause for player reaction decisions via `ReactionPromptController` (timeout/disable-safe auto-decline); player strike flow remains synchronous for current self-only Shield Block reactions.
 - Enemy turns execute simple AI behavior; combat no longer auto-skips enemy turns.
 - Victory/defeat ends combat immediately when one side (`Player` or `Enemy`) is wiped.
 - End-of-encounter UI shows `Victory` / `Defeat` / `Encounter Ended`, with restart via scene reload.
+- `SampleScene` now includes shield demo wiring: `FighterShield` asset, `ReactionPromptController`, and fighter default `ShieldBlockPreference = AlwaysAsk`.
 
 ### C) Key Dependencies and Risks
 - High scene wiring coupling: `CombatController`, `TacticalGrid`, `EntityManager`, `CombatEventBus` must all be correctly referenced.
 - Runtime dependency chain is tight (`TurnManager -> EntityManager -> GridManager`; input and visualizers depend on both).
 - Turn flow now uses typed payloads end-to-end: `TurnManager` publishes typed structs to its own events and directly to `CombatEventBus`; runtime consumers subscribe on typed bus channels.
 - Condition flow is now centralized through `ConditionService`; future rule expansion risk is concentrated in one place (good), but expanding stacking/implied rules must preserve deterministic tests.
+- Reaction UX introduces a mixed sync/async execution split: `AITurnController` enemy strike flow is coroutine-based for modal reaction windows, while `PlayerActionExecutor` strike flow remains sync for the current self-only Shield Block MVP.
+- `ReactionPromptController` is scene-optional in validator terms (warning-only if missing), but missing wiring degrades `AlwaysAsk` to auto-decline via `ModalReactionPolicy`.
 - Encounter flow can be centralized via `Assets/Data/EncounterFlowUIPreset_RuntimeFallback.asset`; scenes opt in through `EncounterFlowController.useFlowPreset`.
 - `EntityManager` mixes runtime orchestration with test spawning data responsibilities.
 
@@ -55,17 +60,18 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Pathfinding + movement zones | Done | A*, occupancy-aware Dijkstra, action-based path search |
 | Entity model + occupancy | Done | Registry, handles, occupancy rules, entity views |
 | Turn state machine + actions economy | Done | Core loop works for both player and enemy turns; action lock now tracks actor/source/duration with watchdog diagnostics |
-| Player actions (Stride/Strike/Stand) | Partial | Core actions implemented; no broader action set |
+| Player actions (Stride/Strike/Stand/Raise Shield) | Partial | Core actions implemented including `Raise Shield`; broader action set still pending |
 | PF2e strike/damage basics | Partial | Melee-focused MVP; ranged/spells not implemented |
+| Reactions (Shield Block MVP) | Partial | Post-hit reaction window implemented with pure `ReactionService`/`ShieldBlockRules`, `ShieldBlockAction`, and modal prompt UX; only self-only Shield Block is supported |
 | Conditions | Partial | `ConditionService` is the mutation entrypoint for turn/action flows with caller-owned `ConditionDelta` buffers; model supports independent `Value + RemainingRounds` tick semantics; `ConditionRules` now owns implied/stacking helpers for current combat penalties; `EntityData` uses strict snapshot-based derived-stat cache invalidation for AC/attack-penalty reads |
-| Combat/UI presentation | Partial | Turn HUD, log, initiative, floating damage, and end-of-encounter panel are present; end-panel text now maps through `EncounterEndTextMap`; encounter flow panel is reusable and can be driven by shared preset |
+| Combat/UI presentation | Partial | Turn HUD, log, initiative, floating damage, Shield Block modal prompt (`ReactionPromptController`), and end-of-encounter panel are present; `StrikeLogForwarder` now includes Shield Block log messages; end-panel text maps through `EncounterEndTextMap`; encounter flow panel is reusable and can be driven by shared preset |
 | Typed event routing | Done | `TurnManager` source events are typed and published directly to `CombatEventBus`; runtime subscribers consume typed bus events |
 | Encounter-end text mapping | Done | `EncounterEndTextMap` is source-of-truth for `EncounterResult -> title/subtitle`, consumed by `EncounterEndPanelController` and covered by EditMode unit tests |
 | Encounter-end log mapping | Done | `EncounterEndLogMessageMap` (`Assets/Scripts/Presentation/EncounterEndLogMessageMap.cs`) is source-of-truth for `EncounterResult -> combat-end log message`, consumed by `TurnLogForwarder` and covered by EditMode unit tests |
 | Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter flow runtime fallback now has a shared UI preset |
 | AI | Partial | Simple melee AI implemented with deterministic target priority (`distance -> HP -> handle`), same-elevation preference with any-elevation fallback, sticky per-turn target lock (reacquire only on invalid target), and no-progress bailout; `AITurnController` now routes decisions through `IAIDecisionPolicy` (`SimpleMeleeDecisionPolicy`) to preserve behavior while preparing Utility-AI migration; no advanced tactics/ranged/spell logic |
 | Save/load/progression | Not started | No persistence layer |
-| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, cross-scene prefab encounter-flow smoke coverage, multi-round regression (movement + enemy AI + condition ticks), blocked-enemy regression (turn exits without `ExecutingAction` deadlock), sticky-target lock E2E regression (enemy does not retarget mid-turn), EndTurn typed-event order regression (`ConditionsTicked -> TurnEnded -> TurnStarted(next)`), initiative typed payload integrity regression (count/uniqueness/team composition/sort order), duration-condition lifecycle regressions (`DurationChanged` and duration-expire removal with matching log output), live status-stacking strike regressions (max status, single circumstance), and combat-end payload-to-panel consistency regressions for live victory/defeat and manual abort; broader system-level coverage is still pending |
+| PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, cross-scene prefab encounter-flow smoke coverage, multi-round regression (movement + enemy AI + condition ticks), blocked-enemy regression (turn exits without `ExecutingAction` deadlock), sticky-target lock E2E regression (enemy does not retarget mid-turn), EndTurn typed-event order regression (`ConditionsTicked -> TurnEnded -> TurnStarted(next)`), initiative typed payload integrity regression (count/uniqueness/team composition/sort order), duration-condition lifecycle regressions (`DurationChanged` and duration-expire removal with matching log output), live status-stacking strike regressions (max status, single circumstance), `ReactionPromptController` PlayMode coverage (Yes/No/timeout/disable/double-request), and combat-end payload-to-panel consistency regressions for live victory/defeat and manual abort; broader system-level coverage is still pending |
 | Typed bus direct-publish tests (EditMode) | Done | EditMode now asserts direct `TurnManager -> CombatEventBus` lifecycle publish for `StartCombat` path and `EndTurn` path (`TurnEnded` + `ConditionsTicked`) without forwarder adapters |
 | TurnManager action-lock tests (EditMode) | Done | EditMode now verifies lock metadata lifecycle (begin/complete/endcombat) and executing-actor action-cost ownership |
 | CI test automation | Done | GitHub Actions (`.github/workflows/unity-tests.yml`) runs EditMode + PlayMode on push/PR to `master`; branch protection on `master` requires `Unity Tests` |
@@ -109,6 +115,9 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - When `EncounterFlowController.useFlowPreset` is enabled, `flowPreset` becomes source-of-truth for runtime fallback fields.
 - `StrideAction` commits occupancy/entity position before animation; `EntityMover` is visual-only.
 - `AITurnController` must release action locks on abort/timeout/disable to avoid `ExecutingAction` deadlocks.
+- Enemy strike reaction-window contract: `AITurnController` may legitimately keep `TurnManager.State == ExecutingAction` while awaiting modal reaction input; timeout/abort/disable must resolve as decline and release the lock.
+- Reaction policy runtime-default contract: `AITurnController` and `PlayerActionExecutor` instantiate `ModalReactionPolicy` (not `AutoShieldBlockPolicy`) for Shield Block decisions; `AutoShieldBlockPolicy` is retained primarily for tests/helpers.
+- Shield Block log contract: `ShieldBlockResolvedEvent` is forwarded to combat log via `StrikeLogForwarder`; changes to event payload/message format should keep actor-prefix rules (`CombatEventBus.Publish(actor, message)`).
 - AI target selection contract is deterministic: nearest target first, then lower HP, then lower handle id as final tie-break.
 - AI policy seam contract: `IAIDecisionPolicy` must remain decision-only (target/range/stride choice); sticky lock and turn-loop orchestration remain controller responsibilities.
 - AI target lock contract: once selected, enemy keeps target for the turn unless target becomes invalid (dead/non-player/different elevation/missing).
@@ -121,6 +130,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - AI no-progress bailout uses threshold 2 repeated identical loop snapshots; tune only with matching regression tests.
 - `SampleScene` remains authored-reference first; `EncounterFlowPrefabScene` is the current preset-driven fallback example scene.
 - Restart is scene-reload based (`SceneManager.LoadScene`) and intentionally simple for MVP.
+- `PlayerActionExecutor` strike flow is intentionally synchronous in the current Shield Block MVP because the only supported reaction is self-only on the defender; non-self/ally reactions will require player strike flow coroutine conversion.
 - `EntityData.AddCondition/RemoveCondition` are now `internal` guardrails; avoid introducing new callers outside core condition infrastructure.
 - Legacy `ConditionTick` struct remains only for compatibility in `EntityData.EndTurn`; typed event flow is now `ConditionDelta`-based and EditMode turn-condition tests use `ConditionService` ticks directly.
 - Condition model now supports simultaneous `Value + RemainingRounds`; stacking/implied helpers exist for current attack/AC penalties, but broader PF2e condition interactions are still pending.
@@ -128,14 +138,15 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Input System package exists, but most gameplay input is polled directly from keyboard/mouse.
 - CI requires repository-level `UNITY_LICENSE` secret; workflow fails fast when missing.
 - PlayMode regression now covers multi-round movement/AI/condition-tick flow, blocked-turn recovery, and sticky-target lock behavior, but does not yet cover advanced combat domains (ranged/spells/reactions).
+- `ModalReactionPolicy` is the runtime default for both controllers; `AutoShieldBlockPolicy` remains in code for tests and simple synchronous policy scenarios.
 - Combat round regression deadlock assertions now combine lock duration with turn-progress signals to reduce CI timing flakes while still detecting real stuck locks.
 - Duplicate-looking armor asset naming (`GoblinArmor_.asset`) should be normalized later.
 - Legacy forwarder stubs (`TurnManagerLogForwarder`, `TurnManagerTypedForwarder`) were removed from scenes and code; turn/combat typed flow is direct `TurnManager -> CombatEventBus`.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Expand `ConditionRules` helpers to additional PF2e interactions (e.g., future implied states and non-penalty effects) with test-first coverage.
-2. Add PlayMode coverage for stacking edge-cases with mixed teams/targets (e.g., attacking prone+off-guard targets across multiple turns).
-3. Decide long-term fate of legacy `EntityData.StartTurn/EndTurn` (keep compatibility wrappers vs remove after full migration window).
+1. Add end-to-end PlayMode coverage for enemy->player Shield Block timeout path (prompt timeout + `TurnManager` lock release assertion in live combat flow).
+2. Plan Phase 20 reaction expansion (pre-hit windows, non-self reactions, multi-reactor sequential queue) before converting `PlayerActionExecutor` strike flow to coroutine.
+3. Expand shield UX/gameplay depth (broken-shield feedback, repair/re-equip flow, additional shield data variants) with test-first coverage.
 
 ## LLM-First Delivery Workflow (Multi-Agent)
 ### Operating Model (for non-programmer project owner)

@@ -19,10 +19,14 @@ namespace PF2e.Managers
         [Header("Test Item Definitions")]
         [SerializeField] private WeaponDefinition fighterWeaponDef;
         [SerializeField] private ArmorDefinition fighterArmorDef;
+        [SerializeField] private ShieldDefinition fighterShieldDef;
         [SerializeField] private WeaponDefinition wizardWeaponDef;
         [SerializeField] private ArmorDefinition wizardArmorDef;
         [SerializeField] private WeaponDefinition goblinWeaponDef;
         [SerializeField] private ArmorDefinition goblinArmorDef;
+
+        [Header("Reaction Preferences (Test Setup)")]
+        [SerializeField] private ReactionPreference fighterShieldBlockPreference = ReactionPreference.AutoBlock;
 
         [Header("Entity Visuals")]
         [SerializeField] private float entityHeight = 1.6f;
@@ -75,6 +79,8 @@ private void OnValidate()
             {
                 if (fighterWeaponDef == null || fighterArmorDef == null)
                     Debug.LogWarning("[EntityManager] Fighter weapon/armor definitions not assigned.", this);
+                if (fighterShieldDef == null)
+                    Debug.LogWarning("[EntityManager] Fighter shield definition not assigned (Shield Block demo disabled).", this);
                 if (wizardWeaponDef == null || wizardArmorDef == null)
                     Debug.LogWarning("[EntityManager] Wizard weapon/armor definitions not assigned.", this);
                 if (goblinWeaponDef == null || goblinArmorDef == null)
@@ -177,6 +183,11 @@ private void OnValidate()
                 resilient = ResilientRuneRank.None,
                 broken = false
             };
+            if (fighterShieldDef != null)
+            {
+                fighter.EquippedShield = ShieldInstance.CreateEquipped(fighterShieldDef);
+            }
+            fighter.ShieldBlockPreference = fighterShieldBlockPreference;
             CreateEntity(fighter, new Vector3Int(1, 0, 1));
 
             // Wizard with dagger and armor (from inspector defs)

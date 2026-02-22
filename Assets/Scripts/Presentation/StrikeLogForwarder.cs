@@ -34,12 +34,16 @@ namespace PF2e.Presentation
             }
 
             eventBus.OnStrikeResolved += HandleStrikeResolved;
+            eventBus.OnShieldBlockResolvedTyped += HandleShieldBlockResolved;
         }
 
         private void OnDisable()
         {
             if (eventBus != null)
+            {
                 eventBus.OnStrikeResolved -= HandleStrikeResolved;
+                eventBus.OnShieldBlockResolvedTyped -= HandleShieldBlockResolved;
+            }
         }
 
         private void HandleStrikeResolved(in StrikeResolvedEvent e)
@@ -84,6 +88,32 @@ namespace PF2e.Presentation
             if (e.targetDefeated)
             {
                 eventBus.PublishSystem($"{targetName} is defeated.");
+            }
+        }
+
+        private void HandleShieldBlockResolved(in ShieldBlockResolvedEvent e)
+        {
+            if (e.damageReduction <= 0 && e.shieldSelfDamage <= 0)
+            {
+                eventBus.Publish(
+                    e.reactor,
+                    "uses Shield Block, but no damage is prevented.",
+                    CombatLogCategory.Attack);
+                return;
+            }
+
+            eventBus.Publish(
+                e.reactor,
+                $"uses Shield Block — reduces {e.damageReduction} damage (incoming {e.incomingDamage}); " +
+                $"shield takes {e.shieldSelfDamage} (HP {e.shieldHpBefore}→{e.shieldHpAfter})",
+                CombatLogCategory.Attack);
+
+            if (e.shieldHpBefore > 0 && e.shieldHpAfter <= 0)
+            {
+                eventBus.Publish(
+                    e.reactor,
+                    "shield is broken.",
+                    CombatLogCategory.Attack);
             }
         }
     }
