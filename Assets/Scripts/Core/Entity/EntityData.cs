@@ -69,6 +69,9 @@ namespace PF2e.Core
         public int MAPCount;           // 0, 1, 2 — how many Strikes made this turn
         public bool ReactionAvailable;
 
+        // ─── Reaction Preferences ───
+        public ReactionPreference ShieldBlockPreference = ReactionPreference.AutoBlock;
+
         // ─── Conditions ───
         public List<ActiveCondition> Conditions = new List<ActiveCondition>();
 

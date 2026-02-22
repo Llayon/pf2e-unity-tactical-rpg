@@ -748,9 +748,13 @@ namespace PF2e.Tests
 
                 yield return WaitUntilOrTimeout(
                     () =>
-                        goblinStrikeCount >= 2
-                        || turnManager.State != TurnState.EnemyTurn
-                        || turnManager.CurrentEntity != goblin1.Handle,
+                    {
+                        bool goblinTurnOrActionWindowActive =
+                            (turnManager.State == TurnState.EnemyTurn && turnManager.CurrentEntity == goblin1.Handle)
+                            || (turnManager.State == TurnState.ExecutingAction && turnManager.ExecutingActor == goblin1.Handle);
+
+                        return goblinStrikeCount >= 2 || !goblinTurnOrActionWindowActive;
+                    },
                     SimulationTimeoutSeconds,
                     "Did not observe two Goblin_1 strikes in one turn.");
 

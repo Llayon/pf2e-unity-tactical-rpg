@@ -3,6 +3,7 @@ using UnityEngine;
 using PF2e.Core;
 using PF2e.Grid;
 using PF2e.Managers;
+using PF2e.Presentation;
 
 namespace PF2e.TurnSystem
 {
@@ -22,6 +23,7 @@ namespace PF2e.TurnSystem
         [SerializeField] private StrikeAction strikeAction;
         [SerializeField] private StandAction standAction;
         [SerializeField] private ShieldBlockAction shieldBlockAction;
+        [SerializeField] private ReactionPromptController reactionPromptController;
 
         [Header("Timing")]
         [SerializeField] private float thinkDelay = 0.6f;
@@ -30,6 +32,7 @@ namespace PF2e.TurnSystem
         private const int MaxActionAttemptsPerTurn = 6;
         private const int NoProgressLoopThreshold = 2;
         private const float StrideTimeoutSeconds = 30f;
+        private const float ReactionTimeoutSeconds = 10f;
 
         private Coroutine activeCoroutine;
         private int runId;
@@ -55,6 +58,7 @@ namespace PF2e.TurnSystem
             if (strikeAction == null) Debug.LogError("[AITurnController] Missing StrikeAction", this);
             if (standAction == null) Debug.LogError("[AITurnController] Missing StandAction", this);
             if (shieldBlockAction == null) Debug.LogWarning("[AITurnController] Missing ShieldBlockAction", this);
+            if (reactionPromptController == null) Debug.LogWarning("[AITurnController] Missing ReactionPromptController", this);
         }
 #endif
 
@@ -183,7 +187,8 @@ namespace PF2e.TurnSystem
 
                     if (decisionPolicy.IsInMeleeRange(actorData, targetData))
                     {
-                        bool struck = TryExecuteStrike(actor, target);
+                        bool struck = false;
+                        yield return DoStrike(actor, target, token, v => struck = v);
                         if (!IsCurrentRun(token) || !IsMyTurn(actor))
                             yield break;
                         if (!struck) break;
@@ -297,29 +302,52 @@ namespace PF2e.TurnSystem
             waitingForStride = false;
         }
 
-        private bool TryExecuteStrike(EntityHandle actor, EntityHandle target)
+        private IEnumerator DoStrike(EntityHandle actor, EntityHandle target, int token, System.Action<bool> setResult)
         {
-            if (strikeAction == null || turnManager == null) return false;
-            if (!EnsureReactionPolicy()) return false;
-            if (!TryBeginExecution(actor, "AI.Strike")) return false;
-
             bool completed = false;
+            setResult?.Invoke(false);
+
             try
             {
+                if (strikeAction == null || turnManager == null)
+                    yield break;
+                if (!EnsureReactionPolicy())
+                    yield break;
+                if (!TryBeginExecution(actor, "AI.Strike"))
+                    yield break;
+
                 var phase = strikeAction.ResolveAttackRoll(actor, target, UnityRng.Shared);
                 if (!phase.HasValue)
-                    return false;
+                    yield break;
+
+                if (!IsCurrentRun(token))
+                    yield break;
 
                 var resolved = strikeAction.DetermineHitAndDamage(phase.Value, target, UnityRng.Shared);
-                int damageReduction = ResolvePostHitReactionReduction(resolved);
+
+                // Async reaction window.
+                int damageReduction = 0;
+                bool reactionResolved = false;
+                yield return ResolvePostHitReactionReductionCoroutine(
+                    resolved, token, reduction =>
+                    {
+                        damageReduction = reduction;
+                        reactionResolved = true;
+                    });
+
+                if (!IsCurrentRun(token))
+                    yield break;
+
+                if (!reactionResolved)
+                    damageReduction = 0;
 
                 bool performed = strikeAction.ApplyStrikeDamage(resolved, damageReduction);
                 if (!performed)
-                    return false;
+                    yield break;
 
                 CompleteExecutionWithCost(1);
                 completed = true;
-                return true;
+                setResult?.Invoke(true);
             }
             finally
             {
@@ -328,12 +356,20 @@ namespace PF2e.TurnSystem
             }
         }
 
-        private int ResolvePostHitReactionReduction(StrikePhaseResult resolved)
+        private IEnumerator ResolvePostHitReactionReductionCoroutine(
+            StrikePhaseResult resolved, int token, System.Action<int> setResult)
         {
             if (!resolved.damageDealt || resolved.damageRolled <= 0)
-                return 0;
+            {
+                setResult?.Invoke(0);
+                yield break;
+            }
+
             if (reactionPolicy == null || entityManager == null || entityManager.Registry == null || turnManager == null)
-                return 0;
+            {
+                setResult?.Invoke(0);
+                yield break;
+            }
 
             reactionBuffer.Clear();
             ReactionService.CollectEligibleReactions(
@@ -345,13 +381,19 @@ namespace PF2e.TurnSystem
                 reactionBuffer);
 
             if (reactionBuffer.Count <= 0)
-                return 0;
+            {
+                setResult?.Invoke(0);
+                yield break;
+            }
 
             // MVP invariant: max 1 eligible option (target self-only Shield Block).
             var option = reactionBuffer[0];
             var reactorData = entityManager.Registry.Get(option.entity);
             if (reactorData == null || !reactorData.IsAlive)
-                return 0;
+            {
+                setResult?.Invoke(0);
+                yield break;
+            }
 
             bool? decided = null;
             reactionPolicy.DecideReaction(
@@ -360,25 +402,54 @@ namespace PF2e.TurnSystem
                 resolved.damageRolled,
                 result => decided = result);
 
+            // If policy resolved synchronously (AI auto-block, Player AutoBlock/Never), skip yield.
             if (!decided.HasValue)
             {
-                Debug.LogWarning("[Reaction] DecideReaction did not invoke callback synchronously. Treating as decline.");
-                return 0;
+                // Async path: wait for callback (modal prompt).
+                float reactionStart = Time.time;
+                while (!decided.HasValue)
+                {
+                    if (!IsCurrentRun(token))
+                    {
+                        // Abort: force-close any open prompt.
+                        if (reactionPromptController != null)
+                            reactionPromptController.ForceCloseAsDecline();
+                        setResult?.Invoke(0);
+                        yield break;
+                    }
+
+                    if (Time.time - reactionStart > ReactionTimeoutSeconds)
+                    {
+                        Debug.LogWarning("[AITurnController] Reaction decision timeout. Auto-declining.", this);
+                        if (reactionPromptController != null)
+                            reactionPromptController.ForceCloseAsDecline();
+                        decided = false;
+                        break;
+                    }
+
+                    yield return null;
+                }
             }
 
-            if (!decided.Value)
-                return 0;
+            if (decided != true)
+            {
+                setResult?.Invoke(0);
+                yield break;
+            }
 
             var blockResult = ShieldBlockRules.Calculate(reactorData.EquippedShield, resolved.damageRolled);
             if (shieldBlockAction == null)
             {
                 Debug.LogWarning("[AITurnController] ShieldBlockAction is missing. Skipping Shield Block reaction.", this);
-                return 0;
+                setResult?.Invoke(0);
+                yield break;
             }
 
-            return shieldBlockAction.Execute(option.entity, resolved.damageRolled, in blockResult)
+            int reduction = shieldBlockAction.Execute(option.entity, resolved.damageRolled, in blockResult)
                 ? blockResult.targetDamageReduction
                 : 0;
+
+            setResult?.Invoke(reduction);
         }
 
         private bool TryExecuteStand(EntityHandle actor)
@@ -459,7 +530,7 @@ namespace PF2e.TurnSystem
         private bool EnsureReactionPolicy()
         {
             if (reactionPolicy != null) return true;
-            reactionPolicy = new AutoShieldBlockPolicy();
+            reactionPolicy = new ModalReactionPolicy(reactionPromptController);
             return true;
         }
 

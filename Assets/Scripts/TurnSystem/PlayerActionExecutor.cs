@@ -2,6 +2,7 @@ using UnityEngine;
 using PF2e.Core;
 using PF2e.Grid;
 using PF2e.Managers;
+using PF2e.Presentation;
 using System.Collections.Generic;
 
 namespace PF2e.TurnSystem
@@ -22,6 +23,7 @@ namespace PF2e.TurnSystem
         [SerializeField] private StandAction standAction;
         [SerializeField] private RaiseShieldAction raiseShieldAction;
         [SerializeField] private ShieldBlockAction shieldBlockAction;
+        [SerializeField] private ReactionPromptController reactionPromptController;
 
         private EntityHandle executingActor = EntityHandle.None;
         private readonly List<ReactionOption> reactionBuffer = new(2);
@@ -41,6 +43,7 @@ namespace PF2e.TurnSystem
             if (strikeAction == null) Debug.LogError("[Executor] Missing StrikeAction", this);
             if (raiseShieldAction == null) Debug.LogWarning("[Executor] Missing RaiseShieldAction", this);
             if (shieldBlockAction == null) Debug.LogWarning("[Executor] Missing ShieldBlockAction", this);
+            if (reactionPromptController == null) Debug.LogWarning("[Executor] Missing ReactionPromptController", this);
         }
 #endif
 
@@ -230,7 +233,7 @@ namespace PF2e.TurnSystem
         private bool EnsureReactionPolicy()
         {
             if (reactionPolicy != null) return true;
-            reactionPolicy = new AutoShieldBlockPolicy();
+            reactionPolicy = new ModalReactionPolicy(reactionPromptController);
             return true;
         }
 
