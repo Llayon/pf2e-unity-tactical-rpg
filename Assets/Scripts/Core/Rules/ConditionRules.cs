@@ -28,6 +28,29 @@ namespace PF2e.Core
         };
 
         /// <summary>
+        /// PF2e status penalties to checks and DCs do not stack: use max(Frightened, Sickened).
+        /// </summary>
+        public static int ComputeCheckPenalty(IReadOnlyList<ActiveCondition> conditions)
+        {
+            int statusPenalty = 0;
+            if (conditions == null) return 0;
+
+            for (int i = 0; i < conditions.Count; i++)
+            {
+                var condition = conditions[i];
+                if (condition == null) continue;
+
+                if (condition.Type == ConditionType.Frightened || condition.Type == ConditionType.Sickened)
+                {
+                    if (condition.Value > statusPenalty)
+                        statusPenalty = condition.Value;
+                }
+            }
+
+            return statusPenalty;
+        }
+
+        /// <summary>
         /// PF2e stacking for current MVP combat slice:
         /// - Status penalties (Frightened/Sickened) do not stack: use max.
         /// - Circumstance penalties do not stack per target metric.
@@ -39,7 +62,7 @@ namespace PF2e.Core
             out int attackPenalty,
             out int acPenalty)
         {
-            int statusPenalty = 0;
+            int statusPenalty = ComputeCheckPenalty(conditions);
             bool hasProne = false;
             bool hasOffGuard = false;
 
@@ -50,11 +73,6 @@ namespace PF2e.Core
                     var condition = conditions[i];
                     switch (condition.Type)
                     {
-                        case ConditionType.Frightened:
-                        case ConditionType.Sickened:
-                            if (condition.Value > statusPenalty)
-                                statusPenalty = condition.Value;
-                            break;
                         case ConditionType.Prone:
                             hasProne = true;
                             break;

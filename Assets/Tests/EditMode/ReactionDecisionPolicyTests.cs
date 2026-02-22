@@ -186,7 +186,23 @@ namespace PF2e.Tests
                     EquippedShield = raisedShield
                 });
 
-                TurnManager.StartCombat();
+                var attackerData = Registry.Get(Attacker);
+                attackerData.ActionsRemaining = 3;
+                attackerData.MAPCount = 0;
+                attackerData.ReactionAvailable = true;
+
+                var targetData = Registry.Get(Target);
+                targetData.ActionsRemaining = 3;
+                targetData.MAPCount = 0;
+                targetData.ReactionAvailable = true;
+
+                SetPrivateField(TurnManager, "initiativeOrder", new System.Collections.Generic.List<InitiativeEntry>
+                {
+                    new InitiativeEntry { Handle = Attacker, Roll = 20, Modifier = 45, IsPlayer = true },
+                    new InitiativeEntry { Handle = Target, Roll = 1, Modifier = -5, IsPlayer = false }
+                });
+                SetPrivateField(TurnManager, "currentIndex", 0);
+                SetPrivateField(TurnManager, "state", TurnState.PlayerTurn);
 
                 resolveMethod = typeof(PlayerActionExecutor).GetMethod("ResolvePostHitReactionReduction", InstanceNonPublic);
                 Assert.IsNotNull(resolveMethod, "ResolvePostHitReactionReduction not found");

@@ -41,6 +41,19 @@ namespace PF2e.Core
         public ProficiencyRank MediumArmorProf = ProficiencyRank.Trained;
         public ProficiencyRank HeavyArmorProf = ProficiencyRank.Untrained;
 
+        // ─── Save Proficiencies ───
+        public ProficiencyRank FortitudeProf = ProficiencyRank.Trained;
+        public ProficiencyRank ReflexProf = ProficiencyRank.Trained;
+        public ProficiencyRank WillProf = ProficiencyRank.Trained;
+
+        // ─── Perception (preparatory; initiative still uses Wis in Phase 21) ───
+        public ProficiencyRank PerceptionProf = ProficiencyRank.Trained;
+
+        // ─── Skill Proficiencies (MVP subset for early skill actions) ───
+        public ProficiencyRank AthleticsProf = ProficiencyRank.Untrained;
+        public ProficiencyRank IntimidationProf = ProficiencyRank.Untrained;
+        public ProficiencyRank AcrobaticsProf = ProficiencyRank.Untrained;
+
         public int ItemBonusToDamage = 0;
 
         // ─── Ability Scores ───
@@ -133,6 +146,49 @@ namespace PF2e.Core
                 _ => UnarmoredProf
             };
         }
+
+        public ProficiencyRank GetSkillProfRank(SkillType skill)
+        {
+            return skill switch
+            {
+                SkillType.Athletics => AthleticsProf,
+                SkillType.Intimidation => IntimidationProf,
+                SkillType.Acrobatics => AcrobaticsProf,
+                _ => ProficiencyRank.Untrained
+            };
+        }
+
+        public int GetSkillModifier(SkillType skill)
+        {
+            int abilityMod = SkillRules.GetKeyAbilityMod(this, skill);
+            int profBonus = GetProficiencyBonus(GetSkillProfRank(skill));
+            int condPenalty = ConditionRules.ComputeCheckPenalty(Conditions);
+            return abilityMod + profBonus - condPenalty;
+        }
+
+        public ProficiencyRank GetSaveProfRank(SaveType save)
+        {
+            return save switch
+            {
+                SaveType.Fortitude => FortitudeProf,
+                SaveType.Reflex => ReflexProf,
+                SaveType.Will => WillProf,
+                _ => ProficiencyRank.Trained
+            };
+        }
+
+        public int GetSaveModifier(SaveType save)
+        {
+            int abilityMod = SkillRules.GetSaveAbilityMod(this, save);
+            int profBonus = GetProficiencyBonus(GetSaveProfRank(save));
+            int condPenalty = ConditionRules.ComputeCheckPenalty(Conditions);
+            return abilityMod + profBonus - condPenalty;
+        }
+
+        public int GetSaveDC(SaveType save) => 10 + GetSaveModifier(save);
+
+        public int PerceptionModifier =>
+            WisMod + GetProficiencyBonus(PerceptionProf) - ConditionRules.ComputeCheckPenalty(Conditions);
 
         // ─── Computed: AC (PF2e correct formula, no double-count) ───
         public int BaseAC

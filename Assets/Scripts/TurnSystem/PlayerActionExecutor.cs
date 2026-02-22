@@ -21,6 +21,7 @@ namespace PF2e.TurnSystem
         [SerializeField] private StrideAction strideAction;
         [SerializeField] private StrikeAction strikeAction;
         [SerializeField] private StandAction standAction;
+        [SerializeField] private TripAction tripAction;
         [SerializeField] private RaiseShieldAction raiseShieldAction;
         [SerializeField] private ShieldBlockAction shieldBlockAction;
         [SerializeField] private ReactionPromptController reactionPromptController;
@@ -41,6 +42,7 @@ namespace PF2e.TurnSystem
             if (entityManager == null) Debug.LogError("[Executor] Missing EntityManager", this);
             if (strideAction == null) Debug.LogError("[Executor] Missing StrideAction", this);
             if (strikeAction == null) Debug.LogError("[Executor] Missing StrikeAction", this);
+            if (tripAction == null) Debug.LogWarning("[Executor] Missing TripAction", this);
             if (raiseShieldAction == null) Debug.LogWarning("[Executor] Missing RaiseShieldAction", this);
             if (shieldBlockAction == null) Debug.LogWarning("[Executor] Missing ShieldBlockAction", this);
             if (reactionPromptController == null) Debug.LogWarning("[Executor] Missing ReactionPromptController", this);
@@ -247,6 +249,37 @@ namespace PF2e.TurnSystem
             if (!standAction.TryStand(actor)) return false;
 
             turnManager.SpendActions(StandAction.ActionCost);
+            return true;
+        }
+
+        public bool TryExecuteTrip(EntityHandle target)
+        {
+            if (turnManager == null || entityManager == null || tripAction == null) return false;
+            if (!CanActNow()) return false;
+
+            var actor = turnManager.CurrentEntity;
+            executingActor = actor;
+            turnManager.BeginActionExecution(actor, "Player.Trip");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = Time.time;
+#endif
+
+            var degree = tripAction.TryTrip(actor, target, UnityRng.Shared);
+            if (!degree.HasValue)
+            {
+                executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                executionStartTime = -1f;
+#endif
+                turnManager.ActionCompleted(); // rollback (invalid attempt)
+                return false;
+            }
+
+            executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = -1f;
+#endif
+            turnManager.CompleteActionWithCost(TripAction.ActionCost);
             return true;
         }
 
