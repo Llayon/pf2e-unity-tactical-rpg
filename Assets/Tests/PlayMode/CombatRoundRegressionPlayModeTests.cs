@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -8,12 +9,14 @@ using UnityEngine.TestTools;
 using PF2e.Core;
 using PF2e.Grid;
 using PF2e.Managers;
+using PF2e.Presentation;
 using PF2e.TurnSystem;
 
 namespace PF2e.Tests
 {
     public class CombatRoundRegressionPlayModeTests
     {
+        private const BindingFlags InstanceNonPublic = BindingFlags.Instance | BindingFlags.NonPublic;
         private const string SampleSceneName = "SampleScene";
         private const float DefaultTimeoutSeconds = 8f;
         private const float SimulationTimeoutSeconds = 25f;
@@ -777,6 +780,85 @@ namespace PF2e.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator GT_P19_PM_412_ShieldBlockPromptTimeout_ReleasesExecutingActionLock()
+        {
+            var promptController = UnityEngine.Object.FindFirstObjectByType<ReactionPromptController>();
+            Assert.IsNotNull(promptController, "ReactionPromptController not found in SampleScene.");
+
+            SetPrivateField(promptController, "timeoutSeconds", 1f);
+
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+
+            BoostAllCombatantsHP(200);
+
+            fighter.Wisdom = 5000; // deterministic first actor (player)
+            fighter.ShieldBlockPreference = ReactionPreference.AlwaysAsk;
+            Assert.IsTrue(fighter.EquippedShield.IsEquipped, "Fighter must have an equipped shield in SampleScene for Phase 19.6.");
+
+            wizard.Wisdom = -5000;
+            goblin1.Wisdom = 4000; // next actor to trigger enemy strike quickly
+            goblin2.Wisdom = -4000;
+            goblin1.Strength = 5000; // make the first melee strike reliably hit and open the reaction prompt
+
+            MoveEntityToCell(goblin1, fighter.GridPosition + Vector3Int.right);
+            MoveEntityToCell(goblin2, FindFarthestAvailableCell(fighter.GridPosition, goblin2.Handle, minDistFeet: 20));
+            MoveEntityToCell(wizard, FindFarthestAvailableCell(goblin1.GridPosition, wizard.Handle, minDistFeet: 20));
+
+            turnManager.StartCombat();
+
+            int fighterRaiseShieldCount = 0;
+            float deadline = Time.realtimeSinceStartup + SimulationTimeoutSeconds;
+
+            // Drive turns until the enemy opens a Shield Block prompt on the player.
+            while (!promptController.IsPromptActive)
+            {
+                if (Time.realtimeSinceStartup > deadline)
+                    Assert.Fail("Timeout waiting for enemy Shield Block prompt.");
+
+                if (turnManager.State == TurnState.Inactive)
+                    Assert.Fail("Combat ended before Shield Block prompt timeout scenario was reached.");
+
+                if (turnManager.State == TurnState.PlayerTurn)
+                {
+                    if (turnManager.CurrentEntity == fighter.Handle && !fighter.EquippedShield.isRaised)
+                    {
+                        Assert.IsTrue(playerActionExecutor.TryExecuteRaiseShield(), "Fighter failed to Raise Shield in timeout setup.");
+                        fighterRaiseShieldCount++;
+                    }
+
+                    turnManager.EndTurn();
+                }
+
+                yield return null;
+            }
+
+            Assert.Greater(fighterRaiseShieldCount, 0, "Setup invalid: fighter never raised shield before enemy strike.");
+            Assert.AreEqual(TurnState.ExecutingAction, turnManager.State, "Enemy reaction prompt should occur during ExecutingAction.");
+
+            // Do not answer the prompt. Wait for timeout auto-decline and ensure action lock is released.
+            float timeoutReleaseDeadline = Time.realtimeSinceStartup + promptController.TimeoutSeconds + 4f;
+            while (promptController.IsPromptActive || turnManager.State == TurnState.ExecutingAction)
+            {
+                if (Time.realtimeSinceStartup > timeoutReleaseDeadline)
+                {
+                    Assert.Fail(
+                        "Timeout waiting for Shield Block prompt timeout path to release ExecutingAction lock. " +
+                        $"state={turnManager.State}, source={turnManager.ExecutingActionSource}, actor={turnManager.ExecutingActor.Id}");
+                }
+
+                yield return null;
+            }
+
+            Assert.AreNotEqual(
+                TurnState.ExecutingAction,
+                turnManager.State,
+                "TurnManager must not remain in ExecutingAction after reaction prompt timeout auto-decline.");
+        }
+
         private void ResolveSceneReferences()
         {
             turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();
@@ -1083,6 +1165,14 @@ namespace PF2e.Tests
                     Assert.Fail($"Timeout after {timeoutSeconds:0.##}s: {timeoutReason}");
                 yield return null;
             }
+        }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            Assert.IsNotNull(target, "SetPrivateField target is null.");
+            var field = target.GetType().GetField(fieldName, InstanceNonPublic);
+            Assert.IsNotNull(field, $"Missing field '{fieldName}' on {target.GetType().Name}.");
+            field.SetValue(target, value);
         }
     }
 }
