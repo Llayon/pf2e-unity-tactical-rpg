@@ -10,7 +10,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Player can: start combat, move (Stride), Strike, Trip, Shove, Grapple, Escape, Demoralize, Stand, Raise Shield, end turn.
 - Enemy side takes turns via simple melee AI (stand if prone, stride toward nearest player, strike in range; if no same-floor targets exist, target selection now falls back to any elevation).
 - Combat presents: turn HUD, initiative bar, combat log, floating damage, modal Shield Block reaction prompt, and end-of-encounter panel.
-- Basic PF2e rules included: 3-action economy, MAP, basic melee strike check, damage roll, simple conditions.
+- Basic PF2e rules included: 3-action economy, MAP, weapon-aware strike check (melee/ranged), damage roll, simple conditions.
 
 ## Architecture Snapshot
 ### A) Current Folder Map + Responsibilities
@@ -30,7 +30,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Controls currently in code: encounter flow buttons (`Start Encounter` / `End Encounter`) as primary path, `C`/`X` as editor/development fallback, left-click cell/entity, action bar buttons (bottom-center), `Space` end turn, `Esc` cancel targeting, `R` Raise Shield, `T` Trip, `Y` Demoralize, `H` Shove, `J` Grapple, `K` Escape, `WASD/QE/Scroll` camera, `G` grid toggle, `PageUp/PageDown` floor.
 - Turn flow works: initiative roll, per-entity turns, 3 actions, action spending, and condition lifecycle processing via `ConditionService` (start/end turn deltas).
 - Movement works: occupancy-aware, multi-stride pathing, 5/10 diagonal parity, movement zone/path preview, animated movement.
-- Combat works at MVP level: melee strike resolution, MAP increment, phased strike flow (pre/post reaction extension points), damage apply, defeat hide + events, and generic non-strike damage pipeline (`DamageAppliedEvent` + `DamageApplicationService`) currently used by `Trip` crit damage.
+- Combat works at MVP level: weapon-aware strike resolution (melee + ranged), MAP increment, ranged range-increment penalties, phased strike flow (pre/post reaction extension points), damage apply, defeat hide + events, and generic non-strike damage pipeline (`DamageAppliedEvent` + `DamageApplicationService`) currently used by `Trip` crit damage.
 - Skill-action checks work at MVP level: generic `CheckResolver` + `SkillType`/`SaveType` + `SkillRules`, with `Trip`, `Shove`, `Grapple`, `Escape`, and `Demoralize` implemented and wired through `PlayerActionExecutor`.
 - Shield flow works at MVP level: `Raise Shield` grants temporary AC via `EntityData` derived stats; `Shield Block` can reduce post-hit damage, damage the shield, and spend reaction.
 - Grapple/Escape lifecycle works at MVP level: source-scoped relation state is owned by `GrappleService` (plain C#) and orchestrated by `GrappleLifecycleController`; holds expire at end of grappler's next turn, break on grappler movement, and can be released by `EscapeAction` success.
@@ -39,7 +39,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Targeting UX now includes Action Bar mode highlight plus world-space target feedback (`eligible` highlights + hover valid/invalid tint) and a text hint panel explaining preview reasons using the same `TargetingController` validation path as confirm clicks.
 - Victory/defeat ends combat immediately when one side (`Player` or `Enemy`) is wiped.
 - End-of-encounter UI shows `Victory` / `Defeat` / `Encounter Ended`, with restart via scene reload.
-- `SampleScene` now includes shield demo wiring (`FighterShield`, `ReactionPromptController`, fighter `ShieldBlockPreference = AlwaysAsk`), skill-action runtime wiring (`Trip`/`Shove`/`Grapple`/`Escape`/`Demoralize`), Action Bar UI, targeting feedback/tint controllers, targeting hint panel, and generic damage log forwarder.
+- `SampleScene` now includes shield demo wiring (`FighterShield`, `ReactionPromptController`, fighter `ShieldBlockPreference = AlwaysAsk`), skill-action runtime wiring (`Trip`/`Shove`/`Grapple`/`Escape`/`Demoralize`), Action Bar UI, targeting feedback/tint controllers, targeting hint panel, generic damage log forwarder, and a ranged strike demo path (`Shortbow` assigned to the wizard via `EntityManager` weapon config).
 
 ### C) Key Dependencies and Risks
 - High scene wiring coupling: `CombatController`, `TacticalGrid`, `EntityManager`, `CombatEventBus` must all be correctly referenced.
@@ -55,7 +55,6 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 
 ### D) Missing Foundations for Vertical Slice
 - Post-encounter navigation beyond restart (return-to-menu/progression path).
-- Ranged strike/bow support (current strike path is still melee-only by design).
 - Explicit range/LOS preview overlays and detailed invalid-target reason UX polish beyond current text hints/tints.
 - Broader integration coverage beyond current PlayMode smoke tests.
 
@@ -66,9 +65,9 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Pathfinding + movement zones | Done | A*, occupancy-aware Dijkstra, action-based path search |
 | Entity model + occupancy | Done | Registry, handles, occupancy rules, entity views |
 | Turn state machine + actions economy | Done | Core loop works for both player and enemy turns; action lock now tracks actor/source/duration with watchdog diagnostics |
-| Player actions (Stride/Strike/Stand/Raise Shield + skill actions) | Partial | `Trip`, `Shove`, `Grapple`, `Escape`, and `Demoralize` are implemented and playable; broader action set (e.g., ranged strike, reposition, spells) still pending |
+| Player actions (Stride/Strike/Stand/Raise Shield + skill actions) | Partial | `Strike` is now weapon-aware (melee + ranged bow MVP) and `Trip`/`Shove`/`Grapple`/`Escape`/`Demoralize` are implemented and playable; broader action set (e.g., reposition, spells) still pending |
 | Generic checks + skill actions | Partial | `CheckResolver`, skill/save proficiencies/modifiers, and first skill actions are implemented; broader PF2e action surface and richer rule interactions still pending |
-| PF2e strike/damage basics | Partial | Melee-focused strike MVP plus generic non-strike damage event/application path for `Trip` crit damage; ranged/spells not implemented |
+| PF2e strike/damage basics | Partial | Weapon-aware strike MVP (melee + ranged bow) with MAP, phased reaction windows, and ranged range-increment penalties; generic non-strike damage event/application path exists for `Trip` crit damage; spells and advanced ranged rules (ammo/reload/cover/LoS) not implemented |
 | Reactions (Shield Block MVP) | Partial | Post-hit reaction window implemented with pure `ReactionService`/`ShieldBlockRules`, `ShieldBlockAction`, and modal prompt UX; only self-only Shield Block is supported |
 | Conditions | Partial | `ConditionService` is the mutation entrypoint for turn/action flows with caller-owned `ConditionDelta` buffers; model supports independent `Value + RemainingRounds` tick semantics; `ConditionRules` now owns implied/stacking helpers for current combat penalties; `EntityData` uses strict snapshot-based derived-stat cache invalidation for AC/attack-penalty reads |
 | Combat/UI presentation | Partial | Turn HUD, action bar, targeting world feedback (eligible/hover tint), targeting reason hint panel, combat log, generic non-strike damage log forwarder, floating damage, Shield Block modal prompt (`ReactionPromptController`), and end-of-encounter panel are present; end-panel text maps through `EncounterEndTextMap`; encounter flow panel is reusable and can be driven by shared preset |
@@ -77,7 +76,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Encounter-end text mapping | Done | `EncounterEndTextMap` is source-of-truth for `EncounterResult -> title/subtitle`, consumed by `EncounterEndPanelController` and covered by EditMode unit tests |
 | Encounter-end log mapping | Done | `EncounterEndLogMessageMap` (`Assets/Scripts/Presentation/EncounterEndLogMessageMap.cs`) is source-of-truth for `EncounterResult -> combat-end log message`, consumed by `TurnLogForwarder` and covered by EditMode unit tests |
 | Data-driven content (SO assets) | Partial | Grid/camera/items exist; encounter flow runtime fallback now has a shared UI preset |
-| AI | Partial | Simple melee AI implemented with deterministic target priority (`distance -> HP -> handle`), same-elevation preference with any-elevation fallback, sticky per-turn target lock (reacquire only on invalid target), and no-progress bailout; `AITurnController` now routes decisions through `IAIDecisionPolicy` (`SimpleMeleeDecisionPolicy`) to preserve behavior while preparing Utility-AI migration; no advanced tactics/ranged/spell logic |
+| AI | Partial | Simple melee AI implemented with deterministic target priority (`distance -> HP -> handle`), same-elevation preference with any-elevation fallback, sticky per-turn target lock (reacquire only on invalid target), and no-progress bailout; `AITurnController` now routes decisions through `IAIDecisionPolicy` (`SimpleMeleeDecisionPolicy`) to preserve behavior while preparing Utility-AI migration; no advanced tactics/ranged usage/spell logic |
 | Save/load/progression | Not started | No persistence layer |
 | PlayMode/integration tests | Partial | PlayMode covers encounter-end UX, live CheckVictory turn-flow, action-driven victory/defeat outcomes, encounter flow button start/end behavior, authored EncounterFlowController wiring, prefab-based auto-create fallback wiring, cross-scene prefab encounter-flow smoke coverage, multi-round regression (movement + enemy AI + condition ticks), blocked-enemy regression (turn exits without `ExecutingAction` deadlock), sticky-target lock E2E regression (enemy does not retarget mid-turn), EndTurn typed-event order regression (`ConditionsTicked -> TurnEnded -> TurnStarted(next)`), initiative typed payload integrity regression (count/uniqueness/team composition/sort order), duration-condition lifecycle regressions (`DurationChanged` and duration-expire removal with matching log output), live status-stacking strike regressions (max status, single circumstance), `ReactionPromptController` PlayMode coverage (Yes/No/timeout/disable/double-request), enemy->player Shield Block prompt-timeout E2E lock-release regression (`ExecutingAction` timeout path releases cleanly), and combat-end payload-to-panel consistency regressions for live victory/defeat and manual abort; broader system-level coverage is still pending |
 | Typed bus direct-publish tests (EditMode) | Done | EditMode now asserts direct `TurnManager -> CombatEventBus` lifecycle publish for `StartCombat` path and `EndTurn` path (`TurnEnded` + `ConditionsTicked`) without forwarder adapters |
@@ -130,6 +129,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Targeting preview contract: `TargetingController.PreviewEntityDetailed(...)` is the canonical source for target feedback/tints/hint text; UI layers must not duplicate action validation.
 - Targeting feedback contract: `GridInteraction` publishes hovered entity transitions through `GridManager` hover events; `TargetingFeedbackController`/`TargetingHintController` are event-driven (no per-frame full validation scan).
 - Generic damage UX contract: non-strike damage uses `DamageAppliedEvent`; `FloatingDamageUI`/`DamageLogForwarder` subscribe to this path. Strike damage still uses `OnStrikeResolved` path until an explicit strike migration is done (avoid duplicate UI/log lines).
+- Weapon-aware strike contract (Phase 25): `Strike` is the single action path for melee and ranged weapons; validation/runtime branch on equipped weapon (`weapon == null || !IsRanged` => melee, `IsRanged` => ranged). Ranged strikes ignore same-elevation checks in MVP and apply range-increment penalty (`-2` per increment after the first) in addition to MAP.
 - `AITurnController` must release action locks on abort/timeout/disable to avoid `ExecutingAction` deadlocks.
 - Enemy strike reaction-window contract: `AITurnController` may legitimately keep `TurnManager.State == ExecutingAction` while awaiting modal reaction input; timeout/abort/disable must resolve as decline and release the lock.
 - Reaction policy runtime-default contract: `AITurnController` and `PlayerActionExecutor` instantiate `ModalReactionPolicy` (not `AutoShieldBlockPolicy`) for Shield Block decisions; `AutoShieldBlockPolicy` is retained primarily for tests/helpers.
@@ -156,6 +156,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Input System package exists, but most gameplay input is polled directly from keyboard/mouse.
 - CI requires repository-level `UNITY_LICENSE` secret; workflow fails fast when missing.
 - PlayMode regression now covers multi-round movement/AI/condition-tick flow, blocked-turn recovery, and sticky-target lock behavior, but does not yet cover advanced combat domains (ranged/spells/reactions).
+- Ranged strike MVP is implemented (bow path, range increment penalties, weapon-aware strike targeting), but advanced ranged rules remain deferred: ammo, reload, cover, LoS/concealment, volley, and crit trait/specialization effects.
 - `ModalReactionPolicy` is the runtime default for both controllers; `AutoShieldBlockPolicy` remains in code for tests and simple synchronous policy scenarios.
 - Combat round regression deadlock assertions now combine lock duration with turn-progress signals to reduce CI timing flakes while still detecting real stuck locks.
 - PF2e feat/rule-engine architecture is intentionally deferred: no generic `FeatDefinition`/rule-engine/modifier-stack runtime is built yet. Current guardrails are documented (modifier `{value,type,source}`, capability grants separate, `EntityData` state + resolver context split) and should be implemented only when concrete gameplay features require them (second typed-bonus conflict, first feat-granted capability, etc.).
@@ -164,9 +165,9 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Legacy forwarder stubs (`TurnManagerLogForwarder`, `TurnManagerTypedForwarder`) were removed from scenes and code; turn/combat typed flow is direct `TurnManager -> CombatEventBus`.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Implement `Phase 25` ranged strike + bow MVP (weapon-aware Strike targeting/validation, range increment penalties, ranged scene content, and preview-reason UX updates).
-2. Migrate strike damage UI/logging to the generic `DamageAppliedEvent` path (or explicitly define the long-term split) and remove duplicate-path risk in `FloatingDamageUI`/log forwarders.
-3. Add the first typed-modifier conflict gameplay case (e.g., shield + cover to AC) with regression tests, then introduce a minimal modifier model (`ModifierType` + source/provenance) only as needed.
+1. Migrate strike damage UI/logging to the generic `DamageAppliedEvent` path (or explicitly define the long-term split) and remove duplicate-path risk in `FloatingDamageUI`/log forwarders.
+2. Add the first typed-modifier conflict gameplay case (e.g., shield + cover to AC) with regression tests, then introduce a minimal modifier model (`ModifierType` + source/provenance) only as needed.
+3. Implement `RepositionAction` (Athletics vs Fortitude DC, Attack trait, forced movement destination selection) using the existing `CheckResolver` + forced-movement foundation from `Shove`.
 
 ## LLM-First Delivery Workflow (Multi-Agent)
 ### Operating Model (for non-programmer project owner)

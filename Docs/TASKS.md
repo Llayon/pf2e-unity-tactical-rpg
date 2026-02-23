@@ -56,6 +56,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-050 | P1 | done | Builder | Add targeting reason hint UI (text prompts/reasons) with detailed preview reasons | `TargetingFailureReason`/`TargetingEvaluationResult`, `PreviewEntityDetailed`, `TargetingReasonFormatter`, `TargetingHintController`, ActionBar builder extension, scene/validator wiring, and tests completed |
 | T-051 | P0 | done | Builder | Implement generic non-strike damage event foundation (`Phase 24`) | `DamageAppliedEvent`, `DamageApplicationService`, `Trip` crit damage routed through generic path, and `FloatingDamageUI` support for non-strike damage with regression tests |
 | T-052 | P1 | done | Builder | Add generic damage combat-log forwarder + scene/validator wiring (`Phase 24.1`) | `DamageLogForwarder` logs `DamageAppliedEvent`, EditMode tests added, and `SampleScene` + validator/autofix wiring updated |
+| T-053 | P0 | done | Builder | Implement `Phase 25` weapon-aware ranged Strike + bow MVP | Unified `Strike` path now supports melee/ranged weapons, ranged range-increment penalties are applied, strike targeting/preview UX is weapon-aware, `Shortbow` demo content is wired in `SampleScene`, and EditMode/PlayMode suites remain green |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal
