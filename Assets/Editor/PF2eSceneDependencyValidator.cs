@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 using PF2e.Core;
 using PF2e.Grid;
@@ -75,6 +76,7 @@ public static class PF2eSceneDependencyValidator
         errors += ValidateAll<CombatLogController>(ValidateCombatLogController);
         errors += ValidateAll<FloatingDamageUI>(ValidateFloatingDamageUI);
         errors += ValidateAll<InitiativeBarController>(ValidateInitiativeBarController);
+        errors += ValidateAll<ActionBarController>(ValidateActionBarController);
         errors += ValidateAll<ConditionLogForwarder>(ValidateConditionLogForwarder);
         errors += ValidateAll<StandAction>(ValidateStandAction);
                 errors += ValidateAll<TripAction>(ValidateTripAction);
@@ -101,6 +103,7 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<EncounterEndPanelController>();
         errors += ErrorIfMoreThanOne<EncounterFlowController>();
         errors += ErrorIfMoreThanOne<InitiativeBarController>();
+        errors += ErrorIfMoreThanOne<ActionBarController>();
         errors += ErrorIfMoreThanOne<ConditionLogForwarder>();
         errors += ErrorIfMoreThanOne<StandAction>();
                 errors += ErrorIfMoreThanOne<TripAction>();
@@ -138,6 +141,7 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnIfNone<ReactionPromptController>();
         warnings += WarnIfNone<EncounterEndPanelController>();
         warnings += WarnIfNone<EncounterFlowController>();
+        warnings += WarnIfNone<ActionBarController>();
         warnings += WarnIfAny<ConditionTickForwarder>(
             "ConditionTickForwarder is deprecated and should be removed from scene.");
 
@@ -322,6 +326,35 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(c, "roundLabel",     "TextMeshProUGUI");
         errors += RequireRef(c, "slotsContainer", "Transform");
         errors += RequireRef(c, "slotPrefab",     "InitiativeSlot");
+    }
+
+    private static void ValidateActionBarController(ActionBarController c, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(c, "eventBus", "CombatEventBus");
+        errors += RequireRef(c, "entityManager", "EntityManager");
+        errors += RequireRef(c, "turnManager", "TurnManager");
+        errors += RequireRef(c, "actionExecutor", "PlayerActionExecutor");
+        errors += RequireRef(c, "targetingController", "TargetingController");
+        errors += RequireRef(c, "canvasGroup", "CanvasGroup");
+
+        // UI slots are warning-level to support partial/iterative setup.
+        warnings += WarnRef(c, "strikeButton", "Button");
+        warnings += WarnRef(c, "tripButton", "Button");
+        warnings += WarnRef(c, "shoveButton", "Button");
+        warnings += WarnRef(c, "grappleButton", "Button");
+        warnings += WarnRef(c, "demoralizeButton", "Button");
+        warnings += WarnRef(c, "escapeButton", "Button");
+        warnings += WarnRef(c, "raiseShieldButton", "Button");
+        warnings += WarnRef(c, "standButton", "Button");
+
+        warnings += WarnRef(c, "strikeHighlight", "Image");
+        warnings += WarnRef(c, "tripHighlight", "Image");
+        warnings += WarnRef(c, "shoveHighlight", "Image");
+        warnings += WarnRef(c, "grappleHighlight", "Image");
+        warnings += WarnRef(c, "demoralizeHighlight", "Image");
+        warnings += WarnRef(c, "escapeHighlight", "Image");
+        warnings += WarnRef(c, "raiseShieldHighlight", "Image");
+        warnings += WarnRef(c, "standHighlight", "Image");
     }
 
     private static void ValidateConditionLogForwarder(ConditionLogForwarder f, ref int errors, ref int warnings)
@@ -566,6 +599,7 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         TryGetSingleton(out Canvas rootCanvas, logIfMissing: false);
         TryGetSingleton(out ReactionPromptController reactionPromptControllerSingleton, logIfMissing: false);
         TryGetSingleton(out GrappleLifecycleController grappleLifecycleSingleton, logIfMissing: false);
+        TryGetSingleton(out ActionBarController actionBarControllerSingleton, logIfMissing: false);
 
         // Fix null references only
 
@@ -761,6 +795,18 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         if (eventBus != null)
             fixedCount += FixAll<InitiativeBarController>("eventBus", eventBus);
 
+        // ActionBarController (Phase 23)
+        fixedCount += FixAll<ActionBarController>("entityManager", entityManager);
+        fixedCount += FixAll<ActionBarController>("turnManager", turnManager);
+        if (eventBus != null)
+            fixedCount += FixAll<ActionBarController>("eventBus", eventBus);
+        if (actionExecutor != null)
+            fixedCount += FixAll<ActionBarController>("actionExecutor", actionExecutor);
+        if (targetingController != null)
+            fixedCount += FixAll<ActionBarController>("targetingController", targetingController);
+        if (actionBarControllerSingleton != null)
+            fixedCount += AutoWireActionBarController(actionBarControllerSingleton);
+
         if (fixedCount > 0)
         {
             EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
@@ -852,6 +898,47 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
 
         Debug.Log($"[PF2eAutoFix] Assigned {t.Name} ({GetPath(target.transform)}): {fieldName} = {value.name}", target);
         return 1;
+    }
+
+    private static int AutoWireActionBarController(ActionBarController bar)
+    {
+        if (bar == null) return 0;
+
+        int fixedCount = 0;
+        var root = bar.transform;
+
+        fixedCount += TryAssignIfNull(bar, "canvasGroup", bar.GetComponent<CanvasGroup>());
+
+        fixedCount += TryAssignActionBarChild<Button>(bar, root, "StrikeButton", "strikeButton");
+        fixedCount += TryAssignActionBarChild<Button>(bar, root, "TripButton", "tripButton");
+        fixedCount += TryAssignActionBarChild<Button>(bar, root, "ShoveButton", "shoveButton");
+        fixedCount += TryAssignActionBarChild<Button>(bar, root, "GrappleButton", "grappleButton");
+        fixedCount += TryAssignActionBarChild<Button>(bar, root, "DemoralizeButton", "demoralizeButton");
+        fixedCount += TryAssignActionBarChild<Button>(bar, root, "EscapeButton", "escapeButton");
+        fixedCount += TryAssignActionBarChild<Button>(bar, root, "RaiseShieldButton", "raiseShieldButton");
+        fixedCount += TryAssignActionBarChild<Button>(bar, root, "StandButton", "standButton");
+
+        fixedCount += TryAssignActionBarChild<Image>(bar, root, "StrikeButton/ActiveHighlight", "strikeHighlight");
+        fixedCount += TryAssignActionBarChild<Image>(bar, root, "TripButton/ActiveHighlight", "tripHighlight");
+        fixedCount += TryAssignActionBarChild<Image>(bar, root, "ShoveButton/ActiveHighlight", "shoveHighlight");
+        fixedCount += TryAssignActionBarChild<Image>(bar, root, "GrappleButton/ActiveHighlight", "grappleHighlight");
+        fixedCount += TryAssignActionBarChild<Image>(bar, root, "DemoralizeButton/ActiveHighlight", "demoralizeHighlight");
+        fixedCount += TryAssignActionBarChild<Image>(bar, root, "EscapeButton/ActiveHighlight", "escapeHighlight");
+        fixedCount += TryAssignActionBarChild<Image>(bar, root, "RaiseShieldButton/ActiveHighlight", "raiseShieldHighlight");
+        fixedCount += TryAssignActionBarChild<Image>(bar, root, "StandButton/ActiveHighlight", "standHighlight");
+
+        return fixedCount;
+    }
+
+    private static int TryAssignActionBarChild<T>(ActionBarController bar, Transform root, string childPath, string fieldName)
+        where T : Component
+    {
+        if (bar == null || root == null) return 0;
+        var child = root.Find(childPath);
+        if (child == null) return 0;
+        var component = child.GetComponent<T>();
+        if (component == null) return 0;
+        return TryAssignIfNull(bar, fieldName, component);
     }
 }
 #endif
