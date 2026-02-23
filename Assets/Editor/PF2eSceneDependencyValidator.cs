@@ -77,6 +77,7 @@ public static class PF2eSceneDependencyValidator
         errors += ValidateAll<FloatingDamageUI>(ValidateFloatingDamageUI);
         errors += ValidateAll<InitiativeBarController>(ValidateInitiativeBarController);
         errors += ValidateAll<ActionBarController>(ValidateActionBarController);
+        errors += ValidateAll<TargetingHintController>(ValidateTargetingHintController);
         errors += ValidateAll<TargetingFeedbackController>(ValidateTargetingFeedbackController);
         errors += ValidateAll<ConditionLogForwarder>(ValidateConditionLogForwarder);
         errors += ValidateAll<StandAction>(ValidateStandAction);
@@ -105,6 +106,7 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<EncounterFlowController>();
         errors += ErrorIfMoreThanOne<InitiativeBarController>();
         errors += ErrorIfMoreThanOne<ActionBarController>();
+        errors += ErrorIfMoreThanOne<TargetingHintController>();
         errors += ErrorIfMoreThanOne<TargetingFeedbackController>();
         errors += ErrorIfMoreThanOne<ConditionLogForwarder>();
         errors += ErrorIfMoreThanOne<StandAction>();
@@ -144,6 +146,7 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnIfNone<EncounterEndPanelController>();
         warnings += WarnIfNone<EncounterFlowController>();
         warnings += WarnIfNone<ActionBarController>();
+        warnings += WarnIfNone<TargetingHintController>();
         warnings += WarnIfNone<TargetingFeedbackController>();
         warnings += WarnIfAny<ConditionTickForwarder>(
             "ConditionTickForwarder is deprecated and should be removed from scene.");
@@ -366,6 +369,17 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(c, "entityManager", "EntityManager");
         errors += RequireRef(c, "gridManager", "GridManager");
         errors += RequireRef(c, "targetingController", "TargetingController");
+    }
+
+    private static void ValidateTargetingHintController(TargetingHintController c, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(c, "eventBus", "CombatEventBus");
+        errors += RequireRef(c, "turnManager", "TurnManager");
+        errors += RequireRef(c, "gridManager", "GridManager");
+        errors += RequireRef(c, "targetingController", "TargetingController");
+        errors += RequireRef(c, "canvasGroup", "CanvasGroup");
+        errors += RequireRef(c, "hintText", "TMP_Text");
+        warnings += WarnRef(c, "backgroundImage", "Image");
     }
 
     private static void ValidateConditionLogForwarder(ConditionLogForwarder f, ref int errors, ref int warnings)
@@ -611,6 +625,7 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         TryGetSingleton(out ReactionPromptController reactionPromptControllerSingleton, logIfMissing: false);
         TryGetSingleton(out GrappleLifecycleController grappleLifecycleSingleton, logIfMissing: false);
         TryGetSingleton(out ActionBarController actionBarControllerSingleton, logIfMissing: false);
+        TryGetSingleton(out TargetingHintController targetingHintControllerSingleton, logIfMissing: false);
         TryGetSingleton(out TargetingFeedbackController targetingFeedbackControllerSingleton, logIfMissing: false);
 
         // Fix null references only
@@ -819,6 +834,18 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         if (actionBarControllerSingleton != null)
             fixedCount += AutoWireActionBarController(actionBarControllerSingleton);
 
+        // TargetingHintController (Phase 23.2)
+        if (targetingHintControllerSingleton != null)
+        {
+            if (eventBus != null)
+                fixedCount += FixAll<TargetingHintController>("eventBus", eventBus);
+            fixedCount += FixAll<TargetingHintController>("turnManager", turnManager);
+            fixedCount += FixAll<TargetingHintController>("gridManager", gridManager);
+            if (targetingController != null)
+                fixedCount += FixAll<TargetingHintController>("targetingController", targetingController);
+            fixedCount += AutoWireTargetingHintController(targetingHintControllerSingleton);
+        }
+
         // TargetingFeedbackController (Phase 23.1)
         if (targetingFeedbackControllerSingleton != null)
         {
@@ -962,6 +989,27 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         var component = child.GetComponent<T>();
         if (component == null) return 0;
         return TryAssignIfNull(bar, fieldName, component);
+    }
+
+    private static int AutoWireTargetingHintController(TargetingHintController hint)
+    {
+        if (hint == null) return 0;
+
+        int fixedCount = 0;
+        var root = hint.transform;
+
+        fixedCount += TryAssignIfNull(hint, "canvasGroup", hint.GetComponent<CanvasGroup>());
+        fixedCount += TryAssignIfNull(hint, "backgroundImage", hint.GetComponent<Image>());
+
+        var hintText = root.Find("HintText");
+        if (hintText != null)
+        {
+            var tmp = hintText.GetComponent<TMPro.TMP_Text>();
+            if (tmp != null)
+                fixedCount += TryAssignIfNull(hint, "hintText", tmp);
+        }
+
+        return fixedCount;
     }
 }
 #endif

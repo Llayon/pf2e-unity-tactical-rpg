@@ -7,6 +7,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using PF2e.Core;
+using PF2e.Grid;
 using PF2e.Managers;
 using PF2e.Presentation;
 using PF2e.TurnSystem;
@@ -18,14 +19,6 @@ public static class ActionBarUIBuilder
     [MenuItem("Tools/PF2e/Build Action Bar")]
     public static void BuildActionBar()
     {
-        var existing = Object.FindFirstObjectByType<ActionBarController>();
-        if (existing != null)
-        {
-            Debug.LogWarning("[ActionBarBuilder] ActionBarController already exists. Select existing bar instead of building duplicate.", existing);
-            Selection.activeObject = existing.gameObject;
-            return;
-        }
-
         var canvas = Object.FindFirstObjectByType<Canvas>();
         if (canvas == null)
         {
@@ -33,18 +26,30 @@ public static class ActionBarUIBuilder
             return;
         }
 
-        var root = CreateActionBarRoot(canvas.transform);
-        var controller = root.GetComponent<ActionBarController>();
+        bool createdActionBar = false;
+        var controller = Object.FindFirstObjectByType<ActionBarController>();
+        GameObject root;
+        if (controller == null)
+        {
+            root = CreateActionBarRoot(canvas.transform);
+            controller = root.GetComponent<ActionBarController>();
+            createdActionBar = true;
 
-        // Create buttons and wire slots/highlights.
-        CreateButtonSlot(root.transform, controller, "StrikeButton", "Strike", "LMB", "strikeButton", "strikeHighlight");
-        CreateButtonSlot(root.transform, controller, "TripButton", "Trip", "T", "tripButton", "tripHighlight");
-        CreateButtonSlot(root.transform, controller, "ShoveButton", "Shove", "H", "shoveButton", "shoveHighlight");
-        CreateButtonSlot(root.transform, controller, "GrappleButton", "Grapple", "J", "grappleButton", "grappleHighlight");
-        CreateButtonSlot(root.transform, controller, "DemoralizeButton", "Demoralize", "Y", "demoralizeButton", "demoralizeHighlight");
-        CreateButtonSlot(root.transform, controller, "EscapeButton", "Escape", "K", "escapeButton", "escapeHighlight");
-        CreateButtonSlot(root.transform, controller, "RaiseShieldButton", "Shield", "R", "raiseShieldButton", "raiseShieldHighlight");
-        CreateButtonSlot(root.transform, controller, "StandButton", "Stand", "—", "standButton", "standHighlight");
+            // Create buttons and wire slots/highlights.
+            CreateButtonSlot(root.transform, controller, "StrikeButton", "Strike", "LMB", "strikeButton", "strikeHighlight");
+            CreateButtonSlot(root.transform, controller, "TripButton", "Trip", "T", "tripButton", "tripHighlight");
+            CreateButtonSlot(root.transform, controller, "ShoveButton", "Shove", "H", "shoveButton", "shoveHighlight");
+            CreateButtonSlot(root.transform, controller, "GrappleButton", "Grapple", "J", "grappleButton", "grappleHighlight");
+            CreateButtonSlot(root.transform, controller, "DemoralizeButton", "Demoralize", "Y", "demoralizeButton", "demoralizeHighlight");
+            CreateButtonSlot(root.transform, controller, "EscapeButton", "Escape", "K", "escapeButton", "escapeHighlight");
+            CreateButtonSlot(root.transform, controller, "RaiseShieldButton", "Shield", "R", "raiseShieldButton", "raiseShieldHighlight");
+            CreateButtonSlot(root.transform, controller, "StandButton", "Stand", "—", "standButton", "standHighlight");
+        }
+        else
+        {
+            root = controller.gameObject;
+            Debug.Log("[ActionBarBuilder] Reusing existing ActionBarController and ensuring hint panel/wiring.", controller);
+        }
 
         // Wire dependencies if found.
         AssignIfFieldExists(controller, "eventBus", Object.FindFirstObjectByType<CombatEventBus>());
@@ -54,9 +59,14 @@ public static class ActionBarUIBuilder
         AssignIfFieldExists(controller, "targetingController", Object.FindFirstObjectByType<TargetingController>());
         AssignIfFieldExists(controller, "canvasGroup", root.GetComponent<CanvasGroup>());
 
+        EnsureTargetingHintPanel(root.transform);
+
         Selection.activeObject = root;
         EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
-        Debug.Log("[ActionBarBuilder] Built Action Bar UI hierarchy and wired ActionBarController slot references.", root);
+        Debug.Log(createdActionBar
+            ? "[ActionBarBuilder] Built Action Bar UI hierarchy (including TargetingHintPanel) and wired references."
+            : "[ActionBarBuilder] Refreshed ActionBar wiring and ensured TargetingHintPanel exists.",
+            root);
     }
 
     private static GameObject CreateActionBarRoot(Transform canvasTransform)
@@ -173,6 +183,71 @@ public static class ActionBarUIBuilder
 
         AssignIfFieldExists(controller, buttonFieldName, button);
         AssignIfFieldExists(controller, highlightFieldName, highlightImage);
+    }
+
+    private static void EnsureTargetingHintPanel(Transform actionBarRoot)
+    {
+        if (actionBarRoot == null) return;
+
+        var panel = actionBarRoot.Find("TargetingHintPanel");
+        if (panel == null)
+        {
+            var panelGo = new GameObject(
+                "TargetingHintPanel",
+                typeof(RectTransform),
+                typeof(Image),
+                typeof(CanvasGroup),
+                typeof(LayoutElement),
+                typeof(TargetingHintController));
+            Undo.RegisterCreatedObjectUndo(panelGo, "Create TargetingHintPanel");
+            panelGo.transform.SetParent(actionBarRoot, false);
+            panel = panelGo.transform;
+
+            var panelRect = panelGo.GetComponent<RectTransform>();
+            panelRect.anchorMin = new Vector2(0.5f, 1f);
+            panelRect.anchorMax = new Vector2(0.5f, 1f);
+            panelRect.pivot = new Vector2(0.5f, 0f);
+            panelRect.anchoredPosition = new Vector2(0f, 6f);
+            panelRect.sizeDelta = new Vector2(420f, 30f);
+
+            var layout = panelGo.GetComponent<LayoutElement>();
+            layout.ignoreLayout = true;
+
+            var image = panelGo.GetComponent<Image>();
+            image.color = new Color(0.1f, 0.1f, 0.15f, 0.85f);
+            image.raycastTarget = false;
+
+            var cg = panelGo.GetComponent<CanvasGroup>();
+            cg.alpha = 0f;
+            cg.blocksRaycasts = false;
+            cg.interactable = false;
+
+            var hintText = CreateTmpText(panelGo.transform, "HintText", string.Empty, 14f, new Color(0.9f, 0.9f, 0.95f, 1f));
+            var hintRect = hintText.GetComponent<RectTransform>();
+            hintRect.anchorMin = Vector2.zero;
+            hintRect.anchorMax = Vector2.one;
+            hintRect.offsetMin = new Vector2(8f, 2f);
+            hintRect.offsetMax = new Vector2(-8f, -2f);
+        }
+
+        var hintController = panel.GetComponent<TargetingHintController>();
+        if (hintController == null)
+            hintController = Undo.AddComponent<TargetingHintController>(panel.gameObject);
+
+        AssignIfFieldExists(hintController, "eventBus", Object.FindFirstObjectByType<CombatEventBus>());
+        AssignIfFieldExists(hintController, "turnManager", Object.FindFirstObjectByType<TurnManager>());
+        AssignIfFieldExists(hintController, "gridManager", Object.FindFirstObjectByType<GridManager>());
+        AssignIfFieldExists(hintController, "targetingController", Object.FindFirstObjectByType<TargetingController>());
+        AssignIfFieldExists(hintController, "canvasGroup", panel.GetComponent<CanvasGroup>());
+        AssignIfFieldExists(hintController, "backgroundImage", panel.GetComponent<Image>());
+
+        var hintTextTransform = panel.Find("HintText");
+        if (hintTextTransform != null)
+        {
+            var tmp = hintTextTransform.GetComponent<TextMeshProUGUI>();
+            if (tmp != null)
+                AssignIfFieldExists(hintController, "hintText", tmp);
+        }
     }
 
     private static GameObject CreateTmpText(Transform parent, string name, string text, float fontSize, Color color)
