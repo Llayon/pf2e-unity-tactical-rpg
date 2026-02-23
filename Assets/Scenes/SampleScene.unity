@@ -2965,6 +2965,7 @@ GameObject:
   - component: {fileID: 456169805}
   - component: {fileID: 456169807}
   - component: {fileID: 456169806}
+  - component: {fileID: 456169808}
   m_Layer: 0
   m_Name: CombatController
   m_TagString: Untagged
@@ -3402,6 +3403,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: PF2e::PF2e.TurnSystem.GrappleLifecycleController
   entityManager: {fileID: 569346726}
   eventBus: {fileID: 939543823}
+--- !u!114 &456169808
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 456169780}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eacd7e14ddd16da428890e720d6240ed, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PF2e::PF2e.Presentation.TargetingFeedbackController
+  eventBus: {fileID: 939543823}
+  entityManager: {fileID: 569346726}
+  gridManager: {fileID: 2005884550}
+  targetingController: {fileID: 456169792}
 --- !u!1 &457823804
 GameObject:
   m_ObjectHideFlags: 0

@@ -77,6 +77,7 @@ public static class PF2eSceneDependencyValidator
         errors += ValidateAll<FloatingDamageUI>(ValidateFloatingDamageUI);
         errors += ValidateAll<InitiativeBarController>(ValidateInitiativeBarController);
         errors += ValidateAll<ActionBarController>(ValidateActionBarController);
+        errors += ValidateAll<TargetingFeedbackController>(ValidateTargetingFeedbackController);
         errors += ValidateAll<ConditionLogForwarder>(ValidateConditionLogForwarder);
         errors += ValidateAll<StandAction>(ValidateStandAction);
                 errors += ValidateAll<TripAction>(ValidateTripAction);
@@ -104,6 +105,7 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<EncounterFlowController>();
         errors += ErrorIfMoreThanOne<InitiativeBarController>();
         errors += ErrorIfMoreThanOne<ActionBarController>();
+        errors += ErrorIfMoreThanOne<TargetingFeedbackController>();
         errors += ErrorIfMoreThanOne<ConditionLogForwarder>();
         errors += ErrorIfMoreThanOne<StandAction>();
                 errors += ErrorIfMoreThanOne<TripAction>();
@@ -142,6 +144,7 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnIfNone<EncounterEndPanelController>();
         warnings += WarnIfNone<EncounterFlowController>();
         warnings += WarnIfNone<ActionBarController>();
+        warnings += WarnIfNone<TargetingFeedbackController>();
         warnings += WarnIfAny<ConditionTickForwarder>(
             "ConditionTickForwarder is deprecated and should be removed from scene.");
 
@@ -355,6 +358,14 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnRef(c, "escapeHighlight", "Image");
         warnings += WarnRef(c, "raiseShieldHighlight", "Image");
         warnings += WarnRef(c, "standHighlight", "Image");
+    }
+
+    private static void ValidateTargetingFeedbackController(TargetingFeedbackController c, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(c, "eventBus", "CombatEventBus");
+        errors += RequireRef(c, "entityManager", "EntityManager");
+        errors += RequireRef(c, "gridManager", "GridManager");
+        errors += RequireRef(c, "targetingController", "TargetingController");
     }
 
     private static void ValidateConditionLogForwarder(ConditionLogForwarder f, ref int errors, ref int warnings)
@@ -600,6 +611,7 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         TryGetSingleton(out ReactionPromptController reactionPromptControllerSingleton, logIfMissing: false);
         TryGetSingleton(out GrappleLifecycleController grappleLifecycleSingleton, logIfMissing: false);
         TryGetSingleton(out ActionBarController actionBarControllerSingleton, logIfMissing: false);
+        TryGetSingleton(out TargetingFeedbackController targetingFeedbackControllerSingleton, logIfMissing: false);
 
         // Fix null references only
 
@@ -806,6 +818,17 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
             fixedCount += FixAll<ActionBarController>("targetingController", targetingController);
         if (actionBarControllerSingleton != null)
             fixedCount += AutoWireActionBarController(actionBarControllerSingleton);
+
+        // TargetingFeedbackController (Phase 23.1)
+        if (targetingFeedbackControllerSingleton != null)
+        {
+            if (eventBus != null)
+                fixedCount += FixAll<TargetingFeedbackController>("eventBus", eventBus);
+            fixedCount += FixAll<TargetingFeedbackController>("entityManager", entityManager);
+            fixedCount += FixAll<TargetingFeedbackController>("gridManager", gridManager);
+            if (targetingController != null)
+                fixedCount += FixAll<TargetingFeedbackController>("targetingController", targetingController);
+        }
 
         if (fixedCount > 0)
         {
