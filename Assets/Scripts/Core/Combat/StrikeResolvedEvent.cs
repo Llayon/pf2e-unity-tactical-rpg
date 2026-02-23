@@ -12,6 +12,7 @@ namespace PF2e.Core
         public readonly int naturalRoll;
         public readonly int attackBonus;
         public readonly int mapPenalty;
+        public readonly int rangePenalty;
         public readonly int total;
         public readonly int dc;
         public readonly DegreeOfSuccess degree;
@@ -35,7 +36,8 @@ namespace PF2e.Core
             DamageType damageType,
             int hpBefore,
             int hpAfter,
-            bool targetDefeated)
+            bool targetDefeated,
+            int rangePenalty = 0)
         {
             this.attacker = attacker;
             this.target = target;
@@ -43,6 +45,7 @@ namespace PF2e.Core
             this.naturalRoll = naturalRoll;
             this.attackBonus = attackBonus;
             this.mapPenalty = mapPenalty;
+            this.rangePenalty = rangePenalty;
             this.total = total;
             this.dc = dc;
             this.degree = degree;
@@ -51,6 +54,40 @@ namespace PF2e.Core
             this.hpBefore = hpBefore;
             this.hpAfter = hpAfter;
             this.targetDefeated = targetDefeated;
+        }
+
+        public StrikeResolvedEvent(
+            EntityHandle attacker,
+            EntityHandle target,
+            string weaponName,
+            int naturalRoll,
+            int attackBonus,
+            int mapPenalty,
+            int total,
+            int dc,
+            DegreeOfSuccess degree,
+            int damage,
+            DamageType damageType,
+            int hpBefore,
+            int hpAfter,
+            bool targetDefeated)
+        {
+            this = new StrikeResolvedEvent(
+                attacker,
+                target,
+                weaponName,
+                naturalRoll,
+                attackBonus,
+                mapPenalty,
+                total,
+                dc,
+                degree,
+                damage,
+                damageType,
+                hpBefore,
+                hpAfter,
+                targetDefeated,
+                rangePenalty: 0);
         }
     }
 }

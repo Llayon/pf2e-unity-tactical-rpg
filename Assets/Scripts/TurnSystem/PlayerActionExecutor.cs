@@ -96,9 +96,9 @@ namespace PF2e.TurnSystem
 
             TargetingFailureReason reason = mode switch
             {
-                TargetingMode.MeleeStrike => strikeAction == null
+                TargetingMode.Strike => strikeAction == null
                     ? TargetingFailureReason.InvalidState
-                    : strikeAction.GetMeleeStrikeTargetFailure(actor, target),
+                    : strikeAction.GetStrikeTargetFailure(actor, target),
 
                 TargetingMode.Trip => tripAction == null
                     ? TargetingFailureReason.InvalidState

@@ -188,7 +188,7 @@ namespace PF2e.Presentation
 
         private void HandleModeChanged(TargetingMode mode)
         {
-            SetHighlight(strikeHighlight, mode == TargetingMode.MeleeStrike);
+            SetHighlight(strikeHighlight, mode == TargetingMode.Strike);
             SetHighlight(tripHighlight, mode == TargetingMode.Trip);
             SetHighlight(shoveHighlight, mode == TargetingMode.Shove);
             SetHighlight(grappleHighlight, mode == TargetingMode.Grapple);
@@ -311,7 +311,7 @@ namespace PF2e.Presentation
         private void OnStrikeClicked()
         {
             if (targetingController == null || actionExecutor == null) return;
-            targetingController.BeginTargeting(TargetingMode.MeleeStrike, h => actionExecutor.TryExecuteStrike(h));
+            targetingController.BeginTargeting(TargetingMode.Strike, h => actionExecutor.TryExecuteStrike(h));
         }
 
         private void OnTripClicked()

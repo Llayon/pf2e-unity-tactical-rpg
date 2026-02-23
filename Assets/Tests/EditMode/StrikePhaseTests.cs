@@ -32,6 +32,7 @@ namespace PF2e.Tests
             Assert.AreEqual(14, result.naturalRoll);
             Assert.AreEqual(7, result.attackBonus);
             Assert.AreEqual(-5, result.mapPenalty);
+            Assert.AreEqual(0, result.rangePenalty);
             Assert.AreEqual(16, result.total);
             Assert.AreEqual(0, result.dc);
             Assert.AreEqual(DegreeOfSuccess.CriticalFailure, result.degree);
@@ -63,6 +64,7 @@ namespace PF2e.Tests
             Assert.AreEqual(baseResult.weaponName, resolved.weaponName);
             Assert.AreEqual(baseResult.naturalRoll, resolved.naturalRoll);
             Assert.AreEqual(baseResult.total, resolved.total);
+            Assert.AreEqual(baseResult.rangePenalty, resolved.rangePenalty);
             Assert.AreEqual(18, resolved.dc);
             Assert.AreEqual(DegreeOfSuccess.Failure, resolved.degree);
             Assert.AreEqual(0, resolved.damageRolled);
@@ -106,10 +108,85 @@ namespace PF2e.Tests
             Assert.AreEqual(12, result.naturalRoll);
             Assert.AreEqual(expectedAttackBonus, result.attackBonus);
             Assert.AreEqual(expectedMap, result.mapPenalty);
+            Assert.AreEqual(0, result.rangePenalty);
             Assert.AreEqual(12 + expectedAttackBonus + expectedMap, result.total);
             Assert.AreEqual(1, attackerData.MAPCount);
             Assert.AreEqual(0, result.dc);
             Assert.IsFalse(result.damageDealt);
+        }
+
+        [Test]
+        public void ResolveAttackRoll_RangedWeapon_FirstIncrement_NoRangePenalty()
+        {
+            using var ctx = new StrikeContext();
+            var bow = ctx.CreateWeaponDef(isRanged: true, rangeIncrementFeet: 60, maxRangeIncrements: 6);
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: bow, level: 1, dexterity: 16);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(12, 0, 0), weaponDef: bow, level: 1); // 60 ft
+
+            var attackerData = ctx.Registry.Get(attacker);
+            int expectedAttackBonus = attackerData.GetAttackBonus(attackerData.EquippedWeapon);
+            int expectedMap = attackerData.GetMAPPenalty(attackerData.EquippedWeapon);
+
+            var phase = ctx.StrikeAction.ResolveAttackRoll(attacker, target, new FixedRng(new[] { 11 }));
+            Assert.IsTrue(phase.HasValue);
+
+            var result = phase.Value;
+            Assert.AreEqual(0, result.rangePenalty);
+            Assert.AreEqual(11 + expectedAttackBonus + expectedMap, result.total);
+        }
+
+        [Test]
+        public void ResolveAttackRoll_RangedWeapon_SecondIncrement_AppliesRangePenalty_AndStacksWithMap()
+        {
+            using var ctx = new StrikeContext();
+            var bow = ctx.CreateWeaponDef(isRanged: true, rangeIncrementFeet: 60, maxRangeIncrements: 6);
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: bow, level: 1, dexterity: 16);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(13, 0, 0), weaponDef: bow, level: 1); // 65 ft
+
+            var attackerData = ctx.Registry.Get(attacker);
+            attackerData.MAPCount = 1;
+            int expectedAttackBonus = attackerData.GetAttackBonus(attackerData.EquippedWeapon);
+            int expectedMap = attackerData.GetMAPPenalty(attackerData.EquippedWeapon);
+
+            var phase = ctx.StrikeAction.ResolveAttackRoll(attacker, target, new FixedRng(new[] { 11 }));
+            Assert.IsTrue(phase.HasValue);
+
+            var result = phase.Value;
+            Assert.AreEqual(-2, result.rangePenalty);
+            Assert.AreEqual(11 + expectedAttackBonus + expectedMap - 2, result.total);
+            Assert.AreEqual(2, attackerData.MAPCount); // incremented from pre-set 1
+        }
+
+        [Test]
+        public void ResolveAttackRoll_RangedWeapon_MaxRangeBoundary_Allowed_BeyondMaxRangeRejected()
+        {
+            using var ctx = new StrikeContext();
+            var bow = ctx.CreateWeaponDef(isRanged: true, rangeIncrementFeet: 60, maxRangeIncrements: 2);
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: bow, level: 1, dexterity: 16);
+            var targetAtMax = ctx.RegisterEntity(Team.Enemy, new Vector3Int(24, 1, 0), weaponDef: bow, level: 1); // 120 ft, different elevation
+            var targetBeyond = ctx.RegisterEntity(Team.Enemy, new Vector3Int(25, 2, 0), weaponDef: bow, level: 1); // 125 ft, different elevation
+
+            var atMax = ctx.StrikeAction.ResolveAttackRoll(attacker, targetAtMax, new FixedRng(new[] { 10 }));
+            Assert.IsTrue(atMax.HasValue, "Ranged strike should allow target at max range and ignore elevation mismatch.");
+
+            var beyond = ctx.StrikeAction.ResolveAttackRoll(attacker, targetBeyond, new FixedRng(new[] { 10 }));
+            Assert.IsFalse(beyond.HasValue);
+        }
+
+        [Test]
+        public void GetStrikeTargetFailure_UnarmedFallsBackToMeleeElevationValidation()
+        {
+            using var ctx = new StrikeContext();
+            var enemyWeapon = ctx.CreateWeaponDef();
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: null, level: 1);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(1, 1, 0), weaponDef: enemyWeapon, level: 1);
+
+            var reason = ctx.StrikeAction.GetStrikeTargetFailure(attacker, target);
+            Assert.AreEqual(TargetingFailureReason.WrongElevation, reason);
         }
 
         [Test]
@@ -306,7 +383,9 @@ namespace PF2e.Tests
                 int diceCount = 1,
                 int dieSides = 6,
                 int reachFeet = 5,
-                bool isRanged = false)
+                bool isRanged = false,
+                int rangeIncrementFeet = 0,
+                int maxRangeIncrements = 0)
             {
                 var def = ScriptableObject.CreateInstance<WeaponDefinition>();
                 def.itemName = "Test Weapon";
@@ -314,6 +393,8 @@ namespace PF2e.Tests
                 def.dieSides = dieSides;
                 def.reachFeet = reachFeet;
                 def.isRanged = isRanged;
+                def.rangeIncrementFeet = rangeIncrementFeet;
+                def.maxRangeIncrements = maxRangeIncrements;
                 def.damageType = DamageType.Slashing;
                 weaponDefs.Add(def);
                 return def;

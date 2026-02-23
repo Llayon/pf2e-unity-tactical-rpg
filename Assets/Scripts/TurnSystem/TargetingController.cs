@@ -7,17 +7,17 @@ namespace PF2e.TurnSystem
 {
     public enum TargetingMode
     {
-        None,         // contextual (enemy→Strike, cell→Stride)
-        MeleeStrike,  // explicit mode: click on enemy [Action Bar, Phase 15+]
-        Trip,         // explicit mode: click enemy
-        Shove,        // explicit mode: click enemy
-        Grapple,      // explicit mode: click enemy
-        Escape,       // explicit mode: click grappler (enemy)
-        Demoralize,   // explicit mode: click enemy
-        RangedStrike, // future
-        SpellSingle,  // future: single target
-        SpellAoE,     // future: cell + template
-        HealSingle    // future: ally
+        None = 0,     // contextual (enemy→Strike, cell→Stride)
+        Strike = 1,   // explicit mode: click on enemy (weapon-aware melee/ranged)
+        Trip = 2,     // explicit mode: click enemy
+        Shove = 3,    // explicit mode: click enemy
+        Grapple = 4,  // explicit mode: click enemy
+        Escape = 5,   // explicit mode: click grappler (enemy)
+        Demoralize = 6, // explicit mode: click enemy
+        // 7 reserved (legacy RangedStrike slot)
+        SpellSingle = 8, // future: single target
+        SpellAoE = 9,    // future: cell + template
+        HealSingle = 10  // future: ally
     }
 
     public enum TargetingResult
@@ -154,7 +154,7 @@ namespace PF2e.TurnSystem
                         ? TargetingEvaluationResult.Success()
                         : TargetingEvaluationResult.FromFailure(MapBasicResultToFailure(contextual));
 
-                case TargetingMode.MeleeStrike:
+                case TargetingMode.Strike:
                     // Used when player explicitly selects Strike from action bar (Phase 15+).
                     // Currently not triggered via UI; contextual mode handles Strike via None.
                 case TargetingMode.Trip:

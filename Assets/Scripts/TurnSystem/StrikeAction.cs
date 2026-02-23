@@ -35,7 +35,7 @@ namespace PF2e.TurnSystem
             if (!attacker.IsValid || !target.IsValid) return null;
             if (!TryGetParticipants(attacker, target, out var attackerData, out var targetData))
                 return null;
-            if (!CanResolveMeleeStrike(attackerData, targetData))
+            if (!CanResolveStrike(attackerData, targetData))
                 return null;
 
             if (rng == null)
@@ -44,7 +44,8 @@ namespace PF2e.TurnSystem
             int naturalRoll = rng.RollD20();
             int attackBonus = attackerData.GetAttackBonus(attackerData.EquippedWeapon);
             int mapPenalty = attackerData.GetMAPPenalty(attackerData.EquippedWeapon);
-            int total = naturalRoll + attackBonus + mapPenalty;
+            int rangePenalty = ComputeRangedStrikePenalty(attackerData, targetData);
+            int total = naturalRoll + attackBonus + mapPenalty + rangePenalty;
 
             // Contract: MAP increments once per strike attempt at phase 1.
             attackerData.MAPCount++;
@@ -56,7 +57,8 @@ namespace PF2e.TurnSystem
                 naturalRoll,
                 attackBonus,
                 mapPenalty,
-                total);
+                total,
+                rangePenalty);
         }
 
         public StrikePhaseResult DetermineHitAndDamage(StrikePhaseResult phase, EntityHandle target, IRng rng)
@@ -129,6 +131,7 @@ namespace PF2e.TurnSystem
                 naturalRoll: phase.naturalRoll,
                 attackBonus: phase.attackBonus,
                 mapPenalty: phase.mapPenalty,
+                rangePenalty: phase.rangePenalty,
                 total: phase.total,
                 dc: phase.dc,
                 degree: phase.degree,
@@ -146,7 +149,7 @@ namespace PF2e.TurnSystem
             return true;
         }
 
-        public TargetingFailureReason GetMeleeStrikeTargetFailure(EntityHandle attacker, EntityHandle target)
+        public TargetingFailureReason GetStrikeTargetFailure(EntityHandle attacker, EntityHandle target)
         {
             if (!attacker.IsValid || !target.IsValid) return TargetingFailureReason.InvalidTarget;
             if (entityManager == null || entityManager.Registry == null) return TargetingFailureReason.InvalidState;
@@ -154,14 +157,42 @@ namespace PF2e.TurnSystem
             var attackerData = entityManager.Registry.Get(attacker);
             var targetData = entityManager.Registry.Get(target);
             if (attackerData == null || targetData == null) return TargetingFailureReason.InvalidTarget;
+            return GetStrikeTargetFailure(attacker, target, attackerData, targetData);
+        }
+
+        // Legacy wrapper retained for existing tests/callers during Strike rename.
+        public TargetingFailureReason GetMeleeStrikeTargetFailure(EntityHandle attacker, EntityHandle target)
+        {
+            return GetStrikeTargetFailure(attacker, target);
+        }
+
+        private TargetingFailureReason GetStrikeTargetFailure(
+            EntityHandle attacker,
+            EntityHandle target,
+            EntityData attackerData,
+            EntityData targetData)
+        {
+            if (attackerData == null || targetData == null) return TargetingFailureReason.InvalidTarget;
             if (!attackerData.IsAlive || !targetData.IsAlive) return TargetingFailureReason.NotAlive;
             if (attacker == target) return TargetingFailureReason.SelfTarget;
             if (attackerData.Team == targetData.Team) return TargetingFailureReason.WrongTeam;
-            if (attackerData.EquippedWeapon.IsRanged) return TargetingFailureReason.RequiresMeleeWeapon;
-            if (requireSameElevation && attackerData.GridPosition.y != targetData.GridPosition.y) return TargetingFailureReason.WrongElevation;
 
             int distanceFeet = GridDistancePF2e.DistanceFeetXZ(attackerData.GridPosition, targetData.GridPosition);
-            int reachFeet = attackerData.EquippedWeapon.ReachFeet;
+            var weapon = attackerData.EquippedWeapon;
+
+            if (weapon.IsRanged)
+            {
+                if (!TryGetRangedMaxDistanceFeet(weapon, out int maxRangeFeet))
+                    return TargetingFailureReason.OutOfRange;
+                if (distanceFeet > maxRangeFeet)
+                    return TargetingFailureReason.OutOfRange;
+                return TargetingFailureReason.None;
+            }
+
+            if (requireSameElevation && attackerData.GridPosition.y != targetData.GridPosition.y)
+                return TargetingFailureReason.WrongElevation;
+
+            int reachFeet = weapon.ReachFeet;
             if (distanceFeet > reachFeet) return TargetingFailureReason.OutOfRange;
 
             return TargetingFailureReason.None;
@@ -184,17 +215,58 @@ namespace PF2e.TurnSystem
             return attackerData != null && targetData != null;
         }
 
-        private bool CanResolveMeleeStrike(EntityData attacker, EntityData target)
+        private bool CanResolveStrike(EntityData attacker, EntityData target)
         {
             if (attacker == null || target == null) return false;
             if (!attacker.IsAlive || !target.IsAlive) return false;
             if (attacker.Team == target.Team) return false;
-            if (requireSameElevation && attacker.GridPosition.y != target.GridPosition.y) return false;
-            if (attacker.EquippedWeapon.IsRanged) return false;
 
             int distanceFeet = GridDistancePF2e.DistanceFeetXZ(attacker.GridPosition, target.GridPosition);
-            int reachFeet = attacker.EquippedWeapon.ReachFeet;
+            var weapon = attacker.EquippedWeapon;
+
+            if (weapon.IsRanged)
+            {
+                if (!TryGetRangedMaxDistanceFeet(weapon, out int maxRangeFeet)) return false;
+                return distanceFeet <= maxRangeFeet;
+            }
+
+            if (requireSameElevation && attacker.GridPosition.y != target.GridPosition.y) return false;
+            int reachFeet = weapon.ReachFeet;
             return distanceFeet <= reachFeet;
+        }
+
+        // Legacy wrapper retained for compatibility with existing callers/tests during refactor.
+        private bool CanResolveMeleeStrike(EntityData attacker, EntityData target)
+        {
+            return CanResolveStrike(attacker, target);
+        }
+
+        private static bool TryGetRangedMaxDistanceFeet(WeaponInstance weapon, out int maxRangeFeet)
+        {
+            maxRangeFeet = 0;
+            if (!weapon.IsRanged) return false;
+
+            int incrementFeet = weapon.def != null ? weapon.def.rangeIncrementFeet : 0;
+            int maxIncrements = weapon.def != null ? weapon.def.maxRangeIncrements : 0;
+            if (incrementFeet <= 0 || maxIncrements <= 0) return false;
+
+            maxRangeFeet = incrementFeet * maxIncrements;
+            return maxRangeFeet > 0;
+        }
+
+        private static int ComputeRangedStrikePenalty(EntityData attacker, EntityData target)
+        {
+            if (attacker == null || target == null) return 0;
+
+            var weapon = attacker.EquippedWeapon;
+            if (!weapon.IsRanged) return 0;
+
+            int incrementFeet = weapon.def != null ? weapon.def.rangeIncrementFeet : 0;
+            if (incrementFeet <= 0) return 0;
+
+            int distanceFeet = GridDistancePF2e.DistanceFeetXZ(attacker.GridPosition, target.GridPosition);
+            int increments = Mathf.Max(0, (distanceFeet - 1) / incrementFeet);
+            return -increments * 2;
         }
     }
 }

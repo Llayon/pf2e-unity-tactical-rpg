@@ -55,7 +55,9 @@ namespace PF2e.Presentation
             eventBus.Publish(e.attacker,
                 $"strikes {targetName} with {e.weaponName} — " +
                 $"d20({e.naturalRoll}) + atk({e.attackBonus}) " +
-                $"+ MAP({e.mapPenalty}) = {e.total} " +
+                $"+ MAP({e.mapPenalty})" +
+                (e.rangePenalty != 0 ? $" + RNG({e.rangePenalty})" : string.Empty) +
+                $" = {e.total} " +
                 $"vs AC {e.dc} → {e.degree}",
                 CombatLogCategory.Attack);
 

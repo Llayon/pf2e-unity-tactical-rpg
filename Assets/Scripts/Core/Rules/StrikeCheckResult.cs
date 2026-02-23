@@ -10,6 +10,7 @@ namespace PF2e.Core
         public readonly int naturalRoll;
         public readonly int attackBonus;
         public readonly int mapPenalty;
+        public readonly int rangePenalty;
         public readonly int total;
         public readonly int dc;
         public readonly DegreeOfSuccess degree;
@@ -20,6 +21,7 @@ namespace PF2e.Core
             int naturalRoll,
             int attackBonus,
             int mapPenalty,
+            int rangePenalty,
             int total,
             int dc,
             DegreeOfSuccess degree)
@@ -29,6 +31,7 @@ namespace PF2e.Core
             this.naturalRoll = naturalRoll;
             this.attackBonus = attackBonus;
             this.mapPenalty = mapPenalty;
+            this.rangePenalty = rangePenalty;
             this.total = total;
             this.dc = dc;
             this.degree = degree;
@@ -42,6 +45,7 @@ namespace PF2e.Core
                 naturalRoll: 0,
                 attackBonus: 0,
                 mapPenalty: 0,
+                rangePenalty: 0,
                 total: 0,
                 dc: 0,
                 degree: DegreeOfSuccess.CriticalFailure);
@@ -53,7 +57,8 @@ namespace PF2e.Core
             int mapPenalty,
             int total,
             int dc,
-            DegreeOfSuccess degree)
+            DegreeOfSuccess degree,
+            int rangePenalty = 0)
         {
             return new StrikeCheckResult(
                 performed: true,
@@ -61,9 +66,21 @@ namespace PF2e.Core
                 naturalRoll: naturalRoll,
                 attackBonus: attackBonus,
                 mapPenalty: mapPenalty,
+                rangePenalty: rangePenalty,
                 total: total,
                 dc: dc,
                 degree: degree);
+        }
+
+        public static StrikeCheckResult Success(
+            int naturalRoll,
+            int attackBonus,
+            int mapPenalty,
+            int total,
+            int dc,
+            DegreeOfSuccess degree)
+        {
+            return Success(naturalRoll, attackBonus, mapPenalty, total, dc, degree, rangePenalty: 0);
         }
     }
 }

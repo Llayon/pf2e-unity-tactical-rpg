@@ -31,7 +31,7 @@ namespace PF2e.Presentation
         {
             return mode switch
             {
-                TargetingMode.MeleeStrike => "Strike: choose an enemy in reach",
+                TargetingMode.Strike => "Strike: choose an enemy",
                 TargetingMode.Trip => "Trip: choose an enemy in reach",
                 TargetingMode.Shove => "Shove: choose an enemy in reach",
                 TargetingMode.Grapple => "Grapple: choose an enemy in reach",
@@ -50,7 +50,7 @@ namespace PF2e.Presentation
                 TargetingMode.Grapple => "Grapple: valid target (Athletics vs Fortitude DC)",
                 TargetingMode.Demoralize => "Demoralize: valid target (Intimidation vs Will DC)",
                 TargetingMode.Escape => "Escape: valid target (best of Athletics/Acrobatics)",
-                TargetingMode.MeleeStrike => "Strike: valid target",
+                TargetingMode.Strike => "Strike: valid target",
                 _ => "Valid target"
             };
         }
@@ -70,7 +70,9 @@ namespace PF2e.Presentation
                 TargetingFailureReason.NotAlive => $"{action}: target is not alive",
                 TargetingFailureReason.OutOfRange => mode == TargetingMode.Demoralize
                     ? "Demoralize: target is out of range (30 ft)"
-                    : $"{action}: target is out of reach",
+                    : mode == TargetingMode.Strike
+                        ? "Strike: target is out of range"
+                        : $"{action}: target is out of reach",
                 TargetingFailureReason.WrongElevation => $"{action}: target is on a different elevation",
                 TargetingFailureReason.TargetTooLarge => $"{action}: target is too large",
                 TargetingFailureReason.RequiresMeleeWeapon => $"{action}: requires a melee weapon",
@@ -87,7 +89,7 @@ namespace PF2e.Presentation
         {
             return mode switch
             {
-                TargetingMode.MeleeStrike => "Strike",
+                TargetingMode.Strike => "Strike",
                 TargetingMode.Trip => "Trip",
                 TargetingMode.Shove => "Shove",
                 TargetingMode.Grapple => "Grapple",
