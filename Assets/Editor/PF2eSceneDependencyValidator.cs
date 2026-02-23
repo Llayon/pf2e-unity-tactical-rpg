@@ -78,6 +78,7 @@ public static class PF2eSceneDependencyValidator
         errors += ValidateAll<ConditionLogForwarder>(ValidateConditionLogForwarder);
         errors += ValidateAll<StandAction>(ValidateStandAction);
         errors += ValidateAll<TripAction>(ValidateTripAction);
+        errors += ValidateAll<ShoveAction>(ValidateShoveAction);
         errors += ValidateAll<DemoralizeAction>(ValidateDemoralizeAction);
         errors += ValidateAll<RaiseShieldAction>(ValidateRaiseShieldAction);
         errors += ValidateAll<ShieldBlockAction>(ValidateShieldBlockAction);
@@ -100,6 +101,7 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<ConditionLogForwarder>();
         errors += ErrorIfMoreThanOne<StandAction>();
         errors += ErrorIfMoreThanOne<TripAction>();
+        errors += ErrorIfMoreThanOne<ShoveAction>();
         errors += ErrorIfMoreThanOne<DemoralizeAction>();
         errors += ErrorIfMoreThanOne<RaiseShieldAction>();
         errors += ErrorIfMoreThanOne<ShieldBlockAction>();
@@ -120,6 +122,7 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnIfNone<TurnManager>();
         warnings += WarnIfNone<AITurnController>();
         warnings += WarnIfNone<TripAction>();
+        warnings += WarnIfNone<ShoveAction>();
         warnings += WarnIfNone<DemoralizeAction>();
         warnings += WarnIfNone<RaiseShieldAction>();
         warnings += WarnIfNone<ShieldBlockAction>();
@@ -175,6 +178,7 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(ex, "strikeAction", "StrikeAction");
         errors += RequireRef(ex, "shieldBlockAction", "ShieldBlockAction");
         warnings += WarnRef(ex, "tripAction", "TripAction");
+        warnings += WarnRef(ex, "shoveAction", "ShoveAction");
         warnings += WarnRef(ex, "demoralizeAction", "DemoralizeAction");
         warnings += WarnRef(ex, "reactionPromptController", "ReactionPromptController");
     }
@@ -323,6 +327,12 @@ public static class PF2eSceneDependencyValidator
     {
         errors += RequireRef(ta, "entityManager", "EntityManager");
         warnings += WarnRef(ta, "eventBus", "CombatEventBus");
+    }
+
+    private static void ValidateShoveAction(ShoveAction sa, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(sa, "entityManager", "EntityManager");
+        warnings += WarnRef(sa, "eventBus", "CombatEventBus");
     }
 
     private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors, ref int warnings)
@@ -511,6 +521,7 @@ public static class PF2eSceneDependencyValidator
         TryGetSingleton(out StrideAction strideAction, logIfMissing: false);
         TryGetSingleton(out StrikeAction strikeActionSingleton, logIfMissing: false);
         TryGetSingleton(out TripAction tripActionSingleton, logIfMissing: false);
+        TryGetSingleton(out ShoveAction shoveActionSingleton, logIfMissing: false);
         TryGetSingleton(out DemoralizeAction demoralizeActionSingleton, logIfMissing: false);
         TryGetSingleton(out RaiseShieldAction raiseShieldActionSingleton, logIfMissing: false);
         TryGetSingleton(out ShieldBlockAction shieldBlockActionSingleton, logIfMissing: false);
@@ -543,6 +554,8 @@ public static class PF2eSceneDependencyValidator
             fixedCount += FixAll<PlayerActionExecutor>("strideAction", strideAction);
         if (tripActionSingleton != null)
             fixedCount += FixAll<PlayerActionExecutor>("tripAction", tripActionSingleton);
+        if (shoveActionSingleton != null)
+            fixedCount += FixAll<PlayerActionExecutor>("shoveAction", shoveActionSingleton);
         if (demoralizeActionSingleton != null)
             fixedCount += FixAll<PlayerActionExecutor>("demoralizeAction", demoralizeActionSingleton);
         if (raiseShieldActionSingleton != null)
@@ -664,6 +677,9 @@ public static class PF2eSceneDependencyValidator
         fixedCount += FixAll<TripAction>("entityManager", entityManager);
         if (eventBus != null)
             fixedCount += FixAll<TripAction>("eventBus", eventBus);
+        fixedCount += FixAll<ShoveAction>("entityManager", entityManager);
+        if (eventBus != null)
+            fixedCount += FixAll<ShoveAction>("eventBus", eventBus);
         fixedCount += FixAll<DemoralizeAction>("entityManager", entityManager);
         if (eventBus != null)
             fixedCount += FixAll<DemoralizeAction>("eventBus", eventBus);

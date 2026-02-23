@@ -10,7 +10,7 @@ namespace PF2e.TurnSystem
     /// Thin router between input and TargetingController / TurnManager.
     /// - Space → EndTurn (PlayerTurn only, not while executor busy)
     /// - Escape → CancelTargeting
-    /// - T / Y → Begin explicit targeting for Trip / Demoralize
+    /// - T / H / Y → Begin explicit targeting for Trip / Shove / Demoralize
     /// - Cell click → targetingController.TryConfirmCell (after guards)
     /// - Entity click → targetingController.TryConfirmEntity (after guards)
     ///
@@ -105,6 +105,12 @@ namespace PF2e.TurnSystem
             {
                 if (turnManager.IsPlayerTurn && !actionExecutor.IsBusy)
                     targetingController.BeginTargeting(TargetingMode.Trip, h => actionExecutor.TryExecuteTrip(h));
+            }
+
+            if (kb.hKey.wasPressedThisFrame)
+            {
+                if (turnManager.IsPlayerTurn && !actionExecutor.IsBusy)
+                    targetingController.BeginTargeting(TargetingMode.Shove, h => actionExecutor.TryExecuteShove(h));
             }
 
             if (kb.yKey.wasPressedThisFrame)

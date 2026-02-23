@@ -53,6 +53,24 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void ShoveMode_EnemyClick_InvokesCallback_AndClearsMode()
+        {
+            using var ctx = new TargetingSkillModeContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(actor);
+
+            int calls = 0;
+            ctx.Controller.BeginTargeting(TargetingMode.Shove, _ => calls++);
+
+            var result = ctx.Controller.TryConfirmEntity(enemy);
+
+            Assert.AreEqual(TargetingResult.Success, result);
+            Assert.AreEqual(1, calls);
+            Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
+        }
+
+        [Test]
         public void TripMode_AllyClick_ReturnsWrongTeam_DoesNotInvokeCallback_AndKeepsMode()
         {
             using var ctx = new TargetingSkillModeContext();
@@ -71,11 +89,15 @@ namespace PF2e.Tests
         }
 
         [Test]
-        public void CancelTargeting_ClearsTripOrDemoralizeMode()
+        public void CancelTargeting_ClearsTripShoveOrDemoralizeMode()
         {
             using var ctx = new TargetingSkillModeContext();
 
             ctx.Controller.BeginTargeting(TargetingMode.Trip);
+            ctx.Controller.CancelTargeting();
+            Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
+
+            ctx.Controller.BeginTargeting(TargetingMode.Shove);
             ctx.Controller.CancelTargeting();
             Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
 
