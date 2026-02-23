@@ -61,6 +61,7 @@ public static class PF2eSceneDependencyValidator
         errors += ValidateAll<StrideLogForwarder>(ValidateStrideLogForwarder);
         errors += ValidateAll<StrikeLogForwarder>(ValidateStrikeLogForwarder);
         errors += ValidateAll<SkillCheckLogForwarder>(ValidateSkillCheckLogForwarder);
+        errors += ValidateAll<DamageLogForwarder>(ValidateDamageLogForwarder);
         errors += ValidateAll<PlayerActionExecutor>(ValidatePlayerActionExecutor);
         errors += ValidateAll<StrideAction>(ValidateStrideAction);
         errors += ValidateAll<StrikeAction>(ValidateStrikeAction);
@@ -101,6 +102,7 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<StrideLogForwarder>();
         errors += ErrorIfMoreThanOne<StrikeLogForwarder>();
         errors += ErrorIfMoreThanOne<SkillCheckLogForwarder>();
+        errors += ErrorIfMoreThanOne<DamageLogForwarder>();
         errors += ErrorIfMoreThanOne<FloatingDamageUI>();
         errors += ErrorIfMoreThanOne<EncounterEndPanelController>();
         errors += ErrorIfMoreThanOne<EncounterFlowController>();
@@ -148,6 +150,7 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnIfNone<ActionBarController>();
         warnings += WarnIfNone<TargetingHintController>();
         warnings += WarnIfNone<TargetingFeedbackController>();
+        warnings += WarnIfNone<DamageLogForwarder>();
         warnings += WarnIfAny<ConditionTickForwarder>(
             "ConditionTickForwarder is deprecated and should be removed from scene.");
 
@@ -318,6 +321,12 @@ public static class PF2eSceneDependencyValidator
     }
 
     private static void ValidateSkillCheckLogForwarder(SkillCheckLogForwarder f, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(f, "eventBus", "CombatEventBus");
+        errors += RequireRef(f, "entityManager", "EntityManager");
+    }
+
+    private static void ValidateDamageLogForwarder(DamageLogForwarder f, ref int errors, ref int warnings)
     {
         errors += RequireRef(f, "eventBus", "CombatEventBus");
         errors += RequireRef(f, "entityManager", "EntityManager");
@@ -731,6 +740,11 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         fixedCount += FixAll<SkillCheckLogForwarder>("entityManager", entityManager);
         if (eventBus != null)
             fixedCount += FixAll<SkillCheckLogForwarder>("eventBus", eventBus);
+
+        // DamageLogForwarder (Phase 24.1 - generic non-strike damage to string)
+        fixedCount += FixAll<DamageLogForwarder>("entityManager", entityManager);
+        if (eventBus != null)
+            fixedCount += FixAll<DamageLogForwarder>("eventBus", eventBus);
 
         // TurnLogForwarder (Phase 11.TypedEvents-B - typed turn to string)
         fixedCount += FixAll<TurnLogForwarder>("entityManager", entityManager);

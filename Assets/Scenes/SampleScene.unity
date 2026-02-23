@@ -4895,6 +4895,7 @@ GameObject:
   - component: {fileID: 939543823}
   - component: {fileID: 939543825}
   - component: {fileID: 939543826}
+  - component: {fileID: 939543827}
   m_Layer: 0
   m_Name: CombatEventBus
   m_TagString: Untagged
@@ -4955,6 +4956,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 64dd4423ad225884eb0662bccbe50259, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PF2e::PF2e.Presentation.SkillCheckLogForwarder
+  eventBus: {fileID: 939543823}
+  entityManager: {fileID: 569346726}
+--- !u!114 &939543827
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 939543822}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 41f1704245fb64a4e8413dfa0babd855, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PF2e::PF2e.Presentation.DamageLogForwarder
   eventBus: {fileID: 939543823}
   entityManager: {fileID: 569346726}
 --- !u!21 &954846611
