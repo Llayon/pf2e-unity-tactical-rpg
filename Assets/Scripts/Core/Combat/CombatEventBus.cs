@@ -219,11 +219,13 @@ namespace PF2e.Core
         #endregion
 
         #region Typed: Stride
-        public delegate void StrideStartedHandler(in StrideStartedEvent e);
+                public delegate void StrideStartedHandler(in StrideStartedEvent e);
         public delegate void StrideCompletedHandler(in StrideCompletedEvent e);
+        public delegate void EntityMovedHandler(in EntityMovedEvent e);
 
-        public event StrideStartedHandler OnStrideStartedTyped;
+                public event StrideStartedHandler OnStrideStartedTyped;
         public event StrideCompletedHandler OnStrideCompletedTyped;
+        public event EntityMovedHandler OnEntityMovedTyped;
 
         public void PublishStrideStarted(EntityHandle actor, Vector3Int from, Vector3Int to, int actionsCost)
         {
@@ -236,6 +238,12 @@ namespace PF2e.Core
             var e = new StrideCompletedEvent(actor, to, actionsCost);
             OnStrideCompletedTyped?.Invoke(in e);
         }
+        public void PublishEntityMoved(EntityHandle entity, Vector3Int from, Vector3Int to, bool forced)
+        {
+            var e = new EntityMovedEvent(entity, from, to, forced);
+            OnEntityMovedTyped?.Invoke(in e);
+        }
+
         
         #region Typed: Condition
 

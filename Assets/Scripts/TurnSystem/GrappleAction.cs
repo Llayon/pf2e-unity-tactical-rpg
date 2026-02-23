@@ -10,14 +10,14 @@ namespace PF2e.TurnSystem
     /// - Athletics (untrained) vs Fortitude DC
     /// - Attack trait (MAP applies and increments)
     /// - Success applies Grabbed, CritSuccess applies Restrained
-    /// Known gaps: free-hand model (weapon Grapple trait only), source-scoped grapple state,
-    /// Escape interaction, auto-end on grappler movement, RAW crit-failure branch.
+        /// Known gaps: free-hand model (weapon Grapple trait only), full RAW crit-failure branch.
     /// </summary>
     public class GrappleAction : MonoBehaviour
     {
         [Header("Dependencies (Inspector-only)")]
         [SerializeField] private EntityManager entityManager;
         [SerializeField] private CombatEventBus eventBus;
+        [SerializeField] private GrappleLifecycleController grappleLifecycle;
 
         [Header("Rules")]
         [SerializeField] private bool requireSameElevation = true;
@@ -33,6 +33,7 @@ namespace PF2e.TurnSystem
         {
             if (entityManager == null) Debug.LogError("[GrappleAction] Missing EntityManager", this);
             if (eventBus == null) Debug.LogWarning("[GrappleAction] Missing CombatEventBus", this);
+            if (grappleLifecycle == null) Debug.LogWarning("[GrappleAction] Missing GrappleLifecycleController", this);
         }
 #endif
 
@@ -40,6 +41,7 @@ namespace PF2e.TurnSystem
         {
             if (!actor.IsValid || !target.IsValid) return false;
             if (entityManager == null || entityManager.Registry == null) return false;
+            if (grappleLifecycle == null || grappleLifecycle.Service == null) return false;
 
             var actorData = entityManager.Registry.Get(actor);
             var targetData = entityManager.Registry.Get(target);
@@ -66,6 +68,7 @@ namespace PF2e.TurnSystem
         {
             if (!CanGrapple(actor, target)) return null;
             if (entityManager == null || entityManager.Registry == null) return null;
+            if (grappleLifecycle == null || grappleLifecycle.Service == null) return null;
 
             var actorData = entityManager.Registry.Get(actor);
             var targetData = entityManager.Registry.Get(target);
@@ -84,21 +87,33 @@ namespace PF2e.TurnSystem
             var result = CheckResolver.RollCheck(effectiveModifier, dc, rng);
 
             conditionDeltaBuffer.Clear();
+            var grappleService = grappleLifecycle.Service;
             switch (result.degree)
             {
                 case DegreeOfSuccess.CriticalSuccess:
-                    // Clean up overlapping state for readability; Restrained supersedes Grabbed in the MVP slice.
-                    conditionService.Remove(targetData, ConditionType.Grabbed, conditionDeltaBuffer);
-                    // MVP no source-scoped duration tracking: use indefinite duration until Grapple relation exists.
-                    conditionService.AddOrRefresh(targetData, ConditionType.Restrained, value: 0, rounds: -1, conditionDeltaBuffer);
+                    grappleService.ApplyOrRefresh(
+                        actorData,
+                        targetData,
+                        GrappleHoldState.Restrained,
+                        entityManager.Registry,
+                        conditionDeltaBuffer);
                     break;
 
                 case DegreeOfSuccess.Success:
-                    // MVP no source-scoped duration tracking: use indefinite duration until Grapple relation exists.
-                    conditionService.AddOrRefresh(targetData, ConditionType.Grabbed, value: 0, rounds: -1, conditionDeltaBuffer);
+                    grappleService.ApplyOrRefresh(
+                        actorData,
+                        targetData,
+                        GrappleHoldState.Grabbed,
+                        entityManager.Registry,
+                        conditionDeltaBuffer);
+                    break;
+
+                case DegreeOfSuccess.Failure:
+                    grappleService.ReleaseExact(actor, entityManager.Registry, conditionDeltaBuffer, expectedTarget: target);
                     break;
 
                 case DegreeOfSuccess.CriticalFailure:
+                    grappleService.ReleaseExact(actor, entityManager.Registry, conditionDeltaBuffer, expectedTarget: target);
                     // MVP simplification: RAW target-choice branch requires source-scoped grapple state.
                     conditionService.AddOrRefresh(actorData, ConditionType.Prone, value: 0, rounds: -1, conditionDeltaBuffer);
                     break;

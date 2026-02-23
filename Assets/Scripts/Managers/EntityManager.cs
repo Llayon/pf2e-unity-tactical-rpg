@@ -342,8 +342,9 @@ private void OnValidate()
             if (!handle.IsValid) return false;
             if (Registry == null || Occupancy == null || gridManager == null || gridManager.Data == null) return false;
 
-            var data = Registry.Get(handle);
+                        var data = Registry.Get(handle);
             if (data == null || !data.IsAlive) return false;
+            Vector3Int from = data.GridPosition;
 
             // Forced movement in current slice only supports walkable grid cells.
             var footprint = OccupancyMap.GetFootprint(destination, data.SizeCells);
@@ -357,6 +358,7 @@ private void OnValidate()
                 return false;
 
             data.GridPosition = destination;
+            eventBus?.PublishEntityMoved(handle, from, destination, forced: true);
 
             var view = GetView(handle);
             if (view != null && view.gameObject != null)

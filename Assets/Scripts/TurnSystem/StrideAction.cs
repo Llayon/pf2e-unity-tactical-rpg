@@ -134,7 +134,10 @@ namespace PF2e.TurnSystem
                 return false;
             }
 
-            data.GridPosition = targetCell;
+                        data.GridPosition = targetCell;
+
+            // Logical movement commit event (used by systems such as grapple lifecycle).
+            eventBus?.PublishEntityMoved(actor, fromCell, targetCell, forced: false);
 
             // Start animation
             strideInProgress = true;

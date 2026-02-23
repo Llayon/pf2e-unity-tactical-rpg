@@ -24,6 +24,7 @@ namespace PF2e.TurnSystem
                 [SerializeField] private TripAction tripAction;
         [SerializeField] private ShoveAction shoveAction;
         [SerializeField] private GrappleAction grappleAction;
+        [SerializeField] private EscapeAction escapeAction;
         [SerializeField] private DemoralizeAction demoralizeAction;
         [SerializeField] private RaiseShieldAction raiseShieldAction;
         [SerializeField] private ShieldBlockAction shieldBlockAction;
@@ -46,8 +47,9 @@ namespace PF2e.TurnSystem
             if (strideAction == null) Debug.LogError("[Executor] Missing StrideAction", this);
             if (strikeAction == null) Debug.LogError("[Executor] Missing StrikeAction", this);
             if (tripAction == null) Debug.LogWarning("[Executor] Missing TripAction", this);
-                        if (shoveAction == null) Debug.LogWarning("[Executor] Missing ShoveAction", this);
+            if (shoveAction == null) Debug.LogWarning("[Executor] Missing ShoveAction", this);
             if (grappleAction == null) Debug.LogWarning("[Executor] Missing GrappleAction", this);
+            if (escapeAction == null) Debug.LogWarning("[Executor] Missing EscapeAction", this);
             if (demoralizeAction == null) Debug.LogWarning("[Executor] Missing DemoralizeAction", this);
             if (raiseShieldAction == null) Debug.LogWarning("[Executor] Missing RaiseShieldAction", this);
             if (shieldBlockAction == null) Debug.LogWarning("[Executor] Missing ShieldBlockAction", this);
@@ -379,6 +381,37 @@ public bool TryExecuteGrapple(EntityHandle target)
             executionStartTime = -1f;
 #endif
             turnManager.CompleteActionWithCost(GrappleAction.ActionCost);
+            return true;
+        }
+
+        public bool TryExecuteEscape(EntityHandle grappler)
+        {
+            if (turnManager == null || entityManager == null || escapeAction == null) return false;
+            if (!CanActNow()) return false;
+
+            var actor = turnManager.CurrentEntity;
+            executingActor = actor;
+            turnManager.BeginActionExecution(actor, "Player.Escape");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = Time.time;
+#endif
+
+            var degree = escapeAction.TryEscape(actor, grappler, UnityRng.Shared);
+            if (!degree.HasValue)
+            {
+                executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                executionStartTime = -1f;
+#endif
+                turnManager.ActionCompleted(); // rollback (invalid attempt)
+                return false;
+            }
+
+            executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = -1f;
+#endif
+            turnManager.CompleteActionWithCost(EscapeAction.ActionCost);
             return true;
         }
 

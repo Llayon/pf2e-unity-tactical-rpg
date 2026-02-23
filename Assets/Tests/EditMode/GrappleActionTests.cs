@@ -27,6 +27,7 @@ namespace PF2e.Tests
             Assert.AreEqual(DegreeOfSuccess.CriticalSuccess, degree);
             Assert.IsTrue(ctx.Registry.Get(target).HasCondition(ConditionType.Restrained));
             Assert.IsFalse(ctx.Registry.Get(target).HasCondition(ConditionType.Grabbed));
+            Assert.IsTrue(ctx.Lifecycle.Service.HasExactRelation(actor, target));
         }
 
         [Test]
@@ -41,6 +42,28 @@ namespace PF2e.Tests
 
             Assert.AreEqual(DegreeOfSuccess.Success, degree);
             Assert.IsTrue(ctx.Registry.Get(target).HasCondition(ConditionType.Grabbed));
+            Assert.IsFalse(ctx.Registry.Get(target).HasCondition(ConditionType.Restrained));
+            Assert.IsTrue(ctx.Lifecycle.Service.HasExactRelation(actor, target));
+        }
+
+        [Test]
+        public void TryGrapple_Failure_ReleasesExistingExactRelation_MvpSubset()
+        {
+            using var ctx = new GrappleContext();
+            var grappleWeapon = ctx.CreateWeaponDef(traits: WeaponTraitFlags.Grapple);
+            var actor = ctx.RegisterDefaultGrappleActor(grappleWeapon);
+            var target = ctx.RegisterDefaultGrappleTarget(grappleWeapon);
+
+            var setup = ctx.Action.TryGrapple(actor, target, new FixedRng(d20Rolls: new[] { 13 }));
+            Assert.AreEqual(DegreeOfSuccess.Success, setup);
+            Assert.IsTrue(ctx.Lifecycle.Service.HasExactRelation(actor, target));
+
+            // MAP 1 -> -5, nat 17 => failure against same target Fortitude DC.
+            var degree = ctx.Action.TryGrapple(actor, target, new FixedRng(d20Rolls: new[] { 17 }));
+
+            Assert.AreEqual(DegreeOfSuccess.Failure, degree);
+            Assert.IsFalse(ctx.Lifecycle.Service.HasExactRelation(actor, target));
+            Assert.IsFalse(ctx.Registry.Get(target).HasCondition(ConditionType.Grabbed));
             Assert.IsFalse(ctx.Registry.Get(target).HasCondition(ConditionType.Restrained));
         }
 
@@ -71,6 +94,28 @@ namespace PF2e.Tests
 
             Assert.AreEqual(DegreeOfSuccess.CriticalFailure, degree);
             Assert.IsTrue(ctx.Registry.Get(actor).HasCondition(ConditionType.Prone));
+        }
+
+        [Test]
+        public void TryGrapple_CritFailure_ReleasesExistingExactRelation_AndProne()
+        {
+            using var ctx = new GrappleContext();
+            var grappleWeapon = ctx.CreateWeaponDef(traits: WeaponTraitFlags.Grapple);
+            var actor = ctx.RegisterDefaultGrappleActor(grappleWeapon);
+            var target = ctx.RegisterDefaultGrappleTarget(grappleWeapon);
+
+            var setup = ctx.Action.TryGrapple(actor, target, new FixedRng(d20Rolls: new[] { 13 }));
+            Assert.AreEqual(DegreeOfSuccess.Success, setup);
+            Assert.IsTrue(ctx.Lifecycle.Service.HasExactRelation(actor, target));
+
+            // MAP 1 -> -5, nat 3 => critical failure.
+            var degree = ctx.Action.TryGrapple(actor, target, new FixedRng(d20Rolls: new[] { 3 }));
+
+            Assert.AreEqual(DegreeOfSuccess.CriticalFailure, degree);
+            Assert.IsTrue(ctx.Registry.Get(actor).HasCondition(ConditionType.Prone));
+            Assert.IsFalse(ctx.Lifecycle.Service.HasExactRelation(actor, target));
+            Assert.IsFalse(ctx.Registry.Get(target).HasCondition(ConditionType.Grabbed));
+            Assert.IsFalse(ctx.Registry.Get(target).HasCondition(ConditionType.Restrained));
         }
 
         [Test]
@@ -286,6 +331,26 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void GrappleLifecycle_OnCombatEnded_ClearsActiveRelationsAndConditions()
+        {
+            using var ctx = new GrappleContext();
+            var grappleWeapon = ctx.CreateWeaponDef(traits: WeaponTraitFlags.Grapple);
+            var actor = ctx.RegisterDefaultGrappleActor(grappleWeapon);
+            var target = ctx.RegisterDefaultGrappleTarget(grappleWeapon);
+
+            var degree = ctx.Action.TryGrapple(actor, target, new FixedRng(d20Rolls: new[] { 13 }));
+            Assert.AreEqual(DegreeOfSuccess.Success, degree);
+            Assert.IsTrue(ctx.Lifecycle.Service.HasExactRelation(actor, target));
+            Assert.IsTrue(ctx.Registry.Get(target).HasCondition(ConditionType.Grabbed));
+
+            ctx.EventBus.PublishCombatEnded(EncounterResult.Aborted);
+
+            Assert.IsFalse(ctx.Lifecycle.Service.HasExactRelation(actor, target));
+            Assert.IsFalse(ctx.Registry.Get(target).HasCondition(ConditionType.Grabbed));
+            Assert.IsFalse(ctx.Registry.Get(target).HasCondition(ConditionType.Restrained));
+        }
+
+        [Test]
         public void PlayerActionExecutor_TryExecuteGrapple_InvalidAttempt_RollsBackExecutingAction()
         {
             using var ctx = new ExecutorGrappleContext();
@@ -305,11 +370,13 @@ namespace PF2e.Tests
             private readonly List<WeaponDefinition> weaponDefs = new();
             private readonly GameObject eventBusGo;
             private readonly GameObject entityManagerGo;
+            private readonly GameObject lifecycleGo;
             private readonly GameObject actionGo;
 
             public CombatEventBus EventBus { get; }
             public EntityManager EntityManager { get; }
             public GrappleAction Action { get; }
+            public GrappleLifecycleController Lifecycle { get; }
             public EntityRegistry Registry { get; }
 
             public GrappleContext()
@@ -327,10 +394,19 @@ namespace PF2e.Tests
                 SetPrivateField(EntityManager, "eventBus", EventBus);
                 SetPrivateField(EntityManager, "spawnTestEntities", false);
 
+                lifecycleGo = new GameObject("GrappleLifecycle_Test");
+                Lifecycle = lifecycleGo.AddComponent<GrappleLifecycleController>();
+                SetPrivateField(Lifecycle, "entityManager", EntityManager);
+                SetPrivateField(Lifecycle, "eventBus", EventBus);
+                Lifecycle.enabled = false;
+                Lifecycle.enabled = true;
+                InvokePrivateMethod(Lifecycle, "TrySubscribe");
+
                 actionGo = new GameObject("GrappleAction_Test");
                 Action = actionGo.AddComponent<GrappleAction>();
                 SetPrivateField(Action, "entityManager", EntityManager);
                 SetPrivateField(Action, "eventBus", EventBus);
+                SetPrivateField(Action, "grappleLifecycle", Lifecycle);
             }
 
             public WeaponDefinition CreateWeaponDef(
@@ -449,6 +525,7 @@ namespace PF2e.Tests
                 }
 
                 if (actionGo != null) Object.DestroyImmediate(actionGo);
+                if (lifecycleGo != null) Object.DestroyImmediate(lifecycleGo);
                 if (entityManagerGo != null) Object.DestroyImmediate(entityManagerGo);
                 if (eventBusGo != null) Object.DestroyImmediate(eventBusGo);
                 LogAssert.ignoreFailingMessages = oldIgnoreLogs;
@@ -461,6 +538,7 @@ namespace PF2e.Tests
             private readonly GameObject eventBusGo;
             private readonly GameObject entityManagerGo;
             private readonly GameObject turnManagerGo;
+            private readonly GameObject lifecycleGo;
             private readonly GameObject grappleActionGo;
             private readonly GameObject executorGo;
             private readonly WeaponDefinition grappleWeaponDef;
@@ -470,6 +548,7 @@ namespace PF2e.Tests
             public EntityManager EntityManager { get; }
             public TurnManager TurnManager { get; }
             public GrappleAction GrappleAction { get; }
+            public GrappleLifecycleController Lifecycle { get; }
             public PlayerActionExecutor Executor { get; }
             public EntityRegistry Registry => EntityManager.Registry;
             public EntityHandle Player { get; }
@@ -494,10 +573,19 @@ namespace PF2e.Tests
                 SetPrivateField(TurnManager, "entityManager", EntityManager);
                 SetPrivateField(TurnManager, "eventBus", EventBus);
 
+                lifecycleGo = new GameObject("ExecutorGrapple_GrappleLifecycle_Test");
+                Lifecycle = lifecycleGo.AddComponent<GrappleLifecycleController>();
+                SetPrivateField(Lifecycle, "entityManager", EntityManager);
+                SetPrivateField(Lifecycle, "eventBus", EventBus);
+                Lifecycle.enabled = false;
+                Lifecycle.enabled = true;
+                InvokePrivateMethod(Lifecycle, "TrySubscribe");
+
                 grappleActionGo = new GameObject("ExecutorGrapple_GrappleAction_Test");
                 GrappleAction = grappleActionGo.AddComponent<GrappleAction>();
                 SetPrivateField(GrappleAction, "entityManager", EntityManager);
                 SetPrivateField(GrappleAction, "eventBus", EventBus);
+                SetPrivateField(GrappleAction, "grappleLifecycle", Lifecycle);
 
                 executorGo = new GameObject("ExecutorGrapple_PlayerExecutor_Test");
                 Executor = executorGo.AddComponent<PlayerActionExecutor>();
@@ -589,6 +677,7 @@ namespace PF2e.Tests
                 if (nonGrappleWeaponDef != null) Object.DestroyImmediate(nonGrappleWeaponDef);
                 if (executorGo != null) Object.DestroyImmediate(executorGo);
                 if (grappleActionGo != null) Object.DestroyImmediate(grappleActionGo);
+                if (lifecycleGo != null) Object.DestroyImmediate(lifecycleGo);
                 if (turnManagerGo != null) Object.DestroyImmediate(turnManagerGo);
                 if (entityManagerGo != null) Object.DestroyImmediate(entityManagerGo);
                 if (eventBusGo != null) Object.DestroyImmediate(eventBusGo);
@@ -633,6 +722,13 @@ namespace PF2e.Tests
             var field = target.GetType().GetField(fieldName, InstanceNonPublic);
             Assert.IsNotNull(field, $"Missing auto-property backing field '{fieldName}' on {target.GetType().Name}");
             field.SetValue(target, value);
+        }
+
+        private static void InvokePrivateMethod(object target, string methodName)
+        {
+            var method = target.GetType().GetMethod(methodName, InstanceNonPublic);
+            Assert.IsNotNull(method, $"Missing method '{methodName}' on {target.GetType().Name}");
+            method.Invoke(target, null);
         }
     }
 }
