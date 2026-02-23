@@ -153,6 +153,49 @@ namespace PF2e.Tests
             Assert.AreEqual(4, acPenalty);     // status 2 + off-guard/prone circumstance 2
         }
 
+[Test]
+        public void ComputeAttackAndAcPenalties_Grabbed_AppliesAcPenalty()
+        {
+            var conditions = new List<ActiveCondition>
+            {
+                new ActiveCondition(ConditionType.Grabbed)
+            };
+
+            ConditionRules.ComputeAttackAndAcPenalties(conditions, out int attackPenalty, out int acPenalty);
+
+            Assert.AreEqual(0, attackPenalty);
+            Assert.AreEqual(2, acPenalty);
+        }
+
+        [Test]
+        public void ComputeAttackAndAcPenalties_Restrained_AppliesAcPenalty()
+        {
+            var conditions = new List<ActiveCondition>
+            {
+                new ActiveCondition(ConditionType.Restrained)
+            };
+
+            ConditionRules.ComputeAttackAndAcPenalties(conditions, out int attackPenalty, out int acPenalty);
+
+            Assert.AreEqual(0, attackPenalty);
+            Assert.AreEqual(2, acPenalty);
+        }
+
+        [Test]
+        public void ComputeAttackAndAcPenalties_GrabbedAndOffGuard_StillMinus2Only()
+        {
+            var conditions = new List<ActiveCondition>
+            {
+                new ActiveCondition(ConditionType.Grabbed),
+                new ActiveCondition(ConditionType.OffGuard)
+            };
+
+            ConditionRules.ComputeAttackAndAcPenalties(conditions, out _, out int acPenalty);
+
+            Assert.AreEqual(2, acPenalty);
+        }
+
+
         private static EntityData CreateEntity(
             int level = 1,
             int strength = 10,

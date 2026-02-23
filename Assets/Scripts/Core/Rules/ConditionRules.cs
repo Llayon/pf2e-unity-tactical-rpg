@@ -55,7 +55,7 @@ namespace PF2e.Core
         /// - Status penalties (Frightened/Sickened) do not stack: use max.
         /// - Circumstance penalties do not stack per target metric.
         /// - Attack: prone gives circumstance -2.
-        /// - AC: off-guard or prone gives circumstance -2 (prone implies off-guard for AC context).
+        /// - AC: off-guard/prone/grabbed/restrained gives circumstance -2 (off-guard-like AC state).
         /// </summary>
         public static void ComputeAttackAndAcPenalties(
             IReadOnlyList<ActiveCondition> conditions,
@@ -63,8 +63,10 @@ namespace PF2e.Core
             out int acPenalty)
         {
             int statusPenalty = ComputeCheckPenalty(conditions);
-            bool hasProne = false;
+                        bool hasProne = false;
             bool hasOffGuard = false;
+            bool hasGrabbed = false;
+            bool hasRestrained = false;
 
             if (conditions != null)
             {
@@ -76,15 +78,22 @@ namespace PF2e.Core
                         case ConditionType.Prone:
                             hasProne = true;
                             break;
-                        case ConditionType.OffGuard:
+                                                case ConditionType.OffGuard:
                             hasOffGuard = true;
+                            break;
+                        case ConditionType.Grabbed:
+                            hasGrabbed = true;
+                            break;
+                        case ConditionType.Restrained:
+                            hasRestrained = true;
                             break;
                     }
                 }
             }
 
             int attackCircumstancePenalty = hasProne ? 2 : 0;
-            int acCircumstancePenalty = (hasOffGuard || hasProne) ? 2 : 0;
+                        bool hasOffGuardLikeAcState = hasOffGuard || hasProne || hasGrabbed || hasRestrained;
+            int acCircumstancePenalty = hasOffGuardLikeAcState ? 2 : 0;
 
             attackPenalty = statusPenalty + attackCircumstancePenalty;
             acPenalty = statusPenalty + acCircumstancePenalty;
