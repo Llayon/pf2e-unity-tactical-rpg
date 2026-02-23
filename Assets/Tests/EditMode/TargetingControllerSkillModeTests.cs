@@ -107,6 +107,49 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void PreviewEntity_TripMode_MatchesConfirmValidation_ForAllyAndEnemy()
+        {
+            using var ctx = new TargetingSkillModeContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            var ally = ctx.RegisterEntity("Wizard", Team.Player);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(actor);
+
+            int callbacks = 0;
+            ctx.Controller.BeginTargeting(TargetingMode.Trip, _ => callbacks++);
+
+            var previewAlly = ctx.Controller.PreviewEntity(ally);
+            var previewEnemy = ctx.Controller.PreviewEntity(enemy);
+
+            Assert.AreEqual(TargetingResult.WrongTeam, previewAlly);
+            Assert.AreEqual(TargetingResult.Success, previewEnemy);
+            Assert.AreEqual(0, callbacks, "Preview must not invoke callbacks.");
+            Assert.AreEqual(TargetingMode.Trip, ctx.Controller.ActiveMode, "Preview must not mutate targeting mode.");
+
+            var confirmAlly = ctx.Controller.TryConfirmEntity(ally);
+            Assert.AreEqual(previewAlly, confirmAlly);
+            Assert.AreEqual(TargetingMode.Trip, ctx.Controller.ActiveMode, "Invalid confirm keeps mode active.");
+        }
+
+        [Test]
+        public void PreviewEntity_DoesNotInvokeCallbacks_OrClearMode_OnSuccess()
+        {
+            using var ctx = new TargetingSkillModeContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(actor);
+
+            int callbacks = 0;
+            ctx.Controller.BeginTargeting(TargetingMode.Demoralize, _ => callbacks++);
+
+            var preview = ctx.Controller.PreviewEntity(enemy);
+
+            Assert.AreEqual(TargetingResult.Success, preview);
+            Assert.AreEqual(0, callbacks);
+            Assert.AreEqual(TargetingMode.Demoralize, ctx.Controller.ActiveMode);
+        }
+
+        [Test]
         public void BeginTargeting_InvokesOnModeChanged()
         {
             using var ctx = new TargetingSkillModeContext();

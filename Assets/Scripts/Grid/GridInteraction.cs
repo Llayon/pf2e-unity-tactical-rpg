@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using PF2e.Data;
+using PF2e.Core;
 using PF2e.Managers;
 using PF2e.Presentation.Entity;
 using PF2e.TurnSystem;
@@ -115,6 +116,7 @@ namespace PF2e.Grid
             if (hits.Length == 0)
             {
                 ClearHover();
+                gridManager.SetHoveredEntity(null);
                 return;
             }
 
@@ -148,6 +150,7 @@ namespace PF2e.Grid
             if (!floorHit.HasValue)
             {
                 ClearHover();
+                gridManager.SetHoveredEntity(null);
                 return;
             }
 
@@ -155,6 +158,7 @@ namespace PF2e.Grid
 
             if (gridData.HasCell(cell))
             {
+                gridManager.SetHoveredEntity(entityView != null ? entityView.Handle : (EntityHandle?)null);
                 gridManager.SetHoveredCell(cell);
                 UpdateHoverHighlight(cell);
 
@@ -189,6 +193,7 @@ namespace PF2e.Grid
             else
             {
                 ClearHover();
+                gridManager.SetHoveredEntity(null);
             }
         }
 

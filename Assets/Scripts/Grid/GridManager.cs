@@ -29,15 +29,19 @@ namespace PF2e.Grid
         public event Action OnCellUnhovered;
         public event Action<Vector3Int> OnCellClicked;
         public event Action<Vector3Int> OnCellSelected;
+        public event Action<EntityHandle> OnEntityHovered;
+        public event Action OnEntityUnhovered;
         public event Action<EntityHandle> OnEntityClicked;
         public event Action OnGridChanged;
 
         // --- Internal state ---
         private Vector3Int? hoveredCell;
         private Vector3Int? selectedCell;
+        private EntityHandle? hoveredEntity;
 
         public Vector3Int? HoveredCell => hoveredCell;
         public Vector3Int? SelectedCell => selectedCell;
+        public EntityHandle? HoveredEntity => hoveredEntity;
 
         private void Awake()
         {
@@ -107,6 +111,16 @@ namespace PF2e.Grid
         {
             if (!handle.IsValid) return;
             OnEntityClicked?.Invoke(handle);
+        }
+
+        public void SetHoveredEntity(EntityHandle? handle)
+        {
+            if (hoveredEntity == handle) return;
+            hoveredEntity = handle;
+            if (handle.HasValue && handle.Value.IsValid)
+                OnEntityHovered?.Invoke(handle.Value);
+            else
+                OnEntityUnhovered?.Invoke();
         }
 
         public void SetSelectedCell(Vector3Int? cell)

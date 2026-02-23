@@ -115,10 +115,26 @@ namespace PF2e.TurnSystem
         /// </summary>
         public TargetingResult TryConfirmEntity(EntityHandle handle)
         {
+            return EvaluateEntity(handle, executeOnSuccess: true);
+        }
+
+        /// <summary>
+        /// Non-mutating validation for UI feedback. Uses the same rules path as TryConfirmEntity.
+        /// Does not invoke callbacks and does not change targeting mode.
+        /// </summary>
+        public TargetingResult PreviewEntity(EntityHandle handle)
+        {
+            return EvaluateEntity(handle, executeOnSuccess: false);
+        }
+
+        private TargetingResult EvaluateEntity(EntityHandle handle, bool executeOnSuccess)
+        {
             switch (ActiveMode)
             {
                 case TargetingMode.None:
-                    return HandleContextualEntity(handle);
+                    return executeOnSuccess
+                        ? HandleContextualEntity(handle)
+                        : TargetingResult.ModeNotSupported;
 
                 case TargetingMode.MeleeStrike:
                     // Used when player explicitly selects Strike from action bar (Phase 15+).
@@ -129,7 +145,7 @@ namespace PF2e.TurnSystem
                 case TargetingMode.Escape:
                 case TargetingMode.Demoralize:
                     var result = ValidateEnemy(handle);
-                    if (result == TargetingResult.Success)
+                    if (executeOnSuccess && result == TargetingResult.Success)
                     {
                         _onEntityConfirmed?.Invoke(handle);
                         ClearTargeting();
