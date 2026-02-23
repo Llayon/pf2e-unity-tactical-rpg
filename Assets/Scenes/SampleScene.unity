@@ -2073,6 +2073,8 @@ GameObject:
   - component: {fileID: 456169799}
   - component: {fileID: 456169801}
   - component: {fileID: 456169800}
+  - component: {fileID: 456169803}
+  - component: {fileID: 456169802}
   m_Layer: 0
   m_Name: CombatController
   m_TagString: Untagged
@@ -2191,7 +2193,8 @@ MonoBehaviour:
   strideAction: {fileID: 456169783}
   strikeAction: {fileID: 456169788}
   standAction: {fileID: 456169795}
-  tripAction: {fileID: 0}
+  tripAction: {fileID: 456169803}
+  demoralizeAction: {fileID: 456169802}
   raiseShieldAction: {fileID: 456169801}
   shieldBlockAction: {fileID: 456169800}
   reactionPromptController: {fileID: 35781848}
@@ -2417,6 +2420,35 @@ MonoBehaviour:
   m_EditorClassIdentifier: PF2e::PF2e.TurnSystem.RaiseShieldAction
   entityManager: {fileID: 569346726}
   eventBus: {fileID: 939543823}
+--- !u!114 &456169802
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 456169780}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e7facf5ea958b7248abb168f83b0e728, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PF2e::PF2e.TurnSystem.DemoralizeAction
+  entityManager: {fileID: 569346726}
+  eventBus: {fileID: 939543823}
+--- !u!114 &456169803
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 456169780}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b5c6e36393acbd940ac189c7d7fa1237, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PF2e::PF2e.TurnSystem.TripAction
+  entityManager: {fileID: 569346726}
+  eventBus: {fileID: 939543823}
+  requireSameElevation: 1
 --- !u!1 &467295943
 GameObject:
   m_ObjectHideFlags: 0

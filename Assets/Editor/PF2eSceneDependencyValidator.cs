@@ -77,6 +77,8 @@ public static class PF2eSceneDependencyValidator
         errors += ValidateAll<InitiativeBarController>(ValidateInitiativeBarController);
         errors += ValidateAll<ConditionLogForwarder>(ValidateConditionLogForwarder);
         errors += ValidateAll<StandAction>(ValidateStandAction);
+        errors += ValidateAll<TripAction>(ValidateTripAction);
+        errors += ValidateAll<DemoralizeAction>(ValidateDemoralizeAction);
         errors += ValidateAll<RaiseShieldAction>(ValidateRaiseShieldAction);
         errors += ValidateAll<ShieldBlockAction>(ValidateShieldBlockAction);
         errors += ValidateAll<AITurnController>(ValidateAITurnController);
@@ -97,6 +99,8 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<InitiativeBarController>();
         errors += ErrorIfMoreThanOne<ConditionLogForwarder>();
         errors += ErrorIfMoreThanOne<StandAction>();
+        errors += ErrorIfMoreThanOne<TripAction>();
+        errors += ErrorIfMoreThanOne<DemoralizeAction>();
         errors += ErrorIfMoreThanOne<RaiseShieldAction>();
         errors += ErrorIfMoreThanOne<ShieldBlockAction>();
         errors += ErrorIfMoreThanOne<ReactionPromptController>();
@@ -115,6 +119,8 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnIfNone<EntityManager>();
         warnings += WarnIfNone<TurnManager>();
         warnings += WarnIfNone<AITurnController>();
+        warnings += WarnIfNone<TripAction>();
+        warnings += WarnIfNone<DemoralizeAction>();
         warnings += WarnIfNone<RaiseShieldAction>();
         warnings += WarnIfNone<ShieldBlockAction>();
         warnings += WarnIfNone<ReactionPromptController>();
@@ -168,6 +174,8 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(ex, "strideAction", "StrideAction");
         errors += RequireRef(ex, "strikeAction", "StrikeAction");
         errors += RequireRef(ex, "shieldBlockAction", "ShieldBlockAction");
+        warnings += WarnRef(ex, "tripAction", "TripAction");
+        warnings += WarnRef(ex, "demoralizeAction", "DemoralizeAction");
         warnings += WarnRef(ex, "reactionPromptController", "ReactionPromptController");
     }
 
@@ -309,6 +317,18 @@ public static class PF2eSceneDependencyValidator
     private static void ValidateStandAction(StandAction sa, ref int errors, ref int warnings)
     {
         errors += RequireRef(sa, "entityManager", "EntityManager");
+    }
+
+    private static void ValidateTripAction(TripAction ta, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(ta, "entityManager", "EntityManager");
+        warnings += WarnRef(ta, "eventBus", "CombatEventBus");
+    }
+
+    private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(da, "entityManager", "EntityManager");
+        warnings += WarnRef(da, "eventBus", "CombatEventBus");
     }
 
     private static void ValidateRaiseShieldAction(RaiseShieldAction sa, ref int errors, ref int warnings)
@@ -490,6 +510,8 @@ public static class PF2eSceneDependencyValidator
         TryGetSingleton(out PlayerActionExecutor actionExecutor, logIfMissing: false);
         TryGetSingleton(out StrideAction strideAction, logIfMissing: false);
         TryGetSingleton(out StrikeAction strikeActionSingleton, logIfMissing: false);
+        TryGetSingleton(out TripAction tripActionSingleton, logIfMissing: false);
+        TryGetSingleton(out DemoralizeAction demoralizeActionSingleton, logIfMissing: false);
         TryGetSingleton(out RaiseShieldAction raiseShieldActionSingleton, logIfMissing: false);
         TryGetSingleton(out ShieldBlockAction shieldBlockActionSingleton, logIfMissing: false);
         TryGetSingleton(out EntityMover entityMover, logIfMissing: false);
@@ -519,6 +541,10 @@ public static class PF2eSceneDependencyValidator
         fixedCount += FixAll<PlayerActionExecutor>("entityManager", entityManager);
         if (strideAction != null)
             fixedCount += FixAll<PlayerActionExecutor>("strideAction", strideAction);
+        if (tripActionSingleton != null)
+            fixedCount += FixAll<PlayerActionExecutor>("tripAction", tripActionSingleton);
+        if (demoralizeActionSingleton != null)
+            fixedCount += FixAll<PlayerActionExecutor>("demoralizeAction", demoralizeActionSingleton);
         if (raiseShieldActionSingleton != null)
             fixedCount += FixAll<PlayerActionExecutor>("raiseShieldAction", raiseShieldActionSingleton);
         if (shieldBlockActionSingleton != null)
@@ -633,6 +659,14 @@ public static class PF2eSceneDependencyValidator
         TryGetSingleton(out StandAction standActionSingleton, logIfMissing: false);
         if (standActionSingleton != null)
             fixedCount += FixAll<PlayerActionExecutor>("standAction", standActionSingleton);
+
+        // TripAction / DemoralizeAction (Phase 22)
+        fixedCount += FixAll<TripAction>("entityManager", entityManager);
+        if (eventBus != null)
+            fixedCount += FixAll<TripAction>("eventBus", eventBus);
+        fixedCount += FixAll<DemoralizeAction>("entityManager", entityManager);
+        if (eventBus != null)
+            fixedCount += FixAll<DemoralizeAction>("eventBus", eventBus);
 
         // AITurnController (Phase 16)
         fixedCount += FixAll<AITurnController>("turnManager", turnManager);
