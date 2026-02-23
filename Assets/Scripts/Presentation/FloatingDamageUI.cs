@@ -92,13 +92,20 @@ namespace PF2e.Presentation
                 enabled = false;
                 return;
             }
+            // NOTE: Strike damage currently uses OnStrikeResolved path.
+            // When Strike migrates to DamageAppliedEvent, remove the OnStrikeResolved
+            // subscription to avoid duplicate floating damage text.
             eventBus.OnStrikeResolved += HandleStrikeResolved;
+            eventBus.OnDamageAppliedTyped += HandleDamageApplied;
         }
 
         private void OnDisable()
         {
             if (eventBus != null)
+            {
                 eventBus.OnStrikeResolved -= HandleStrikeResolved;
+                eventBus.OnDamageAppliedTyped -= HandleDamageApplied;
+            }
         }
 
         private void OnDestroy()
@@ -137,21 +144,7 @@ namespace PF2e.Presentation
 
             if (!isHit && !showMiss) return;
 
-            Transform follow = null;
-            Vector3   basePos;
-
-            var view = entityManager.GetView(e.target);
-            if (view != null)
-            {
-                follow  = view.transform;
-                basePos = follow.position + Vector3.up * headOffset;
-            }
-            else
-            {
-                var data = entityManager.Registry?.Get(e.target);
-                if (data == null) return;
-                basePos = entityManager.GetEntityWorldPosition(data.GridPosition) + Vector3.up * headOffset;
-            }
+            if (!TryGetTargetAnchor(e.target, out var follow, out var basePos)) return;
 
             Vector2 jitter   = Random.insideUnitCircle * jitterRadius;
             Vector3 spawnPos = basePos + new Vector3(jitter.x, 0f, jitter.y);
@@ -177,6 +170,39 @@ namespace PF2e.Presentation
                 fontSize = missFontSize;
                 Spawn(spawnPos, follow, false, 0, isCritF ? critMissTextCached : missTextCached, color, fontSize);
             }
+        }
+
+        private void HandleDamageApplied(in DamageAppliedEvent e)
+        {
+            if (e.amount <= 0) return;
+            if (!TryGetTargetAnchor(e.target, out var follow, out var basePos)) return;
+
+            Vector2 jitter   = Random.insideUnitCircle * jitterRadius;
+            Vector3 spawnPos = basePos + new Vector3(jitter.x, 0f, jitter.y);
+
+            Color color = e.isCritical ? critTint : GetDamageColor(e.damageType);
+            float fontSize = e.isCritical ? critFontSize : hitFontSize;
+            Spawn(spawnPos, follow, true, e.amount, null, color, fontSize);
+        }
+
+        private bool TryGetTargetAnchor(EntityHandle target, out Transform follow, out Vector3 basePos)
+        {
+            follow = null;
+            basePos = default;
+
+            var view = entityManager.GetView(target);
+            if (view != null)
+            {
+                follow = view.transform;
+                basePos = follow.position + Vector3.up * headOffset;
+                return true;
+            }
+
+            var data = entityManager.Registry?.Get(target);
+            if (data == null) return false;
+
+            basePos = entityManager.GetEntityWorldPosition(data.GridPosition) + Vector3.up * headOffset;
+            return true;
         }
 
         // ---- Pool + spawn ----

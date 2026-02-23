@@ -87,7 +87,7 @@ namespace PF2e.TurnSystem
             {
                 case DegreeOfSuccess.CriticalSuccess:
                     conditionService.AddOrRefresh(targetData, ConditionType.Prone, value: 0, rounds: -1, conditionDeltaBuffer);
-                    ApplyTripCritDamage(target, targetData, rng);
+                    ApplyTripCritDamage(actor, target, rng);
                     break;
 
                 case DegreeOfSuccess.Success:
@@ -119,19 +119,18 @@ namespace PF2e.TurnSystem
             return result.degree;
         }
 
-        private void ApplyTripCritDamage(EntityHandle targetHandle, EntityData targetData, IRng rng)
+        private void ApplyTripCritDamage(EntityHandle sourceHandle, EntityHandle targetHandle, IRng rng)
         {
-            if (targetData == null || !targetData.IsAlive) return;
-
             int damage = Mathf.Max(0, rng.RollDie(6));
-            if (damage <= 0) return;
-
-            targetData.CurrentHP -= damage;
-            if (targetData.CurrentHP < 0)
-                targetData.CurrentHP = 0;
-
-            if (targetData.CurrentHP <= 0)
-                entityManager.HandleDeath(targetHandle);
+            DamageApplicationService.ApplyDamage(
+                sourceHandle,
+                targetHandle,
+                damage,
+                DamageType.Bludgeoning,
+                ActionName,
+                isCritical: true,
+                entityManager,
+                eventBus);
         }
 
         private void PublishConditionDeltas()

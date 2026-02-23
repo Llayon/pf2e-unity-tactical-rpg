@@ -43,7 +43,10 @@ namespace PF2e.Tests
                 athleticsProf: ProficiencyRank.Untrained);
 
             int strikeResolvedCount = 0;
+            int damageAppliedCount = 0;
+            DamageAppliedEvent lastDamageApplied = default;
             ctx.EventBus.OnStrikeResolved += OnStrikeResolved;
+            ctx.EventBus.OnDamageAppliedTyped += OnDamageApplied;
 
             try
             {
@@ -55,16 +58,31 @@ namespace PF2e.Tests
                 Assert.IsTrue(targetData.HasCondition(ConditionType.Prone));
                 Assert.AreEqual(16, targetData.CurrentHP, "Trip crit should apply flat 1d6 damage.");
                 Assert.AreEqual(0, strikeResolvedCount, "Trip crit damage must not publish StrikeResolvedEvent.");
+                Assert.AreEqual(1, damageAppliedCount, "Trip crit damage should publish generic DamageAppliedEvent.");
+                Assert.AreEqual(actor, lastDamageApplied.source);
+                Assert.AreEqual(target, lastDamageApplied.target);
+                Assert.AreEqual(4, lastDamageApplied.amount);
+                Assert.AreEqual(DamageType.Bludgeoning, lastDamageApplied.damageType);
+                Assert.AreEqual("Trip", lastDamageApplied.sourceActionName);
+                Assert.IsTrue(lastDamageApplied.isCritical);
+                Assert.IsFalse(lastDamageApplied.targetDefeated);
             }
             finally
             {
                 ctx.EventBus.OnStrikeResolved -= OnStrikeResolved;
+                ctx.EventBus.OnDamageAppliedTyped -= OnDamageApplied;
             }
 
             void OnStrikeResolved(in StrikeResolvedEvent e)
             {
                 _ = e;
                 strikeResolvedCount++;
+            }
+
+            void OnDamageApplied(in DamageAppliedEvent e)
+            {
+                damageAppliedCount++;
+                lastDamageApplied = e;
             }
         }
 

@@ -39,6 +39,7 @@ namespace PF2e.Core
     {
         public delegate void StrikePreDamageHandler(in StrikePreDamageEvent e);
         public delegate void StrikeResolvedHandler(in StrikeResolvedEvent e);
+        public delegate void DamageAppliedHandler(in DamageAppliedEvent e);
         public delegate void SkillCheckResolvedHandler(in SkillCheckResolvedEvent e);
         public delegate void ShieldRaisedHandler(in ShieldRaisedEvent e);
         public delegate void ShieldBlockResolvedHandler(in ShieldBlockResolvedEvent e);
@@ -46,6 +47,7 @@ namespace PF2e.Core
         public event Action<CombatLogEntry> OnLogEntry;
         public event StrikePreDamageHandler OnStrikePreDamageTyped;
         public event StrikeResolvedHandler OnStrikeResolved;
+        public event DamageAppliedHandler OnDamageAppliedTyped;
         public event SkillCheckResolvedHandler OnSkillCheckResolvedTyped;
         public event ShieldRaisedHandler OnShieldRaisedTyped;
         public event ShieldBlockResolvedHandler OnShieldBlockResolvedTyped;
@@ -95,6 +97,11 @@ namespace PF2e.Core
         public void PublishStrikeResolved(in StrikeResolvedEvent ev)
         {
             OnStrikeResolved?.Invoke(in ev);
+        }
+
+        public void PublishDamageApplied(in DamageAppliedEvent ev)
+        {
+            OnDamageAppliedTyped?.Invoke(in ev);
         }
 
         public void PublishSkillCheckResolved(in SkillCheckResolvedEvent ev)
