@@ -106,6 +106,40 @@ namespace PF2e.Tests
             Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
         }
 
+        [Test]
+        public void BeginTargeting_InvokesOnModeChanged()
+        {
+            using var ctx = new TargetingSkillModeContext();
+
+            int calls = 0;
+            TargetingMode last = TargetingMode.None;
+            ctx.Controller.OnModeChanged += mode => { calls++; last = mode; };
+
+            ctx.Controller.BeginTargeting(TargetingMode.Trip);
+
+            Assert.AreEqual(1, calls);
+            Assert.AreEqual(TargetingMode.Trip, last);
+        }
+
+        [Test]
+        public void CancelTargeting_InvokesOnModeChanged_WithNone()
+        {
+            using var ctx = new TargetingSkillModeContext();
+
+            int calls = 0;
+            var seen = new List<TargetingMode>();
+            ctx.Controller.OnModeChanged += mode => { calls++; seen.Add(mode); };
+
+            ctx.Controller.BeginTargeting(TargetingMode.Trip);
+            ctx.Controller.CancelTargeting();
+
+            Assert.AreEqual(2, calls);
+            CollectionAssert.AreEqual(
+                new[] { TargetingMode.Trip, TargetingMode.None },
+                seen);
+            Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
+        }
+
 
         [Test]
         public void TripMode_AllyClick_ReturnsWrongTeam_DoesNotInvokeCallback_AndKeepsMode()

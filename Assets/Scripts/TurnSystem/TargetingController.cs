@@ -45,6 +45,7 @@ namespace PF2e.TurnSystem
         [SerializeField] private CombatEventBus eventBus;
 
         public TargetingMode ActiveMode { get; private set; } = TargetingMode.None;
+        public event Action<TargetingMode> OnModeChanged;
 
         // Callbacks for explicit modes (BeginTargeting).
         // NOTE: closures acceptable (called once per action, not per-frame).
@@ -98,6 +99,7 @@ namespace PF2e.TurnSystem
             ActiveMode         = mode;
             _onEntityConfirmed = onConfirmed;
             _onCancelled       = onCancelled;
+            OnModeChanged?.Invoke(ActiveMode);
         }
 
         /// <summary>Cancel targeting (Escape / turn end / combat end).</summary>
@@ -197,9 +199,12 @@ namespace PF2e.TurnSystem
 
         private void ClearTargeting()
         {
+            bool modeChanged = ActiveMode != TargetingMode.None;
             ActiveMode         = TargetingMode.None;
             _onEntityConfirmed = null;
             _onCancelled       = null;
+            if (modeChanged)
+                OnModeChanged?.Invoke(TargetingMode.None);
         }
     }
 }
