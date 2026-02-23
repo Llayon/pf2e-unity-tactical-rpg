@@ -222,6 +222,24 @@ namespace PF2e.Tests
             Assert.AreEqual(TargetingMode.Trip, ctx.TargetingController.ActiveMode);
         }
 
+        [Test]
+        public void ClickingActiveStrikeButton_TogglesTargetingOff()
+        {
+            using var ctx = new ActionBarTestContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
+            ctx.EventBus.PublishCombatStarted();
+            ctx.RefreshAvailability();
+
+            ctx.StrikeButton.onClick.Invoke();
+            Assert.AreEqual(TargetingMode.Strike, ctx.TargetingController.ActiveMode);
+            Assert.IsTrue(ctx.StrikeHighlight.gameObject.activeSelf);
+
+            ctx.StrikeButton.onClick.Invoke();
+            Assert.AreEqual(TargetingMode.None, ctx.TargetingController.ActiveMode);
+            Assert.IsFalse(ctx.StrikeHighlight.gameObject.activeSelf);
+        }
+
         private sealed class ActionBarTestContext : System.IDisposable
         {
             public readonly GameObject Root;

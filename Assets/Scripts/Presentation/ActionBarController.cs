@@ -310,38 +310,32 @@ namespace PF2e.Presentation
 
         private void OnStrikeClicked()
         {
-            if (targetingController == null || actionExecutor == null) return;
-            targetingController.BeginTargeting(TargetingMode.Strike, h => actionExecutor.TryExecuteStrike(h));
+            ToggleOrBeginTargeting(TargetingMode.Strike, h => actionExecutor.TryExecuteStrike(h));
         }
 
         private void OnTripClicked()
         {
-            if (targetingController == null || actionExecutor == null) return;
-            targetingController.BeginTargeting(TargetingMode.Trip, h => actionExecutor.TryExecuteTrip(h));
+            ToggleOrBeginTargeting(TargetingMode.Trip, h => actionExecutor.TryExecuteTrip(h));
         }
 
         private void OnShoveClicked()
         {
-            if (targetingController == null || actionExecutor == null) return;
-            targetingController.BeginTargeting(TargetingMode.Shove, h => actionExecutor.TryExecuteShove(h));
+            ToggleOrBeginTargeting(TargetingMode.Shove, h => actionExecutor.TryExecuteShove(h));
         }
 
         private void OnGrappleClicked()
         {
-            if (targetingController == null || actionExecutor == null) return;
-            targetingController.BeginTargeting(TargetingMode.Grapple, h => actionExecutor.TryExecuteGrapple(h));
+            ToggleOrBeginTargeting(TargetingMode.Grapple, h => actionExecutor.TryExecuteGrapple(h));
         }
 
         private void OnDemoralizeClicked()
         {
-            if (targetingController == null || actionExecutor == null) return;
-            targetingController.BeginTargeting(TargetingMode.Demoralize, h => actionExecutor.TryExecuteDemoralize(h));
+            ToggleOrBeginTargeting(TargetingMode.Demoralize, h => actionExecutor.TryExecuteDemoralize(h));
         }
 
         private void OnEscapeClicked()
         {
-            if (targetingController == null || actionExecutor == null) return;
-            targetingController.BeginTargeting(TargetingMode.Escape, h => actionExecutor.TryExecuteEscape(h));
+            ToggleOrBeginTargeting(TargetingMode.Escape, h => actionExecutor.TryExecuteEscape(h));
         }
 
         private void OnRaiseShieldClicked()
@@ -354,6 +348,19 @@ namespace PF2e.Presentation
         {
             if (actionExecutor == null) return;
             actionExecutor.TryExecuteStand();
+        }
+
+        private void ToggleOrBeginTargeting(TargetingMode mode, System.Action<EntityHandle> onConfirm)
+        {
+            if (targetingController == null || actionExecutor == null) return;
+
+            if (targetingController.ActiveMode == mode)
+            {
+                targetingController.CancelTargeting();
+                return;
+            }
+
+            targetingController.BeginTargeting(mode, onConfirm);
         }
     }
 }
