@@ -83,6 +83,8 @@ public static class PF2eSceneDependencyValidator
         errors += ValidateAll<DemoralizeAction>(ValidateDemoralizeAction);
         errors += ValidateAll<RaiseShieldAction>(ValidateRaiseShieldAction);
         errors += ValidateAll<ShieldBlockAction>(ValidateShieldBlockAction);
+        errors += ValidateAll<GrappleLifecycleController>(ValidateGrappleLifecycleController);
+        errors += ValidateAll<EscapeAction>(ValidateEscapeAction);
         errors += ValidateAll<AITurnController>(ValidateAITurnController);
         errors += ValidateAll<ReactionPromptController>(ValidateReactionPromptController);
 
@@ -107,6 +109,8 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<DemoralizeAction>();
         errors += ErrorIfMoreThanOne<RaiseShieldAction>();
         errors += ErrorIfMoreThanOne<ShieldBlockAction>();
+        errors += ErrorIfMoreThanOne<GrappleLifecycleController>();
+        errors += ErrorIfMoreThanOne<EscapeAction>();
         errors += ErrorIfMoreThanOne<ReactionPromptController>();
 
         // Strict singletons for combat controller components (also expected 1 per scene)
@@ -129,6 +133,8 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnIfNone<DemoralizeAction>();
         warnings += WarnIfNone<RaiseShieldAction>();
         warnings += WarnIfNone<ShieldBlockAction>();
+        warnings += WarnIfNone<GrappleLifecycleController>();
+        warnings += WarnIfNone<EscapeAction>();
         warnings += WarnIfNone<ReactionPromptController>();
         warnings += WarnIfNone<EncounterEndPanelController>();
         warnings += WarnIfNone<EncounterFlowController>();
@@ -183,6 +189,7 @@ public static class PF2eSceneDependencyValidator
                 warnings += WarnRef(ex, "tripAction", "TripAction");
         warnings += WarnRef(ex, "shoveAction", "ShoveAction");
         warnings += WarnRef(ex, "grappleAction", "GrappleAction");
+        warnings += WarnRef(ex, "escapeAction", "EscapeAction");
         warnings += WarnRef(ex, "demoralizeAction", "DemoralizeAction");
         warnings += WarnRef(ex, "reactionPromptController", "ReactionPromptController");
     }
@@ -344,12 +351,26 @@ public static class PF2eSceneDependencyValidator
     {
         errors += RequireRef(ga, "entityManager", "EntityManager");
         warnings += WarnRef(ga, "eventBus", "CombatEventBus");
+        warnings += WarnRef(ga, "grappleLifecycle", "GrappleLifecycleController");
     }
 
 private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors, ref int warnings)
     {
         errors += RequireRef(da, "entityManager", "EntityManager");
         warnings += WarnRef(da, "eventBus", "CombatEventBus");
+    }
+
+    private static void ValidateGrappleLifecycleController(GrappleLifecycleController glc, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(glc, "entityManager", "EntityManager");
+        errors += RequireRef(glc, "eventBus", "CombatEventBus");
+    }
+
+    private static void ValidateEscapeAction(EscapeAction ea, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(ea, "entityManager", "EntityManager");
+        warnings += WarnRef(ea, "eventBus", "CombatEventBus");
+        warnings += WarnRef(ea, "grappleLifecycle", "GrappleLifecycleController");
     }
 
     private static void ValidateRaiseShieldAction(RaiseShieldAction sa, ref int errors, ref int warnings)
@@ -534,6 +555,7 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
                 TryGetSingleton(out TripAction tripActionSingleton, logIfMissing: false);
         TryGetSingleton(out ShoveAction shoveActionSingleton, logIfMissing: false);
         TryGetSingleton(out GrappleAction grappleActionSingleton, logIfMissing: false);
+        TryGetSingleton(out EscapeAction escapeActionSingleton, logIfMissing: false);
         TryGetSingleton(out DemoralizeAction demoralizeActionSingleton, logIfMissing: false);
         TryGetSingleton(out RaiseShieldAction raiseShieldActionSingleton, logIfMissing: false);
         TryGetSingleton(out ShieldBlockAction shieldBlockActionSingleton, logIfMissing: false);
@@ -543,6 +565,7 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         TryGetSingleton(out CellHighlightPool highlightPool, logIfMissing: false);
         TryGetSingleton(out Canvas rootCanvas, logIfMissing: false);
         TryGetSingleton(out ReactionPromptController reactionPromptControllerSingleton, logIfMissing: false);
+        TryGetSingleton(out GrappleLifecycleController grappleLifecycleSingleton, logIfMissing: false);
 
         // Fix null references only
 
@@ -570,6 +593,8 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
             fixedCount += FixAll<PlayerActionExecutor>("shoveAction", shoveActionSingleton);
         if (grappleActionSingleton != null)
             fixedCount += FixAll<PlayerActionExecutor>("grappleAction", grappleActionSingleton);
+        if (escapeActionSingleton != null)
+            fixedCount += FixAll<PlayerActionExecutor>("escapeAction", escapeActionSingleton);
         if (demoralizeActionSingleton != null)
             fixedCount += FixAll<PlayerActionExecutor>("demoralizeAction", demoralizeActionSingleton);
         if (raiseShieldActionSingleton != null)
@@ -697,9 +722,21 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         fixedCount += FixAll<GrappleAction>("entityManager", entityManager);
         if (eventBus != null)
             fixedCount += FixAll<GrappleAction>("eventBus", eventBus);
+        if (grappleLifecycleSingleton != null)
+            fixedCount += FixAll<GrappleAction>("grappleLifecycle", grappleLifecycleSingleton);
+        fixedCount += FixAll<EscapeAction>("entityManager", entityManager);
+        if (eventBus != null)
+            fixedCount += FixAll<EscapeAction>("eventBus", eventBus);
+        if (grappleLifecycleSingleton != null)
+            fixedCount += FixAll<EscapeAction>("grappleLifecycle", grappleLifecycleSingleton);
         fixedCount += FixAll<DemoralizeAction>("entityManager", entityManager);
         if (eventBus != null)
             fixedCount += FixAll<DemoralizeAction>("eventBus", eventBus);
+
+        // Grapple lifecycle controller (Phase 22.3.x)
+        fixedCount += FixAll<GrappleLifecycleController>("entityManager", entityManager);
+        if (eventBus != null)
+            fixedCount += FixAll<GrappleLifecycleController>("eventBus", eventBus);
 
         // AITurnController (Phase 16)
         fixedCount += FixAll<AITurnController>("turnManager", turnManager);
