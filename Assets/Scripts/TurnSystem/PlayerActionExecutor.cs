@@ -82,6 +82,52 @@ namespace PF2e.TurnSystem
             return true;
         }
 
+        /// <summary>
+        /// Non-mutating target preview for TargetingController/UI hint systems.
+        /// Evaluates action-specific pre-target rules for the current actor without spending actions or changing state.
+        /// </summary>
+        public TargetingEvaluationResult PreviewEntityTargetDetailed(TargetingMode mode, EntityHandle target)
+        {
+            if (!target.IsValid) return TargetingEvaluationResult.FromFailure(TargetingFailureReason.InvalidTarget);
+            if (turnManager == null || entityManager == null) return TargetingEvaluationResult.FromFailure(TargetingFailureReason.InvalidState);
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid) return TargetingEvaluationResult.FromFailure(TargetingFailureReason.InvalidState);
+
+            TargetingFailureReason reason = mode switch
+            {
+                TargetingMode.MeleeStrike => strikeAction == null
+                    ? TargetingFailureReason.InvalidState
+                    : strikeAction.GetMeleeStrikeTargetFailure(actor, target),
+
+                TargetingMode.Trip => tripAction == null
+                    ? TargetingFailureReason.InvalidState
+                    : tripAction.GetTripTargetFailure(actor, target),
+
+                TargetingMode.Shove => shoveAction == null
+                    ? TargetingFailureReason.InvalidState
+                    : shoveAction.GetShoveTargetFailure(actor, target),
+
+                TargetingMode.Grapple => grappleAction == null
+                    ? TargetingFailureReason.InvalidState
+                    : grappleAction.GetGrappleTargetFailure(actor, target),
+
+                TargetingMode.Escape => escapeAction == null
+                    ? TargetingFailureReason.InvalidState
+                    : escapeAction.GetEscapeTargetFailure(actor, target),
+
+                TargetingMode.Demoralize => demoralizeAction == null
+                    ? TargetingFailureReason.InvalidState
+                    : demoralizeAction.GetDemoralizeTargetFailure(actor, target),
+
+                _ => TargetingFailureReason.ModeNotSupported
+            };
+
+            return reason == TargetingFailureReason.None
+                ? TargetingEvaluationResult.Success()
+                : TargetingEvaluationResult.FromFailure(reason);
+        }
+
         public bool TryExecuteStrideToCell(Vector3Int targetCell)
         {
             if (turnManager == null || entityManager == null || strideAction == null) return false;

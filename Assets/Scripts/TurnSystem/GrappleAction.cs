@@ -37,31 +37,37 @@ namespace PF2e.TurnSystem
         }
 #endif
 
-        public bool CanGrapple(EntityHandle actor, EntityHandle target)
+        public TargetingFailureReason GetGrappleTargetFailure(EntityHandle actor, EntityHandle target)
         {
-            if (!actor.IsValid || !target.IsValid) return false;
-            if (entityManager == null || entityManager.Registry == null) return false;
-            if (grappleLifecycle == null || grappleLifecycle.Service == null) return false;
+            if (!actor.IsValid || !target.IsValid) return TargetingFailureReason.InvalidTarget;
+            if (entityManager == null || entityManager.Registry == null) return TargetingFailureReason.InvalidState;
+            if (grappleLifecycle == null || grappleLifecycle.Service == null) return TargetingFailureReason.InvalidState;
 
             var actorData = entityManager.Registry.Get(actor);
             var targetData = entityManager.Registry.Get(target);
-            if (actorData == null || targetData == null) return false;
-            if (!actorData.IsAlive || !targetData.IsAlive) return false;
-            if (actorData.Team == targetData.Team) return false;
-            if (actorData.EquippedWeapon.IsRanged) return false;
-            if (requireSameElevation && actorData.GridPosition.y != targetData.GridPosition.y) return false;
+            if (actorData == null || targetData == null) return TargetingFailureReason.InvalidTarget;
+            if (!actorData.IsAlive || !targetData.IsAlive) return TargetingFailureReason.NotAlive;
+            if (actor == target) return TargetingFailureReason.SelfTarget;
+            if (actorData.Team == targetData.Team) return TargetingFailureReason.WrongTeam;
+            if (actorData.EquippedWeapon.IsRanged) return TargetingFailureReason.RequiresMeleeWeapon;
+            if (requireSameElevation && actorData.GridPosition.y != targetData.GridPosition.y) return TargetingFailureReason.WrongElevation;
 
             int sizeDelta = (int)targetData.Size - (int)actorData.Size;
-            if (sizeDelta > 1) return false;
+            if (sizeDelta > 1) return TargetingFailureReason.TargetTooLarge;
 
             int distanceFeet = GridDistancePF2e.DistanceFeetXZ(actorData.GridPosition, targetData.GridPosition);
-            if (distanceFeet > actorData.EquippedWeapon.ReachFeet) return false;
+            if (distanceFeet > actorData.EquippedWeapon.ReachFeet) return TargetingFailureReason.OutOfRange;
 
             // MVP rule gap: free-hand model is not implemented yet, so only Grapple-trait weapons are eligible.
             bool hasGrappleTrait = (actorData.EquippedWeapon.Traits & WeaponTraitFlags.Grapple) != 0;
-            if (!hasGrappleTrait) return false;
+            if (!hasGrappleTrait) return TargetingFailureReason.MissingRequiredWeaponTrait;
 
-            return true;
+            return TargetingFailureReason.None;
+        }
+
+        public bool CanGrapple(EntityHandle actor, EntityHandle target)
+        {
+            return GetGrappleTargetFailure(actor, target) == TargetingFailureReason.None;
         }
 
         public DegreeOfSuccess? TryGrapple(EntityHandle actor, EntityHandle target, IRng rng = null)

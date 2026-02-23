@@ -124,17 +124,35 @@ namespace PF2e.TurnSystem
         /// </summary>
         public TargetingResult PreviewEntity(EntityHandle handle)
         {
-            return EvaluateEntity(handle, executeOnSuccess: false);
+            return PreviewEntityDetailed(handle).result;
+        }
+
+        /// <summary>
+        /// Non-mutating detailed preview for UI hinting. Uses the same validation core as TryConfirmEntity.
+        /// Does not invoke callbacks and does not change targeting mode.
+        /// </summary>
+        public TargetingEvaluationResult PreviewEntityDetailed(EntityHandle handle)
+        {
+            return EvaluateEntityDetailed(handle, executeOnSuccess: false);
         }
 
         private TargetingResult EvaluateEntity(EntityHandle handle, bool executeOnSuccess)
         {
+            return EvaluateEntityDetailed(handle, executeOnSuccess).result;
+        }
+
+        private TargetingEvaluationResult EvaluateEntityDetailed(EntityHandle handle, bool executeOnSuccess)
+        {
             switch (ActiveMode)
             {
                 case TargetingMode.None:
-                    return executeOnSuccess
-                        ? HandleContextualEntity(handle)
-                        : TargetingResult.ModeNotSupported;
+                    if (!executeOnSuccess)
+                        return TargetingEvaluationResult.FromFailure(TargetingFailureReason.ModeNotSupported);
+
+                    var contextual = HandleContextualEntity(handle);
+                    return contextual == TargetingResult.Success
+                        ? TargetingEvaluationResult.Success()
+                        : TargetingEvaluationResult.FromFailure(MapBasicResultToFailure(contextual));
 
                 case TargetingMode.MeleeStrike:
                     // Used when player explicitly selects Strike from action bar (Phase 15+).
@@ -144,18 +162,34 @@ namespace PF2e.TurnSystem
                 case TargetingMode.Grapple:
                 case TargetingMode.Escape:
                 case TargetingMode.Demoralize:
-                    var result = ValidateEnemy(handle);
-                    if (executeOnSuccess && result == TargetingResult.Success)
+                    var evaluation = EvaluateExplicitEntityMode(handle);
+                    if (executeOnSuccess && evaluation.result == TargetingResult.Success)
                     {
                         _onEntityConfirmed?.Invoke(handle);
                         ClearTargeting();
                     }
-                    return result;
+                    return evaluation;
 
                 // future: RangedStrike, SpellSingle, HealSingle
                 default:
-                    return TargetingResult.ModeNotSupported;
+                    return TargetingEvaluationResult.FromFailure(TargetingFailureReason.ModeNotSupported);
             }
+        }
+
+        private TargetingEvaluationResult EvaluateExplicitEntityMode(EntityHandle handle)
+        {
+            if (actionExecutor != null)
+            {
+                var detailed = actionExecutor.PreviewEntityTargetDetailed(ActiveMode, handle);
+                if (detailed.failureReason != TargetingFailureReason.InvalidState)
+                    return detailed;
+            }
+
+            // Fallback for isolated tests that construct TargetingController without PlayerActionExecutor.
+            var result = ValidateEnemy(handle);
+            return result == TargetingResult.Success
+                ? TargetingEvaluationResult.Success()
+                : TargetingEvaluationResult.FromFailure(MapBasicResultToFailure(result));
         }
 
         /// <summary>
@@ -211,6 +245,21 @@ namespace PF2e.TurnSystem
             if (handle == actor)                         return TargetingResult.SelfTarget;
             if (targetData.Team == actorData.Team)       return TargetingResult.WrongTeam;
             return TargetingResult.Success;
+        }
+
+        private static TargetingFailureReason MapBasicResultToFailure(TargetingResult result)
+        {
+            return result switch
+            {
+                TargetingResult.Success => TargetingFailureReason.None,
+                TargetingResult.InvalidTarget => TargetingFailureReason.InvalidTarget,
+                TargetingResult.NotAlive => TargetingFailureReason.NotAlive,
+                TargetingResult.SelfTarget => TargetingFailureReason.SelfTarget,
+                TargetingResult.WrongTeam => TargetingFailureReason.WrongTeam,
+                TargetingResult.OutOfRange => TargetingFailureReason.OutOfRange,
+                TargetingResult.ModeNotSupported => TargetingFailureReason.ModeNotSupported,
+                _ => TargetingFailureReason.InvalidTarget
+            };
         }
 
         private void ClearTargeting()

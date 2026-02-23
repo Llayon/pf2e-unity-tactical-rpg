@@ -146,6 +146,27 @@ namespace PF2e.TurnSystem
             return true;
         }
 
+        public TargetingFailureReason GetMeleeStrikeTargetFailure(EntityHandle attacker, EntityHandle target)
+        {
+            if (!attacker.IsValid || !target.IsValid) return TargetingFailureReason.InvalidTarget;
+            if (entityManager == null || entityManager.Registry == null) return TargetingFailureReason.InvalidState;
+
+            var attackerData = entityManager.Registry.Get(attacker);
+            var targetData = entityManager.Registry.Get(target);
+            if (attackerData == null || targetData == null) return TargetingFailureReason.InvalidTarget;
+            if (!attackerData.IsAlive || !targetData.IsAlive) return TargetingFailureReason.NotAlive;
+            if (attacker == target) return TargetingFailureReason.SelfTarget;
+            if (attackerData.Team == targetData.Team) return TargetingFailureReason.WrongTeam;
+            if (attackerData.EquippedWeapon.IsRanged) return TargetingFailureReason.RequiresMeleeWeapon;
+            if (requireSameElevation && attackerData.GridPosition.y != targetData.GridPosition.y) return TargetingFailureReason.WrongElevation;
+
+            int distanceFeet = GridDistancePF2e.DistanceFeetXZ(attackerData.GridPosition, targetData.GridPosition);
+            int reachFeet = attackerData.EquippedWeapon.ReachFeet;
+            if (distanceFeet > reachFeet) return TargetingFailureReason.OutOfRange;
+
+            return TargetingFailureReason.None;
+        }
+
         private bool TryGetParticipants(
             EntityHandle attacker,
             EntityHandle target,

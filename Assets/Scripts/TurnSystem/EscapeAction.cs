@@ -33,22 +33,27 @@ namespace PF2e.TurnSystem
         }
 #endif
 
-        public bool CanEscape(EntityHandle actor, EntityHandle grappler)
+        public TargetingFailureReason GetEscapeTargetFailure(EntityHandle actor, EntityHandle grappler)
         {
-            if (!actor.IsValid || !grappler.IsValid) return false;
-            if (actor == grappler) return false;
-            if (entityManager == null || entityManager.Registry == null) return false;
-            if (grappleLifecycle == null || grappleLifecycle.Service == null) return false;
+            if (!actor.IsValid || !grappler.IsValid) return TargetingFailureReason.InvalidTarget;
+            if (actor == grappler) return TargetingFailureReason.SelfTarget;
+            if (entityManager == null || entityManager.Registry == null) return TargetingFailureReason.InvalidState;
+            if (grappleLifecycle == null || grappleLifecycle.Service == null) return TargetingFailureReason.InvalidState;
 
             var actorData = entityManager.Registry.Get(actor);
             var grapplerData = entityManager.Registry.Get(grappler);
-            if (actorData == null || grapplerData == null) return false;
-            if (!actorData.IsAlive || !grapplerData.IsAlive) return false;
+            if (actorData == null || grapplerData == null) return TargetingFailureReason.InvalidTarget;
+            if (!actorData.IsAlive || !grapplerData.IsAlive) return TargetingFailureReason.NotAlive;
 
-            if (!grappleLifecycle.Service.HasExactRelation(grappler, actor)) return false;
-            if (!actorData.HasCondition(ConditionType.Grabbed) && !actorData.HasCondition(ConditionType.Restrained)) return false;
+            if (!grappleLifecycle.Service.HasExactRelation(grappler, actor)) return TargetingFailureReason.NoGrappleRelation;
+            if (!actorData.HasCondition(ConditionType.Grabbed) && !actorData.HasCondition(ConditionType.Restrained)) return TargetingFailureReason.NoGrappleRelation;
 
-            return true;
+            return TargetingFailureReason.None;
+        }
+
+        public bool CanEscape(EntityHandle actor, EntityHandle grappler)
+        {
+            return GetEscapeTargetFailure(actor, grappler) == TargetingFailureReason.None;
         }
 
         public DegreeOfSuccess? TryEscape(EntityHandle actor, EntityHandle grappler, IRng rng = null)

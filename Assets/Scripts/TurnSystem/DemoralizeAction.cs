@@ -33,22 +33,28 @@ namespace PF2e.TurnSystem
         }
 #endif
 
-        public bool CanDemoralize(EntityHandle actor, EntityHandle target)
+        public TargetingFailureReason GetDemoralizeTargetFailure(EntityHandle actor, EntityHandle target)
         {
-            if (!actor.IsValid || !target.IsValid) return false;
-            if (entityManager == null || entityManager.Registry == null) return false;
+            if (!actor.IsValid || !target.IsValid) return TargetingFailureReason.InvalidTarget;
+            if (entityManager == null || entityManager.Registry == null) return TargetingFailureReason.InvalidState;
 
             var actorData = entityManager.Registry.Get(actor);
             var targetData = entityManager.Registry.Get(target);
-            if (actorData == null || targetData == null) return false;
-            if (!actorData.IsAlive || !targetData.IsAlive) return false;
-            if (actorData.Team == targetData.Team) return false;
+            if (actorData == null || targetData == null) return TargetingFailureReason.InvalidTarget;
+            if (!actorData.IsAlive || !targetData.IsAlive) return TargetingFailureReason.NotAlive;
+            if (actor == target) return TargetingFailureReason.SelfTarget;
+            if (actorData.Team == targetData.Team) return TargetingFailureReason.WrongTeam;
 
             // MVP: awareness/LoS/language subsystems are not modeled yet.
             int distanceFeet = GridDistancePF2e.DistanceFeetXZ(actorData.GridPosition, targetData.GridPosition);
-            if (distanceFeet > RangeFeet) return false;
+            if (distanceFeet > RangeFeet) return TargetingFailureReason.OutOfRange;
 
-            return true;
+            return TargetingFailureReason.None;
+        }
+
+        public bool CanDemoralize(EntityHandle actor, EntityHandle target)
+        {
+            return GetDemoralizeTargetFailure(actor, target) == TargetingFailureReason.None;
         }
 
         public DegreeOfSuccess? TryDemoralize(EntityHandle actor, EntityHandle target, IRng rng = null)

@@ -150,6 +150,36 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void PreviewEntityDetailed_ReturnsFailureReason_AndDoesNotMutateMode()
+        {
+            using var ctx = new TargetingSkillModeContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            var ally = ctx.RegisterEntity("Wizard", Team.Player);
+            ctx.SetCurrentActor(actor);
+
+            ctx.Controller.BeginTargeting(TargetingMode.Trip);
+
+            var detailed = ctx.Controller.PreviewEntityDetailed(ally);
+
+            Assert.AreEqual(TargetingResult.WrongTeam, detailed.result);
+            Assert.AreEqual(TargetingFailureReason.WrongTeam, detailed.failureReason);
+            Assert.AreEqual(TargetingMode.Trip, ctx.Controller.ActiveMode);
+        }
+
+        [Test]
+        public void PreviewEntityDetailed_ModeNone_ReturnsModeNotSupported()
+        {
+            using var ctx = new TargetingSkillModeContext();
+            var target = ctx.RegisterEntity("Goblin", Team.Enemy);
+
+            var detailed = ctx.Controller.PreviewEntityDetailed(target);
+
+            Assert.AreEqual(TargetingResult.ModeNotSupported, detailed.result);
+            Assert.AreEqual(TargetingFailureReason.ModeNotSupported, detailed.failureReason);
+            Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
+        }
+
+        [Test]
         public void BeginTargeting_InvokesOnModeChanged()
         {
             using var ctx = new TargetingSkillModeContext();
