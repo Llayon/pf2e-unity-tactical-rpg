@@ -77,8 +77,9 @@ public static class PF2eSceneDependencyValidator
         errors += ValidateAll<InitiativeBarController>(ValidateInitiativeBarController);
         errors += ValidateAll<ConditionLogForwarder>(ValidateConditionLogForwarder);
         errors += ValidateAll<StandAction>(ValidateStandAction);
-        errors += ValidateAll<TripAction>(ValidateTripAction);
+                errors += ValidateAll<TripAction>(ValidateTripAction);
         errors += ValidateAll<ShoveAction>(ValidateShoveAction);
+        errors += ValidateAll<GrappleAction>(ValidateGrappleAction);
         errors += ValidateAll<DemoralizeAction>(ValidateDemoralizeAction);
         errors += ValidateAll<RaiseShieldAction>(ValidateRaiseShieldAction);
         errors += ValidateAll<ShieldBlockAction>(ValidateShieldBlockAction);
@@ -100,8 +101,9 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<InitiativeBarController>();
         errors += ErrorIfMoreThanOne<ConditionLogForwarder>();
         errors += ErrorIfMoreThanOne<StandAction>();
-        errors += ErrorIfMoreThanOne<TripAction>();
+                errors += ErrorIfMoreThanOne<TripAction>();
         errors += ErrorIfMoreThanOne<ShoveAction>();
+        errors += ErrorIfMoreThanOne<GrappleAction>();
         errors += ErrorIfMoreThanOne<DemoralizeAction>();
         errors += ErrorIfMoreThanOne<RaiseShieldAction>();
         errors += ErrorIfMoreThanOne<ShieldBlockAction>();
@@ -121,8 +123,9 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnIfNone<EntityManager>();
         warnings += WarnIfNone<TurnManager>();
         warnings += WarnIfNone<AITurnController>();
-        warnings += WarnIfNone<TripAction>();
+                warnings += WarnIfNone<TripAction>();
         warnings += WarnIfNone<ShoveAction>();
+        warnings += WarnIfNone<GrappleAction>();
         warnings += WarnIfNone<DemoralizeAction>();
         warnings += WarnIfNone<RaiseShieldAction>();
         warnings += WarnIfNone<ShieldBlockAction>();
@@ -177,8 +180,9 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(ex, "strideAction", "StrideAction");
         errors += RequireRef(ex, "strikeAction", "StrikeAction");
         errors += RequireRef(ex, "shieldBlockAction", "ShieldBlockAction");
-        warnings += WarnRef(ex, "tripAction", "TripAction");
+                warnings += WarnRef(ex, "tripAction", "TripAction");
         warnings += WarnRef(ex, "shoveAction", "ShoveAction");
+        warnings += WarnRef(ex, "grappleAction", "GrappleAction");
         warnings += WarnRef(ex, "demoralizeAction", "DemoralizeAction");
         warnings += WarnRef(ex, "reactionPromptController", "ReactionPromptController");
     }
@@ -335,7 +339,14 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnRef(sa, "eventBus", "CombatEventBus");
     }
 
-    private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors, ref int warnings)
+    
+    private static void ValidateGrappleAction(GrappleAction ga, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(ga, "entityManager", "EntityManager");
+        warnings += WarnRef(ga, "eventBus", "CombatEventBus");
+    }
+
+private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors, ref int warnings)
     {
         errors += RequireRef(da, "entityManager", "EntityManager");
         warnings += WarnRef(da, "eventBus", "CombatEventBus");
@@ -520,8 +531,9 @@ public static class PF2eSceneDependencyValidator
         TryGetSingleton(out PlayerActionExecutor actionExecutor, logIfMissing: false);
         TryGetSingleton(out StrideAction strideAction, logIfMissing: false);
         TryGetSingleton(out StrikeAction strikeActionSingleton, logIfMissing: false);
-        TryGetSingleton(out TripAction tripActionSingleton, logIfMissing: false);
+                TryGetSingleton(out TripAction tripActionSingleton, logIfMissing: false);
         TryGetSingleton(out ShoveAction shoveActionSingleton, logIfMissing: false);
+        TryGetSingleton(out GrappleAction grappleActionSingleton, logIfMissing: false);
         TryGetSingleton(out DemoralizeAction demoralizeActionSingleton, logIfMissing: false);
         TryGetSingleton(out RaiseShieldAction raiseShieldActionSingleton, logIfMissing: false);
         TryGetSingleton(out ShieldBlockAction shieldBlockActionSingleton, logIfMissing: false);
@@ -554,8 +566,10 @@ public static class PF2eSceneDependencyValidator
             fixedCount += FixAll<PlayerActionExecutor>("strideAction", strideAction);
         if (tripActionSingleton != null)
             fixedCount += FixAll<PlayerActionExecutor>("tripAction", tripActionSingleton);
-        if (shoveActionSingleton != null)
+                if (shoveActionSingleton != null)
             fixedCount += FixAll<PlayerActionExecutor>("shoveAction", shoveActionSingleton);
+        if (grappleActionSingleton != null)
+            fixedCount += FixAll<PlayerActionExecutor>("grappleAction", grappleActionSingleton);
         if (demoralizeActionSingleton != null)
             fixedCount += FixAll<PlayerActionExecutor>("demoralizeAction", demoralizeActionSingleton);
         if (raiseShieldActionSingleton != null)
@@ -677,9 +691,12 @@ public static class PF2eSceneDependencyValidator
         fixedCount += FixAll<TripAction>("entityManager", entityManager);
         if (eventBus != null)
             fixedCount += FixAll<TripAction>("eventBus", eventBus);
-        fixedCount += FixAll<ShoveAction>("entityManager", entityManager);
+                fixedCount += FixAll<ShoveAction>("entityManager", entityManager);
         if (eventBus != null)
             fixedCount += FixAll<ShoveAction>("eventBus", eventBus);
+        fixedCount += FixAll<GrappleAction>("entityManager", entityManager);
+        if (eventBus != null)
+            fixedCount += FixAll<GrappleAction>("eventBus", eventBus);
         fixedCount += FixAll<DemoralizeAction>("entityManager", entityManager);
         if (eventBus != null)
             fixedCount += FixAll<DemoralizeAction>("eventBus", eventBus);

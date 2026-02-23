@@ -10,7 +10,8 @@ namespace PF2e.TurnSystem
         None,         // contextual (enemy→Strike, cell→Stride)
         MeleeStrike,  // explicit mode: click on enemy [Action Bar, Phase 15+]
         Trip,         // explicit mode: click enemy
-        Shove,        // explicit mode: click enemy
+                Shove,        // explicit mode: click enemy
+        Grapple,      // explicit mode: click enemy
         Demoralize,   // explicit mode: click enemy
         RangedStrike, // future
         SpellSingle,  // future: single target
@@ -119,8 +120,9 @@ namespace PF2e.TurnSystem
                 case TargetingMode.MeleeStrike:
                     // Used when player explicitly selects Strike from action bar (Phase 15+).
                     // Currently not triggered via UI; contextual mode handles Strike via None.
-                case TargetingMode.Trip:
+                                case TargetingMode.Trip:
                 case TargetingMode.Shove:
+                case TargetingMode.Grapple:
                 case TargetingMode.Demoralize:
                     var result = ValidateEnemy(handle);
                     if (result == TargetingResult.Success)

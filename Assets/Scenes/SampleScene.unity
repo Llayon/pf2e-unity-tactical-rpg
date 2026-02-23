@@ -2076,6 +2076,7 @@ GameObject:
   - component: {fileID: 456169803}
   - component: {fileID: 456169802}
   - component: {fileID: 456169804}
+  - component: {fileID: 456169805}
   m_Layer: 0
   m_Name: CombatController
   m_TagString: Untagged
@@ -2196,6 +2197,7 @@ MonoBehaviour:
   standAction: {fileID: 456169795}
   tripAction: {fileID: 456169803}
   shoveAction: {fileID: 456169804}
+  grappleAction: {fileID: 456169805}
   demoralizeAction: {fileID: 456169802}
   raiseShieldAction: {fileID: 456169801}
   shieldBlockAction: {fileID: 456169800}
@@ -2463,6 +2465,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 163c7fa3d66490143b369a4cfeab28f8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PF2e::PF2e.TurnSystem.ShoveAction
+  entityManager: {fileID: 569346726}
+  eventBus: {fileID: 939543823}
+  requireSameElevation: 1
+--- !u!114 &456169805
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 456169780}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0f4a5129a6b653c4d94b60d6e3637952, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PF2e::PF2e.TurnSystem.GrappleAction
   entityManager: {fileID: 569346726}
   eventBus: {fileID: 939543823}
   requireSameElevation: 1
