@@ -332,6 +332,39 @@ private void OnValidate()
             return view;
         }
 
+        /// <summary>
+        /// Immediate grid snap movement for forced movement and other non-animated paths.
+        /// Updates Occupancy, EntityData.GridPosition, and snaps the view if present.
+        /// Returns false if destination is invalid/blocked.
+        /// </summary>
+        public bool TryMoveEntityImmediate(EntityHandle handle, Vector3Int destination)
+        {
+            if (!handle.IsValid) return false;
+            if (Registry == null || Occupancy == null || gridManager == null || gridManager.Data == null) return false;
+
+            var data = Registry.Get(handle);
+            if (data == null || !data.IsAlive) return false;
+
+            // Forced movement in current slice only supports walkable grid cells.
+            var footprint = OccupancyMap.GetFootprint(destination, data.SizeCells);
+            for (int i = 0; i < footprint.Count; i++)
+            {
+                if (!gridManager.Data.IsCellPassable(footprint[i], MovementType.Walk))
+                    return false;
+            }
+
+            if (!Occupancy.Move(handle, destination, data.SizeCells))
+                return false;
+
+            data.GridPosition = destination;
+
+            var view = GetView(handle);
+            if (view != null && view.gameObject != null)
+                view.transform.position = GetEntityWorldPosition(destination);
+
+            return true;
+        }
+
         // ─── Death Handling ───
 
 public void HandleDeath(EntityHandle handle)

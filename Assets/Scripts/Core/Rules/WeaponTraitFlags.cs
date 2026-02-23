@@ -10,5 +10,6 @@ namespace PF2e.Core
         Finesse = 1 << 1, // can use Dex for attack (MVP: choose best)
         Reach   = 1 << 2,
         Trip    = 1 << 3,
+        Shove   = 1 << 4,
     }
 }
