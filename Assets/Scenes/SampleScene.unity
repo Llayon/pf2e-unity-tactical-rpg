@@ -3819,7 +3819,7 @@ MonoBehaviour:
   fighterWeaponDef: {fileID: 11400000, guid: a1b2c3d4e5f6789012345678901234aa, type: 2}
   fighterArmorDef: {fileID: 11400000, guid: d4e5f678901234567890123456789ddd, type: 2}
   fighterShieldDef: {fileID: 11400000, guid: 3531bcdeab23ebf4089398afff9f1686, type: 2}
-  wizardWeaponDef: {fileID: 11400000, guid: b2c3d4e5f678901234567890123456bb, type: 2}
+  wizardWeaponDef: {fileID: 11400000, guid: f8e24c4b3b40f3c47859687acb611cff, type: 2}
   wizardArmorDef: {fileID: 11400000, guid: e5f678901234567890123456789012ee, type: 2}
   goblinWeaponDef: {fileID: 11400000, guid: c3d4e5f67890123456789012345678cc, type: 2}
   goblinArmorDef: {fileID: 11400000, guid: bdc614f1cb0d5284ea9a83cae2ac1259, type: 2}
