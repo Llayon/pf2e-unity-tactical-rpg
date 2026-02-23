@@ -27,10 +27,16 @@
 - Add deterministic `ReactionService` + `ShieldBlockRules` and integrate auto Shield Block reactions into player/AI strike flow (`19.5a`). (Done)
 - Add modal Shield Block reaction prompt UX (`ReactionPromptController` + `ModalReactionPolicy`) with async enemy strike reaction window and timeout-safe lock release (`19.5b`). (Done)
 - Wire SampleScene shield demo + validator/autofix support for `RaiseShieldAction` / `ShieldBlockAction` / `ReactionPromptController`, and surface Shield Block in combat log (`19.6`). (Done)
+- Add generic check system (`SkillType` / `SaveType` / `CheckResolver`) and first skill action consumer (`TripAction`) with typed skill-check events (`Phase 21`). (Done)
+- Add `DemoralizeAction` (`Intimidation` vs `Will DC`) with `Frightened` integration and tests (`Phase 22`). (Done)
+- Add `ShoveAction` with forced movement (MVP cell-based push), `GrappleAction`, `EscapeAction`, and source-scoped grapple lifecycle (`GrappleService`/`GrappleLifecycleController`) plus targeting-mode wiring (`Phases 22.2–22.3.x`). (Done)
+- Add generic non-strike damage foundation (`DamageAppliedEvent` + `DamageApplicationService`) and route `Trip` crit damage through it, including floating damage/log UX support (`Phases 24–24.1`). (Done)
 
-## Phase 3 — Content & UX Polish (Planned)
+## Phase 3 — Content & UX Polish (In Progress)
 - Add more encounter layouts and data-driven authoring flow.
 - Improve turn clarity and targeting UX.
+- Add Action Bar UI (clickable actions + hotkey hints + targeting-mode highlight) with scene builder and validator support (`Phase 23`). (Done)
+- Add world-space targeting feedback (`eligible` highlight + hover valid/invalid tint) and target reason hint panel powered by `TargetingController` preview reasons (`Phases 23.1–23.2`). (Done)
 - Balance pass for encounter duration and difficulty curve.
 
 ## Phase 4 — Release Hardening (Planned)
