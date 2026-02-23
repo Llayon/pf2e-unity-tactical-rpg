@@ -59,6 +59,7 @@ public static class PF2eSceneDependencyValidator
         errors += ValidateAll<TurnLogForwarder>(ValidateTurnLogForwarder);
         errors += ValidateAll<StrideLogForwarder>(ValidateStrideLogForwarder);
         errors += ValidateAll<StrikeLogForwarder>(ValidateStrikeLogForwarder);
+        errors += ValidateAll<SkillCheckLogForwarder>(ValidateSkillCheckLogForwarder);
         errors += ValidateAll<PlayerActionExecutor>(ValidatePlayerActionExecutor);
         errors += ValidateAll<StrideAction>(ValidateStrideAction);
         errors += ValidateAll<StrikeAction>(ValidateStrikeAction);
@@ -89,6 +90,7 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<TurnLogForwarder>();
         errors += ErrorIfMoreThanOne<StrideLogForwarder>();
         errors += ErrorIfMoreThanOne<StrikeLogForwarder>();
+        errors += ErrorIfMoreThanOne<SkillCheckLogForwarder>();
         errors += ErrorIfMoreThanOne<FloatingDamageUI>();
         errors += ErrorIfMoreThanOne<EncounterEndPanelController>();
         errors += ErrorIfMoreThanOne<EncounterFlowController>();
@@ -280,6 +282,12 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(f, "eventBus",     "CombatEventBus");
         errors += RequireRef(f, "entityManager","EntityManager");
         // textPrefab is optional
+    }
+
+    private static void ValidateSkillCheckLogForwarder(SkillCheckLogForwarder f, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(f, "eventBus", "CombatEventBus");
+        errors += RequireRef(f, "entityManager", "EntityManager");
     }
 
     private static void ValidateInitiativeBarController(InitiativeBarController c, ref int errors, ref int warnings)
@@ -579,6 +587,11 @@ public static class PF2eSceneDependencyValidator
         fixedCount += FixAll<StrikeLogForwarder>("entityManager", entityManager);
         if (eventBus != null)
             fixedCount += FixAll<StrikeLogForwarder>("eventBus", eventBus);
+
+        // SkillCheckLogForwarder (Phase 21 - typed skill checks to string)
+        fixedCount += FixAll<SkillCheckLogForwarder>("entityManager", entityManager);
+        if (eventBus != null)
+            fixedCount += FixAll<SkillCheckLogForwarder>("eventBus", eventBus);
 
         // TurnLogForwarder (Phase 11.TypedEvents-B - typed turn to string)
         fixedCount += FixAll<TurnLogForwarder>("entityManager", entityManager);
