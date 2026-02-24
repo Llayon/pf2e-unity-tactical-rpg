@@ -72,7 +72,8 @@ namespace PF2e.TurnSystem
         private void HandleCellClicked(Vector3Int cell)
         {
             if (!turnManager.IsPlayerTurn) return;
-            if (actionExecutor.IsBusy) return;
+            if (actionExecutor.IsBusy && (targetingController == null || !targetingController.IsRepositionSelectingCell))
+                return;
             // TargetingResult ignored until UI (Phase 15 adds tooltip/flash)
             targetingController.TryConfirmCell(cell);
         }

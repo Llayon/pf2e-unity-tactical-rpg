@@ -24,6 +24,7 @@ namespace PF2e.TurnSystem
                 [SerializeField] private TripAction tripAction;
         [SerializeField] private ShoveAction shoveAction;
         [SerializeField] private GrappleAction grappleAction;
+        [SerializeField] private RepositionAction repositionAction;
         [SerializeField] private EscapeAction escapeAction;
         [SerializeField] private DemoralizeAction demoralizeAction;
         [SerializeField] private RaiseShieldAction raiseShieldAction;
@@ -31,6 +32,9 @@ namespace PF2e.TurnSystem
         [SerializeField] private ReactionPromptController reactionPromptController;
 
         private EntityHandle executingActor = EntityHandle.None;
+        private bool hasPendingRepositionSelection;
+        private RepositionCheckContext pendingRepositionContext;
+        private readonly List<Vector3Int> pendingRepositionDestinations = new();
         private readonly List<ReactionOption> reactionBuffer = new(2);
         private IReactionDecisionPolicy reactionPolicy;
 
@@ -49,6 +53,7 @@ namespace PF2e.TurnSystem
             if (tripAction == null) Debug.LogWarning("[Executor] Missing TripAction", this);
             if (shoveAction == null) Debug.LogWarning("[Executor] Missing ShoveAction", this);
             if (grappleAction == null) Debug.LogWarning("[Executor] Missing GrappleAction", this);
+            if (repositionAction == null) Debug.LogWarning("[Executor] Missing RepositionAction", this);
             if (escapeAction == null) Debug.LogWarning("[Executor] Missing EscapeAction", this);
             if (demoralizeAction == null) Debug.LogWarning("[Executor] Missing DemoralizeAction", this);
             if (raiseShieldAction == null) Debug.LogWarning("[Executor] Missing RaiseShieldAction", this);
@@ -65,6 +70,17 @@ namespace PF2e.TurnSystem
                 if (strideAction != null && strideAction.StrideInProgress) return true;
                 return false;
             }
+        }
+
+        public bool HasPendingRepositionSelection => hasPendingRepositionSelection;
+
+        public bool TryGetPendingRepositionDestinations(List<Vector3Int> outCells)
+        {
+            if (outCells == null) return false;
+            outCells.Clear();
+            if (!hasPendingRepositionSelection) return false;
+            outCells.AddRange(pendingRepositionDestinations);
+            return outCells.Count > 0;
         }
 
         public bool CanActNow()
@@ -111,6 +127,10 @@ namespace PF2e.TurnSystem
                 TargetingMode.Grapple => grappleAction == null
                     ? TargetingFailureReason.InvalidState
                     : grappleAction.GetGrappleTargetFailure(actor, target),
+
+                TargetingMode.Reposition => repositionAction == null
+                    ? TargetingFailureReason.InvalidState
+                    : repositionAction.GetRepositionTargetFailure(actor, target),
 
                 TargetingMode.Escape => escapeAction == null
                     ? TargetingFailureReason.InvalidState
@@ -430,6 +450,87 @@ public bool TryExecuteGrapple(EntityHandle target)
             return true;
         }
 
+        public RepositionTargetSelectionResult TryBeginRepositionTargetSelection(EntityHandle target)
+        {
+            if (turnManager == null || entityManager == null || repositionAction == null)
+                return RepositionTargetSelectionResult.Rejected;
+            if (hasPendingRepositionSelection)
+                return RepositionTargetSelectionResult.Rejected;
+            if (!CanActNow())
+                return RepositionTargetSelectionResult.Rejected;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return RepositionTargetSelectionResult.Rejected;
+
+            executingActor = actor;
+            turnManager.BeginActionExecution(actor, "Player.Reposition");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = Time.time;
+#endif
+
+            var degree = repositionAction.ResolveRepositionCheck(actor, target, out pendingRepositionContext, UnityRng.Shared);
+            if (!degree.HasValue)
+            {
+                ResetPendingRepositionState(rollbackActionLock: true);
+                return RepositionTargetSelectionResult.Rejected;
+            }
+
+            if (degree.Value != DegreeOfSuccess.Success && degree.Value != DegreeOfSuccess.CriticalSuccess)
+            {
+                ResetPendingRepositionState(rollbackActionLock: false);
+                turnManager.CompleteActionWithCost(RepositionAction.ActionCost);
+                return RepositionTargetSelectionResult.ResolvedAndClear;
+            }
+
+            pendingRepositionDestinations.Clear();
+            bool anyDestinations = repositionAction.TryGetValidRepositionDestinations(
+                actor,
+                target,
+                pendingRepositionContext.maxMoveFeet,
+                pendingRepositionDestinations);
+
+            if (!anyDestinations || pendingRepositionDestinations.Count <= 0)
+            {
+                // "Up to X feet" allows 0 feet if no legal destination exists.
+                ResetPendingRepositionState(rollbackActionLock: false);
+                turnManager.CompleteActionWithCost(RepositionAction.ActionCost);
+                return RepositionTargetSelectionResult.ResolvedAndClear;
+            }
+
+            hasPendingRepositionSelection = true;
+            return RepositionTargetSelectionResult.EnterCellSelection;
+        }
+
+        public bool TryConfirmRepositionDestination(Vector3Int destinationCell)
+        {
+            if (!hasPendingRepositionSelection || repositionAction == null || turnManager == null)
+                return false;
+
+            bool moved = repositionAction.TryApplyRepositionMove(
+                pendingRepositionContext.actor,
+                pendingRepositionContext.target,
+                destinationCell,
+                in pendingRepositionContext);
+
+            if (!moved)
+                return false;
+
+            ResetPendingRepositionState(rollbackActionLock: false);
+            turnManager.CompleteActionWithCost(RepositionAction.ActionCost);
+            return true;
+        }
+
+        public void CancelPendingRepositionSelection()
+        {
+            if (!hasPendingRepositionSelection || turnManager == null)
+                return;
+
+            // Check already resolved; player cancels destination selection => no movement, action still spent.
+            ResetPendingRepositionState(rollbackActionLock: false);
+            turnManager.CompleteActionWithCost(RepositionAction.ActionCost);
+        }
+
         public bool TryExecuteEscape(EntityHandle grappler)
         {
             if (turnManager == null || entityManager == null || escapeAction == null) return false;
@@ -499,6 +600,7 @@ public bool TryExecuteGrapple(EntityHandle target)
         private void Update()
         {
             if (turnManager == null) return;
+            if (hasPendingRepositionSelection) return;
 
             if (turnManager.State == TurnState.ExecutingAction && executionStartTime > 0f)
             {
@@ -512,5 +614,19 @@ public bool TryExecuteGrapple(EntityHandle target)
             }
         }
 #endif
+
+        private void ResetPendingRepositionState(bool rollbackActionLock)
+        {
+            hasPendingRepositionSelection = false;
+            pendingRepositionContext = default;
+            pendingRepositionDestinations.Clear();
+            executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = -1f;
+#endif
+
+            if (rollbackActionLock && turnManager != null)
+                turnManager.ActionCompleted();
+        }
     }
 }

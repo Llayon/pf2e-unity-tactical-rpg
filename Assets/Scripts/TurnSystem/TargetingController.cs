@@ -14,7 +14,7 @@ namespace PF2e.TurnSystem
         Grapple = 4,  // explicit mode: click enemy
         Escape = 5,   // explicit mode: click grappler (enemy)
         Demoralize = 6, // explicit mode: click enemy
-        // 7 reserved (legacy RangedStrike slot)
+        Reposition = 7, // two-step: target enemy, then destination cell
         SpellSingle = 8, // future: single target
         SpellAoE = 9,    // future: cell + template
         HealSingle = 10  // future: ally
@@ -31,6 +31,13 @@ namespace PF2e.TurnSystem
         ModeNotSupported  // mode doesn't support this click type
     }
 
+    public enum RepositionTargetSelectionResult
+    {
+        Rejected = 0,
+        ResolvedAndClear = 1,
+        EnterCellSelection = 2
+    }
+
     /// <summary>
     /// Routes entity/cell clicks to the correct action based on ActiveMode.
     /// TurnInputController delegates here after basic guards (IsPlayerTurn, IsBusy).
@@ -38,6 +45,13 @@ namespace PF2e.TurnSystem
     /// </summary>
     public class TargetingController : MonoBehaviour
     {
+        private enum RepositionPhase
+        {
+            None = 0,
+            SelectTarget = 1,
+            SelectCell = 2
+        }
+
         [Header("Dependencies (Inspector-only)")]
         [SerializeField] private PlayerActionExecutor actionExecutor;
         [SerializeField] private EntityManager entityManager;
@@ -45,6 +59,8 @@ namespace PF2e.TurnSystem
         [SerializeField] private CombatEventBus eventBus;
 
         public TargetingMode ActiveMode { get; private set; } = TargetingMode.None;
+        public bool IsRepositionSelectingCell => ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectCell;
+        public bool IsRepositionSelectingTarget => ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectTarget;
         public event Action<TargetingMode> OnModeChanged;
 
         // Callbacks for explicit modes (BeginTargeting).
@@ -52,6 +68,10 @@ namespace PF2e.TurnSystem
         // Defer zero-alloc optimization to Phase 17 if needed.
         private Action<EntityHandle> _onEntityConfirmed;
         private Action _onCancelled;
+        private Func<EntityHandle, RepositionTargetSelectionResult> _onRepositionTargetConfirmed;
+        private Func<Vector3Int, bool> _onRepositionCellConfirmed;
+        private Action _onRepositionCellCancelled;
+        private RepositionPhase _repositionPhase = RepositionPhase.None;
 
 #if UNITY_EDITOR
         private void OnValidate()
@@ -99,13 +119,40 @@ namespace PF2e.TurnSystem
             ActiveMode         = mode;
             _onEntityConfirmed = onConfirmed;
             _onCancelled       = onCancelled;
+            _onRepositionTargetConfirmed = null;
+            _onRepositionCellConfirmed = null;
+            _onRepositionCellCancelled = null;
+            _repositionPhase = mode == TargetingMode.Reposition ? RepositionPhase.SelectTarget : RepositionPhase.None;
+            OnModeChanged?.Invoke(ActiveMode);
+        }
+
+        /// <summary>
+        /// Begin two-step Reposition targeting. Target selection happens first; the target callback decides whether
+        /// to resolve immediately or enter destination-cell selection.
+        /// </summary>
+        public void BeginRepositionTargeting(
+            Func<EntityHandle, RepositionTargetSelectionResult> onTargetConfirmed,
+            Func<Vector3Int, bool> onCellConfirmed,
+            Action onCancelled = null,
+            Action onCellPhaseCancelled = null)
+        {
+            ActiveMode = TargetingMode.Reposition;
+            _onEntityConfirmed = null;
+            _onCancelled = onCancelled;
+            _onRepositionTargetConfirmed = onTargetConfirmed;
+            _onRepositionCellConfirmed = onCellConfirmed;
+            _onRepositionCellCancelled = onCellPhaseCancelled;
+            _repositionPhase = RepositionPhase.SelectTarget;
             OnModeChanged?.Invoke(ActiveMode);
         }
 
         /// <summary>Cancel targeting (Escape / turn end / combat end).</summary>
         public void CancelTargeting()
         {
-            _onCancelled?.Invoke();
+            if (ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectCell)
+                _onRepositionCellCancelled?.Invoke();
+            else
+                _onCancelled?.Invoke();
             ClearTargeting();
         }
 
@@ -177,11 +224,40 @@ namespace PF2e.TurnSystem
                 case TargetingMode.Grapple:
                 case TargetingMode.Escape:
                 case TargetingMode.Demoralize:
+                case TargetingMode.Reposition:
+                    if (ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectCell)
+                        return TargetingEvaluationResult.FromFailure(TargetingFailureReason.ModeNotSupported);
+
                     var evaluation = EvaluateExplicitEntityMode(handle);
                     if (executeOnSuccess && evaluation.result == TargetingResult.Success)
                     {
-                        _onEntityConfirmed?.Invoke(handle);
-                        ClearTargeting();
+                        if (ActiveMode == TargetingMode.Reposition)
+                        {
+                            var result = _onRepositionTargetConfirmed != null
+                                ? _onRepositionTargetConfirmed.Invoke(handle)
+                                : RepositionTargetSelectionResult.Rejected;
+
+                            switch (result)
+                            {
+                                case RepositionTargetSelectionResult.EnterCellSelection:
+                                    _repositionPhase = RepositionPhase.SelectCell;
+                                    break;
+
+                                case RepositionTargetSelectionResult.ResolvedAndClear:
+                                    ClearTargeting();
+                                    break;
+
+                                case RepositionTargetSelectionResult.Rejected:
+                                default:
+                                    // Stay in SelectTarget. Validation passed but callback rejected due to runtime state race.
+                                    break;
+                            }
+                        }
+                        else
+                        {
+                            _onEntityConfirmed?.Invoke(handle);
+                            ClearTargeting();
+                        }
                     }
                     return evaluation;
 
@@ -220,6 +296,18 @@ namespace PF2e.TurnSystem
                     // new TargetingModes or via cell context menu.
                     actionExecutor.TryExecuteStrideToCell(cell);
                     return TargetingResult.Success;
+
+                case TargetingMode.Reposition:
+                    if (_repositionPhase != RepositionPhase.SelectCell)
+                        return TargetingResult.ModeNotSupported;
+
+                    if (_onRepositionCellConfirmed != null && _onRepositionCellConfirmed.Invoke(cell))
+                    {
+                        ClearTargeting();
+                        return TargetingResult.Success;
+                    }
+
+                    return TargetingResult.InvalidTarget;
 
                 // future: SpellAoE (place template at cell)
                 default:
@@ -283,6 +371,10 @@ namespace PF2e.TurnSystem
             ActiveMode         = TargetingMode.None;
             _onEntityConfirmed = null;
             _onCancelled       = null;
+            _onRepositionTargetConfirmed = null;
+            _onRepositionCellConfirmed = null;
+            _onRepositionCellCancelled = null;
+            _repositionPhase = RepositionPhase.None;
             if (modeChanged)
                 OnModeChanged?.Invoke(TargetingMode.None);
         }

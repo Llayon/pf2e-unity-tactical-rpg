@@ -258,6 +258,181 @@ namespace PF2e.Tests
             Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
         }
 
+        [Test]
+        public void Reposition_SelectTarget_InvalidTarget_StaysInSelectTarget()
+        {
+            using var ctx = new TargetingSkillModeContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            var ally = ctx.RegisterEntity("Wizard", Team.Player);
+            ctx.SetCurrentActor(actor);
+
+            ctx.Controller.BeginRepositionTargeting(_ => RepositionTargetSelectionResult.Rejected, _ => false);
+
+            var result = ctx.Controller.TryConfirmEntity(ally);
+
+            Assert.AreEqual(TargetingResult.WrongTeam, result);
+            Assert.AreEqual(TargetingMode.Reposition, ctx.Controller.ActiveMode);
+            Assert.IsTrue(ctx.Controller.IsRepositionSelectingTarget);
+            Assert.IsFalse(ctx.Controller.IsRepositionSelectingCell);
+        }
+
+        [Test]
+        public void Reposition_SelectTarget_ValidTarget_Success_EntersSelectCell()
+        {
+            using var ctx = new TargetingSkillModeContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(actor);
+
+            int targetCalls = 0;
+            EntityHandle selected = EntityHandle.None;
+            ctx.Controller.BeginRepositionTargeting(
+                h =>
+                {
+                    targetCalls++;
+                    selected = h;
+                    return RepositionTargetSelectionResult.EnterCellSelection;
+                },
+                _ => false);
+
+            var result = ctx.Controller.TryConfirmEntity(enemy);
+
+            Assert.AreEqual(TargetingResult.Success, result);
+            Assert.AreEqual(1, targetCalls);
+            Assert.AreEqual(enemy, selected);
+            Assert.AreEqual(TargetingMode.Reposition, ctx.Controller.ActiveMode);
+            Assert.IsFalse(ctx.Controller.IsRepositionSelectingTarget);
+            Assert.IsTrue(ctx.Controller.IsRepositionSelectingCell);
+        }
+
+        [Test]
+        public void Reposition_SelectTarget_ValidTarget_Failure_ResolvesAndClearsMode()
+        {
+            using var ctx = new TargetingSkillModeContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(actor);
+
+            int targetCalls = 0;
+            ctx.Controller.BeginRepositionTargeting(
+                _ =>
+                {
+                    targetCalls++;
+                    return RepositionTargetSelectionResult.ResolvedAndClear;
+                },
+                _ => false);
+
+            var result = ctx.Controller.TryConfirmEntity(enemy);
+
+            Assert.AreEqual(TargetingResult.Success, result);
+            Assert.AreEqual(1, targetCalls);
+            Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
+            Assert.IsFalse(ctx.Controller.IsRepositionSelectingTarget);
+            Assert.IsFalse(ctx.Controller.IsRepositionSelectingCell);
+        }
+
+        [Test]
+        public void Reposition_SelectCell_InvalidCell_StaysInSelectCell()
+        {
+            using var ctx = new TargetingSkillModeContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(actor);
+
+            int cellCalls = 0;
+            ctx.Controller.BeginRepositionTargeting(
+                _ => RepositionTargetSelectionResult.EnterCellSelection,
+                _ =>
+                {
+                    cellCalls++;
+                    return false;
+                });
+
+            Assert.AreEqual(TargetingResult.Success, ctx.Controller.TryConfirmEntity(enemy));
+            Assert.IsTrue(ctx.Controller.IsRepositionSelectingCell);
+
+            var result = ctx.Controller.TryConfirmCell(new Vector3Int(5, 0, 5));
+
+            Assert.AreEqual(TargetingResult.InvalidTarget, result);
+            Assert.AreEqual(1, cellCalls);
+            Assert.AreEqual(TargetingMode.Reposition, ctx.Controller.ActiveMode);
+            Assert.IsTrue(ctx.Controller.IsRepositionSelectingCell);
+        }
+
+        [Test]
+        public void Reposition_SelectCell_ValidCell_ExecutesAndClearsMode()
+        {
+            using var ctx = new TargetingSkillModeContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(actor);
+
+            int cellCalls = 0;
+            Vector3Int confirmedCell = default;
+            ctx.Controller.BeginRepositionTargeting(
+                _ => RepositionTargetSelectionResult.EnterCellSelection,
+                cell =>
+                {
+                    cellCalls++;
+                    confirmedCell = cell;
+                    return true;
+                });
+
+            Assert.AreEqual(TargetingResult.Success, ctx.Controller.TryConfirmEntity(enemy));
+            var cellResult = ctx.Controller.TryConfirmCell(new Vector3Int(2, 0, 0));
+
+            Assert.AreEqual(TargetingResult.Success, cellResult);
+            Assert.AreEqual(1, cellCalls);
+            Assert.AreEqual(new Vector3Int(2, 0, 0), confirmedCell);
+            Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
+        }
+
+        [Test]
+        public void Reposition_EscFromSelectTarget_ClearsToNone_InvokesTargetCancel()
+        {
+            using var ctx = new TargetingSkillModeContext();
+
+            int cancelCalls = 0;
+            int cellCancelCalls = 0;
+            ctx.Controller.BeginRepositionTargeting(
+                _ => RepositionTargetSelectionResult.Rejected,
+                _ => false,
+                onCancelled: () => cancelCalls++,
+                onCellPhaseCancelled: () => cellCancelCalls++);
+
+            ctx.Controller.CancelTargeting();
+
+            Assert.AreEqual(1, cancelCalls);
+            Assert.AreEqual(0, cellCancelCalls);
+            Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
+        }
+
+        [Test]
+        public void Reposition_EscFromSelectCell_ClearsToNone_InvokesCellCancel()
+        {
+            using var ctx = new TargetingSkillModeContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(actor);
+
+            int cancelCalls = 0;
+            int cellCancelCalls = 0;
+            ctx.Controller.BeginRepositionTargeting(
+                _ => RepositionTargetSelectionResult.EnterCellSelection,
+                _ => false,
+                onCancelled: () => cancelCalls++,
+                onCellPhaseCancelled: () => cellCancelCalls++);
+
+            Assert.AreEqual(TargetingResult.Success, ctx.Controller.TryConfirmEntity(enemy));
+            Assert.IsTrue(ctx.Controller.IsRepositionSelectingCell);
+
+            ctx.Controller.CancelTargeting();
+
+            Assert.AreEqual(0, cancelCalls);
+            Assert.AreEqual(1, cellCancelCalls);
+            Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
+        }
+
         private sealed class TargetingSkillModeContext : System.IDisposable
         {
             private readonly bool oldIgnoreLogs;
