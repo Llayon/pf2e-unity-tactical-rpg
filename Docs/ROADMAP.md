@@ -34,12 +34,14 @@
 - Make `Strike` weapon-aware (melee + ranged), add ranged range-increment penalties, and ship bow demo content in `SampleScene` (`Phase 25`). (Done)
 - Polish ranged strike UX/reason wording and boundary/log regressions (`Phase 25.1`). (Done)
 - Add parameterized strike crit-trait support for `Deadly` and `Fatal`, and ranged close-range `Volley` penalty support (`Phases 25.2–25.4`). (Done)
+- Implement `RepositionAction` core (`Athletics` vs `Fortitude DC`, Attack trait, path-validated forced movement, and source-grapple requirement exception path) with EditMode/PlayMode coverage (`Phase 26`). (Done)
 
 ## Phase 3 — Content & UX Polish (In Progress)
 - Add more encounter layouts and data-driven authoring flow.
 - Improve turn clarity and targeting UX.
 - Add Action Bar UI (clickable actions + hotkey hints + targeting-mode highlight) with scene builder and validator support (`Phase 23`). (Done)
 - Add world-space targeting feedback (`eligible` highlight + hover valid/invalid tint) and target reason hint panel powered by `TargetingController` preview reasons (`Phases 23.1–23.2`). (Done)
+- Add playable two-step `Reposition` targeting UX (target -> check -> destination cell on success), cell highlights/hints, Action Bar wiring, and Reposition control polish (`Phases 26.1a–26.2`). (Done)
 - Balance pass for encounter duration and difficulty curve.
 
 ## Phase 4 — Release Hardening (Planned)
