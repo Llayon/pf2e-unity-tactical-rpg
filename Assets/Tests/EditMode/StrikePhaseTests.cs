@@ -33,6 +33,7 @@ namespace PF2e.Tests
             Assert.AreEqual(7, result.attackBonus);
             Assert.AreEqual(-5, result.mapPenalty);
             Assert.AreEqual(0, result.rangePenalty);
+            Assert.AreEqual(0, result.volleyPenalty);
             Assert.AreEqual(16, result.total);
             Assert.AreEqual(0, result.dc);
             Assert.AreEqual(DegreeOfSuccess.CriticalFailure, result.degree);
@@ -67,6 +68,7 @@ namespace PF2e.Tests
             Assert.AreEqual(baseResult.naturalRoll, resolved.naturalRoll);
             Assert.AreEqual(baseResult.total, resolved.total);
             Assert.AreEqual(baseResult.rangePenalty, resolved.rangePenalty);
+            Assert.AreEqual(baseResult.volleyPenalty, resolved.volleyPenalty);
             Assert.AreEqual(18, resolved.dc);
             Assert.AreEqual(DegreeOfSuccess.Failure, resolved.degree);
             Assert.AreEqual(0, resolved.damageRolled);
@@ -113,6 +115,7 @@ namespace PF2e.Tests
             Assert.AreEqual(expectedAttackBonus, result.attackBonus);
             Assert.AreEqual(expectedMap, result.mapPenalty);
             Assert.AreEqual(0, result.rangePenalty);
+            Assert.AreEqual(0, result.volleyPenalty);
             Assert.AreEqual(12 + expectedAttackBonus + expectedMap, result.total);
             Assert.AreEqual(1, attackerData.MAPCount);
             Assert.AreEqual(0, result.dc);
@@ -137,6 +140,7 @@ namespace PF2e.Tests
 
             var result = phase.Value;
             Assert.AreEqual(0, result.rangePenalty);
+            Assert.AreEqual(0, result.volleyPenalty);
             Assert.AreEqual(11 + expectedAttackBonus + expectedMap, result.total);
         }
 
@@ -159,6 +163,7 @@ namespace PF2e.Tests
 
             var result = phase.Value;
             Assert.AreEqual(-2, result.rangePenalty);
+            Assert.AreEqual(0, result.volleyPenalty);
             Assert.AreEqual(11 + expectedAttackBonus + expectedMap - 2, result.total);
             Assert.AreEqual(2, attackerData.MAPCount); // incremented from pre-set 1
         }
@@ -209,6 +214,140 @@ namespace PF2e.Tests
             var accepted = ctx.StrikeAction.ResolveAttackRoll(attacker, targetSameElevationAdjacent, new FixedRng(new[] { 10 }));
             Assert.IsTrue(accepted.HasValue, "Unarmed strike should follow melee path and work in adjacent same-elevation target.");
             Assert.AreEqual(0, accepted.Value.rangePenalty);
+            Assert.AreEqual(0, accepted.Value.volleyPenalty);
+        }
+
+        [Test]
+        public void ResolveAttackRoll_RangedWeapon_WithVolley_WithinVolleyRange_AppliesVolleyPenalty()
+        {
+            using var ctx = new StrikeContext();
+            var bow = ctx.CreateWeaponDef(
+                isRanged: true,
+                rangeIncrementFeet: 60,
+                maxRangeIncrements: 6,
+                hasVolley: true,
+                volleyMinRangeFeet: 30,
+                volleyPenalty: -2);
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: bow, level: 1, dexterity: 16);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(6, 0, 0), weaponDef: bow, level: 1); // 30 ft
+
+            var attackerData = ctx.Registry.Get(attacker);
+            int expectedAttackBonus = attackerData.GetAttackBonus(attackerData.EquippedWeapon);
+            int expectedMap = attackerData.GetMAPPenalty(attackerData.EquippedWeapon);
+
+            var phase = ctx.StrikeAction.ResolveAttackRoll(attacker, target, new FixedRng(new[] { 11 }));
+            Assert.IsTrue(phase.HasValue);
+            Assert.AreEqual(-2, phase.Value.volleyPenalty);
+            Assert.AreEqual(0, phase.Value.rangePenalty);
+            Assert.AreEqual(11 + expectedAttackBonus + expectedMap - 2, phase.Value.total);
+        }
+
+        [Test]
+        public void ResolveAttackRoll_RangedWeapon_WithVolley_ExactlyAtVolleyRange_AppliesVolleyPenalty()
+        {
+            using var ctx = new StrikeContext();
+            var bow = ctx.CreateWeaponDef(
+                isRanged: true,
+                rangeIncrementFeet: 60,
+                maxRangeIncrements: 6,
+                hasVolley: true,
+                volleyMinRangeFeet: 30,
+                volleyPenalty: -2);
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: bow, level: 1, dexterity: 16);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(6, 0, 0), weaponDef: bow, level: 1); // exactly 30 ft (6 cells)
+
+            var phase = ctx.StrikeAction.ResolveAttackRoll(attacker, target, new FixedRng(new[] { 11 }));
+            Assert.IsTrue(phase.HasValue);
+            Assert.AreEqual(-2, phase.Value.volleyPenalty);
+        }
+
+        [Test]
+        public void ResolveAttackRoll_RangedWeapon_WithVolley_BeyondVolleyRange_NoVolleyPenalty()
+        {
+            using var ctx = new StrikeContext();
+            var bow = ctx.CreateWeaponDef(
+                isRanged: true,
+                rangeIncrementFeet: 60,
+                maxRangeIncrements: 6,
+                hasVolley: true,
+                volleyMinRangeFeet: 30,
+                volleyPenalty: -2);
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: bow, level: 1, dexterity: 16);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(7, 0, 0), weaponDef: bow, level: 1); // 35 ft
+
+            var phase = ctx.StrikeAction.ResolveAttackRoll(attacker, target, new FixedRng(new[] { 11 }));
+            Assert.IsTrue(phase.HasValue);
+            Assert.AreEqual(0, phase.Value.volleyPenalty);
+        }
+
+        [Test]
+        public void ResolveAttackRoll_RangedWeapon_VolleyPenalty_StacksWithMapAndRangePenalty()
+        {
+            using var ctx = new StrikeContext();
+            var bow = ctx.CreateWeaponDef(
+                isRanged: true,
+                rangeIncrementFeet: 10,
+                maxRangeIncrements: 6,
+                hasVolley: true,
+                volleyMinRangeFeet: 30,
+                volleyPenalty: -2);
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: bow, level: 1, dexterity: 16);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(5, 0, 0), weaponDef: bow, level: 1); // 25 ft => rangePenalty -4, volley -2
+
+            var attackerData = ctx.Registry.Get(attacker);
+            attackerData.MAPCount = 1;
+            int expectedAttackBonus = attackerData.GetAttackBonus(attackerData.EquippedWeapon);
+            int expectedMap = attackerData.GetMAPPenalty(attackerData.EquippedWeapon);
+
+            var phase = ctx.StrikeAction.ResolveAttackRoll(attacker, target, new FixedRng(new[] { 11 }));
+            Assert.IsTrue(phase.HasValue);
+            Assert.AreEqual(-4, phase.Value.rangePenalty);
+            Assert.AreEqual(-2, phase.Value.volleyPenalty);
+            Assert.AreEqual(11 + expectedAttackBonus + expectedMap - 4 - 2, phase.Value.total);
+        }
+
+        [Test]
+        public void ResolveAttackRoll_RangedWeapon_NoVolleyTrait_NoVolleyPenalty()
+        {
+            using var ctx = new StrikeContext();
+            var bow = ctx.CreateWeaponDef(
+                isRanged: true,
+                rangeIncrementFeet: 60,
+                maxRangeIncrements: 6,
+                hasVolley: false,
+                volleyMinRangeFeet: 30,
+                volleyPenalty: -2);
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: bow, level: 1, dexterity: 16);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(6, 0, 0), weaponDef: bow, level: 1); // 30 ft
+
+            var phase = ctx.StrikeAction.ResolveAttackRoll(attacker, target, new FixedRng(new[] { 11 }));
+            Assert.IsTrue(phase.HasValue);
+            Assert.AreEqual(0, phase.Value.volleyPenalty);
+        }
+
+        [Test]
+        public void ResolveAttackRoll_MeleeWeapon_WithVolleyFields_DoesNotApplyVolleyPenalty()
+        {
+            using var ctx = new StrikeContext();
+            var sword = ctx.CreateWeaponDef(
+                isRanged: false,
+                reachFeet: 5,
+                hasVolley: true,
+                volleyMinRangeFeet: 30,
+                volleyPenalty: -2);
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: sword, level: 1, strength: 16);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(1, 0, 0), weaponDef: sword, level: 1);
+
+            var phase = ctx.StrikeAction.ResolveAttackRoll(attacker, target, new FixedRng(new[] { 11 }));
+            Assert.IsTrue(phase.HasValue);
+            Assert.AreEqual(0, phase.Value.volleyPenalty);
+            Assert.AreEqual(0, phase.Value.rangePenalty);
         }
 
         [Test]
@@ -503,7 +642,10 @@ namespace PF2e.Tests
                 bool hasDeadly = false,
                 int deadlyDieSides = 0,
                 bool hasFatal = false,
-                int fatalDieSides = 0)
+                int fatalDieSides = 0,
+                bool hasVolley = false,
+                int volleyMinRangeFeet = 0,
+                int volleyPenalty = -2)
             {
                 var def = ScriptableObject.CreateInstance<WeaponDefinition>();
                 def.itemName = "Test Weapon";
@@ -517,6 +659,9 @@ namespace PF2e.Tests
                 def.deadlyDieSides = deadlyDieSides;
                 def.hasFatal = hasFatal;
                 def.fatalDieSides = fatalDieSides;
+                def.hasVolley = hasVolley;
+                def.volleyMinRangeFeet = volleyMinRangeFeet;
+                def.volleyPenalty = volleyPenalty;
                 def.damageType = DamageType.Slashing;
                 weaponDefs.Add(def);
                 return def;

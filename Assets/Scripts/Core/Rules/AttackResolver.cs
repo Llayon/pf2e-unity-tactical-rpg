@@ -31,6 +31,7 @@ namespace PF2e.Core
 
             int distanceFeet = GridDistancePF2e.DistanceFeetXZ(attacker.GridPosition, target.GridPosition);
             int rangePenalty = 0;
+            int volleyPenalty = 0;
 
             if (attacker.EquippedWeapon.IsRanged)
             {
@@ -43,6 +44,13 @@ namespace PF2e.Core
 
                 int increments = incrementFeet > 0 ? Mathf.Max(0, (distanceFeet - 1) / incrementFeet) : 0;
                 rangePenalty = -increments * 2;
+
+                if (attacker.EquippedWeapon.HasVolley)
+                {
+                    int volleyMinRangeFeet = attacker.EquippedWeapon.VolleyMinRangeFeet;
+                    if (volleyMinRangeFeet > 0 && distanceFeet <= volleyMinRangeFeet)
+                        volleyPenalty = attacker.EquippedWeapon.VolleyPenalty;
+                }
             }
             else
             {
@@ -61,12 +69,12 @@ namespace PF2e.Core
             int nat = rng.RollD20();
             int atkBonus = attacker.GetAttackBonus(attacker.EquippedWeapon);
             int mapPenalty = attacker.GetMAPPenalty(attacker.EquippedWeapon);
-            int total = nat + atkBonus + mapPenalty + rangePenalty;
+            int total = nat + atkBonus + mapPenalty + rangePenalty + volleyPenalty;
 
             int ac = target.EffectiveAC;
             var degree = DegreeOfSuccessResolver.Resolve(total, nat, ac);
 
-            return StrikeCheckResult.Success(nat, atkBonus, mapPenalty, total, ac, degree, rangePenalty);
+            return StrikeCheckResult.Success(nat, atkBonus, mapPenalty, total, ac, degree, rangePenalty, volleyPenalty);
         }
 
         public static StrikeCheckResult ResolveMeleeStrike(

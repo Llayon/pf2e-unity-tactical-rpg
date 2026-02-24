@@ -57,6 +57,7 @@ namespace PF2e.Presentation
                 $"d20({e.naturalRoll}) + atk({e.attackBonus}) " +
                 $"+ MAP({e.mapPenalty})" +
                 (e.rangePenalty != 0 ? $" + RNG({e.rangePenalty})" : string.Empty) +
+                (e.volleyPenalty != 0 ? $" + VOLLEY({e.volleyPenalty})" : string.Empty) +
                 $" = {e.total} " +
                 $"vs AC {e.dc} → {e.degree}",
                 CombatLogCategory.Attack);

@@ -14,6 +14,7 @@ namespace PF2e.TurnSystem
         public readonly int attackBonus;
         public readonly int mapPenalty;
         public readonly int rangePenalty;
+        public readonly int volleyPenalty;
         public readonly int total;
         public readonly int dc;
         public readonly DegreeOfSuccess degree;
@@ -31,6 +32,7 @@ namespace PF2e.TurnSystem
             int attackBonus,
             int mapPenalty,
             int rangePenalty,
+            int volleyPenalty,
             int total,
             int dc,
             DegreeOfSuccess degree,
@@ -47,6 +49,7 @@ namespace PF2e.TurnSystem
             this.attackBonus = attackBonus;
             this.mapPenalty = mapPenalty;
             this.rangePenalty = rangePenalty;
+            this.volleyPenalty = volleyPenalty;
             this.total = total;
             this.dc = dc;
             this.degree = degree;
@@ -65,7 +68,8 @@ namespace PF2e.TurnSystem
             int attackBonus,
             int mapPenalty,
             int total,
-            int rangePenalty = 0)
+            int rangePenalty = 0,
+            int volleyPenalty = 0)
         {
             return new StrikePhaseResult(
                 attacker,
@@ -75,6 +79,7 @@ namespace PF2e.TurnSystem
                 attackBonus,
                 mapPenalty,
                 rangePenalty,
+                volleyPenalty,
                 total,
                 dc: 0,
                 degree: DegreeOfSuccess.CriticalFailure,
@@ -102,6 +107,7 @@ namespace PF2e.TurnSystem
                 attackBonus,
                 mapPenalty,
                 rangePenalty,
+                volleyPenalty,
                 total,
                 dc,
                 degree,

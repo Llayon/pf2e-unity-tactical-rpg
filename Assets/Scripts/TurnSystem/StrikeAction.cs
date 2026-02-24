@@ -45,7 +45,8 @@ namespace PF2e.TurnSystem
             int attackBonus = attackerData.GetAttackBonus(attackerData.EquippedWeapon);
             int mapPenalty = attackerData.GetMAPPenalty(attackerData.EquippedWeapon);
             int rangePenalty = ComputeRangedStrikePenalty(attackerData, targetData);
-            int total = naturalRoll + attackBonus + mapPenalty + rangePenalty;
+            int volleyPenalty = ComputeVolleyPenalty(attackerData, targetData);
+            int total = naturalRoll + attackBonus + mapPenalty + rangePenalty + volleyPenalty;
 
             // Contract: MAP increments once per strike attempt at phase 1.
             attackerData.MAPCount++;
@@ -58,7 +59,8 @@ namespace PF2e.TurnSystem
                 attackBonus,
                 mapPenalty,
                 total,
-                rangePenalty);
+                rangePenalty,
+                volleyPenalty);
         }
 
         public StrikePhaseResult DetermineHitAndDamage(StrikePhaseResult phase, EntityHandle target, IRng rng)
@@ -139,6 +141,7 @@ namespace PF2e.TurnSystem
                 attackBonus: phase.attackBonus,
                 mapPenalty: phase.mapPenalty,
                 rangePenalty: phase.rangePenalty,
+                volleyPenalty: phase.volleyPenalty,
                 total: phase.total,
                 dc: phase.dc,
                 degree: phase.degree,
@@ -276,6 +279,23 @@ namespace PF2e.TurnSystem
             int distanceFeet = GridDistancePF2e.DistanceFeetXZ(attacker.GridPosition, target.GridPosition);
             int increments = Mathf.Max(0, (distanceFeet - 1) / incrementFeet);
             return -increments * 2;
+        }
+
+        private static int ComputeVolleyPenalty(EntityData attacker, EntityData target)
+        {
+            if (attacker == null || target == null) return 0;
+
+            var weapon = attacker.EquippedWeapon;
+            if (!weapon.IsRanged || !weapon.HasVolley) return 0;
+
+            int volleyMinRangeFeet = weapon.VolleyMinRangeFeet;
+            if (volleyMinRangeFeet <= 0) return 0;
+
+            int penalty = weapon.VolleyPenalty;
+            if (penalty == 0) return 0;
+
+            int distanceFeet = GridDistancePF2e.DistanceFeetXZ(attacker.GridPosition, target.GridPosition);
+            return distanceFeet <= volleyMinRangeFeet ? penalty : 0;
         }
     }
 }

@@ -24,6 +24,9 @@ namespace PF2e.Core
         public int deadlyDieSides = 0;
         public bool hasFatal = false;
         public int fatalDieSides = 0;
+        public bool hasVolley = false;
+        public int volleyMinRangeFeet = 0;
+        public int volleyPenalty = -2;
 
         public bool usesAmmo = false;
         public AmmoType ammoType = AmmoType.None;

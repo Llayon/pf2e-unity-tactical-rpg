@@ -13,6 +13,7 @@ namespace PF2e.Core
         public readonly int attackBonus;
         public readonly int mapPenalty;
         public readonly int rangePenalty;
+        public readonly int volleyPenalty;
         public readonly int total;
         public readonly int dc;
         public readonly DegreeOfSuccess degree;
@@ -40,6 +41,7 @@ namespace PF2e.Core
             int hpAfter,
             bool targetDefeated,
             int rangePenalty = 0,
+            int volleyPenalty = 0,
             int fatalBonusDamage = 0,
             int deadlyBonusDamage = 0)
         {
@@ -50,6 +52,7 @@ namespace PF2e.Core
             this.attackBonus = attackBonus;
             this.mapPenalty = mapPenalty;
             this.rangePenalty = rangePenalty;
+            this.volleyPenalty = volleyPenalty;
             this.total = total;
             this.dc = dc;
             this.degree = degree;
@@ -94,6 +97,7 @@ namespace PF2e.Core
                 hpAfter,
                 targetDefeated,
                 rangePenalty: 0,
+                volleyPenalty: 0,
                 fatalBonusDamage: 0,
                 deadlyBonusDamage: 0);
         }

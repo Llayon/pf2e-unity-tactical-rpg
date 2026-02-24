@@ -107,6 +107,68 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void StrikeLog_WithVolleyPenalty_IncludesVolleyToken()
+        {
+            using var ctx = new StrikeLogContext();
+            var attacker = ctx.RegisterEntity("Archer", Team.Player);
+            var target = ctx.RegisterEntity("Goblin_1", Team.Enemy);
+
+            var ev = CreateStrikeEvent(attacker, target, volleyPenalty: -2);
+
+            CombatLogEntry first = default;
+            int count = 0;
+            ctx.EventBus.OnLogEntry += HandleLog;
+            try
+            {
+                ctx.EventBus.PublishStrikeResolved(in ev);
+
+                Assert.GreaterOrEqual(count, 1);
+                StringAssert.Contains("VOLLEY(-2)", first.Message);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry)
+            {
+                count++;
+                if (count == 1) first = entry;
+            }
+        }
+
+        [Test]
+        public void StrikeLog_WithoutVolleyPenalty_DoesNotShowVolleyToken()
+        {
+            using var ctx = new StrikeLogContext();
+            var attacker = ctx.RegisterEntity("Archer", Team.Player);
+            var target = ctx.RegisterEntity("Goblin_1", Team.Enemy);
+
+            var ev = CreateStrikeEvent(attacker, target, volleyPenalty: 0);
+
+            CombatLogEntry first = default;
+            int count = 0;
+            ctx.EventBus.OnLogEntry += HandleLog;
+            try
+            {
+                ctx.EventBus.PublishStrikeResolved(in ev);
+
+                Assert.GreaterOrEqual(count, 1);
+                StringAssert.DoesNotContain("VOLLEY(", first.Message);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry)
+            {
+                count++;
+                if (count == 1) first = entry;
+            }
+        }
+
+        [Test]
         public void StrikeLog_CritWithDeadlyBonus_IncludesDeadlyTokenOnDamageLine()
         {
             using var ctx = new StrikeLogContext();
@@ -227,6 +289,7 @@ namespace PF2e.Tests
             EntityHandle attacker,
             EntityHandle target,
             int rangePenalty = 0,
+            int volleyPenalty = 0,
             DegreeOfSuccess degree = DegreeOfSuccess.Failure,
             int damage = 0,
             int fatalBonusDamage = 0,
@@ -250,6 +313,7 @@ namespace PF2e.Tests
                 hpAfter: hpAfter,
                 targetDefeated: false,
                 rangePenalty: rangePenalty,
+                volleyPenalty: volleyPenalty,
                 fatalBonusDamage: fatalBonusDamage,
                 deadlyBonusDamage: deadlyBonusDamage);
         }
