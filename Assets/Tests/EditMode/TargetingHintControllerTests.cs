@@ -63,7 +63,7 @@ namespace PF2e.Tests
             Assert.AreEqual(TargetingResult.Success, ctx.TargetingController.TryConfirmEntity(enemy));
 
             AssertVisible(ctx);
-            Assert.AreEqual("Reposition: choose a destination cell", ctx.HintTextValue);
+            Assert.AreEqual("Reposition: choose destination (Esc = skip move, action spent)", ctx.HintTextValue);
             Assert.AreEqual(new Color(0.9f, 0.9f, 0.95f, 1f), ctx.HintTextColor);
         }
 

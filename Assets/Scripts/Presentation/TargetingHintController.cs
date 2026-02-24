@@ -180,7 +180,7 @@ namespace PF2e.Presentation
 
             if (mode == TargetingMode.Reposition && targetingController.IsRepositionSelectingCell)
             {
-                ApplyMessage(new TargetingHintMessage(TargetingHintTone.Info, "Reposition: choose a destination cell"));
+                ApplyMessage(new TargetingHintMessage(TargetingHintTone.Info, "Reposition: choose destination (Esc = skip move, action spent)"));
                 return;
             }
 

@@ -240,6 +240,25 @@ namespace PF2e.Tests
             Assert.IsFalse(ctx.StrikeHighlight.gameObject.activeSelf);
         }
 
+        [Test]
+        public void CancelPendingRepositionSelection_SpendsAction_NoMove_ClearsPendingState()
+        {
+            using var ctx = new ActionBarTestContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
+
+            ctx.TurnManager.BeginActionExecution(actor, "Test.Reposition");
+            SetPrivateField(ctx.ActionExecutor, "hasPendingRepositionSelection", true);
+
+            ctx.ActionExecutor.CancelPendingRepositionSelection();
+
+            var actorData = ctx.Registry.Get(actor);
+            Assert.IsNotNull(actorData);
+            Assert.AreEqual(2, actorData.ActionsRemaining);
+            Assert.IsFalse(ctx.ActionExecutor.HasPendingRepositionSelection);
+            Assert.AreEqual(TurnState.PlayerTurn, ctx.TurnManager.State);
+        }
+
         private sealed class ActionBarTestContext : System.IDisposable
         {
             public readonly GameObject Root;
