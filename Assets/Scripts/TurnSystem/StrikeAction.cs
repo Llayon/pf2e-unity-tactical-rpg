@@ -85,7 +85,13 @@ namespace PF2e.TurnSystem
                 ? attackerData.EquippedWeapon.def.damageType
                 : DamageType.Bludgeoning;
 
-            var resolved = phase.WithHitAndDamage(dc, degree, damageRolled, damageType, damage.dealt);
+            var resolved = phase.WithHitAndDamage(
+                dc,
+                degree,
+                damageRolled,
+                damageType,
+                damage.dealt,
+                deadlyBonusDamage: damage.deadlyBonusDamage);
 
             eventBus?.PublishStrikePreDamage(
                 resolved.attacker,
@@ -139,7 +145,8 @@ namespace PF2e.TurnSystem
                 damageType: phase.damageType,
                 hpBefore: hpBefore,
                 hpAfter: hpAfter,
-                targetDefeated: defeated);
+                targetDefeated: defeated,
+                deadlyBonusDamage: phase.deadlyBonusDamage);
 
             eventBus?.PublishStrikeResolved(in resolvedEvent);
 

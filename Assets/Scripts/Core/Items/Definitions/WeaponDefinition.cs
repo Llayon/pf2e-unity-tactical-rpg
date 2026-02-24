@@ -20,6 +20,8 @@ namespace PF2e.Core
         public int maxRangeIncrements = 0;
 
         public WeaponTraitFlags traits = WeaponTraitFlags.None;
+        public bool hasDeadly = false;
+        public int deadlyDieSides = 0;
 
         public bool usesAmmo = false;
         public AmmoType ammoType = AmmoType.None;

@@ -106,7 +106,54 @@ namespace PF2e.Tests
             }
         }
 
-        private static StrikeResolvedEvent CreateStrikeEvent(EntityHandle attacker, EntityHandle target, int rangePenalty = 0)
+        [Test]
+        public void StrikeLog_CritWithDeadlyBonus_IncludesDeadlyTokenOnDamageLine()
+        {
+            using var ctx = new StrikeLogContext();
+            var attacker = ctx.RegisterEntity("Archer", Team.Player);
+            var target = ctx.RegisterEntity("Goblin_1", Team.Enemy);
+
+            var ev = CreateStrikeEvent(
+                attacker,
+                target,
+                rangePenalty: -2,
+                degree: DegreeOfSuccess.CriticalSuccess,
+                damage: 14,
+                deadlyBonusDamage: 6,
+                hpBefore: 20,
+                hpAfter: 6);
+
+            CombatLogEntry second = default;
+            int count = 0;
+            ctx.EventBus.OnLogEntry += HandleLog;
+            try
+            {
+                ctx.EventBus.PublishStrikeResolved(in ev);
+
+                Assert.GreaterOrEqual(count, 2);
+                StringAssert.Contains("DEADLY+6", second.Message);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry)
+            {
+                count++;
+                if (count == 2) second = entry;
+            }
+        }
+
+        private static StrikeResolvedEvent CreateStrikeEvent(
+            EntityHandle attacker,
+            EntityHandle target,
+            int rangePenalty = 0,
+            DegreeOfSuccess degree = DegreeOfSuccess.Failure,
+            int damage = 0,
+            int deadlyBonusDamage = 0,
+            int hpBefore = 20,
+            int hpAfter = 20)
         {
             return new StrikeResolvedEvent(
                 attacker,
@@ -117,13 +164,14 @@ namespace PF2e.Tests
                 mapPenalty: -5,
                 total: 14,
                 dc: 18,
-                degree: DegreeOfSuccess.Failure,
-                damage: 0,
+                degree: degree,
+                damage: damage,
                 damageType: DamageType.Piercing,
-                hpBefore: 20,
-                hpAfter: 20,
+                hpBefore: hpBefore,
+                hpAfter: hpAfter,
                 targetDefeated: false,
-                rangePenalty: rangePenalty);
+                rangePenalty: rangePenalty,
+                deadlyBonusDamage: deadlyBonusDamage);
         }
 
         private sealed class StrikeLogContext : System.IDisposable

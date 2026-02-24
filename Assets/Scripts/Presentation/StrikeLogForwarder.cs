@@ -69,7 +69,9 @@ namespace PF2e.Presentation
                 if (e.damage > 0)
                 {
                     eventBus.Publish(e.attacker,
-                        $"deals {e.damage} {e.damageType} damage to {targetName} (HP {e.hpBefore}→{e.hpAfter})",
+                        $"deals {e.damage} {e.damageType} damage to {targetName}" +
+                        (e.deadlyBonusDamage > 0 ? $" (DEADLY+{e.deadlyBonusDamage})" : string.Empty) +
+                        $" (HP {e.hpBefore}→{e.hpAfter})",
                         CombatLogCategory.Attack);
                 }
                 else

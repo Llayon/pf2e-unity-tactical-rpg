@@ -10,18 +10,20 @@ namespace PF2e.Core
         public readonly int diceCount;
         public readonly int dieSides;
         public readonly int bonus;
+        public readonly int deadlyBonusDamage;
         public readonly int damage;
 
-        public DamageRollResult(bool dealt, bool critical, int diceCount, int dieSides, int bonus, int damage)
+        public DamageRollResult(bool dealt, bool critical, int diceCount, int dieSides, int bonus, int deadlyBonusDamage, int damage)
         {
             this.dealt = dealt;
             this.critical = critical;
             this.diceCount = diceCount;
             this.dieSides = dieSides;
             this.bonus = bonus;
+            this.deadlyBonusDamage = deadlyBonusDamage;
             this.damage = damage;
         }
 
-        public static DamageRollResult None() => new DamageRollResult(false, false, 0, 0, 0, 0);
+        public static DamageRollResult None() => new DamageRollResult(false, false, 0, 0, 0, 0, 0);
     }
 }

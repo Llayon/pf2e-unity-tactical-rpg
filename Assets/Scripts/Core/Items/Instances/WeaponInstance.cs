@@ -21,6 +21,8 @@ namespace PF2e.Core
 
         public int ReachFeet => def != null ? Mathf.Max(5, def.reachFeet) : 5;
         public bool IsRanged => def != null && def.isRanged;
+        public bool HasDeadly => def != null && def.hasDeadly && def.deadlyDieSides > 0;
+        public int DeadlyDieSides => def != null ? Mathf.Max(0, def.deadlyDieSides) : 0;
 
         public WeaponTraitFlags Traits => def != null ? def.traits : WeaponTraitFlags.None;
         public WeaponCategory Category => def != null ? def.category : WeaponCategory.Simple;

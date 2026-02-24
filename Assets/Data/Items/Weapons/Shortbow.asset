@@ -28,6 +28,8 @@ MonoBehaviour:
   rangeIncrementFeet: 60
   maxRangeIncrements: 6
   traits: 0
+  hasDeadly: 1
+  deadlyDieSides: 10
   usesAmmo: 0
   ammoType: 0
   ammoPerShot: 1

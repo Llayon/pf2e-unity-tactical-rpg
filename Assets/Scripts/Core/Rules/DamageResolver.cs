@@ -23,7 +23,18 @@ namespace PF2e.Core
                 ? DamageCalculator.RollWeaponDamage(rng, diceCount, dieSides, bonus, crit)
                 : 0;
 
-            return new DamageRollResult(true, crit, diceCount, dieSides, bonus, damage);
+            int deadlyBonusDamage = 0;
+            if (crit && attacker.EquippedWeapon.HasDeadly)
+            {
+                int deadlyDieSides = attacker.EquippedWeapon.DeadlyDieSides;
+                if (deadlyDieSides > 0)
+                {
+                    deadlyBonusDamage = rng.RollDie(deadlyDieSides);
+                    damage += deadlyBonusDamage;
+                }
+            }
+
+            return new DamageRollResult(true, crit, diceCount, dieSides, bonus, deadlyBonusDamage, damage);
         }
     }
 }

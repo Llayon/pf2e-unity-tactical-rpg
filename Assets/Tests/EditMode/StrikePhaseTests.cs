@@ -37,6 +37,7 @@ namespace PF2e.Tests
             Assert.AreEqual(0, result.dc);
             Assert.AreEqual(DegreeOfSuccess.CriticalFailure, result.degree);
             Assert.AreEqual(0, result.damageRolled);
+            Assert.AreEqual(0, result.deadlyBonusDamage);
             Assert.IsFalse(result.damageDealt);
         }
 
@@ -68,6 +69,7 @@ namespace PF2e.Tests
             Assert.AreEqual(18, resolved.dc);
             Assert.AreEqual(DegreeOfSuccess.Failure, resolved.degree);
             Assert.AreEqual(0, resolved.damageRolled);
+            Assert.AreEqual(0, resolved.deadlyBonusDamage);
             Assert.AreEqual(DamageType.Slashing, resolved.damageType);
         }
 
@@ -260,6 +262,33 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void DetermineHitAndDamage_RangedCritWithDeadly_AddsDeadlyBonusDamage()
+        {
+            using var ctx = new StrikeContext();
+            var bow = ctx.CreateWeaponDef(
+                diceCount: 1,
+                dieSides: 6,
+                isRanged: true,
+                rangeIncrementFeet: 60,
+                maxRangeIncrements: 6,
+                hasDeadly: true,
+                deadlyDieSides: 10);
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: bow, level: 20, dexterity: 20);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(1, 0, 0), weaponDef: bow, level: 1);
+
+            var phase = ctx.StrikeAction.ResolveAttackRoll(attacker, target, new FixedRng(new[] { 20 }, new[] { 3, 7 }));
+            Assert.IsTrue(phase.HasValue);
+
+            var resolved = ctx.StrikeAction.DetermineHitAndDamage(phase.Value, target, new FixedRng(new[] { 20 }, new[] { 3, 7 }));
+
+            Assert.AreEqual(DegreeOfSuccess.CriticalSuccess, resolved.degree);
+            Assert.IsTrue(resolved.damageDealt);
+            Assert.AreEqual(7, resolved.deadlyBonusDamage);
+            Assert.GreaterOrEqual(resolved.damageRolled, 7);
+        }
+
+        [Test]
         public void DetermineHitAndDamage_NaturalOne_DowngradesDegree()
         {
             using var ctx = new StrikeContext();
@@ -300,6 +329,7 @@ namespace PF2e.Tests
                 Assert.AreEqual(16, targetData.CurrentHP);
                 Assert.AreEqual(1, resolvedCount);
                 Assert.AreEqual(4, resolvedEvent.damage);
+                Assert.AreEqual(0, resolvedEvent.deadlyBonusDamage);
                 Assert.AreEqual(20, resolvedEvent.hpBefore);
                 Assert.AreEqual(16, resolvedEvent.hpAfter);
             }
@@ -403,7 +433,9 @@ namespace PF2e.Tests
                 int reachFeet = 5,
                 bool isRanged = false,
                 int rangeIncrementFeet = 0,
-                int maxRangeIncrements = 0)
+                int maxRangeIncrements = 0,
+                bool hasDeadly = false,
+                int deadlyDieSides = 0)
             {
                 var def = ScriptableObject.CreateInstance<WeaponDefinition>();
                 def.itemName = "Test Weapon";
@@ -413,6 +445,8 @@ namespace PF2e.Tests
                 def.isRanged = isRanged;
                 def.rangeIncrementFeet = rangeIncrementFeet;
                 def.maxRangeIncrements = maxRangeIncrements;
+                def.hasDeadly = hasDeadly;
+                def.deadlyDieSides = deadlyDieSides;
                 def.damageType = DamageType.Slashing;
                 weaponDefs.Add(def);
                 return def;
