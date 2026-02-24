@@ -17,6 +17,7 @@ namespace PF2e.Core
         public readonly int dc;
         public readonly DegreeOfSuccess degree;
         public readonly int damage;
+        public readonly int fatalBonusDamage;
         public readonly int deadlyBonusDamage;
         public readonly DamageType damageType;
         public readonly int hpBefore;
@@ -39,6 +40,7 @@ namespace PF2e.Core
             int hpAfter,
             bool targetDefeated,
             int rangePenalty = 0,
+            int fatalBonusDamage = 0,
             int deadlyBonusDamage = 0)
         {
             this.attacker = attacker;
@@ -52,6 +54,7 @@ namespace PF2e.Core
             this.dc = dc;
             this.degree = degree;
             this.damage = damage;
+            this.fatalBonusDamage = fatalBonusDamage;
             this.deadlyBonusDamage = deadlyBonusDamage;
             this.damageType = damageType;
             this.hpBefore = hpBefore;
@@ -91,6 +94,7 @@ namespace PF2e.Core
                 hpAfter,
                 targetDefeated,
                 rangePenalty: 0,
+                fatalBonusDamage: 0,
                 deadlyBonusDamage: 0);
         }
     }

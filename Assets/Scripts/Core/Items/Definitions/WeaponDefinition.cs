@@ -22,6 +22,8 @@ namespace PF2e.Core
         public WeaponTraitFlags traits = WeaponTraitFlags.None;
         public bool hasDeadly = false;
         public int deadlyDieSides = 0;
+        public bool hasFatal = false;
+        public int fatalDieSides = 0;
 
         public bool usesAmmo = false;
         public AmmoType ammoType = AmmoType.None;

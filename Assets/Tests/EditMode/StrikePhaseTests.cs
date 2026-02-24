@@ -37,6 +37,7 @@ namespace PF2e.Tests
             Assert.AreEqual(0, result.dc);
             Assert.AreEqual(DegreeOfSuccess.CriticalFailure, result.degree);
             Assert.AreEqual(0, result.damageRolled);
+            Assert.AreEqual(0, result.fatalBonusDamage);
             Assert.AreEqual(0, result.deadlyBonusDamage);
             Assert.IsFalse(result.damageDealt);
         }
@@ -69,6 +70,7 @@ namespace PF2e.Tests
             Assert.AreEqual(18, resolved.dc);
             Assert.AreEqual(DegreeOfSuccess.Failure, resolved.degree);
             Assert.AreEqual(0, resolved.damageRolled);
+            Assert.AreEqual(0, resolved.fatalBonusDamage);
             Assert.AreEqual(0, resolved.deadlyBonusDamage);
             Assert.AreEqual(DamageType.Slashing, resolved.damageType);
         }
@@ -289,6 +291,29 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void DetermineHitAndDamage_CritWithFatal_ExposesFatalBonusDamage()
+        {
+            using var ctx = new StrikeContext();
+            var pick = ctx.CreateWeaponDef(
+                diceCount: 1,
+                dieSides: 4,
+                hasFatal: true,
+                fatalDieSides: 8);
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: pick, level: 20, strength: 20);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(1, 0, 0), weaponDef: pick, level: 1);
+
+            var phase = ctx.StrikeAction.ResolveAttackRoll(attacker, target, new FixedRng(new[] { 20 }, new[] { 2, 5 }));
+            Assert.IsTrue(phase.HasValue);
+
+            var resolved = ctx.StrikeAction.DetermineHitAndDamage(phase.Value, target, new FixedRng(new[] { 20 }, new[] { 2, 5 }));
+
+            Assert.AreEqual(DegreeOfSuccess.CriticalSuccess, resolved.degree);
+            Assert.AreEqual(5, resolved.fatalBonusDamage);
+            Assert.AreEqual(0, resolved.deadlyBonusDamage);
+        }
+
+        [Test]
         public void DetermineHitAndDamage_NaturalOne_DowngradesDegree()
         {
             using var ctx = new StrikeContext();
@@ -329,6 +354,7 @@ namespace PF2e.Tests
                 Assert.AreEqual(16, targetData.CurrentHP);
                 Assert.AreEqual(1, resolvedCount);
                 Assert.AreEqual(4, resolvedEvent.damage);
+                Assert.AreEqual(0, resolvedEvent.fatalBonusDamage);
                 Assert.AreEqual(0, resolvedEvent.deadlyBonusDamage);
                 Assert.AreEqual(20, resolvedEvent.hpBefore);
                 Assert.AreEqual(16, resolvedEvent.hpAfter);
@@ -359,6 +385,46 @@ namespace PF2e.Tests
             bool applied = ctx.StrikeAction.ApplyStrikeDamage(phase, damageReduction: 9);
             Assert.IsTrue(applied);
             Assert.AreEqual(20, ctx.Registry.Get(target).CurrentHP);
+        }
+
+        [Test]
+        public void ApplyStrikeDamage_PublishesStrikeResolvedEvent_WithFatalBonusDamage()
+        {
+            using var ctx = new StrikeContext();
+            var weapon = ctx.CreateWeaponDef();
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: weapon);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(1, 0, 0), weaponDef: weapon, currentHp: 20);
+
+            var phase = StrikePhaseResult.FromAttackRoll(attacker, target, "Pick", 20, 8, 0, 28)
+                .WithHitAndDamage(
+                    15,
+                    DegreeOfSuccess.CriticalSuccess,
+                    damageRolled: 13,
+                    damageType: DamageType.Piercing,
+                    damageDealt: true,
+                    fatalBonusDamage: 5);
+
+            StrikeResolvedEvent published = default;
+            int count = 0;
+            ctx.EventBus.OnStrikeResolved += OnResolved;
+            try
+            {
+                bool applied = ctx.StrikeAction.ApplyStrikeDamage(phase, damageReduction: 0);
+                Assert.IsTrue(applied);
+                Assert.AreEqual(1, count);
+                Assert.AreEqual(5, published.fatalBonusDamage);
+                Assert.AreEqual(0, published.deadlyBonusDamage);
+            }
+            finally
+            {
+                ctx.EventBus.OnStrikeResolved -= OnResolved;
+            }
+
+            void OnResolved(in StrikeResolvedEvent e)
+            {
+                count++;
+                published = e;
+            }
         }
 
         [Test]
@@ -435,7 +501,9 @@ namespace PF2e.Tests
                 int rangeIncrementFeet = 0,
                 int maxRangeIncrements = 0,
                 bool hasDeadly = false,
-                int deadlyDieSides = 0)
+                int deadlyDieSides = 0,
+                bool hasFatal = false,
+                int fatalDieSides = 0)
             {
                 var def = ScriptableObject.CreateInstance<WeaponDefinition>();
                 def.itemName = "Test Weapon";
@@ -447,6 +515,8 @@ namespace PF2e.Tests
                 def.maxRangeIncrements = maxRangeIncrements;
                 def.hasDeadly = hasDeadly;
                 def.deadlyDieSides = deadlyDieSides;
+                def.hasFatal = hasFatal;
+                def.fatalDieSides = fatalDieSides;
                 def.damageType = DamageType.Slashing;
                 weaponDefs.Add(def);
                 return def;

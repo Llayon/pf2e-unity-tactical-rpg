@@ -17,11 +17,30 @@ namespace PF2e.Core
 
             int diceCount = attacker.EquippedWeapon.EffectiveDiceCount;
             int dieSides = attacker.EquippedWeapon.DieSides;
+            int baseDieSidesForThisRoll = dieSides;
             int bonus = attacker.WeaponDamageBonus;
+            int fatalBonusDamage = 0;
 
-            int damage = (diceCount > 0 && dieSides > 0)
-                ? DamageCalculator.RollWeaponDamage(rng, diceCount, dieSides, bonus, crit)
+            if (crit && attacker.EquippedWeapon.HasFatal)
+            {
+                // PF2e Fatal (Phase 25.3): crit upgrades base weapon dice to the fatal die size.
+                baseDieSidesForThisRoll = attacker.EquippedWeapon.FatalDieSides;
+            }
+
+            int damage = (diceCount > 0 && baseDieSidesForThisRoll > 0)
+                ? DamageCalculator.RollWeaponDamage(rng, diceCount, baseDieSidesForThisRoll, bonus, crit)
                 : 0;
+
+            if (crit && attacker.EquippedWeapon.HasFatal)
+            {
+                int fatalDieSides = attacker.EquippedWeapon.FatalDieSides;
+                if (fatalDieSides > 0)
+                {
+                    // PF2e Fatal timing decision (Phase 25.3): extra fatal die is added after doubling, not doubled.
+                    fatalBonusDamage = rng.RollDie(fatalDieSides);
+                    damage += fatalBonusDamage;
+                }
+            }
 
             int deadlyBonusDamage = 0;
             if (crit && attacker.EquippedWeapon.HasDeadly)
@@ -34,7 +53,15 @@ namespace PF2e.Core
                 }
             }
 
-            return new DamageRollResult(true, crit, diceCount, dieSides, bonus, deadlyBonusDamage, damage);
+            return new DamageRollResult(
+                true,
+                crit,
+                diceCount,
+                baseDieSidesForThisRoll,
+                bonus,
+                fatalBonusDamage,
+                deadlyBonusDamage,
+                damage);
         }
     }
 }

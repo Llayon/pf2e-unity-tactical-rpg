@@ -70,7 +70,7 @@ namespace PF2e.Presentation
                 {
                     eventBus.Publish(e.attacker,
                         $"deals {e.damage} {e.damageType} damage to {targetName}" +
-                        (e.deadlyBonusDamage > 0 ? $" (DEADLY+{e.deadlyBonusDamage})" : string.Empty) +
+                        BuildCritTraitBreakdown(e) +
                         $" (HP {e.hpBefore}→{e.hpAfter})",
                         CombatLogCategory.Attack);
                 }
@@ -119,6 +119,20 @@ namespace PF2e.Presentation
                     "shield is broken.",
                     CombatLogCategory.Attack);
             }
+        }
+
+        private static string BuildCritTraitBreakdown(in StrikeResolvedEvent e)
+        {
+            if (e.fatalBonusDamage <= 0 && e.deadlyBonusDamage <= 0)
+                return string.Empty;
+
+            if (e.fatalBonusDamage > 0 && e.deadlyBonusDamage > 0)
+                return $" (FATAL+{e.fatalBonusDamage}, DEADLY+{e.deadlyBonusDamage})";
+
+            if (e.fatalBonusDamage > 0)
+                return $" (FATAL+{e.fatalBonusDamage})";
+
+            return $" (DEADLY+{e.deadlyBonusDamage})";
         }
     }
 }

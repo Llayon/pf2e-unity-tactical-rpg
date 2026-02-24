@@ -91,6 +91,7 @@ namespace PF2e.TurnSystem
                 damageRolled,
                 damageType,
                 damage.dealt,
+                fatalBonusDamage: damage.fatalBonusDamage,
                 deadlyBonusDamage: damage.deadlyBonusDamage);
 
             eventBus?.PublishStrikePreDamage(
@@ -146,6 +147,7 @@ namespace PF2e.TurnSystem
                 hpBefore: hpBefore,
                 hpAfter: hpAfter,
                 targetDefeated: defeated,
+                fatalBonusDamage: phase.fatalBonusDamage,
                 deadlyBonusDamage: phase.deadlyBonusDamage);
 
             eventBus?.PublishStrikeResolved(in resolvedEvent);

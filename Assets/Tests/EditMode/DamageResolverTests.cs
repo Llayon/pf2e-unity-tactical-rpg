@@ -73,7 +73,132 @@ namespace PF2e.Tests
             Assert.AreEqual(12, result.damage); // (1*2) + 10
         }
 
-        private static EntityData CreateAttacker(int diceCount, int dieSides, bool hasDeadly, int deadlyDieSides, int dexterity)
+        [Test]
+        public void RollStrikeDamage_CritWithFatal_UsesFatalDieSizeForBaseDamage()
+        {
+            var attacker = CreateAttacker(
+                diceCount: 1,
+                dieSides: 6,
+                hasDeadly: false,
+                deadlyDieSides: 0,
+                hasFatal: true,
+                fatalDieSides: 10,
+                dexterity: 18);
+
+            var rng = new FixedRng(dieRolls: new[] { 4, 6 });
+            var result = DamageResolver.RollStrikeDamage(attacker, DegreeOfSuccess.CriticalSuccess, rng);
+
+            Assert.AreEqual(10, result.dieSides, "Fatal should replace base weapon die size on crit.");
+            Assert.AreEqual(6, result.fatalBonusDamage);
+            Assert.AreEqual(14, result.damage); // (1d10=4)*2 + 1d10=6
+        }
+
+        [Test]
+        public void RollStrikeDamage_CritWithFatal_AddsOneExtraFatalDieAfterDoubling()
+        {
+            var attacker = CreateAttacker(
+                diceCount: 1,
+                dieSides: 6,
+                hasDeadly: false,
+                deadlyDieSides: 0,
+                hasFatal: true,
+                fatalDieSides: 8,
+                dexterity: 18);
+
+            var rng = new FixedRng(dieRolls: new[] { 3, 5 });
+            var result = DamageResolver.RollStrikeDamage(attacker, DegreeOfSuccess.CriticalSuccess, rng);
+
+            Assert.AreEqual(5, result.fatalBonusDamage);
+            Assert.AreEqual(11, result.damage, "Phase 25.3 timing decision: extra fatal die is added after doubling.");
+        }
+
+        [Test]
+        public void RollStrikeDamage_SuccessWithFatal_DoesNotApplyFatal()
+        {
+            var attacker = CreateAttacker(
+                diceCount: 1,
+                dieSides: 6,
+                hasDeadly: false,
+                deadlyDieSides: 0,
+                hasFatal: true,
+                fatalDieSides: 8,
+                dexterity: 18);
+
+            var rng = new FixedRng(dieRolls: new[] { 4, 7 });
+            var result = DamageResolver.RollStrikeDamage(attacker, DegreeOfSuccess.Success, rng);
+
+            Assert.AreEqual(0, result.fatalBonusDamage);
+            Assert.AreEqual(4, result.damage);
+            Assert.AreEqual(6, result.dieSides, "Fatal must not change die size on non-crit.");
+        }
+
+        [Test]
+        public void RollStrikeDamage_CritWithoutFatal_NoFatalBonus()
+        {
+            var attacker = CreateAttacker(
+                diceCount: 1,
+                dieSides: 6,
+                hasDeadly: true,
+                deadlyDieSides: 10,
+                hasFatal: false,
+                fatalDieSides: 0,
+                dexterity: 18);
+
+            var rng = new FixedRng(dieRolls: new[] { 2, 9 });
+            var result = DamageResolver.RollStrikeDamage(attacker, DegreeOfSuccess.CriticalSuccess, rng);
+
+            Assert.AreEqual(0, result.fatalBonusDamage);
+            Assert.AreEqual(9, result.deadlyBonusDamage);
+        }
+
+        [Test]
+        public void RollStrikeDamage_CritWithFatalAndDeadly_AppliesBothBonuses()
+        {
+            var attacker = CreateAttacker(
+                diceCount: 1,
+                dieSides: 6,
+                hasDeadly: true,
+                deadlyDieSides: 10,
+                hasFatal: true,
+                fatalDieSides: 8,
+                dexterity: 18);
+
+            var rng = new FixedRng(dieRolls: new[] { 2, 4, 9 });
+            var result = DamageResolver.RollStrikeDamage(attacker, DegreeOfSuccess.CriticalSuccess, rng);
+
+            Assert.AreEqual(4, result.fatalBonusDamage);
+            Assert.AreEqual(9, result.deadlyBonusDamage);
+            Assert.AreEqual(17, result.damage); // (1d8=2)*2 + 1d8=4 + 1d10=9
+        }
+
+        [Test]
+        public void RollStrikeDamage_CritWithFatal_DiceCountGreaterThanOne_UpgradesAllBaseDice()
+        {
+            var attacker = CreateAttacker(
+                diceCount: 2,
+                dieSides: 6,
+                hasDeadly: false,
+                deadlyDieSides: 0,
+                hasFatal: true,
+                fatalDieSides: 8,
+                dexterity: 18);
+
+            var rng = new FixedRng(dieRolls: new[] { 7, 8, 6 });
+            var result = DamageResolver.RollStrikeDamage(attacker, DegreeOfSuccess.CriticalSuccess, rng);
+
+            Assert.AreEqual(8, result.dieSides, "Fatal must upgrade all base weapon dice to the fatal size.");
+            Assert.AreEqual(6, result.fatalBonusDamage);
+            Assert.AreEqual(36, result.damage); // (7+8)*2 + 6
+        }
+
+        private static EntityData CreateAttacker(
+            int diceCount,
+            int dieSides,
+            bool hasDeadly,
+            int deadlyDieSides,
+            int dexterity,
+            bool hasFatal = false,
+            int fatalDieSides = 0)
         {
             var weaponDef = ScriptableObject.CreateInstance<WeaponDefinition>();
             weaponDef.itemName = "Test Bow";
@@ -85,6 +210,8 @@ namespace PF2e.Tests
             weaponDef.damageType = DamageType.Piercing;
             weaponDef.hasDeadly = hasDeadly;
             weaponDef.deadlyDieSides = deadlyDieSides;
+            weaponDef.hasFatal = hasFatal;
+            weaponDef.fatalDieSides = fatalDieSides;
 
             return new EntityData
             {

@@ -145,12 +145,91 @@ namespace PF2e.Tests
             }
         }
 
+        [Test]
+        public void StrikeLog_CritWithFatalBonus_IncludesFatalTokenOnDamageLine()
+        {
+            using var ctx = new StrikeLogContext();
+            var attacker = ctx.RegisterEntity("Picker", Team.Player);
+            var target = ctx.RegisterEntity("Goblin_1", Team.Enemy);
+
+            var ev = CreateStrikeEvent(
+                attacker,
+                target,
+                degree: DegreeOfSuccess.CriticalSuccess,
+                damage: 12,
+                fatalBonusDamage: 4,
+                hpBefore: 20,
+                hpAfter: 8);
+
+            CombatLogEntry second = default;
+            int count = 0;
+            ctx.EventBus.OnLogEntry += HandleLog;
+            try
+            {
+                ctx.EventBus.PublishStrikeResolved(in ev);
+
+                Assert.GreaterOrEqual(count, 2);
+                StringAssert.Contains("FATAL+4", second.Message);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry)
+            {
+                count++;
+                if (count == 2) second = entry;
+            }
+        }
+
+        [Test]
+        public void StrikeLog_CritWithFatalAndDeadly_IncludesBothTokens()
+        {
+            using var ctx = new StrikeLogContext();
+            var attacker = ctx.RegisterEntity("Hybrid", Team.Player);
+            var target = ctx.RegisterEntity("Goblin_1", Team.Enemy);
+
+            var ev = CreateStrikeEvent(
+                attacker,
+                target,
+                degree: DegreeOfSuccess.CriticalSuccess,
+                damage: 19,
+                fatalBonusDamage: 4,
+                deadlyBonusDamage: 6,
+                hpBefore: 20,
+                hpAfter: 1);
+
+            CombatLogEntry second = default;
+            int count = 0;
+            ctx.EventBus.OnLogEntry += HandleLog;
+            try
+            {
+                ctx.EventBus.PublishStrikeResolved(in ev);
+
+                Assert.GreaterOrEqual(count, 2);
+                StringAssert.Contains("FATAL+4", second.Message);
+                StringAssert.Contains("DEADLY+6", second.Message);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry)
+            {
+                count++;
+                if (count == 2) second = entry;
+            }
+        }
+
         private static StrikeResolvedEvent CreateStrikeEvent(
             EntityHandle attacker,
             EntityHandle target,
             int rangePenalty = 0,
             DegreeOfSuccess degree = DegreeOfSuccess.Failure,
             int damage = 0,
+            int fatalBonusDamage = 0,
             int deadlyBonusDamage = 0,
             int hpBefore = 20,
             int hpAfter = 20)
@@ -171,6 +250,7 @@ namespace PF2e.Tests
                 hpAfter: hpAfter,
                 targetDefeated: false,
                 rangePenalty: rangePenalty,
+                fatalBonusDamage: fatalBonusDamage,
                 deadlyBonusDamage: deadlyBonusDamage);
         }
 

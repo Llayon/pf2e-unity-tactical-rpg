@@ -18,6 +18,7 @@ namespace PF2e.TurnSystem
         public readonly int dc;
         public readonly DegreeOfSuccess degree;
         public readonly int damageRolled;
+        public readonly int fatalBonusDamage;
         public readonly int deadlyBonusDamage;
         public readonly DamageType damageType;
         public readonly bool damageDealt;
@@ -34,6 +35,7 @@ namespace PF2e.TurnSystem
             int dc,
             DegreeOfSuccess degree,
             int damageRolled,
+            int fatalBonusDamage,
             int deadlyBonusDamage,
             DamageType damageType,
             bool damageDealt)
@@ -49,6 +51,7 @@ namespace PF2e.TurnSystem
             this.dc = dc;
             this.degree = degree;
             this.damageRolled = damageRolled;
+            this.fatalBonusDamage = fatalBonusDamage;
             this.deadlyBonusDamage = deadlyBonusDamage;
             this.damageType = damageType;
             this.damageDealt = damageDealt;
@@ -76,6 +79,7 @@ namespace PF2e.TurnSystem
                 dc: 0,
                 degree: DegreeOfSuccess.CriticalFailure,
                 damageRolled: 0,
+                fatalBonusDamage: 0,
                 deadlyBonusDamage: 0,
                 damageType: DamageType.Bludgeoning,
                 damageDealt: false);
@@ -87,6 +91,7 @@ namespace PF2e.TurnSystem
             int damageRolled,
             DamageType damageType,
             bool damageDealt,
+            int fatalBonusDamage = 0,
             int deadlyBonusDamage = 0)
         {
             return new StrikePhaseResult(
@@ -101,6 +106,7 @@ namespace PF2e.TurnSystem
                 dc,
                 degree,
                 damageRolled,
+                fatalBonusDamage,
                 deadlyBonusDamage,
                 damageType,
                 damageDealt);
