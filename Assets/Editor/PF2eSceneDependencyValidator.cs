@@ -85,6 +85,7 @@ public static class PF2eSceneDependencyValidator
                 errors += ValidateAll<TripAction>(ValidateTripAction);
         errors += ValidateAll<ShoveAction>(ValidateShoveAction);
         errors += ValidateAll<GrappleAction>(ValidateGrappleAction);
+        errors += ValidateAll<RepositionAction>(ValidateRepositionAction);
         errors += ValidateAll<DemoralizeAction>(ValidateDemoralizeAction);
         errors += ValidateAll<RaiseShieldAction>(ValidateRaiseShieldAction);
         errors += ValidateAll<ShieldBlockAction>(ValidateShieldBlockAction);
@@ -115,6 +116,7 @@ public static class PF2eSceneDependencyValidator
                 errors += ErrorIfMoreThanOne<TripAction>();
         errors += ErrorIfMoreThanOne<ShoveAction>();
         errors += ErrorIfMoreThanOne<GrappleAction>();
+        errors += ErrorIfMoreThanOne<RepositionAction>();
         errors += ErrorIfMoreThanOne<DemoralizeAction>();
         errors += ErrorIfMoreThanOne<RaiseShieldAction>();
         errors += ErrorIfMoreThanOne<ShieldBlockAction>();
@@ -139,6 +141,7 @@ public static class PF2eSceneDependencyValidator
                 warnings += WarnIfNone<TripAction>();
         warnings += WarnIfNone<ShoveAction>();
         warnings += WarnIfNone<GrappleAction>();
+        warnings += WarnIfNone<RepositionAction>();
         warnings += WarnIfNone<DemoralizeAction>();
         warnings += WarnIfNone<RaiseShieldAction>();
         warnings += WarnIfNone<ShieldBlockAction>();
@@ -202,6 +205,7 @@ public static class PF2eSceneDependencyValidator
                 warnings += WarnRef(ex, "tripAction", "TripAction");
         warnings += WarnRef(ex, "shoveAction", "ShoveAction");
         warnings += WarnRef(ex, "grappleAction", "GrappleAction");
+        warnings += WarnRef(ex, "repositionAction", "RepositionAction");
         warnings += WarnRef(ex, "escapeAction", "EscapeAction");
         warnings += WarnRef(ex, "demoralizeAction", "DemoralizeAction");
         warnings += WarnRef(ex, "reactionPromptController", "ReactionPromptController");
@@ -357,6 +361,7 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnRef(c, "tripButton", "Button");
         warnings += WarnRef(c, "shoveButton", "Button");
         warnings += WarnRef(c, "grappleButton", "Button");
+        warnings += WarnRef(c, "repositionButton", "Button");
         warnings += WarnRef(c, "demoralizeButton", "Button");
         warnings += WarnRef(c, "escapeButton", "Button");
         warnings += WarnRef(c, "raiseShieldButton", "Button");
@@ -366,6 +371,7 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnRef(c, "tripHighlight", "Image");
         warnings += WarnRef(c, "shoveHighlight", "Image");
         warnings += WarnRef(c, "grappleHighlight", "Image");
+        warnings += WarnRef(c, "repositionHighlight", "Image");
         warnings += WarnRef(c, "demoralizeHighlight", "Image");
         warnings += WarnRef(c, "escapeHighlight", "Image");
         warnings += WarnRef(c, "raiseShieldHighlight", "Image");
@@ -378,6 +384,8 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(c, "entityManager", "EntityManager");
         errors += RequireRef(c, "gridManager", "GridManager");
         errors += RequireRef(c, "targetingController", "TargetingController");
+        errors += RequireRef(c, "actionExecutor", "PlayerActionExecutor");
+        errors += RequireRef(c, "cellHighlightPool", "CellHighlightPool");
     }
 
     private static void ValidateTargetingHintController(TargetingHintController c, ref int errors, ref int warnings)
@@ -419,6 +427,14 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(ga, "entityManager", "EntityManager");
         warnings += WarnRef(ga, "eventBus", "CombatEventBus");
         warnings += WarnRef(ga, "grappleLifecycle", "GrappleLifecycleController");
+    }
+
+    private static void ValidateRepositionAction(RepositionAction ra, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(ra, "entityManager", "EntityManager");
+        errors += RequireRef(ra, "gridManager", "GridManager");
+        warnings += WarnRef(ra, "eventBus", "CombatEventBus");
+        warnings += WarnRef(ra, "grappleLifecycle", "GrappleLifecycleController");
     }
 
 private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors, ref int warnings)
@@ -619,9 +635,10 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         TryGetSingleton(out PlayerActionExecutor actionExecutor, logIfMissing: false);
         TryGetSingleton(out StrideAction strideAction, logIfMissing: false);
         TryGetSingleton(out StrikeAction strikeActionSingleton, logIfMissing: false);
-                TryGetSingleton(out TripAction tripActionSingleton, logIfMissing: false);
+        TryGetSingleton(out TripAction tripActionSingleton, logIfMissing: false);
         TryGetSingleton(out ShoveAction shoveActionSingleton, logIfMissing: false);
         TryGetSingleton(out GrappleAction grappleActionSingleton, logIfMissing: false);
+        TryGetSingleton(out RepositionAction repositionActionSingleton, logIfMissing: false);
         TryGetSingleton(out EscapeAction escapeActionSingleton, logIfMissing: false);
         TryGetSingleton(out DemoralizeAction demoralizeActionSingleton, logIfMissing: false);
         TryGetSingleton(out RaiseShieldAction raiseShieldActionSingleton, logIfMissing: false);
@@ -663,6 +680,8 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
             fixedCount += FixAll<PlayerActionExecutor>("shoveAction", shoveActionSingleton);
         if (grappleActionSingleton != null)
             fixedCount += FixAll<PlayerActionExecutor>("grappleAction", grappleActionSingleton);
+        if (repositionActionSingleton != null)
+            fixedCount += FixAll<PlayerActionExecutor>("repositionAction", repositionActionSingleton);
         if (escapeActionSingleton != null)
             fixedCount += FixAll<PlayerActionExecutor>("escapeAction", escapeActionSingleton);
         if (demoralizeActionSingleton != null)
@@ -799,6 +818,12 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
             fixedCount += FixAll<GrappleAction>("eventBus", eventBus);
         if (grappleLifecycleSingleton != null)
             fixedCount += FixAll<GrappleAction>("grappleLifecycle", grappleLifecycleSingleton);
+        fixedCount += FixAll<RepositionAction>("entityManager", entityManager);
+        fixedCount += FixAll<RepositionAction>("gridManager", gridManager);
+        if (eventBus != null)
+            fixedCount += FixAll<RepositionAction>("eventBus", eventBus);
+        if (grappleLifecycleSingleton != null)
+            fixedCount += FixAll<RepositionAction>("grappleLifecycle", grappleLifecycleSingleton);
         fixedCount += FixAll<EscapeAction>("entityManager", entityManager);
         if (eventBus != null)
             fixedCount += FixAll<EscapeAction>("eventBus", eventBus);
@@ -869,6 +894,10 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
             fixedCount += FixAll<TargetingFeedbackController>("gridManager", gridManager);
             if (targetingController != null)
                 fixedCount += FixAll<TargetingFeedbackController>("targetingController", targetingController);
+            if (actionExecutor != null)
+                fixedCount += FixAll<TargetingFeedbackController>("actionExecutor", actionExecutor);
+            if (highlightPool != null)
+                fixedCount += FixAll<TargetingFeedbackController>("cellHighlightPool", highlightPool);
         }
 
         if (fixedCount > 0)
@@ -977,6 +1006,7 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "TripButton", "tripButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "ShoveButton", "shoveButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "GrappleButton", "grappleButton");
+        fixedCount += TryAssignActionBarChild<Button>(bar, root, "RepositionButton", "repositionButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "DemoralizeButton", "demoralizeButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "EscapeButton", "escapeButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "RaiseShieldButton", "raiseShieldButton");
@@ -986,6 +1016,7 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "TripButton/ActiveHighlight", "tripHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "ShoveButton/ActiveHighlight", "shoveHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "GrappleButton/ActiveHighlight", "grappleHighlight");
+        fixedCount += TryAssignActionBarChild<Image>(bar, root, "RepositionButton/ActiveHighlight", "repositionHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "DemoralizeButton/ActiveHighlight", "demoralizeHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "EscapeButton/ActiveHighlight", "escapeHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "RaiseShieldButton/ActiveHighlight", "raiseShieldHighlight");

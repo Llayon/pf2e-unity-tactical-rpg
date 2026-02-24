@@ -40,6 +40,7 @@ public static class ActionBarUIBuilder
             CreateButtonSlot(root.transform, controller, "TripButton", "Trip", "T", "tripButton", "tripHighlight");
             CreateButtonSlot(root.transform, controller, "ShoveButton", "Shove", "H", "shoveButton", "shoveHighlight");
             CreateButtonSlot(root.transform, controller, "GrappleButton", "Grapple", "J", "grappleButton", "grappleHighlight");
+            CreateButtonSlot(root.transform, controller, "RepositionButton", "Reposition", "—", "repositionButton", "repositionHighlight");
             CreateButtonSlot(root.transform, controller, "DemoralizeButton", "Demoralize", "Y", "demoralizeButton", "demoralizeHighlight");
             CreateButtonSlot(root.transform, controller, "EscapeButton", "Escape", "K", "escapeButton", "escapeHighlight");
             CreateButtonSlot(root.transform, controller, "RaiseShieldButton", "Shield", "R", "raiseShieldButton", "raiseShieldHighlight");
@@ -50,6 +51,8 @@ public static class ActionBarUIBuilder
             root = controller.gameObject;
             Debug.Log("[ActionBarBuilder] Reusing existing ActionBarController and ensuring hint panel/wiring.", controller);
         }
+
+        EnsureRepositionButtonSlot(root.transform, controller);
 
         // Wire dependencies if found.
         AssignIfFieldExists(controller, "eventBus", Object.FindFirstObjectByType<CombatEventBus>());
@@ -183,6 +186,23 @@ public static class ActionBarUIBuilder
 
         AssignIfFieldExists(controller, buttonFieldName, button);
         AssignIfFieldExists(controller, highlightFieldName, highlightImage);
+    }
+
+    private static void EnsureRepositionButtonSlot(Transform parent, ActionBarController controller)
+    {
+        if (parent == null || controller == null) return;
+
+        var existing = parent.Find("RepositionButton");
+        if (existing != null)
+        {
+            AssignIfFieldExists(controller, "repositionButton", existing.GetComponent<Button>());
+            var existingHighlight = existing.Find("ActiveHighlight");
+            if (existingHighlight != null)
+                AssignIfFieldExists(controller, "repositionHighlight", existingHighlight.GetComponent<Image>());
+            return;
+        }
+
+        CreateButtonSlot(parent, controller, "RepositionButton", "Reposition", "—", "repositionButton", "repositionHighlight");
     }
 
     private static void EnsureTargetingHintPanel(Transform actionBarRoot)

@@ -26,6 +26,7 @@ namespace PF2e.Presentation
         [SerializeField] private Button tripButton;
         [SerializeField] private Button shoveButton;
         [SerializeField] private Button grappleButton;
+        [SerializeField] private Button repositionButton;
         [SerializeField] private Button demoralizeButton;
         [SerializeField] private Button escapeButton;
         [SerializeField] private Button raiseShieldButton;
@@ -36,6 +37,7 @@ namespace PF2e.Presentation
         [SerializeField] private Image tripHighlight;
         [SerializeField] private Image shoveHighlight;
         [SerializeField] private Image grappleHighlight;
+        [SerializeField] private Image repositionHighlight;
         [SerializeField] private Image demoralizeHighlight;
         [SerializeField] private Image escapeHighlight;
         [SerializeField] private Image raiseShieldHighlight;
@@ -58,6 +60,7 @@ namespace PF2e.Presentation
             if (tripButton == null) Debug.LogWarning("[ActionBar] tripButton not assigned", this);
             if (shoveButton == null) Debug.LogWarning("[ActionBar] shoveButton not assigned", this);
             if (grappleButton == null) Debug.LogWarning("[ActionBar] grappleButton not assigned", this);
+            if (repositionButton == null) Debug.LogWarning("[ActionBar] repositionButton not assigned", this);
             if (demoralizeButton == null) Debug.LogWarning("[ActionBar] demoralizeButton not assigned", this);
             if (escapeButton == null) Debug.LogWarning("[ActionBar] escapeButton not assigned", this);
             if (raiseShieldButton == null) Debug.LogWarning("[ActionBar] raiseShieldButton not assigned", this);
@@ -124,6 +127,7 @@ namespace PF2e.Presentation
             boundCount += BindButton(tripButton, OnTripClicked);
             boundCount += BindButton(shoveButton, OnShoveClicked);
             boundCount += BindButton(grappleButton, OnGrappleClicked);
+            boundCount += BindButton(repositionButton, OnRepositionClicked);
             boundCount += BindButton(demoralizeButton, OnDemoralizeClicked);
             boundCount += BindButton(escapeButton, OnEscapeClicked);
             boundCount += BindButton(raiseShieldButton, OnRaiseShieldClicked);
@@ -192,6 +196,7 @@ namespace PF2e.Presentation
             SetHighlight(tripHighlight, mode == TargetingMode.Trip);
             SetHighlight(shoveHighlight, mode == TargetingMode.Shove);
             SetHighlight(grappleHighlight, mode == TargetingMode.Grapple);
+            SetHighlight(repositionHighlight, mode == TargetingMode.Reposition);
             SetHighlight(demoralizeHighlight, mode == TargetingMode.Demoralize);
             SetHighlight(escapeHighlight, mode == TargetingMode.Escape);
             SetHighlight(raiseShieldHighlight, false);
@@ -230,6 +235,9 @@ namespace PF2e.Presentation
             SetInteractable(tripButton, HasWeaponTrait(data, WeaponTraitFlags.Trip));
             SetInteractable(shoveButton, HasWeaponTrait(data, WeaponTraitFlags.Shove));
             SetInteractable(grappleButton, HasWeaponTrait(data, WeaponTraitFlags.Grapple));
+            // Reposition can also be enabled via active grapple relation (RAW) which is not cheaply visible from EntityData.
+            // Use broad pre-target gate; action/preview will enforce exact legality.
+            SetInteractable(repositionButton, true);
             SetInteractable(demoralizeButton, true);
             SetInteractable(escapeButton, IsGrabbedOrRestrained(data));
             SetInteractable(raiseShieldButton, CanRaiseShield(data));
@@ -278,6 +286,7 @@ namespace PF2e.Presentation
             SetInteractable(tripButton, enabled);
             SetInteractable(shoveButton, enabled);
             SetInteractable(grappleButton, enabled);
+            SetInteractable(repositionButton, enabled);
             SetInteractable(demoralizeButton, enabled);
             SetInteractable(escapeButton, enabled);
             SetInteractable(raiseShieldButton, enabled);
@@ -295,6 +304,7 @@ namespace PF2e.Presentation
             SetHighlight(tripHighlight, false);
             SetHighlight(shoveHighlight, false);
             SetHighlight(grappleHighlight, false);
+            SetHighlight(repositionHighlight, false);
             SetHighlight(demoralizeHighlight, false);
             SetHighlight(escapeHighlight, false);
             SetHighlight(raiseShieldHighlight, false);
@@ -333,6 +343,11 @@ namespace PF2e.Presentation
             ToggleOrBeginTargeting(TargetingMode.Demoralize, h => actionExecutor.TryExecuteDemoralize(h));
         }
 
+        private void OnRepositionClicked()
+        {
+            ToggleOrBeginRepositionTargeting();
+        }
+
         private void OnEscapeClicked()
         {
             ToggleOrBeginTargeting(TargetingMode.Escape, h => actionExecutor.TryExecuteEscape(h));
@@ -361,6 +376,23 @@ namespace PF2e.Presentation
             }
 
             targetingController.BeginTargeting(mode, onConfirm);
+        }
+
+        private void ToggleOrBeginRepositionTargeting()
+        {
+            if (targetingController == null || actionExecutor == null) return;
+
+            if (targetingController.ActiveMode == TargetingMode.Reposition)
+            {
+                targetingController.CancelTargeting();
+                return;
+            }
+
+            targetingController.BeginRepositionTargeting(
+                actionExecutor.TryBeginRepositionTargetSelection,
+                actionExecutor.TryConfirmRepositionDestination,
+                onCancelled: null,
+                onCellPhaseCancelled: actionExecutor.CancelPendingRepositionSelection);
         }
     }
 }
