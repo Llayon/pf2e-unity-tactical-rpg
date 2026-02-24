@@ -57,6 +57,8 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-051 | P0 | done | Builder | Implement generic non-strike damage event foundation (`Phase 24`) | `DamageAppliedEvent`, `DamageApplicationService`, `Trip` crit damage routed through generic path, and `FloatingDamageUI` support for non-strike damage with regression tests |
 | T-052 | P1 | done | Builder | Add generic damage combat-log forwarder + scene/validator wiring (`Phase 24.1`) | `DamageLogForwarder` logs `DamageAppliedEvent`, EditMode tests added, and `SampleScene` + validator/autofix wiring updated |
 | T-053 | P0 | done | Builder | Implement `Phase 25` weapon-aware ranged Strike + bow MVP | Unified `Strike` path now supports melee/ranged weapons, ranged range-increment penalties are applied, strike targeting/preview UX is weapon-aware, `Shortbow` demo content is wired in `SampleScene`, and EditMode/PlayMode suites remain green |
+| T-054 | P1 | done | Builder | Polish ranged Strike UX wording and add ranged boundary/log regressions (`Phase 25.1`) | Strike hint/reason text now uses `reach` vs `range` based on current weapon, ranged boundary tests cover first/max increment and unarmed fallback, and `StrikeLogForwarder` `RNG(...)` token coverage is explicit |
+| T-055 | P1 | done | Builder | Add parameterized strike trait support for `Deadly`, `Fatal`, and `Volley` (`Phases 25.2–25.4`) | `Deadly`/`Fatal` crit math and `Volley` close-range penalty are implemented with typed weapon fields, strike payload/log breakdowns, and EditMode/PlayMode regressions green |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

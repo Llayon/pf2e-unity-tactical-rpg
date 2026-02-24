@@ -32,6 +32,8 @@
 - Add `ShoveAction` with forced movement (MVP cell-based push), `GrappleAction`, `EscapeAction`, and source-scoped grapple lifecycle (`GrappleService`/`GrappleLifecycleController`) plus targeting-mode wiring (`Phases 22.2–22.3.x`). (Done)
 - Add generic non-strike damage foundation (`DamageAppliedEvent` + `DamageApplicationService`) and route `Trip` crit damage through it, including floating damage/log UX support (`Phases 24–24.1`). (Done)
 - Make `Strike` weapon-aware (melee + ranged), add ranged range-increment penalties, and ship bow demo content in `SampleScene` (`Phase 25`). (Done)
+- Polish ranged strike UX/reason wording and boundary/log regressions (`Phase 25.1`). (Done)
+- Add parameterized strike crit-trait support for `Deadly` and `Fatal`, and ranged close-range `Volley` penalty support (`Phases 25.2–25.4`). (Done)
 
 ## Phase 3 — Content & UX Polish (In Progress)
 - Add more encounter layouts and data-driven authoring flow.
