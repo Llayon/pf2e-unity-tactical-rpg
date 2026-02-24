@@ -19,9 +19,16 @@ namespace PF2e.Presentation
         [SerializeField] private EntityManager entityManager;
         [SerializeField] private GridManager gridManager;
         [SerializeField] private TargetingController targetingController;
+        [SerializeField] private PlayerActionExecutor actionExecutor;
+        [SerializeField] private CellHighlightPool cellHighlightPool;
+
+        [Header("Reposition Cell Highlight")]
+        [SerializeField] private Color repositionDestinationColor = new Color(0.25f, 0.8f, 1f, 0.35f);
 
         private readonly HashSet<EntityHandle> eligibleHandles = new HashSet<EntityHandle>();
         private readonly Dictionary<EntityHandle, TargetingTintController> tintCache = new Dictionary<EntityHandle, TargetingTintController>();
+        private readonly List<GameObject> repositionCellHighlights = new List<GameObject>();
+        private readonly List<Vector3Int> repositionDestinationsBuffer = new List<Vector3Int>();
 
         private EntityHandle? hoveredEntity;
 
@@ -32,6 +39,8 @@ namespace PF2e.Presentation
             if (entityManager == null) Debug.LogWarning("[TargetingFeedback] Missing EntityManager", this);
             if (gridManager == null) Debug.LogWarning("[TargetingFeedback] Missing GridManager", this);
             if (targetingController == null) Debug.LogWarning("[TargetingFeedback] Missing TargetingController", this);
+            if (actionExecutor == null) Debug.LogWarning("[TargetingFeedback] Missing PlayerActionExecutor", this);
+            if (cellHighlightPool == null) Debug.LogWarning("[TargetingFeedback] Missing CellHighlightPool", this);
         }
 #endif
 
@@ -158,9 +167,16 @@ namespace PF2e.Presentation
         {
             ClearTrackedVisualStates();
             eligibleHandles.Clear();
+            ClearRepositionCellHighlights();
 
             if (!IsTargetingActive())
                 return;
+
+            if (targetingController.IsRepositionSelectingCell)
+            {
+                ShowRepositionDestinationHighlights();
+                return;
+            }
 
             if (entityManager == null || entityManager.Registry == null)
                 return;
@@ -240,9 +256,42 @@ namespace PF2e.Presentation
         private void ClearAllVisualsAndState(bool clearHover = true)
         {
             ClearTrackedVisualStates();
+            ClearRepositionCellHighlights();
             eligibleHandles.Clear();
             if (clearHover)
                 hoveredEntity = null;
+        }
+
+        private void ShowRepositionDestinationHighlights()
+        {
+            if (actionExecutor == null || cellHighlightPool == null || gridManager == null || gridManager.Data == null || gridManager.Config == null)
+                return;
+
+            if (!actionExecutor.TryGetPendingRepositionDestinations(repositionDestinationsBuffer))
+                return;
+
+            float cellSize = gridManager.Config.cellWorldSize;
+            for (int i = 0; i < repositionDestinationsBuffer.Count; i++)
+            {
+                var worldPos = gridManager.Data.CellToWorld(repositionDestinationsBuffer[i]);
+                repositionCellHighlights.Add(cellHighlightPool.ShowHighlight(worldPos, cellSize, repositionDestinationColor));
+            }
+        }
+
+        private void ClearRepositionCellHighlights()
+        {
+            if (cellHighlightPool != null)
+            {
+                for (int i = 0; i < repositionCellHighlights.Count; i++)
+                {
+                    var go = repositionCellHighlights[i];
+                    if (go != null)
+                        cellHighlightPool.Return(go);
+                }
+            }
+
+            repositionCellHighlights.Clear();
+            repositionDestinationsBuffer.Clear();
         }
     }
 }

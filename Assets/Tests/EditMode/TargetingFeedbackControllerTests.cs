@@ -98,6 +98,27 @@ namespace PF2e.Tests
             Assert.AreEqual(TargetingTintState.None, ctx.GetTintState(enemy));
         }
 
+        [Test]
+        public void Reposition_CellPhase_ShowsDestinationCellHighlights_AndClearsEntityTints()
+        {
+            using var ctx = new TargetingFeedbackTestContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(actor);
+
+            ctx.SetPendingRepositionDestinations(new Vector3Int(1, 0, 0), new Vector3Int(2, 0, 0));
+
+            ctx.TargetingController.BeginRepositionTargeting(
+                _ => RepositionTargetSelectionResult.EnterCellSelection,
+                _ => false);
+
+            Assert.AreEqual(TargetingResult.Success, ctx.TargetingController.TryConfirmEntity(enemy));
+            Assert.IsTrue(ctx.TargetingController.IsRepositionSelectingCell);
+
+            Assert.AreEqual(TargetingTintState.None, ctx.GetTintState(enemy));
+            Assert.AreEqual(2, ctx.GetActiveCellHighlightCount());
+        }
+
         private sealed class TargetingFeedbackTestContext : System.IDisposable
         {
             private readonly bool oldIgnoreLogs;
@@ -112,6 +133,7 @@ namespace PF2e.Tests
             public PlayerActionExecutor ActionExecutor { get; }
             public TargetingController TargetingController { get; }
             public TargetingFeedbackController FeedbackController { get; }
+            public CellHighlightPool CellHighlightPool { get; }
             public EntityRegistry Registry { get; }
 
             public TargetingFeedbackTestContext()
@@ -129,6 +151,7 @@ namespace PF2e.Tests
                 var gridGo = new GameObject("GridManager");
                 gridGo.transform.SetParent(root.transform);
                 GridManager = gridGo.AddComponent<GridManager>();
+                CellHighlightPool = gridGo.AddComponent<CellHighlightPool>();
                 var gridConfig = ScriptableObject.CreateInstance<GridConfig>();
                 createdAssets.Add(gridConfig);
                 SetPrivateField(GridManager, "gridConfig", gridConfig);
@@ -178,8 +201,12 @@ namespace PF2e.Tests
                 SetPrivateField(FeedbackController, "entityManager", EntityManager);
                 SetPrivateField(FeedbackController, "gridManager", GridManager);
                 SetPrivateField(FeedbackController, "targetingController", TargetingController);
+                SetPrivateField(FeedbackController, "actionExecutor", ActionExecutor);
+                SetPrivateField(FeedbackController, "cellHighlightPool", CellHighlightPool);
 
                 root.SetActive(true);
+                if (GridManager.Data == null)
+                    InvokePrivate(GridManager, "Awake");
                 targetingGo.SetActive(true);
                 feedbackGo.SetActive(true);
 
@@ -237,6 +264,29 @@ namespace PF2e.Tests
                 var tint = view.GetComponent<TargetingTintController>();
                 if (tint == null) return TargetingTintState.None;
                 return tint.CurrentState;
+            }
+
+            public int GetActiveCellHighlightCount()
+            {
+                int count = 0;
+                for (int i = 0; i < CellHighlightPool.transform.childCount; i++)
+                {
+                    var child = CellHighlightPool.transform.GetChild(i);
+                    if (child != null && child.gameObject.activeSelf)
+                        count++;
+                }
+                return count;
+            }
+
+            public void SetPendingRepositionDestinations(params Vector3Int[] cells)
+            {
+                SetPrivateField(ActionExecutor, "hasPendingRepositionSelection", true);
+                var field = typeof(PlayerActionExecutor).GetField("pendingRepositionDestinations", InstanceNonPublic);
+                Assert.IsNotNull(field, "Failed to access pendingRepositionDestinations list.");
+                var list = field.GetValue(ActionExecutor) as List<Vector3Int>;
+                Assert.IsNotNull(list, "pendingRepositionDestinations is not a List<Vector3Int>.");
+                list.Clear();
+                list.AddRange(cells);
             }
 
             public void Dispose()

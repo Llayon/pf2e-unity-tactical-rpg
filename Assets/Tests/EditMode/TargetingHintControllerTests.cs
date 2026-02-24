@@ -49,6 +49,25 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void Reposition_CellPhase_ShowsDestinationCellPrompt()
+        {
+            using var ctx = new TargetingHintTestContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(actor);
+
+            ctx.TargetingController.BeginRepositionTargeting(
+                _ => RepositionTargetSelectionResult.EnterCellSelection,
+                _ => false);
+
+            Assert.AreEqual(TargetingResult.Success, ctx.TargetingController.TryConfirmEntity(enemy));
+
+            AssertVisible(ctx);
+            Assert.AreEqual("Reposition: choose a destination cell", ctx.HintTextValue);
+            Assert.AreEqual(new Color(0.9f, 0.9f, 0.95f, 1f), ctx.HintTextColor);
+        }
+
+        [Test]
         public void HoverValid_ShowsValidTextAndColor()
         {
             using var ctx = new TargetingHintTestContext();

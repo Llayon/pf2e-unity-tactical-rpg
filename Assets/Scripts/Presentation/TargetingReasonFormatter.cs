@@ -37,6 +37,7 @@ namespace PF2e.Presentation
                 TargetingMode.Trip => "Trip: choose an enemy in reach",
                 TargetingMode.Shove => "Shove: choose an enemy in reach",
                 TargetingMode.Grapple => "Grapple: choose an enemy in reach",
+                TargetingMode.Reposition => "Reposition: choose an enemy in reach",
                 TargetingMode.Demoralize => "Demoralize: choose an enemy within 30 ft",
                 TargetingMode.Escape => "Escape: choose the creature grappling you",
                 _ => "Choose a target"
@@ -50,6 +51,7 @@ namespace PF2e.Presentation
                 TargetingMode.Trip => "Trip: valid target (Athletics vs Reflex DC)",
                 TargetingMode.Shove => "Shove: valid target (Athletics vs Fortitude DC)",
                 TargetingMode.Grapple => "Grapple: valid target (Athletics vs Fortitude DC)",
+                TargetingMode.Reposition => "Reposition: valid target (Athletics vs Fortitude DC)",
                 TargetingMode.Demoralize => "Demoralize: valid target (Intimidation vs Will DC)",
                 TargetingMode.Escape => "Escape: valid target (best of Athletics/Acrobatics)",
                 TargetingMode.Strike => "Strike: valid target",
@@ -95,6 +97,7 @@ namespace PF2e.Presentation
                 TargetingMode.Trip => "Trip",
                 TargetingMode.Shove => "Shove",
                 TargetingMode.Grapple => "Grapple",
+                TargetingMode.Reposition => "Reposition",
                 TargetingMode.Escape => "Escape",
                 TargetingMode.Demoralize => "Demoralize",
                 _ => "Action"
@@ -108,6 +111,7 @@ namespace PF2e.Presentation
                 TargetingMode.Trip => "Trip",
                 TargetingMode.Shove => "Shove",
                 TargetingMode.Grapple => "Grapple",
+                TargetingMode.Reposition => "Reposition",
                 _ => "required"
             };
         }

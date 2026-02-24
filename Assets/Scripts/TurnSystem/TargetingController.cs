@@ -241,6 +241,8 @@ namespace PF2e.TurnSystem
                             {
                                 case RepositionTargetSelectionResult.EnterCellSelection:
                                     _repositionPhase = RepositionPhase.SelectCell;
+                                    // Same external mode, but listeners (hint/tint UX) need a refresh for cell phase.
+                                    OnModeChanged?.Invoke(ActiveMode);
                                     break;
 
                                 case RepositionTargetSelectionResult.ResolvedAndClear:

@@ -286,6 +286,8 @@ namespace PF2e.Tests
 
             int targetCalls = 0;
             EntityHandle selected = EntityHandle.None;
+            var seenModes = new List<TargetingMode>();
+            ctx.Controller.OnModeChanged += mode => seenModes.Add(mode);
             ctx.Controller.BeginRepositionTargeting(
                 h =>
                 {
@@ -303,6 +305,10 @@ namespace PF2e.Tests
             Assert.AreEqual(TargetingMode.Reposition, ctx.Controller.ActiveMode);
             Assert.IsFalse(ctx.Controller.IsRepositionSelectingTarget);
             Assert.IsTrue(ctx.Controller.IsRepositionSelectingCell);
+            CollectionAssert.AreEqual(
+                new[] { TargetingMode.Reposition, TargetingMode.Reposition },
+                seenModes,
+                "Reposition substate transition should re-emit OnModeChanged for UI refresh.");
         }
 
         [Test]

@@ -178,6 +178,12 @@ namespace PF2e.Presentation
                 return;
             }
 
+            if (mode == TargetingMode.Reposition && targetingController.IsRepositionSelectingCell)
+            {
+                ApplyMessage(new TargetingHintMessage(TargetingHintTone.Info, "Reposition: choose a destination cell"));
+                return;
+            }
+
             TargetingHintMessage message;
             bool strikeIsRanged = mode == TargetingMode.Strike && targetingController.IsCurrentStrikeWeaponRanged();
             if (mode != TargetingMode.None && hoveredEntity.HasValue && hoveredEntity.Value.IsValid)
