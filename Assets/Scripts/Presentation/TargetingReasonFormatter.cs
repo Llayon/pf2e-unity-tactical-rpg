@@ -8,15 +8,15 @@ namespace PF2e.Presentation
     /// </summary>
     public static class TargetingReasonFormatter
     {
-        public static TargetingHintMessage ForModeNoHover(TargetingMode mode)
+        public static TargetingHintMessage ForModeNoHover(TargetingMode mode, bool strikeIsRanged = false)
         {
             if (mode == TargetingMode.None)
                 return TargetingHintMessage.Hidden();
 
-            return new TargetingHintMessage(TargetingHintTone.Info, GetModePrompt(mode));
+            return new TargetingHintMessage(TargetingHintTone.Info, GetModePrompt(mode, strikeIsRanged));
         }
 
-        public static TargetingHintMessage ForPreview(TargetingMode mode, TargetingEvaluationResult evaluation)
+        public static TargetingHintMessage ForPreview(TargetingMode mode, TargetingEvaluationResult evaluation, bool strikeIsRanged = false)
         {
             if (mode == TargetingMode.None)
                 return TargetingHintMessage.Hidden();
@@ -24,14 +24,16 @@ namespace PF2e.Presentation
             if (evaluation.IsSuccess)
                 return new TargetingHintMessage(TargetingHintTone.Valid, GetValidMessage(mode));
 
-            return new TargetingHintMessage(TargetingHintTone.Invalid, GetInvalidMessage(mode, evaluation.failureReason));
+            return new TargetingHintMessage(TargetingHintTone.Invalid, GetInvalidMessage(mode, evaluation.failureReason, strikeIsRanged));
         }
 
-        private static string GetModePrompt(TargetingMode mode)
+        private static string GetModePrompt(TargetingMode mode, bool strikeIsRanged)
         {
             return mode switch
             {
-                TargetingMode.Strike => "Strike: choose an enemy",
+                TargetingMode.Strike => strikeIsRanged
+                    ? "Strike: choose an enemy in range"
+                    : "Strike: choose an enemy in reach",
                 TargetingMode.Trip => "Trip: choose an enemy in reach",
                 TargetingMode.Shove => "Shove: choose an enemy in reach",
                 TargetingMode.Grapple => "Grapple: choose an enemy in reach",
@@ -55,7 +57,7 @@ namespace PF2e.Presentation
             };
         }
 
-        private static string GetInvalidMessage(TargetingMode mode, TargetingFailureReason reason)
+        private static string GetInvalidMessage(TargetingMode mode, TargetingFailureReason reason, bool strikeIsRanged)
         {
             string action = GetActionLabel(mode);
 
@@ -71,7 +73,7 @@ namespace PF2e.Presentation
                 TargetingFailureReason.OutOfRange => mode == TargetingMode.Demoralize
                     ? "Demoralize: target is out of range (30 ft)"
                     : mode == TargetingMode.Strike
-                        ? "Strike: target is out of range"
+                        ? (strikeIsRanged ? "Strike: target is out of range" : "Strike: target is out of reach")
                         : $"{action}: target is out of reach",
                 TargetingFailureReason.WrongElevation => $"{action}: target is on a different elevation",
                 TargetingFailureReason.TargetTooLarge => $"{action}: target is too large",

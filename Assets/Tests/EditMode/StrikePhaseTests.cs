@@ -190,6 +190,24 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void ResolveAttackRoll_UnarmedOrNullWeapon_UsesMeleePath()
+        {
+            using var ctx = new StrikeContext();
+            var enemyWeapon = ctx.CreateWeaponDef(isRanged: true, rangeIncrementFeet: 60, maxRangeIncrements: 6);
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: null, level: 1);
+            var targetDifferentElevationAdjacent = ctx.RegisterEntity(Team.Enemy, new Vector3Int(1, 1, 0), weaponDef: enemyWeapon, level: 1);
+            var targetSameElevationAdjacent = ctx.RegisterEntity(Team.Enemy, new Vector3Int(1, 0, 0), weaponDef: enemyWeapon, level: 1);
+
+            var rejected = ctx.StrikeAction.ResolveAttackRoll(attacker, targetDifferentElevationAdjacent, new FixedRng(new[] { 10 }));
+            Assert.IsFalse(rejected.HasValue, "Unarmed strike should still use melee validation (elevation matters).");
+
+            var accepted = ctx.StrikeAction.ResolveAttackRoll(attacker, targetSameElevationAdjacent, new FixedRng(new[] { 10 }));
+            Assert.IsTrue(accepted.HasValue, "Unarmed strike should follow melee path and work in adjacent same-elevation target.");
+            Assert.AreEqual(0, accepted.Value.rangePenalty);
+        }
+
+        [Test]
         public void DetermineHitAndDamage_UsesCurrentTargetAcAndPublishesPreDamage()
         {
             using var ctx = new StrikeContext();

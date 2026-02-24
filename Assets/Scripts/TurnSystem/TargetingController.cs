@@ -136,6 +136,21 @@ namespace PF2e.TurnSystem
             return EvaluateEntityDetailed(handle, executeOnSuccess: false);
         }
 
+        /// <summary>
+        /// UI helper for Strike wording only (reach vs range). Validation still uses PreviewEntityDetailed.
+        /// </summary>
+        public bool IsCurrentStrikeWeaponRanged()
+        {
+            if (turnManager == null || entityManager == null || entityManager.Registry == null)
+                return false;
+
+            var actor = turnManager.CurrentEntity;
+            var actorData = actor.IsValid ? entityManager.Registry.Get(actor) : null;
+            if (actorData == null) return false;
+
+            return actorData.EquippedWeapon.IsRanged;
+        }
+
         private TargetingResult EvaluateEntity(EntityHandle handle, bool executeOnSuccess)
         {
             return EvaluateEntityDetailed(handle, executeOnSuccess).result;

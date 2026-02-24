@@ -17,6 +17,24 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void Strike_NoHover_MeleeWeapon_UsesReachPrompt()
+        {
+            var msg = TargetingReasonFormatter.ForModeNoHover(TargetingMode.Strike, strikeIsRanged: false);
+
+            Assert.AreEqual(TargetingHintTone.Info, msg.Tone);
+            Assert.AreEqual("Strike: choose an enemy in reach", msg.Text);
+        }
+
+        [Test]
+        public void Strike_NoHover_RangedWeapon_UsesRangePrompt()
+        {
+            var msg = TargetingReasonFormatter.ForModeNoHover(TargetingMode.Strike, strikeIsRanged: true);
+
+            Assert.AreEqual(TargetingHintTone.Info, msg.Tone);
+            Assert.AreEqual("Strike: choose an enemy in range", msg.Text);
+        }
+
+        [Test]
         public void Trip_Success_ReturnsValidMessage()
         {
             var msg = TargetingReasonFormatter.ForPreview(TargetingMode.Trip, TargetingEvaluationResult.Success());
@@ -45,6 +63,30 @@ namespace PF2e.Tests
 
             Assert.AreEqual(TargetingHintTone.Invalid, msg.Tone);
             Assert.AreEqual("Trip: weapon lacks Trip trait", msg.Text);
+        }
+
+        [Test]
+        public void Strike_OutOfRange_MeleeWeapon_UsesReachWording()
+        {
+            var msg = TargetingReasonFormatter.ForPreview(
+                TargetingMode.Strike,
+                TargetingEvaluationResult.FromFailure(TargetingFailureReason.OutOfRange),
+                strikeIsRanged: false);
+
+            Assert.AreEqual(TargetingHintTone.Invalid, msg.Tone);
+            Assert.AreEqual("Strike: target is out of reach", msg.Text);
+        }
+
+        [Test]
+        public void Strike_OutOfRange_RangedWeapon_UsesRangeWording()
+        {
+            var msg = TargetingReasonFormatter.ForPreview(
+                TargetingMode.Strike,
+                TargetingEvaluationResult.FromFailure(TargetingFailureReason.OutOfRange),
+                strikeIsRanged: true);
+
+            Assert.AreEqual(TargetingHintTone.Invalid, msg.Tone);
+            Assert.AreEqual("Strike: target is out of range", msg.Text);
         }
 
         [Test]

@@ -179,14 +179,15 @@ namespace PF2e.Presentation
             }
 
             TargetingHintMessage message;
+            bool strikeIsRanged = mode == TargetingMode.Strike && targetingController.IsCurrentStrikeWeaponRanged();
             if (mode != TargetingMode.None && hoveredEntity.HasValue && hoveredEntity.Value.IsValid)
             {
                 var evaluation = targetingController.PreviewEntityDetailed(hoveredEntity.Value);
-                message = TargetingReasonFormatter.ForPreview(mode, evaluation);
+                message = TargetingReasonFormatter.ForPreview(mode, evaluation, strikeIsRanged);
             }
             else
             {
-                message = TargetingReasonFormatter.ForModeNoHover(mode);
+                message = TargetingReasonFormatter.ForModeNoHover(mode, strikeIsRanged);
             }
 
             ApplyMessage(message);
