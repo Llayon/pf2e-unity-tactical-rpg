@@ -39,6 +39,7 @@ namespace PF2e.Managers
         public EntityRegistry Registry    { get; private set; }
         public OccupancyMap   Occupancy   { get; private set; }
         public GridPathfinding Pathfinding { get; private set; }
+        public GridData GridData => gridManager != null ? gridManager.Data : null;
 
         private readonly Dictionary<EntityHandle, EntityView> views
             = new Dictionary<EntityHandle, EntityView>();

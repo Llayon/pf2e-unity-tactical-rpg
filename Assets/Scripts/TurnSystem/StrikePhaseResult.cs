@@ -15,6 +15,7 @@ namespace PF2e.TurnSystem
         public readonly int mapPenalty;
         public readonly int rangePenalty;
         public readonly int volleyPenalty;
+        public readonly int coverAcBonus;
         public readonly int total;
         public readonly int dc;
         public readonly DegreeOfSuccess degree;
@@ -33,6 +34,7 @@ namespace PF2e.TurnSystem
             int mapPenalty,
             int rangePenalty,
             int volleyPenalty,
+            int coverAcBonus,
             int total,
             int dc,
             DegreeOfSuccess degree,
@@ -50,6 +52,7 @@ namespace PF2e.TurnSystem
             this.mapPenalty = mapPenalty;
             this.rangePenalty = rangePenalty;
             this.volleyPenalty = volleyPenalty;
+            this.coverAcBonus = coverAcBonus;
             this.total = total;
             this.dc = dc;
             this.degree = degree;
@@ -80,6 +83,7 @@ namespace PF2e.TurnSystem
                 mapPenalty,
                 rangePenalty,
                 volleyPenalty,
+                coverAcBonus: 0,
                 total,
                 dc: 0,
                 degree: DegreeOfSuccess.CriticalFailure,
@@ -96,6 +100,7 @@ namespace PF2e.TurnSystem
             int damageRolled,
             DamageType damageType,
             bool damageDealt,
+            int coverAcBonus = 0,
             int fatalBonusDamage = 0,
             int deadlyBonusDamage = 0)
         {
@@ -108,6 +113,7 @@ namespace PF2e.TurnSystem
                 mapPenalty,
                 rangePenalty,
                 volleyPenalty,
+                coverAcBonus,
                 total,
                 dc,
                 degree,

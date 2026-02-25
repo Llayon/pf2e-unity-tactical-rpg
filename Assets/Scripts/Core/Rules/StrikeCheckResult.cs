@@ -12,6 +12,7 @@ namespace PF2e.Core
         public readonly int mapPenalty;
         public readonly int rangePenalty;
         public readonly int volleyPenalty;
+        public readonly int coverAcBonus;
         public readonly int total;
         public readonly int dc;
         public readonly DegreeOfSuccess degree;
@@ -24,6 +25,7 @@ namespace PF2e.Core
             int mapPenalty,
             int rangePenalty,
             int volleyPenalty,
+            int coverAcBonus,
             int total,
             int dc,
             DegreeOfSuccess degree)
@@ -35,6 +37,7 @@ namespace PF2e.Core
             this.mapPenalty = mapPenalty;
             this.rangePenalty = rangePenalty;
             this.volleyPenalty = volleyPenalty;
+            this.coverAcBonus = coverAcBonus;
             this.total = total;
             this.dc = dc;
             this.degree = degree;
@@ -50,6 +53,7 @@ namespace PF2e.Core
                 mapPenalty: 0,
                 rangePenalty: 0,
                 volleyPenalty: 0,
+                coverAcBonus: 0,
                 total: 0,
                 dc: 0,
                 degree: DegreeOfSuccess.CriticalFailure);
@@ -63,7 +67,8 @@ namespace PF2e.Core
             int dc,
             DegreeOfSuccess degree,
             int rangePenalty = 0,
-            int volleyPenalty = 0)
+            int volleyPenalty = 0,
+            int coverAcBonus = 0)
         {
             return new StrikeCheckResult(
                 performed: true,
@@ -73,6 +78,7 @@ namespace PF2e.Core
                 mapPenalty: mapPenalty,
                 rangePenalty: rangePenalty,
                 volleyPenalty: volleyPenalty,
+                coverAcBonus: coverAcBonus,
                 total: total,
                 dc: dc,
                 degree: degree);

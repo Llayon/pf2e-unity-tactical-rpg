@@ -12,6 +12,7 @@ namespace PF2e.TurnSystem
         SelfTarget,
         WrongTeam,
         OutOfRange,
+        NoLineOfSight,
         WrongElevation,
         TargetTooLarge,
         RequiresMeleeWeapon,

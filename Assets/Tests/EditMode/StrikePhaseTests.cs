@@ -4,6 +4,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 using PF2e.Core;
+using PF2e.Grid;
 using PF2e.Managers;
 using PF2e.TurnSystem;
 
@@ -403,6 +404,108 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void GetStrikeTargetFailure_RangedStrike_LineBlocked_ReturnsNoLineOfSight()
+        {
+            using var ctx = new StrikeContext();
+            ctx.EnableFlatGrid(minX: 0, maxX: 4, minZ: 0, maxZ: 0);
+            var bow = ctx.CreateWeaponDef(isRanged: true, rangeIncrementFeet: 60, maxRangeIncrements: 6);
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: bow, level: 1, dexterity: 16);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(4, 0, 0), weaponDef: bow, level: 1);
+            ctx.SetBlockedCell(2, 0);
+
+            var reason = ctx.StrikeAction.GetStrikeTargetFailure(attacker, target);
+            Assert.AreEqual(TargetingFailureReason.NoLineOfSight, reason);
+        }
+
+        [Test]
+        public void DetermineHitAndDamage_RangedStrike_WithCover_IncreasesDcBy2_AndCanDowngradeSuccessToFailure()
+        {
+            using var ctx = new StrikeContext();
+            ctx.EnableFlatGrid(minX: 0, maxX: 4, minZ: 0, maxZ: 0);
+            var bow = ctx.CreateWeaponDef(isRanged: true, rangeIncrementFeet: 60, maxRangeIncrements: 6);
+            var blockerWeapon = ctx.CreateWeaponDef();
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: bow, level: 1, dexterity: 16);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(4, 0, 0), weaponDef: blockerWeapon, level: 1);
+            ctx.RegisterEntity(Team.Enemy, new Vector3Int(2, 0, 0), weaponDef: blockerWeapon, level: 1); // cover provider
+
+            var targetData = ctx.Registry.Get(target);
+            int baseAc = targetData.EffectiveAC;
+            var phase = StrikePhaseResult.FromAttackRoll(attacker, target, "Bow", naturalRoll: 10, attackBonus: 0, mapPenalty: 0, total: baseAc + 1);
+
+            var resolved = ctx.StrikeAction.DetermineHitAndDamage(phase, target, new FixedRng(new[] { 10 }, new[] { 3 }));
+
+            Assert.AreEqual(2, resolved.coverAcBonus);
+            Assert.AreEqual(baseAc + 2, resolved.dc);
+            Assert.AreEqual(DegreeOfSuccess.Failure, resolved.degree, "Cover +2 AC should downgrade would-be success.");
+            Assert.IsFalse(resolved.damageDealt);
+        }
+
+        [Test]
+        public void DetermineHitAndDamage_RangedStrike_NoCover_LeavesDcUnchanged()
+        {
+            using var ctx = new StrikeContext();
+            ctx.EnableFlatGrid(minX: 0, maxX: 4, minZ: 0, maxZ: 0);
+            var bow = ctx.CreateWeaponDef(isRanged: true, rangeIncrementFeet: 60, maxRangeIncrements: 6);
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: bow, level: 1, dexterity: 16);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(4, 0, 0), weaponDef: bow, level: 1);
+
+            var targetData = ctx.Registry.Get(target);
+            int baseAc = targetData.EffectiveAC;
+            var phase = StrikePhaseResult.FromAttackRoll(attacker, target, "Bow", naturalRoll: 10, attackBonus: 0, mapPenalty: 0, total: baseAc + 1);
+
+            var resolved = ctx.StrikeAction.DetermineHitAndDamage(phase, target, new FixedRng(new[] { 10 }, new[] { 3 }));
+
+            Assert.AreEqual(0, resolved.coverAcBonus);
+            Assert.AreEqual(baseAc, resolved.dc);
+        }
+
+        [Test]
+        public void DetermineHitAndDamage_RangedStrike_LoSBlocked_DefensiveRecheck_Aborts()
+        {
+            using var ctx = new StrikeContext();
+            ctx.EnableFlatGrid(minX: 0, maxX: 4, minZ: 0, maxZ: 0);
+            var bow = ctx.CreateWeaponDef(isRanged: true, rangeIncrementFeet: 60, maxRangeIncrements: 6);
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: bow, level: 1, dexterity: 16);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(4, 0, 0), weaponDef: bow, level: 1);
+
+            var phase = ctx.StrikeAction.ResolveAttackRoll(attacker, target, new FixedRng(new[] { 15 }, new[] { 4 }));
+            Assert.IsTrue(phase.HasValue, "Initial ranged strike roll should succeed before line becomes blocked.");
+
+            ctx.SetBlockedCell(2, 0); // block after roll, before damage resolution
+
+            var resolved = ctx.StrikeAction.DetermineHitAndDamage(phase.Value, target, new FixedRng(new[] { 15 }, new[] { 4 }));
+
+            Assert.IsFalse(resolved.damageDealt);
+            Assert.AreEqual(0, resolved.coverAcBonus);
+            Assert.AreEqual(DegreeOfSuccess.CriticalFailure, resolved.degree);
+        }
+
+        [Test]
+        public void DetermineHitAndDamage_MeleeStrike_UnchangedByCoverMvp()
+        {
+            using var ctx = new StrikeContext();
+            ctx.EnableFlatGrid(minX: 0, maxX: 4, minZ: 0, maxZ: 0);
+            var reachWeapon = ctx.CreateWeaponDef(reachFeet: 15);
+            var blockerWeapon = ctx.CreateWeaponDef();
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: reachWeapon, level: 1, strength: 16);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(3, 0, 0), weaponDef: blockerWeapon, level: 1);
+            ctx.RegisterEntity(Team.Enemy, new Vector3Int(1, 0, 0), weaponDef: blockerWeapon, level: 1); // would be cover if ranged
+
+            var targetData = ctx.Registry.Get(target);
+            var phase = StrikePhaseResult.FromAttackRoll(attacker, target, "Spear", naturalRoll: 10, attackBonus: 0, mapPenalty: 0, total: targetData.EffectiveAC);
+
+            var resolved = ctx.StrikeAction.DetermineHitAndDamage(phase, target, new FixedRng(new[] { 10 }, new[] { 3 }));
+
+            Assert.AreEqual(0, resolved.coverAcBonus);
+            Assert.AreEqual(targetData.EffectiveAC, resolved.dc);
+        }
+
+        [Test]
         public void DetermineHitAndDamage_RangedCritWithDeadly_AddsDeadlyBonusDamage()
         {
             using var ctx = new StrikeContext();
@@ -493,6 +596,7 @@ namespace PF2e.Tests
                 Assert.AreEqual(16, targetData.CurrentHP);
                 Assert.AreEqual(1, resolvedCount);
                 Assert.AreEqual(4, resolvedEvent.damage);
+                Assert.AreEqual(0, resolvedEvent.coverAcBonus);
                 Assert.AreEqual(0, resolvedEvent.fatalBonusDamage);
                 Assert.AreEqual(0, resolvedEvent.deadlyBonusDamage);
                 Assert.AreEqual(20, resolvedEvent.hpBefore);
@@ -551,8 +655,48 @@ namespace PF2e.Tests
                 bool applied = ctx.StrikeAction.ApplyStrikeDamage(phase, damageReduction: 0);
                 Assert.IsTrue(applied);
                 Assert.AreEqual(1, count);
+                Assert.AreEqual(0, published.coverAcBonus);
                 Assert.AreEqual(5, published.fatalBonusDamage);
                 Assert.AreEqual(0, published.deadlyBonusDamage);
+            }
+            finally
+            {
+                ctx.EventBus.OnStrikeResolved -= OnResolved;
+            }
+
+            void OnResolved(in StrikeResolvedEvent e)
+            {
+                count++;
+                published = e;
+            }
+        }
+
+        [Test]
+        public void ApplyStrikeDamage_PublishesStrikeResolvedEvent_WithCoverAcBonus()
+        {
+            using var ctx = new StrikeContext();
+            var weapon = ctx.CreateWeaponDef();
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: weapon);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(1, 0, 0), weaponDef: weapon, currentHp: 20);
+
+            var phase = StrikePhaseResult.FromAttackRoll(attacker, target, "Bow", 12, 8, 0, 20)
+                .WithHitAndDamage(
+                    dc: 18,
+                    degree: DegreeOfSuccess.Failure,
+                    damageRolled: 0,
+                    damageType: DamageType.Piercing,
+                    damageDealt: false,
+                    coverAcBonus: 2);
+
+            StrikeResolvedEvent published = default;
+            int count = 0;
+            ctx.EventBus.OnStrikeResolved += OnResolved;
+            try
+            {
+                bool applied = ctx.StrikeAction.ApplyStrikeDamage(phase, damageReduction: 0);
+                Assert.IsTrue(applied);
+                Assert.AreEqual(1, count);
+                Assert.AreEqual(2, published.coverAcBonus);
             }
             finally
             {
@@ -604,13 +748,17 @@ namespace PF2e.Tests
             private readonly List<WeaponDefinition> weaponDefs = new();
             private readonly List<ShieldDefinition> shieldDefs = new();
             private readonly GameObject eventBusGo;
+            private readonly GameObject gridManagerGo;
             private readonly GameObject entityManagerGo;
             private readonly GameObject strikeActionGo;
+            private GridData gridData;
 
             public readonly CombatEventBus EventBus;
+            public readonly GridManager GridManager;
             public readonly EntityManager EntityManager;
             public readonly StrikeAction StrikeAction;
             public readonly EntityRegistry Registry;
+            public OccupancyMap Occupancy { get; private set; }
 
             public StrikeContext()
             {
@@ -620,9 +768,13 @@ namespace PF2e.Tests
                 eventBusGo = new GameObject("EventBus_Test");
                 EventBus = eventBusGo.AddComponent<CombatEventBus>();
 
+                gridManagerGo = new GameObject("GridManager_Test");
+                GridManager = gridManagerGo.AddComponent<GridManager>();
+
                 entityManagerGo = new GameObject("EntityManager_Test");
                 EntityManager = entityManagerGo.AddComponent<EntityManager>();
                 Registry = new EntityRegistry();
+                SetPrivateField(EntityManager, "gridManager", GridManager);
                 SetAutoPropertyBackingField(EntityManager, "Registry", Registry);
 
                 strikeActionGo = new GameObject("StrikeAction_Test");
@@ -630,6 +782,28 @@ namespace PF2e.Tests
 
                 SetPrivateField(StrikeAction, "entityManager", EntityManager);
                 SetPrivateField(StrikeAction, "eventBus", EventBus);
+            }
+
+            public void EnableFlatGrid(int minX, int maxX, int minZ, int maxZ, int y = 0)
+            {
+                gridData = new GridData(cellWorldSize: 5f, heightStepWorld: 1f);
+                for (int x = minX; x <= maxX; x++)
+                {
+                    for (int z = minZ; z <= maxZ; z++)
+                    {
+                        gridData.SetCell(new Vector3Int(x, y, z), CellData.CreateWalkable());
+                    }
+                }
+
+                Occupancy = new OccupancyMap(Registry);
+                SetAutoPropertyBackingField(GridManager, "Data", gridData);
+                SetAutoPropertyBackingField(EntityManager, "Occupancy", Occupancy);
+            }
+
+            public void SetBlockedCell(int x, int z, int y = 0)
+            {
+                Assert.IsNotNull(gridData, "Call EnableFlatGrid before mutating grid cells.");
+                gridData.SetCell(new Vector3Int(x, y, z), CellData.CreateBlocked());
             }
 
             public WeaponDefinition CreateWeaponDef(
@@ -709,7 +883,14 @@ namespace PF2e.Tests
                     EquippedShield = shield
                 };
 
-                return Registry.Register(data);
+                var handle = Registry.Register(data);
+                if (Occupancy != null)
+                {
+                    bool placed = Occupancy.Place(handle, gridPosition, data.SizeCells);
+                    Assert.IsTrue(placed, $"Failed to place test entity at {gridPosition}");
+                }
+
+                return handle;
             }
 
             public void Dispose()
@@ -728,6 +909,7 @@ namespace PF2e.Tests
 
                 if (strikeActionGo != null) Object.DestroyImmediate(strikeActionGo);
                 if (entityManagerGo != null) Object.DestroyImmediate(entityManagerGo);
+                if (gridManagerGo != null) Object.DestroyImmediate(gridManagerGo);
                 if (eventBusGo != null) Object.DestroyImmediate(eventBusGo);
                 LogAssert.ignoreFailingMessages = oldIgnoreLogs;
             }

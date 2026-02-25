@@ -35,7 +35,7 @@ namespace PF2e.TurnSystem
             if (!attacker.IsValid || !target.IsValid) return null;
             if (!TryGetParticipants(attacker, target, out var attackerData, out var targetData))
                 return null;
-            if (!CanResolveStrike(attackerData, targetData))
+            if (GetStrikeTargetFailure(attacker, target, attackerData, targetData) != TargetingFailureReason.None)
                 return null;
 
             if (rng == null)
@@ -78,7 +78,35 @@ namespace PF2e.TurnSystem
             if (attackerData == null || targetData == null || !attackerData.IsAlive || !targetData.IsAlive)
                 return phase.WithHitAndDamage(0, DegreeOfSuccess.CriticalFailure, 0, DamageType.Bludgeoning, false);
 
-            int dc = targetData.EffectiveAC;
+            int coverAcBonus = 0;
+            if (attackerData.EquippedWeapon.IsRanged
+                && attackerData.GridPosition.y == targetData.GridPosition.y
+                && entityManager.GridData != null)
+            {
+                var line = StrikeLineResolver.ResolveSameElevation(
+                    entityManager.GridData,
+                    entityManager.Occupancy,
+                    attackerData.GridPosition,
+                    targetData.GridPosition,
+                    phase.attacker,
+                    target);
+
+                if (!line.hasLineOfSight)
+                {
+                    Debug.LogWarning("[StrikeAction] Line of sight became blocked between strike roll and damage resolution. Aborting strike damage resolution.", this);
+                    return phase.WithHitAndDamage(
+                        targetData.EffectiveAC,
+                        DegreeOfSuccess.CriticalFailure,
+                        0,
+                        DamageType.Bludgeoning,
+                        false,
+                        coverAcBonus: 0);
+                }
+
+                coverAcBonus = line.coverAcBonus;
+            }
+
+            int dc = targetData.EffectiveAC + coverAcBonus;
             var degree = DegreeOfSuccessResolver.Resolve(phase.total, phase.naturalRoll, dc);
             var damage = DamageResolver.RollStrikeDamage(attackerData, degree, rng);
 
@@ -93,6 +121,7 @@ namespace PF2e.TurnSystem
                 damageRolled,
                 damageType,
                 damage.dealt,
+                coverAcBonus: coverAcBonus,
                 fatalBonusDamage: damage.fatalBonusDamage,
                 deadlyBonusDamage: damage.deadlyBonusDamage);
 
@@ -142,6 +171,7 @@ namespace PF2e.TurnSystem
                 mapPenalty: phase.mapPenalty,
                 rangePenalty: phase.rangePenalty,
                 volleyPenalty: phase.volleyPenalty,
+                coverAcBonus: phase.coverAcBonus,
                 total: phase.total,
                 dc: phase.dc,
                 degree: phase.degree,
@@ -198,6 +228,20 @@ namespace PF2e.TurnSystem
                     return TargetingFailureReason.OutOfRange;
                 if (distanceFeet > maxRangeFeet)
                     return TargetingFailureReason.OutOfRange;
+
+                if (attackerData.GridPosition.y == targetData.GridPosition.y && entityManager != null && entityManager.GridData != null)
+                {
+                    var line = StrikeLineResolver.ResolveSameElevation(
+                        entityManager.GridData,
+                        entityManager.Occupancy,
+                        attackerData.GridPosition,
+                        targetData.GridPosition,
+                        attacker,
+                        target);
+                    if (!line.hasLineOfSight)
+                        return TargetingFailureReason.NoLineOfSight;
+                }
+
                 return TargetingFailureReason.None;
             }
 
