@@ -107,8 +107,54 @@ namespace PF2e.TurnSystem
             }
 
             int dc = targetData.EffectiveAC + coverAcBonus;
-            var degree = DegreeOfSuccessResolver.Resolve(phase.total, phase.naturalRoll, dc);
-            var damage = DamageResolver.RollStrikeDamage(attackerData, degree, rng);
+            var acDegree = DegreeOfSuccessResolver.Resolve(phase.total, phase.naturalRoll, dc);
+            bool concealmentCheckRequired =
+                attackerData.EquippedWeapon.IsRanged &&
+                targetData.HasCondition(ConditionType.Concealed) &&
+                (acDegree == DegreeOfSuccess.Success || acDegree == DegreeOfSuccess.CriticalSuccess);
+            int concealmentFlatCheckRoll = 0;
+            bool concealmentFlatCheckPassed = false;
+
+            if (concealmentCheckRequired)
+            {
+                concealmentFlatCheckRoll = rng.RollD20();
+                concealmentFlatCheckPassed = concealmentFlatCheckRoll >= 5;
+            }
+
+            if (concealmentCheckRequired && !concealmentFlatCheckPassed)
+            {
+                DamageType weaponDamageType = attackerData.EquippedWeapon.def != null
+                    ? attackerData.EquippedWeapon.def.damageType
+                    : DamageType.Bludgeoning;
+
+                var concealedMiss = phase.WithHitAndDamage(
+                    dc,
+                    DegreeOfSuccess.Failure,
+                    damageRolled: 0,
+                    damageType: weaponDamageType,
+                    damageDealt: false,
+                    coverAcBonus: coverAcBonus,
+                    fatalBonusDamage: 0,
+                    deadlyBonusDamage: 0,
+                    acDegree: acDegree,
+                    concealmentCheckRequired: true,
+                    concealmentFlatCheckRoll: concealmentFlatCheckRoll,
+                    concealmentFlatCheckPassed: false);
+
+                eventBus?.PublishStrikePreDamage(
+                    concealedMiss.attacker,
+                    concealedMiss.target,
+                    concealedMiss.naturalRoll,
+                    concealedMiss.total,
+                    concealedMiss.dc,
+                    concealedMiss.degree,
+                    concealedMiss.damageRolled,
+                    concealedMiss.damageType);
+
+                return concealedMiss;
+            }
+
+            var damage = DamageResolver.RollStrikeDamage(attackerData, acDegree, rng);
 
             int damageRolled = damage.dealt ? damage.damage : 0;
             DamageType damageType = attackerData.EquippedWeapon.def != null
@@ -117,13 +163,17 @@ namespace PF2e.TurnSystem
 
             var resolved = phase.WithHitAndDamage(
                 dc,
-                degree,
+                acDegree,
                 damageRolled,
                 damageType,
                 damage.dealt,
                 coverAcBonus: coverAcBonus,
                 fatalBonusDamage: damage.fatalBonusDamage,
-                deadlyBonusDamage: damage.deadlyBonusDamage);
+                deadlyBonusDamage: damage.deadlyBonusDamage,
+                acDegree: acDegree,
+                concealmentCheckRequired: concealmentCheckRequired,
+                concealmentFlatCheckRoll: concealmentFlatCheckRoll,
+                concealmentFlatCheckPassed: concealmentCheckRequired ? concealmentFlatCheckPassed : false);
 
             eventBus?.PublishStrikePreDamage(
                 resolved.attacker,
@@ -174,6 +224,7 @@ namespace PF2e.TurnSystem
                 coverAcBonus: phase.coverAcBonus,
                 total: phase.total,
                 dc: phase.dc,
+                acDegree: phase.acDegree,
                 degree: phase.degree,
                 damage: finalDamage,
                 damageType: phase.damageType,
@@ -181,7 +232,10 @@ namespace PF2e.TurnSystem
                 hpAfter: hpAfter,
                 targetDefeated: defeated,
                 fatalBonusDamage: phase.fatalBonusDamage,
-                deadlyBonusDamage: phase.deadlyBonusDamage);
+                deadlyBonusDamage: phase.deadlyBonusDamage,
+                concealmentCheckRequired: phase.concealmentCheckRequired,
+                concealmentFlatCheckRoll: phase.concealmentFlatCheckRoll,
+                concealmentFlatCheckPassed: phase.concealmentFlatCheckPassed);
 
             eventBus?.PublishStrikeResolved(in resolvedEvent);
 

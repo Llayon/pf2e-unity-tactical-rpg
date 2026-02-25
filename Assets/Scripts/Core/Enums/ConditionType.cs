@@ -15,6 +15,7 @@ namespace PF2e.Core
         Wounded,
         Dying,
         Unconscious,
-        Doomed
+        Doomed,
+        Concealed
     }
 }

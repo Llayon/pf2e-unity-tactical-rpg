@@ -231,6 +231,82 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void StrikeLog_ConcealmentFail_CritByAc_ShowsAcDegreeAndExplainsMiss()
+        {
+            using var ctx = new StrikeLogContext();
+            var attacker = ctx.RegisterEntity("Archer", Team.Player);
+            var target = ctx.RegisterEntity("Goblin_1", Team.Enemy);
+
+            var ev = CreateStrikeEvent(
+                attacker,
+                target,
+                degree: DegreeOfSuccess.Failure,
+                acDegree: DegreeOfSuccess.CriticalSuccess,
+                concealmentCheckRequired: true,
+                concealmentFlatCheckRoll: 3,
+                concealmentFlatCheckPassed: false);
+
+            CombatLogEntry first = default;
+            CombatLogEntry second = default;
+            int count = 0;
+            ctx.EventBus.OnLogEntry += HandleLog;
+            try
+            {
+                ctx.EventBus.PublishStrikeResolved(in ev);
+
+                Assert.GreaterOrEqual(count, 2);
+                StringAssert.Contains("CriticalSuccess", first.Message);
+                StringAssert.Contains("would critically hit Goblin_1", second.Message);
+                StringAssert.Contains("concealment DC 5 flat check d20(3) failed", second.Message);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry)
+            {
+                count++;
+                if (count == 1) first = entry;
+                if (count == 2) second = entry;
+            }
+        }
+
+        [Test]
+        public void StrikeLog_WithoutConcealmentCheck_DoesNotMentionConcealment()
+        {
+            using var ctx = new StrikeLogContext();
+            var attacker = ctx.RegisterEntity("Archer", Team.Player);
+            var target = ctx.RegisterEntity("Goblin_1", Team.Enemy);
+
+            var ev = CreateStrikeEvent(attacker, target);
+
+            CombatLogEntry first = default;
+            CombatLogEntry second = default;
+            int count = 0;
+            ctx.EventBus.OnLogEntry += HandleLog;
+            try
+            {
+                ctx.EventBus.PublishStrikeResolved(in ev);
+
+                Assert.GreaterOrEqual(count, 2);
+                StringAssert.DoesNotContain("concealment", first.Message);
+                StringAssert.DoesNotContain("concealment", second.Message);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry)
+            {
+                count++;
+                if (count == 1) first = entry;
+                if (count == 2) second = entry;
+            }
+        }
+
+        [Test]
         public void StrikeLog_CritWithDeadlyBonus_IncludesDeadlyTokenOnDamageLine()
         {
             using var ctx = new StrikeLogContext();
@@ -354,6 +430,10 @@ namespace PF2e.Tests
             int volleyPenalty = 0,
             int coverAcBonus = 0,
             DegreeOfSuccess degree = DegreeOfSuccess.Failure,
+            DegreeOfSuccess? acDegree = null,
+            bool concealmentCheckRequired = false,
+            int concealmentFlatCheckRoll = 0,
+            bool concealmentFlatCheckPassed = false,
             int damage = 0,
             int fatalBonusDamage = 0,
             int deadlyBonusDamage = 0,
@@ -379,7 +459,11 @@ namespace PF2e.Tests
                 volleyPenalty: volleyPenalty,
                 coverAcBonus: coverAcBonus,
                 fatalBonusDamage: fatalBonusDamage,
-                deadlyBonusDamage: deadlyBonusDamage);
+                deadlyBonusDamage: deadlyBonusDamage,
+                acDegree: acDegree ?? degree,
+                concealmentCheckRequired: concealmentCheckRequired,
+                concealmentFlatCheckRoll: concealmentFlatCheckRoll,
+                concealmentFlatCheckPassed: concealmentFlatCheckPassed);
         }
 
         private sealed class StrikeLogContext : System.IDisposable

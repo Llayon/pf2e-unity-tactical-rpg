@@ -61,13 +61,21 @@ namespace PF2e.Presentation
                 $" = {e.total} " +
                 $"vs AC {e.dc}" +
                 (e.coverAcBonus != 0 ? $" + COVER({e.coverAcBonus:+#;-#;0})" : string.Empty) +
-                $" → {e.degree}",
+                $" → {e.acDegree}",
                 CombatLogCategory.Attack);
 
             // 2. Hit/miss determination: use degree, NOT damage
             bool isHit = (e.degree == DegreeOfSuccess.Success || e.degree == DegreeOfSuccess.CriticalSuccess);
+            bool concealmentFailed = e.concealmentCheckRequired && !e.concealmentFlatCheckPassed;
 
-            if (isHit)
+            if (concealmentFailed)
+            {
+                eventBus.Publish(
+                    e.attacker,
+                    $"{GetWouldHitVerb(e.acDegree)} {targetName}, but concealment DC 5 flat check d20({e.concealmentFlatCheckRoll}) failed (miss).",
+                    CombatLogCategory.Attack);
+            }
+            else if (isHit)
             {
                 if (e.damage > 0)
                 {
@@ -136,6 +144,13 @@ namespace PF2e.Presentation
                 return $" (FATAL+{e.fatalBonusDamage})";
 
             return $" (DEADLY+{e.deadlyBonusDamage})";
+        }
+
+        private static string GetWouldHitVerb(DegreeOfSuccess acDegree)
+        {
+            return acDegree == DegreeOfSuccess.CriticalSuccess
+                ? "would critically hit"
+                : "would hit";
         }
     }
 }

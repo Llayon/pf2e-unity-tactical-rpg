@@ -37,7 +37,11 @@ namespace PF2e.Tests
             Assert.AreEqual(0, result.volleyPenalty);
             Assert.AreEqual(16, result.total);
             Assert.AreEqual(0, result.dc);
+            Assert.AreEqual(DegreeOfSuccess.CriticalFailure, result.acDegree);
             Assert.AreEqual(DegreeOfSuccess.CriticalFailure, result.degree);
+            Assert.IsFalse(result.concealmentCheckRequired);
+            Assert.AreEqual(0, result.concealmentFlatCheckRoll);
+            Assert.IsFalse(result.concealmentFlatCheckPassed);
             Assert.AreEqual(0, result.damageRolled);
             Assert.AreEqual(0, result.fatalBonusDamage);
             Assert.AreEqual(0, result.deadlyBonusDamage);
@@ -71,7 +75,11 @@ namespace PF2e.Tests
             Assert.AreEqual(baseResult.rangePenalty, resolved.rangePenalty);
             Assert.AreEqual(baseResult.volleyPenalty, resolved.volleyPenalty);
             Assert.AreEqual(18, resolved.dc);
+            Assert.AreEqual(DegreeOfSuccess.Failure, resolved.acDegree);
             Assert.AreEqual(DegreeOfSuccess.Failure, resolved.degree);
+            Assert.IsFalse(resolved.concealmentCheckRequired);
+            Assert.AreEqual(0, resolved.concealmentFlatCheckRoll);
+            Assert.IsFalse(resolved.concealmentFlatCheckPassed);
             Assert.AreEqual(0, resolved.damageRolled);
             Assert.AreEqual(0, resolved.fatalBonusDamage);
             Assert.AreEqual(0, resolved.deadlyBonusDamage);
@@ -506,6 +514,130 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void DetermineHitAndDamage_RangedStrike_TargetConcealed_WouldHit_FlatCheckPass_DealsDamage()
+        {
+            using var ctx = new StrikeContext();
+            var bow = ctx.CreateWeaponDef(diceCount: 1, dieSides: 6, isRanged: true, rangeIncrementFeet: 60, maxRangeIncrements: 6);
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: bow, level: 1, dexterity: 16);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(4, 0, 0), weaponDef: bow, level: 1);
+            ctx.Registry.Get(target).Conditions.Add(new ActiveCondition(ConditionType.Concealed));
+
+            var targetData = ctx.Registry.Get(target);
+            int baseAc = targetData.EffectiveAC;
+            var phase = StrikePhaseResult.FromAttackRoll(attacker, target, "Bow", naturalRoll: 10, attackBonus: 0, mapPenalty: 0, total: baseAc + 1);
+
+            var resolved = ctx.StrikeAction.DetermineHitAndDamage(phase, target, new FixedRng(new[] { 9 }, new[] { 4 }));
+
+            Assert.AreEqual(DegreeOfSuccess.Success, resolved.acDegree);
+            Assert.AreEqual(DegreeOfSuccess.Success, resolved.degree);
+            Assert.IsTrue(resolved.concealmentCheckRequired);
+            Assert.AreEqual(9, resolved.concealmentFlatCheckRoll);
+            Assert.IsTrue(resolved.concealmentFlatCheckPassed);
+            Assert.IsTrue(resolved.damageDealt);
+            Assert.Greater(resolved.damageRolled, 0);
+        }
+
+        [Test]
+        public void DetermineHitAndDamage_RangedStrike_TargetConcealed_WouldHit_FlatCheckFail_NoDamage()
+        {
+            using var ctx = new StrikeContext();
+            var bow = ctx.CreateWeaponDef(diceCount: 1, dieSides: 6, isRanged: true, rangeIncrementFeet: 60, maxRangeIncrements: 6);
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: bow, level: 1, dexterity: 16);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(4, 0, 0), weaponDef: bow, level: 1);
+            ctx.Registry.Get(target).Conditions.Add(new ActiveCondition(ConditionType.Concealed));
+
+            var targetData = ctx.Registry.Get(target);
+            int baseAc = targetData.EffectiveAC;
+            var phase = StrikePhaseResult.FromAttackRoll(attacker, target, "Bow", naturalRoll: 10, attackBonus: 0, mapPenalty: 0, total: baseAc + 1);
+
+            var resolved = ctx.StrikeAction.DetermineHitAndDamage(phase, target, new FixedRng(new[] { 3 }, new[] { 4 }));
+
+            Assert.AreEqual(DegreeOfSuccess.Success, resolved.acDegree);
+            Assert.AreEqual(DegreeOfSuccess.Failure, resolved.degree);
+            Assert.IsTrue(resolved.concealmentCheckRequired);
+            Assert.AreEqual(3, resolved.concealmentFlatCheckRoll);
+            Assert.IsFalse(resolved.concealmentFlatCheckPassed);
+            Assert.IsFalse(resolved.damageDealt);
+            Assert.AreEqual(0, resolved.damageRolled);
+        }
+
+        [Test]
+        public void DetermineHitAndDamage_RangedStrike_TargetConcealed_WouldCrit_FlatCheckFail_NoDamage_AcDegreeCritSuccess()
+        {
+            using var ctx = new StrikeContext();
+            var bow = ctx.CreateWeaponDef(diceCount: 1, dieSides: 6, isRanged: true, rangeIncrementFeet: 60, maxRangeIncrements: 6);
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: bow, level: 1, dexterity: 16);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(4, 0, 0), weaponDef: bow, level: 1);
+            ctx.Registry.Get(target).Conditions.Add(new ActiveCondition(ConditionType.Concealed));
+
+            var targetData = ctx.Registry.Get(target);
+            int baseAc = targetData.EffectiveAC;
+            var phase = StrikePhaseResult.FromAttackRoll(attacker, target, "Bow", naturalRoll: 19, attackBonus: 0, mapPenalty: 0, total: baseAc + 10);
+
+            var resolved = ctx.StrikeAction.DetermineHitAndDamage(phase, target, new FixedRng(new[] { 3 }, new[] { 6 }));
+
+            Assert.AreEqual(DegreeOfSuccess.CriticalSuccess, resolved.acDegree);
+            Assert.AreEqual(DegreeOfSuccess.Failure, resolved.degree);
+            Assert.IsTrue(resolved.concealmentCheckRequired);
+            Assert.AreEqual(3, resolved.concealmentFlatCheckRoll);
+            Assert.IsFalse(resolved.concealmentFlatCheckPassed);
+            Assert.IsFalse(resolved.damageDealt);
+            Assert.AreEqual(0, resolved.damageRolled);
+        }
+
+        [Test]
+        public void DetermineHitAndDamage_RangedStrike_TargetConcealed_WouldMiss_NoFlatCheck()
+        {
+            using var ctx = new StrikeContext();
+            var bow = ctx.CreateWeaponDef(diceCount: 1, dieSides: 6, isRanged: true, rangeIncrementFeet: 60, maxRangeIncrements: 6);
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: bow, level: 1, dexterity: 16);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(4, 0, 0), weaponDef: bow, level: 1);
+            ctx.Registry.Get(target).Conditions.Add(new ActiveCondition(ConditionType.Concealed));
+
+            var targetData = ctx.Registry.Get(target);
+            int baseAc = targetData.EffectiveAC;
+            var phase = StrikePhaseResult.FromAttackRoll(attacker, target, "Bow", naturalRoll: 10, attackBonus: 0, mapPenalty: 0, total: baseAc - 1);
+
+            var resolved = ctx.StrikeAction.DetermineHitAndDamage(phase, target, new FixedRng(new[] { 3 }, new[] { 6 }));
+
+            Assert.AreEqual(DegreeOfSuccess.Failure, resolved.acDegree);
+            Assert.AreEqual(DegreeOfSuccess.Failure, resolved.degree);
+            Assert.IsFalse(resolved.concealmentCheckRequired);
+            Assert.AreEqual(0, resolved.concealmentFlatCheckRoll);
+            Assert.IsFalse(resolved.concealmentFlatCheckPassed);
+            Assert.IsFalse(resolved.damageDealt);
+        }
+
+        [Test]
+        public void DetermineHitAndDamage_MeleeStrike_TargetConcealed_IgnoredByMvp()
+        {
+            using var ctx = new StrikeContext();
+            var sword = ctx.CreateWeaponDef(diceCount: 1, dieSides: 6, reachFeet: 5, isRanged: false);
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: sword, level: 1, strength: 16);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(1, 0, 0), weaponDef: sword, level: 1);
+            ctx.Registry.Get(target).Conditions.Add(new ActiveCondition(ConditionType.Concealed));
+
+            var targetData = ctx.Registry.Get(target);
+            int baseAc = targetData.EffectiveAC;
+            var phase = StrikePhaseResult.FromAttackRoll(attacker, target, "Sword", naturalRoll: 10, attackBonus: 0, mapPenalty: 0, total: baseAc + 1);
+
+            var resolved = ctx.StrikeAction.DetermineHitAndDamage(phase, target, new FixedRng(new[] { 3 }, new[] { 4 }));
+
+            Assert.AreEqual(DegreeOfSuccess.Success, resolved.acDegree);
+            Assert.AreEqual(DegreeOfSuccess.Success, resolved.degree);
+            Assert.IsFalse(resolved.concealmentCheckRequired);
+            Assert.AreEqual(0, resolved.concealmentFlatCheckRoll);
+            Assert.IsFalse(resolved.concealmentFlatCheckPassed);
+            Assert.IsTrue(resolved.damageDealt);
+            Assert.Greater(resolved.damageRolled, 0);
+        }
+
+        [Test]
         public void DetermineHitAndDamage_RangedCritWithDeadly_AddsDeadlyBonusDamage()
         {
             using var ctx = new StrikeContext();
@@ -697,6 +829,52 @@ namespace PF2e.Tests
                 Assert.IsTrue(applied);
                 Assert.AreEqual(1, count);
                 Assert.AreEqual(2, published.coverAcBonus);
+            }
+            finally
+            {
+                ctx.EventBus.OnStrikeResolved -= OnResolved;
+            }
+
+            void OnResolved(in StrikeResolvedEvent e)
+            {
+                count++;
+                published = e;
+            }
+        }
+
+        [Test]
+        public void ApplyStrikeDamage_PublishesStrikeResolvedEvent_WithConcealmentFields()
+        {
+            using var ctx = new StrikeContext();
+            var weapon = ctx.CreateWeaponDef();
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: weapon);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(1, 0, 0), weaponDef: weapon, currentHp: 20);
+
+            var phase = StrikePhaseResult.FromAttackRoll(attacker, target, "Bow", 19, 8, 0, 27)
+                .WithHitAndDamage(
+                    dc: 17,
+                    degree: DegreeOfSuccess.Failure,
+                    damageRolled: 0,
+                    damageType: DamageType.Piercing,
+                    damageDealt: false,
+                    acDegree: DegreeOfSuccess.CriticalSuccess,
+                    concealmentCheckRequired: true,
+                    concealmentFlatCheckRoll: 3,
+                    concealmentFlatCheckPassed: false);
+
+            StrikeResolvedEvent published = default;
+            int count = 0;
+            ctx.EventBus.OnStrikeResolved += OnResolved;
+            try
+            {
+                bool applied = ctx.StrikeAction.ApplyStrikeDamage(phase, damageReduction: 0);
+                Assert.IsTrue(applied);
+                Assert.AreEqual(1, count);
+                Assert.AreEqual(DegreeOfSuccess.CriticalSuccess, published.acDegree);
+                Assert.AreEqual(DegreeOfSuccess.Failure, published.degree);
+                Assert.IsTrue(published.concealmentCheckRequired);
+                Assert.AreEqual(3, published.concealmentFlatCheckRoll);
+                Assert.IsFalse(published.concealmentFlatCheckPassed);
             }
             finally
             {

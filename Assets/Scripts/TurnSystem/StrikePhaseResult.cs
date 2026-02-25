@@ -18,7 +18,11 @@ namespace PF2e.TurnSystem
         public readonly int coverAcBonus;
         public readonly int total;
         public readonly int dc;
+        public readonly DegreeOfSuccess acDegree;
         public readonly DegreeOfSuccess degree;
+        public readonly bool concealmentCheckRequired;
+        public readonly int concealmentFlatCheckRoll;
+        public readonly bool concealmentFlatCheckPassed;
         public readonly int damageRolled;
         public readonly int fatalBonusDamage;
         public readonly int deadlyBonusDamage;
@@ -37,7 +41,11 @@ namespace PF2e.TurnSystem
             int coverAcBonus,
             int total,
             int dc,
+            DegreeOfSuccess acDegree,
             DegreeOfSuccess degree,
+            bool concealmentCheckRequired,
+            int concealmentFlatCheckRoll,
+            bool concealmentFlatCheckPassed,
             int damageRolled,
             int fatalBonusDamage,
             int deadlyBonusDamage,
@@ -55,7 +63,11 @@ namespace PF2e.TurnSystem
             this.coverAcBonus = coverAcBonus;
             this.total = total;
             this.dc = dc;
+            this.acDegree = acDegree;
             this.degree = degree;
+            this.concealmentCheckRequired = concealmentCheckRequired;
+            this.concealmentFlatCheckRoll = concealmentFlatCheckRoll;
+            this.concealmentFlatCheckPassed = concealmentFlatCheckPassed;
             this.damageRolled = damageRolled;
             this.fatalBonusDamage = fatalBonusDamage;
             this.deadlyBonusDamage = deadlyBonusDamage;
@@ -86,7 +98,11 @@ namespace PF2e.TurnSystem
                 coverAcBonus: 0,
                 total,
                 dc: 0,
+                acDegree: DegreeOfSuccess.CriticalFailure,
                 degree: DegreeOfSuccess.CriticalFailure,
+                concealmentCheckRequired: false,
+                concealmentFlatCheckRoll: 0,
+                concealmentFlatCheckPassed: false,
                 damageRolled: 0,
                 fatalBonusDamage: 0,
                 deadlyBonusDamage: 0,
@@ -102,8 +118,16 @@ namespace PF2e.TurnSystem
             bool damageDealt,
             int coverAcBonus = 0,
             int fatalBonusDamage = 0,
-            int deadlyBonusDamage = 0)
+            int deadlyBonusDamage = 0,
+            DegreeOfSuccess acDegree = DegreeOfSuccess.CriticalFailure,
+            bool concealmentCheckRequired = false,
+            int concealmentFlatCheckRoll = 0,
+            bool concealmentFlatCheckPassed = false)
         {
+            DegreeOfSuccess resolvedAcDegree = acDegree == DegreeOfSuccess.CriticalFailure
+                ? degree
+                : acDegree;
+
             return new StrikePhaseResult(
                 attacker,
                 target,
@@ -116,7 +140,11 @@ namespace PF2e.TurnSystem
                 coverAcBonus,
                 total,
                 dc,
+                resolvedAcDegree,
                 degree,
+                concealmentCheckRequired,
+                concealmentFlatCheckRoll,
+                concealmentFlatCheckPassed,
                 damageRolled,
                 fatalBonusDamage,
                 deadlyBonusDamage,

@@ -17,7 +17,11 @@ namespace PF2e.Core
         public readonly int coverAcBonus;
         public readonly int total;
         public readonly int dc;
+        public readonly DegreeOfSuccess acDegree;
         public readonly DegreeOfSuccess degree;
+        public readonly bool concealmentCheckRequired;
+        public readonly int concealmentFlatCheckRoll;
+        public readonly bool concealmentFlatCheckPassed;
         public readonly int damage;
         public readonly int fatalBonusDamage;
         public readonly int deadlyBonusDamage;
@@ -45,8 +49,16 @@ namespace PF2e.Core
             int volleyPenalty = 0,
             int coverAcBonus = 0,
             int fatalBonusDamage = 0,
-            int deadlyBonusDamage = 0)
+            int deadlyBonusDamage = 0,
+            DegreeOfSuccess acDegree = DegreeOfSuccess.CriticalFailure,
+            bool concealmentCheckRequired = false,
+            int concealmentFlatCheckRoll = 0,
+            bool concealmentFlatCheckPassed = false)
         {
+            DegreeOfSuccess resolvedAcDegree = acDegree == DegreeOfSuccess.CriticalFailure
+                ? degree
+                : acDegree;
+
             this.attacker = attacker;
             this.target = target;
             this.weaponName = weaponName;
@@ -58,7 +70,11 @@ namespace PF2e.Core
             this.coverAcBonus = coverAcBonus;
             this.total = total;
             this.dc = dc;
+            this.acDegree = resolvedAcDegree;
             this.degree = degree;
+            this.concealmentCheckRequired = concealmentCheckRequired;
+            this.concealmentFlatCheckRoll = concealmentFlatCheckRoll;
+            this.concealmentFlatCheckPassed = concealmentFlatCheckPassed;
             this.damage = damage;
             this.fatalBonusDamage = fatalBonusDamage;
             this.deadlyBonusDamage = deadlyBonusDamage;
@@ -103,7 +119,11 @@ namespace PF2e.Core
                 volleyPenalty: 0,
                 coverAcBonus: 0,
                 fatalBonusDamage: 0,
-                deadlyBonusDamage: 0);
+                deadlyBonusDamage: 0,
+                acDegree: degree,
+                concealmentCheckRequired: false,
+                concealmentFlatCheckRoll: 0,
+                concealmentFlatCheckPassed: false);
         }
     }
 }
