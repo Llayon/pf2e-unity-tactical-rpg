@@ -231,6 +231,20 @@ namespace PF2e.TurnSystem
         }
 
         /// <summary>
+        /// Resets the action lock timer, preventing watchdog warnings/force-release.
+        /// Call periodically during interactive waits (e.g. Reposition cell selection)
+        /// where the lock is legitimately held for player input.
+        /// </summary>
+        public void RefreshActionLockTimer()
+        {
+            if (state != TurnState.ExecutingAction) return;
+            executingActionStartTime = Time.unscaledTime;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            actionLockWarned = false;
+#endif
+        }
+
+        /// <summary>
         /// Called when the executing action finishes. Restores previous turn state.
         /// If no actions remain, ends the turn automatically.
         /// </summary>

@@ -23,6 +23,7 @@ namespace PF2e.TurnSystem
         [Header("Dependencies")]
         [SerializeField] private TurnManager turnManager;
         [SerializeField] private GridManager gridManager;
+        [SerializeField] private EntityManager entityManager;
         [SerializeField] private PlayerActionExecutor actionExecutor;
         [SerializeField] private TargetingController targetingController;
 
@@ -71,19 +72,48 @@ namespace PF2e.TurnSystem
 
         private void HandleCellClicked(Vector3Int cell)
         {
-            if (!turnManager.IsPlayerTurn) return;
+            Debug.Log($"[TurnInput] HandleCellClicked: {cell}, mode={targetingController?.ActiveMode}, isRepoSelectCell={targetingController?.IsRepositionSelectingCell}, isBusy={actionExecutor?.IsBusy}, isPlayerTurn={turnManager?.IsPlayerTurn}");
+            if (!CanProcessTargetingClick())
+                return;
             if (actionExecutor.IsBusy && (targetingController == null || !targetingController.IsRepositionSelectingCell))
                 return;
-            // TargetingResult ignored until UI (Phase 15 adds tooltip/flash)
             targetingController.TryConfirmCell(cell);
         }
 
         private void HandleEntityClicked(EntityHandle handle)
         {
-            if (!turnManager.IsPlayerTurn) return;
+            Debug.Log($"[TurnInput] HandleEntityClicked: handle={handle.Id}, mode={targetingController?.ActiveMode}, isRepoSelectCell={targetingController?.IsRepositionSelectingCell}, isBusy={actionExecutor?.IsBusy}");
+            if (!CanProcessTargetingClick())
+                return;
+
+            // During Reposition cell selection, convert entity click to cell click
+            // so player can select a destination cell occupied by the target itself.
+            if (targetingController != null && targetingController.IsRepositionSelectingCell)
+            {
+                var data = entityManager?.Registry?.Get(handle);
+                Debug.Log($"[TurnInput] EntityClick→CellClick: handle={handle.Id}, gridPos={data?.GridPosition}");
+                if (data != null)
+                    targetingController.TryConfirmCell(data.GridPosition);
+                return;
+            }
+
             if (actionExecutor.IsBusy) return;
-            // TargetingResult ignored until UI (Phase 15 adds tooltip/flash)
             targetingController.TryConfirmEntity(handle);
+        }
+
+        private bool CanProcessTargetingClick()
+        {
+            if (turnManager == null)
+                return false;
+
+            if (turnManager.IsPlayerTurn)
+                return true;
+
+            // Reposition target selection is a two-step interaction that intentionally keeps the turn
+            // in ExecutingAction while waiting for a destination click. Allow that follow-up click path.
+            return turnManager.State == TurnState.ExecutingAction
+                && targetingController != null
+                && targetingController.IsRepositionSelectingCell;
         }
 
         private void Update()

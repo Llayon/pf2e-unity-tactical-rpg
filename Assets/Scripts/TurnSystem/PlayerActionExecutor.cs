@@ -68,6 +68,7 @@ namespace PF2e.TurnSystem
             {
                 if (turnManager != null && turnManager.State == TurnState.ExecutingAction) return true;
                 if (strideAction != null && strideAction.StrideInProgress) return true;
+                if (hasPendingRepositionSelection) return true;
                 return false;
             }
         }
@@ -517,7 +518,12 @@ public bool TryExecuteGrapple(EntityHandle target)
                 return false;
 
             ResetPendingRepositionState(rollbackActionLock: false);
-            turnManager.CompleteActionWithCost(RepositionAction.ActionCost);
+            // Guard: if TurnManager lock was force-released by watchdog, don't call CompleteActionWithCost
+            // (it would silently fail anyway, but this makes the intent explicit).
+            if (turnManager.State == TurnState.ExecutingAction)
+                turnManager.CompleteActionWithCost(RepositionAction.ActionCost);
+            else
+                Debug.LogWarning("[Executor] Reposition confirm: action lock already released (watchdog?). Action cost not deducted.");
             return true;
         }
 
@@ -528,7 +534,10 @@ public bool TryExecuteGrapple(EntityHandle target)
 
             // Check already resolved; player cancels destination selection => no movement, action still spent.
             ResetPendingRepositionState(rollbackActionLock: false);
-            turnManager.CompleteActionWithCost(RepositionAction.ActionCost);
+            if (turnManager.State == TurnState.ExecutingAction)
+                turnManager.CompleteActionWithCost(RepositionAction.ActionCost);
+            else
+                Debug.LogWarning("[Executor] Reposition cancel: action lock already released (watchdog?). Action cost not deducted.");
         }
 
         public bool TryExecuteEscape(EntityHandle grappler)
@@ -600,7 +609,13 @@ public bool TryExecuteGrapple(EntityHandle target)
         private void Update()
         {
             if (turnManager == null) return;
-            if (hasPendingRepositionSelection) return;
+
+            // Reposition cell selection is a legitimate interactive wait — keep the lock alive.
+            if (hasPendingRepositionSelection)
+            {
+                turnManager.RefreshActionLockTimer();
+                return;
+            }
 
             if (turnManager.State == TurnState.ExecutingAction && executionStartTime > 0f)
             {
