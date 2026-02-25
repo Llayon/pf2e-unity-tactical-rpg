@@ -35,6 +35,7 @@
 - Polish ranged strike UX/reason wording and boundary/log regressions (`Phase 25.1`). (Done)
 - Add parameterized strike crit-trait support for `Deadly` and `Fatal`, and ranged close-range `Volley` penalty support (`Phases 25.2–25.4`). (Done)
 - Implement `RepositionAction` core (`Athletics` vs `Fortitude DC`, Attack trait, path-validated forced movement, and source-grapple requirement exception path) with EditMode/PlayMode coverage (`Phase 26`). (Done)
+- Implement ranged `Strike` line-of-sight + simple cover MVP (grid-based supercover with permissive corner), integrate `NoLineOfSight` targeting validation and cover AC payload/runtime/log polish (`Phase 27`). (Done)
 
 ## Phase 3 — Content & UX Polish (In Progress)
 - Add more encounter layouts and data-driven authoring flow.

@@ -90,6 +90,18 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void Strike_NoLineOfSight_ReturnsNoLineOfSightMessage()
+        {
+            var msg = TargetingReasonFormatter.ForPreview(
+                TargetingMode.Strike,
+                TargetingEvaluationResult.FromFailure(TargetingFailureReason.NoLineOfSight),
+                strikeIsRanged: true);
+
+            Assert.AreEqual(TargetingHintTone.Invalid, msg.Tone);
+            Assert.AreEqual("Strike: no line of sight", msg.Text);
+        }
+
+        [Test]
         public void Escape_NoHover_ReturnsGrapplerPrompt()
         {
             var msg = TargetingReasonFormatter.ForModeNoHover(TargetingMode.Escape);

@@ -77,6 +77,9 @@ namespace PF2e.Presentation
                     : mode == TargetingMode.Strike
                         ? (strikeIsRanged ? "Strike: target is out of range" : "Strike: target is out of reach")
                         : $"{action}: target is out of reach",
+                TargetingFailureReason.NoLineOfSight => mode == TargetingMode.Strike
+                    ? "Strike: no line of sight"
+                    : $"{action}: no line of sight",
                 TargetingFailureReason.WrongElevation => $"{action}: target is on a different elevation",
                 TargetingFailureReason.TargetTooLarge => $"{action}: target is too large",
                 TargetingFailureReason.RequiresMeleeWeapon => $"{action}: requires a melee weapon",

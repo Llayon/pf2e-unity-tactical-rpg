@@ -59,7 +59,9 @@ namespace PF2e.Presentation
                 (e.rangePenalty != 0 ? $" + RNG({e.rangePenalty})" : string.Empty) +
                 (e.volleyPenalty != 0 ? $" + VOLLEY({e.volleyPenalty})" : string.Empty) +
                 $" = {e.total} " +
-                $"vs AC {e.dc} → {e.degree}",
+                $"vs AC {e.dc}" +
+                (e.coverAcBonus != 0 ? $" + COVER({e.coverAcBonus:+#;-#;0})" : string.Empty) +
+                $" → {e.degree}",
                 CombatLogCategory.Attack);
 
             // 2. Hit/miss determination: use degree, NOT damage

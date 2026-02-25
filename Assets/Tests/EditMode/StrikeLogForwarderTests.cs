@@ -169,6 +169,68 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void StrikeLog_WithCoverAcBonus_ShowsCoverTokenOnAcSide()
+        {
+            using var ctx = new StrikeLogContext();
+            var attacker = ctx.RegisterEntity("Archer", Team.Player);
+            var target = ctx.RegisterEntity("Goblin_1", Team.Enemy);
+
+            var ev = CreateStrikeEvent(attacker, target, coverAcBonus: 2);
+
+            CombatLogEntry first = default;
+            int count = 0;
+            ctx.EventBus.OnLogEntry += HandleLog;
+            try
+            {
+                ctx.EventBus.PublishStrikeResolved(in ev);
+
+                Assert.GreaterOrEqual(count, 1);
+                StringAssert.Contains("vs AC 18 + COVER(+2)", first.Message);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry)
+            {
+                count++;
+                if (count == 1) first = entry;
+            }
+        }
+
+        [Test]
+        public void StrikeLog_WithoutCoverAcBonus_DoesNotShowCoverToken()
+        {
+            using var ctx = new StrikeLogContext();
+            var attacker = ctx.RegisterEntity("Archer", Team.Player);
+            var target = ctx.RegisterEntity("Goblin_1", Team.Enemy);
+
+            var ev = CreateStrikeEvent(attacker, target, coverAcBonus: 0);
+
+            CombatLogEntry first = default;
+            int count = 0;
+            ctx.EventBus.OnLogEntry += HandleLog;
+            try
+            {
+                ctx.EventBus.PublishStrikeResolved(in ev);
+
+                Assert.GreaterOrEqual(count, 1);
+                StringAssert.DoesNotContain("COVER(", first.Message);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry)
+            {
+                count++;
+                if (count == 1) first = entry;
+            }
+        }
+
+        [Test]
         public void StrikeLog_CritWithDeadlyBonus_IncludesDeadlyTokenOnDamageLine()
         {
             using var ctx = new StrikeLogContext();
@@ -290,6 +352,7 @@ namespace PF2e.Tests
             EntityHandle target,
             int rangePenalty = 0,
             int volleyPenalty = 0,
+            int coverAcBonus = 0,
             DegreeOfSuccess degree = DegreeOfSuccess.Failure,
             int damage = 0,
             int fatalBonusDamage = 0,
@@ -314,6 +377,7 @@ namespace PF2e.Tests
                 targetDefeated: false,
                 rangePenalty: rangePenalty,
                 volleyPenalty: volleyPenalty,
+                coverAcBonus: coverAcBonus,
                 fatalBonusDamage: fatalBonusDamage,
                 deadlyBonusDamage: deadlyBonusDamage);
         }
