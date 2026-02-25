@@ -45,6 +45,9 @@ public static class ActionBarUIBuilder
             CreateButtonSlot(root.transform, controller, "EscapeButton", "Escape", "K", "escapeButton", "escapeHighlight");
             CreateButtonSlot(root.transform, controller, "RaiseShieldButton", "Shield", "R", "raiseShieldButton", "raiseShieldHighlight");
             CreateButtonSlot(root.transform, controller, "StandButton", "Stand", "—", "standButton", "standHighlight");
+            CreateButtonSlot(root.transform, controller, "DelayButton", "Delay", "—", "delayButton", string.Empty);
+            CreateButtonSlot(root.transform, controller, "ReturnNowButton", "Return", "—", "returnNowButton", string.Empty);
+            CreateButtonSlot(root.transform, controller, "SkipDelayWindowButton", "Skip", "—", "skipDelayWindowButton", string.Empty);
         }
         else
         {
@@ -53,6 +56,7 @@ public static class ActionBarUIBuilder
         }
 
         EnsureRepositionButtonSlot(root.transform, controller);
+        EnsureDelayButtons(root.transform, controller);
 
         // Wire dependencies if found.
         AssignIfFieldExists(controller, "eventBus", Object.FindFirstObjectByType<CombatEventBus>());
@@ -203,6 +207,33 @@ public static class ActionBarUIBuilder
         }
 
         CreateButtonSlot(parent, controller, "RepositionButton", "Reposition", "—", "repositionButton", "repositionHighlight");
+    }
+
+    private static void EnsureDelayButtons(Transform parent, ActionBarController controller)
+    {
+        if (parent == null || controller == null) return;
+
+        EnsureUtilityButton(parent, controller, "DelayButton", "Delay", "—", "delayButton");
+        EnsureUtilityButton(parent, controller, "ReturnNowButton", "Return", "—", "returnNowButton");
+        EnsureUtilityButton(parent, controller, "SkipDelayWindowButton", "Skip", "—", "skipDelayWindowButton");
+    }
+
+    private static void EnsureUtilityButton(
+        Transform parent,
+        ActionBarController controller,
+        string objectName,
+        string label,
+        string hotkey,
+        string buttonFieldName)
+    {
+        var existing = parent.Find(objectName);
+        if (existing != null)
+        {
+            AssignIfFieldExists(controller, buttonFieldName, existing.GetComponent<Button>());
+            return;
+        }
+
+        CreateButtonSlot(parent, controller, objectName, label, hotkey, buttonFieldName, string.Empty);
     }
 
     private static void EnsureTargetingHintPanel(Transform actionBarRoot)

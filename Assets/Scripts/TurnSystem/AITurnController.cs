@@ -394,6 +394,11 @@ namespace PF2e.TurnSystem
                 setResult?.Invoke(0);
                 yield break;
             }
+            if (!turnManager.CanUseReaction(option.entity))
+            {
+                setResult?.Invoke(0);
+                yield break;
+            }
 
             bool? decided = null;
             reactionPolicy.DecideReaction(

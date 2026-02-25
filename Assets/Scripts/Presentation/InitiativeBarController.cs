@@ -80,6 +80,8 @@ namespace PF2e.Presentation
 
         private void HandleTurnStarted(in TurnStartedEvent e)
         {
+            if (turnManager != null)
+                BuildSlots(turnManager.InitiativeOrder);
             UpdateHighlight();
         }
 
@@ -121,9 +123,39 @@ namespace PF2e.Presentation
 
                 slot.SetupStatic(handle, data.Name, data.Team);
                 slot.RefreshHP(data.CurrentHP, data.MaxHP, data.IsAlive);
+                slot.SetDelayed(turnManager != null && turnManager.IsDelayed(handle));
 
                 activeSlots.Add(slot);
                 slotByHandle[handle] = slot;
+            }
+
+            if (turnManager == null)
+                return;
+
+            delayedEntityBuffer.Clear();
+            foreach (var data in entityManager.Registry.GetAll())
+            {
+                if (data == null || !data.Handle.IsValid) continue;
+                if (!turnManager.IsDelayed(data.Handle)) continue;
+                if (slotByHandle.ContainsKey(data.Handle)) continue;
+                delayedEntityBuffer.Add(data);
+            }
+
+            delayedEntityBuffer.Sort(static (a, b) => a.Handle.Id.CompareTo(b.Handle.Id));
+
+            for (int i = 0; i < delayedEntityBuffer.Count; i++)
+            {
+                var data = delayedEntityBuffer[i];
+                var slot = GetSlot();
+                slot.transform.SetParent(slotsContainer, false);
+                slot.gameObject.SetActive(true);
+
+                slot.SetupStatic(data.Handle, data.Name, data.Team);
+                slot.RefreshHP(data.CurrentHP, data.MaxHP, data.IsAlive);
+                slot.SetDelayed(true);
+
+                activeSlots.Add(slot);
+                slotByHandle[data.Handle] = slot;
             }
         }
 
@@ -164,6 +196,9 @@ namespace PF2e.Presentation
             for (int i = 0; i < activeSlots.Count; i++)
                 activeSlots[i].SetHighlight(false);
 
+            if (turnManager.State == TurnState.DelayReturnWindow)
+                return;
+
             if (idx >= 0 && idx < turnManager.InitiativeOrder.Count)
             {
                 var handle = turnManager.InitiativeOrder[idx].Handle;
@@ -177,6 +212,8 @@ namespace PF2e.Presentation
             if (panelRoot != null)
                 panelRoot.SetActive(visible);
         }
+
+        private readonly List<EntityData> delayedEntityBuffer = new List<EntityData>(8);
 
 #if UNITY_EDITOR
         private void OnValidate()

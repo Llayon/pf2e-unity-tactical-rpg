@@ -21,6 +21,8 @@ namespace PF2e.TurnSystem
         [SerializeField] private TurnState state = TurnState.Inactive;
         [SerializeField] private int currentIndex = -1;
         [SerializeField] private int roundNumber = 0;
+        [SerializeField] private bool delayTurnBeginTriggerOpen;
+        [SerializeField] private EntityHandle delayReturnWindowAfterActor = EntityHandle.None;
 
         private List<InitiativeEntry> initiativeOrder = new();
         private TurnState stateBeforeExecution;
@@ -29,6 +31,8 @@ namespace PF2e.TurnSystem
         private float executingActionStartTime = -1f;
         private readonly List<ConditionDelta> conditionDeltaBuffer = new();
         private readonly ConditionService conditionService = new();
+        private readonly Dictionary<EntityHandle, DelayedTurnRecord> delayedTurns = new();
+        private readonly HashSet<EntityHandle> delayReactionSuppressed = new();
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         private const float ActionLockWarnSeconds = 4f;
@@ -81,6 +85,32 @@ namespace PF2e.TurnSystem
             }
         }
 
+        public bool IsDelayTurnBeginTriggerOpen => delayTurnBeginTriggerOpen;
+
+        public int DelayedActorCount => delayedTurns.Count;
+
+        public bool IsDelayReturnWindowOpen => state == TurnState.DelayReturnWindow;
+
+        public EntityHandle DelayReturnWindowAfterActor => delayReturnWindowAfterActor;
+
+        public bool IsReactionSuppressedByDelay(EntityHandle actor) =>
+            actor.IsValid && delayReactionSuppressed.Contains(actor);
+
+        public bool CanUseReaction(EntityHandle actor)
+        {
+            if (!actor.IsValid)
+                return false;
+
+            if (delayReactionSuppressed.Contains(actor))
+                return false;
+
+            if (entityManager == null || entityManager.Registry == null)
+                return false;
+
+            var data = entityManager.Registry.Get(actor);
+            return data != null && data.IsAlive && data.ReactionAvailable;
+        }
+
         // ─── Events ───────────────────────────────────────────────────────────
 
         public event Action<CombatStartedEvent>               OnCombatStarted;
@@ -91,6 +121,29 @@ namespace PF2e.TurnSystem
         public event Action<ActionsChangedEvent>              OnActionsChanged;
         public event Action<ConditionsTickedEvent>            OnConditionsTicked;
         public event Action<InitiativeRolledEvent>            OnInitiativeRolled;
+
+        private readonly struct DelayedTurnRecord
+        {
+            public readonly EntityHandle actor;
+            public readonly int delayedRoundNumber;
+            public readonly bool delayImmediateEffectsApplied;
+            public readonly EntityHandle originalAnchorActor;
+            public readonly InitiativeEntry initiativeEntry;
+
+            public DelayedTurnRecord(
+                EntityHandle actor,
+                int delayedRoundNumber,
+                bool delayImmediateEffectsApplied,
+                EntityHandle originalAnchorActor,
+                InitiativeEntry initiativeEntry)
+            {
+                this.actor = actor;
+                this.delayedRoundNumber = delayedRoundNumber;
+                this.delayImmediateEffectsApplied = delayImmediateEffectsApplied;
+                this.originalAnchorActor = originalAnchorActor;
+                this.initiativeEntry = initiativeEntry;
+            }
+        }
 
         // ─── Public Methods ───────────────────────────────────────────────────
 
@@ -121,6 +174,7 @@ namespace PF2e.TurnSystem
             }
 
             ResetActionExecutionTracking();
+            ResetDelayState();
             ResolveEventBusIfMissing();
 
             state = TurnState.RollingInitiative;
@@ -141,32 +195,18 @@ namespace PF2e.TurnSystem
                 Debug.LogWarning("[TurnManager] EndTurn called but not in PlayerTurn or EnemyTurn state.");
                 return;
             }
+            delayTurnBeginTriggerOpen = false;
 
             var endingEntity = CurrentEntity;
             var data = entityManager.Registry.Get(endingEntity);
-            if (data != null)
-            {
-                conditionDeltaBuffer.Clear();
-                conditionService.TickEndTurn(data, conditionDeltaBuffer);
-
-                for (int i = 0; i < conditionDeltaBuffer.Count; i++)
-                    PublishConditionChanged(conditionDeltaBuffer[i]);
-
-                if (conditionDeltaBuffer.Count > 0)
-                    PublishConditionsTicked(new ConditionsTickedEvent(endingEntity, conditionDeltaBuffer));
-            }
+            ApplyEndTurnEffects(endingEntity, data);
 
             PublishTurnEnded(new TurnEndedEvent(endingEntity));
 
             // End encounter immediately when one side is wiped.
             if (CheckVictory()) return;
-
-            currentIndex++;
-
-            if (currentIndex >= initiativeOrder.Count)
-                StartNextRound();
-            else
-                StartCurrentTurn();
+            if (TryOpenDelayReturnWindow(endingEntity)) return;
+            AdvanceInitiativeAfterTurnEnd();
         }
 
         /// <summary>
@@ -199,6 +239,143 @@ namespace PF2e.TurnSystem
                 && (state == TurnState.PlayerTurn || state == TurnState.EnemyTurn);
         }
 
+        public bool IsDelayed(EntityHandle actor)
+        {
+            return actor.IsValid && delayedTurns.ContainsKey(actor);
+        }
+
+        public bool TryGetFirstDelayedPlayerActor(out EntityHandle actor)
+        {
+            actor = EntityHandle.None;
+
+            if (entityManager == null || entityManager.Registry == null)
+                return false;
+
+            foreach (var kvp in delayedTurns)
+            {
+                var handle = kvp.Key;
+                var data = entityManager.Registry.Get(handle);
+                if (data == null || !data.IsAlive) continue;
+                if (data.Team != Team.Player) continue;
+
+                actor = handle;
+                return true;
+            }
+
+            return false;
+        }
+
+        public bool CanDelayCurrentTurn()
+        {
+            if (state != TurnState.PlayerTurn) return false;
+            if (!delayTurnBeginTriggerOpen) return false;
+            if (state == TurnState.ExecutingAction) return false;
+
+            var actor = CurrentEntity;
+            if (!actor.IsValid) return false;
+            if (delayedTurns.ContainsKey(actor)) return false;
+            if (entityManager == null || entityManager.Registry == null) return false;
+
+            var data = entityManager.Registry.Get(actor);
+            if (data == null || !data.IsAlive) return false;
+
+            // Delay requires at least one other active initiative entry to yield to.
+            if (initiativeOrder.Count <= 1) return false;
+
+            return true;
+        }
+
+        public bool TryDelayCurrentTurn()
+        {
+            if (!CanDelayCurrentTurn())
+                return false;
+
+            var actor = CurrentEntity;
+            var data = entityManager.Registry.Get(actor);
+            if (data == null)
+                return false;
+
+            delayTurnBeginTriggerOpen = false;
+
+            ApplyDelayImmediateEffects(actor, data);
+
+            if (currentIndex < 0 || currentIndex >= initiativeOrder.Count || initiativeOrder[currentIndex].Handle != actor)
+            {
+                Debug.LogError("[TurnManager] TryDelayCurrentTurn lost current initiative position. Delay aborted.");
+                return false;
+            }
+
+            var currentEntry = initiativeOrder[currentIndex];
+            var delayedRecord = new DelayedTurnRecord(
+                actor,
+                roundNumber,
+                delayImmediateEffectsApplied: true,
+                originalAnchorActor: GetPreviousInitiativeActorForCurrentIndex(),
+                initiativeEntry: currentEntry);
+
+            delayedTurns[actor] = delayedRecord;
+            delayReactionSuppressed.Add(actor);
+
+            initiativeOrder.RemoveAt(currentIndex);
+
+            if (initiativeOrder.Count == 0)
+            {
+                Debug.LogWarning("[TurnManager] Delay removed the only active initiative entry unexpectedly. Restoring actor to initiative.");
+                initiativeOrder.Insert(0, currentEntry);
+                delayedTurns.Remove(actor);
+                delayReactionSuppressed.Remove(actor);
+                return false;
+            }
+
+            if (CheckVictory()) return true;
+
+            if (currentIndex >= initiativeOrder.Count)
+                StartNextRound();
+            else
+                StartCurrentTurn();
+
+            return true;
+        }
+
+        public bool TryReturnDelayedActor(EntityHandle actor)
+        {
+            if (state != TurnState.DelayReturnWindow)
+                return false;
+            if (!actor.IsValid)
+                return false;
+            if (!delayedTurns.TryGetValue(actor, out var record))
+                return false;
+            if (entityManager == null || entityManager.Registry == null)
+                return false;
+
+            var data = entityManager.Registry.Get(actor);
+            if (data == null || !data.IsAlive)
+                return false;
+
+            int insertIndex = GetInsertionIndexAfterAnchor(delayReturnWindowAfterActor);
+            initiativeOrder.Insert(insertIndex, record.initiativeEntry);
+
+            delayedTurns.Remove(actor);
+            delayReactionSuppressed.Remove(actor);
+            delayReturnWindowAfterActor = EntityHandle.None;
+
+            currentIndex = insertIndex;
+            OpenTurnForActor(actor, data, openDelayTriggerWindow: false); // resumed delayed turn
+            return true;
+        }
+
+        public void SkipDelayReturnWindow()
+        {
+            if (state != TurnState.DelayReturnWindow)
+            {
+                Debug.LogWarning("[TurnManager] SkipDelayReturnWindow called but delay return window is not open.");
+                return;
+            }
+
+            delayReturnWindowAfterActor = EntityHandle.None;
+            AdvanceInitiativeAfterTurnEnd();
+        }
+
         /// <summary>
         /// Transition to ExecutingAction to block input while an animation plays.
         /// </summary>
@@ -220,6 +397,7 @@ namespace PF2e.TurnSystem
                 return;
             }
 
+            delayTurnBeginTriggerOpen = false;
             stateBeforeExecution = state;
             state = TurnState.ExecutingAction;
             executingActor = actor.IsValid ? actor : CurrentEntity;
@@ -303,6 +481,7 @@ namespace PF2e.TurnSystem
         public void EndCombat(EncounterResult result = EncounterResult.Aborted)
         {
             ResetActionExecutionTracking();
+            ResetDelayState();
             state = TurnState.CombatOver;
 
             if (entityManager != null)
@@ -399,20 +578,8 @@ namespace PF2e.TurnSystem
                 return;
             }
 
-            conditionDeltaBuffer.Clear();
-            conditionService.TickStartTurn(data, conditionDeltaBuffer);
-            for (int i = 0; i < conditionDeltaBuffer.Count; i++)
-                PublishConditionChanged(conditionDeltaBuffer[i]);
-
-            state = data.Team == Team.Player ? TurnState.PlayerTurn : TurnState.EnemyTurn;
-
-            if (entityManager != null)
-                entityManager.SelectEntity(entry.Handle);
-
-            PublishTurnStarted(new TurnStartedEvent(entry.Handle, data.ActionsRemaining));
-            PublishActionsChanged(new ActionsChangedEvent(entry.Handle, data.ActionsRemaining));
-
-            Debug.Log($"[TurnManager] Round {roundNumber} — {data.Name} ({data.Team}) starts turn. Actions: {data.ActionsRemaining}");
+            ApplyStartTurnEffects(entry.Handle, data);
+            OpenTurnForActor(entry.Handle, data, openDelayTriggerWindow: true);
         }
 
         /// <summary>
@@ -444,6 +611,191 @@ namespace PF2e.TurnSystem
 
             EndCombat(!anyPlayer ? EncounterResult.Defeat : EncounterResult.Victory);
             return true;
+        }
+
+        private void ApplyStartTurnEffects(EntityHandle actor, EntityData data)
+        {
+            if (!actor.IsValid || data == null)
+                return;
+
+            conditionDeltaBuffer.Clear();
+            conditionService.TickStartTurn(data, conditionDeltaBuffer);
+
+            for (int i = 0; i < conditionDeltaBuffer.Count; i++)
+                PublishConditionChanged(conditionDeltaBuffer[i]);
+        }
+
+        private void ApplyEndTurnEffects(EntityHandle actor, EntityData data)
+        {
+            if (!actor.IsValid || data == null)
+                return;
+
+            conditionDeltaBuffer.Clear();
+            conditionService.TickEndTurn(data, conditionDeltaBuffer);
+
+            for (int i = 0; i < conditionDeltaBuffer.Count; i++)
+                PublishConditionChanged(conditionDeltaBuffer[i]);
+
+            if (conditionDeltaBuffer.Count > 0)
+                PublishConditionsTicked(new ConditionsTickedEvent(actor, conditionDeltaBuffer));
+        }
+
+        private void ApplyDelayImmediateEffects(EntityHandle actor, EntityData data)
+        {
+            if (!actor.IsValid || data == null)
+                return;
+
+            // 29c.1 MVP scope: reuse current modeled end-of-turn condition ticks (e.g. Frightened/Sickened decay).
+            // Full RAW Delay timing coverage (persistent damage, beneficial expirations during the turn, etc.) will be
+            // expanded in later Delay phases without routing through regular EndTurn().
+            ApplyEndTurnEffects(actor, data);
+        }
+
+        private bool TryOpenDelayReturnWindow(EntityHandle afterActor)
+        {
+            ExpireDelayedTurnsIfDueAfter(afterActor);
+
+            if (delayedTurns.Count <= 0)
+                return false;
+
+            if (!HasEligiblePlayerControlledDelayedActor())
+                return false; // 29c.2 auto-skip when no eligible player delayed actors.
+
+            delayReturnWindowAfterActor = afterActor;
+            state = TurnState.DelayReturnWindow;
+            Debug.Log($"[TurnManager] Delay return window opened after actor {afterActor.Id}.");
+            return true;
+        }
+
+        private void ExpireDelayedTurnsIfDueAfter(EntityHandle afterActor)
+        {
+            if (!afterActor.IsValid || delayedTurns.Count <= 0)
+                return;
+
+            if (roundNumber <= 0)
+                return;
+
+            List<DelayedTurnRecord> expired = null;
+
+            foreach (var kvp in delayedTurns)
+            {
+                var record = kvp.Value;
+                if (record.delayedRoundNumber >= roundNumber)
+                    continue;
+                if (record.originalAnchorActor != afterActor)
+                    continue;
+
+                expired ??= new List<DelayedTurnRecord>();
+                expired.Add(record);
+            }
+
+            if (expired == null || expired.Count == 0)
+                return;
+
+            for (int i = 0; i < expired.Count; i++)
+            {
+                var record = expired[i];
+                if (!delayedTurns.Remove(record.actor))
+                    continue;
+
+                delayReactionSuppressed.Remove(record.actor);
+
+                int insertIndex = GetInsertionIndexAfterAnchor(afterActor);
+                initiativeOrder.Insert(insertIndex, record.initiativeEntry);
+            }
+        }
+
+        private int GetInsertionIndexAfterAnchor(EntityHandle anchorActor)
+        {
+            if (initiativeOrder == null || initiativeOrder.Count == 0)
+                return 0;
+
+            int anchorIndex = FindInitiativeIndex(anchorActor);
+            if (anchorIndex >= 0)
+                return anchorIndex + 1;
+
+            if (currentIndex >= 0 && currentIndex < initiativeOrder.Count)
+                return currentIndex + 1;
+
+            return initiativeOrder.Count;
+        }
+
+        private int FindInitiativeIndex(EntityHandle actor)
+        {
+            if (!actor.IsValid)
+                return -1;
+
+            for (int i = 0; i < initiativeOrder.Count; i++)
+            {
+                if (initiativeOrder[i].Handle == actor)
+                    return i;
+            }
+
+            return -1;
+        }
+
+        private bool HasEligiblePlayerControlledDelayedActor()
+        {
+            if (entityManager == null || entityManager.Registry == null)
+                return false;
+
+            foreach (var kvp in delayedTurns)
+            {
+                var actor = kvp.Key;
+                var data = entityManager.Registry.Get(actor);
+                if (data == null || !data.IsAlive) continue;
+                if (data.Team != Team.Player) continue; // 29c.2 MVP scope
+                return true;
+            }
+
+            return false;
+        }
+
+        private void OpenTurnForActor(EntityHandle actor, EntityData data, bool openDelayTriggerWindow)
+        {
+            if (!actor.IsValid || data == null)
+                return;
+
+            state = data.Team == Team.Player ? TurnState.PlayerTurn : TurnState.EnemyTurn;
+            delayTurnBeginTriggerOpen = openDelayTriggerWindow;
+
+            if (entityManager != null)
+                entityManager.SelectEntity(actor);
+
+            PublishTurnStarted(new TurnStartedEvent(actor, data.ActionsRemaining));
+            PublishActionsChanged(new ActionsChangedEvent(actor, data.ActionsRemaining));
+
+            Debug.Log($"[TurnManager] Round {roundNumber} — {data.Name} ({data.Team}) starts turn. Actions: {data.ActionsRemaining}");
+        }
+
+        private void AdvanceInitiativeAfterTurnEnd()
+        {
+            currentIndex++;
+
+            if (currentIndex >= initiativeOrder.Count)
+                StartNextRound();
+            else
+                StartCurrentTurn();
+        }
+
+        private EntityHandle GetPreviousInitiativeActorForCurrentIndex()
+        {
+            if (currentIndex < 0 || currentIndex >= initiativeOrder.Count || initiativeOrder.Count <= 1)
+                return EntityHandle.None;
+
+            int prevIndex = currentIndex - 1;
+            if (prevIndex < 0)
+                prevIndex = initiativeOrder.Count - 1;
+
+            return initiativeOrder[prevIndex].Handle;
+        }
+
+        private void ResetDelayState()
+        {
+            delayTurnBeginTriggerOpen = false;
+            delayReturnWindowAfterActor = EntityHandle.None;
+            delayedTurns.Clear();
+            delayReactionSuppressed.Clear();
         }
 
         private void ResetActionExecutionTracking()

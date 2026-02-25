@@ -237,6 +237,7 @@ public static class PF2eSceneDependencyValidator
     {
         errors += RequireRef(tic, "turnManager",         "TurnManager");
         errors += RequireRef(tic, "gridManager",         "GridManager");
+        errors += RequireRef(tic, "entityManager",       "EntityManager");
         errors += RequireRef(tic, "actionExecutor",      "PlayerActionExecutor");
         errors += RequireRef(tic, "targetingController", "TargetingController");
     }
@@ -366,6 +367,9 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnRef(c, "escapeButton", "Button");
         warnings += WarnRef(c, "raiseShieldButton", "Button");
         warnings += WarnRef(c, "standButton", "Button");
+        warnings += WarnRef(c, "delayButton", "Button");
+        warnings += WarnRef(c, "returnNowButton", "Button");
+        warnings += WarnRef(c, "skipDelayWindowButton", "Button");
 
         warnings += WarnRef(c, "strikeHighlight", "Image");
         warnings += WarnRef(c, "tripHighlight", "Image");
@@ -712,6 +716,7 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         // TurnInputController (delegates to TargetingController)
         fixedCount += FixAll<TurnInputController>("turnManager", turnManager);
         fixedCount += FixAll<TurnInputController>("gridManager", gridManager);
+        fixedCount += FixAll<TurnInputController>("entityManager", entityManager);
         if (actionExecutor != null)
             fixedCount += FixAll<TurnInputController>("actionExecutor", actionExecutor);
         if (targetingController != null)
@@ -1011,6 +1016,9 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "EscapeButton", "escapeButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "RaiseShieldButton", "raiseShieldButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "StandButton", "standButton");
+        fixedCount += TryAssignActionBarChild<Button>(bar, root, "DelayButton", "delayButton");
+        fixedCount += TryAssignActionBarChild<Button>(bar, root, "ReturnNowButton", "returnNowButton");
+        fixedCount += TryAssignActionBarChild<Button>(bar, root, "SkipDelayWindowButton", "skipDelayWindowButton");
 
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "StrikeButton/ActiveHighlight", "strikeHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "TripButton/ActiveHighlight", "tripHighlight");

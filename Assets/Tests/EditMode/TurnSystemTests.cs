@@ -18,6 +18,7 @@ namespace PF2e.Tests
             Assert.AreEqual(3, (int)TurnState.ExecutingAction);
             Assert.AreEqual(4, (int)TurnState.EnemyTurn);
             Assert.AreEqual(5, (int)TurnState.CombatOver);
+            Assert.AreEqual(6, (int)TurnState.DelayReturnWindow);
         }
 
         // ─── InitiativeEntry.SortValue ───────────────────────────────────────

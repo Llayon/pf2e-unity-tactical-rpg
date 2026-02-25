@@ -22,11 +22,14 @@ namespace PF2e.Tests
             using var ctx = new ActionBarTestContext();
             var actor = ctx.RegisterEntity("Fighter", Team.Player);
             ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
+            ctx.AddActorToInitiativeOrder(ctx.RegisterEntity("Goblin", Team.Enemy));
+            ctx.SetDelayTurnBeginTriggerOpen(true);
 
             ctx.RefreshAvailability();
 
             Assert.IsTrue(ctx.StrikeButton.interactable);
             Assert.IsTrue(ctx.DemoralizeButton.interactable);
+            Assert.IsTrue(ctx.DelayButton.interactable);
             Assert.IsFalse(ctx.TripButton.interactable);
             Assert.IsFalse(ctx.ShoveButton.interactable);
             Assert.IsFalse(ctx.GrappleButton.interactable);
@@ -50,10 +53,57 @@ namespace PF2e.Tests
             using var ctx = new ActionBarTestContext();
             var actor = ctx.RegisterEntity("Fighter", Team.Player);
             ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 0);
+            ctx.SetDelayTurnBeginTriggerOpen(true);
 
             ctx.RefreshAvailability();
 
             ctx.AssertAllButtonsDisabled();
+        }
+
+        [Test]
+        public void RefreshAvailability_DelayReturnWindow_EnablesReturnNowAndSkip_DisablesNormalActions()
+        {
+            using var ctx = new ActionBarTestContext();
+            var player = ctx.RegisterEntity("Fighter", Team.Player);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActorWithOrder(player, TurnState.PlayerTurn, actionsRemaining: 3, enemy);
+            ctx.SetDelayTurnBeginTriggerOpen(true);
+            ctx.EventBus.PublishCombatStarted();
+
+            Assert.IsTrue(ctx.TurnManager.TryDelayCurrentTurn(), "Setup should enter enemy turn with delayed player.");
+            ctx.TurnManager.EndTurn(); // opens DelayReturnWindow
+            ctx.PumpActionBarUpdate();
+
+            Assert.AreEqual(TurnState.DelayReturnWindow, ctx.TurnManager.State);
+            Assert.IsFalse(ctx.StrikeButton.interactable);
+            Assert.IsFalse(ctx.DelayButton.interactable);
+            Assert.IsTrue(ctx.ReturnNowButton.gameObject.activeSelf);
+            Assert.IsTrue(ctx.SkipDelayWindowButton.gameObject.activeSelf);
+            Assert.IsTrue(ctx.ReturnNowButton.interactable);
+            Assert.IsTrue(ctx.SkipDelayWindowButton.interactable);
+        }
+
+        [Test]
+        public void DelayButton_Click_DelaysCurrentTurn()
+        {
+            using var ctx = new ActionBarTestContext();
+            var player = ctx.RegisterEntity("Fighter", Team.Player);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActorWithOrder(player, TurnState.PlayerTurn, actionsRemaining: 3, enemy);
+            ctx.SetDelayTurnBeginTriggerOpen(true);
+            ctx.EventBus.PublishCombatStarted();
+            ctx.RefreshAvailability();
+
+            Assert.IsTrue(ctx.DelayButton.interactable);
+
+            ctx.DelayButton.onClick.Invoke();
+            ctx.PumpActionBarUpdate();
+
+            Assert.AreEqual(TurnState.EnemyTurn, ctx.TurnManager.State);
+            Assert.AreEqual(enemy, ctx.TurnManager.CurrentEntity);
+            Assert.AreEqual(1, ctx.TurnManager.DelayedActorCount);
+            Assert.IsTrue(ctx.TurnManager.IsDelayed(player));
+            Assert.IsFalse(ctx.DelayButton.interactable);
         }
 
         [Test]
@@ -284,6 +334,9 @@ namespace PF2e.Tests
             public Button EscapeButton { get; }
             public Button RaiseShieldButton { get; }
             public Button StandButton { get; }
+            public Button DelayButton { get; }
+            public Button ReturnNowButton { get; }
+            public Button SkipDelayWindowButton { get; }
 
             public Image StrikeHighlight { get; }
             public Image TripHighlight { get; }
@@ -350,6 +403,9 @@ namespace PF2e.Tests
                 EscapeButton = CreateButton("EscapeButton", ActionBarGameObject.transform, out var escapeHl);
                 RaiseShieldButton = CreateButton("RaiseShieldButton", ActionBarGameObject.transform, out var raiseShieldHl);
                 StandButton = CreateButton("StandButton", ActionBarGameObject.transform, out var standHl);
+                DelayButton = CreateButton("DelayButton", ActionBarGameObject.transform, out _);
+                ReturnNowButton = CreateButton("ReturnNowButton", ActionBarGameObject.transform, out _);
+                SkipDelayWindowButton = CreateButton("SkipDelayWindowButton", ActionBarGameObject.transform, out _);
 
                 StrikeHighlight = strikeHl;
                 TripHighlight = tripHl;
@@ -374,6 +430,9 @@ namespace PF2e.Tests
                 SetPrivateField(ActionBar, "escapeButton", EscapeButton);
                 SetPrivateField(ActionBar, "raiseShieldButton", RaiseShieldButton);
                 SetPrivateField(ActionBar, "standButton", StandButton);
+                SetPrivateField(ActionBar, "delayButton", DelayButton);
+                SetPrivateField(ActionBar, "returnNowButton", ReturnNowButton);
+                SetPrivateField(ActionBar, "skipDelayWindowButton", SkipDelayWindowButton);
                 SetPrivateField(ActionBar, "strikeHighlight", StrikeHighlight);
                 SetPrivateField(ActionBar, "tripHighlight", TripHighlight);
                 SetPrivateField(ActionBar, "shoveHighlight", ShoveHighlight);
@@ -438,6 +497,71 @@ namespace PF2e.Tests
                 SetPrivateField(TurnManager, "state", state);
             }
 
+            public void SetCurrentActorWithOrder(EntityHandle actor, TurnState state, int actionsRemaining, params EntityHandle[] additionalActors)
+            {
+                SetCurrentActor(actor, state, actionsRemaining);
+
+                var actorData = Registry.Get(actor);
+                Assert.IsNotNull(actorData);
+
+                var order = new List<InitiativeEntry>
+                {
+                    new InitiativeEntry
+                    {
+                        Handle = actor,
+                        Roll = 10,
+                        Modifier = 0,
+                        IsPlayer = actorData.Team == Team.Player
+                    }
+                };
+
+                if (additionalActors != null)
+                {
+                    for (int i = 0; i < additionalActors.Length; i++)
+                    {
+                        var extra = additionalActors[i];
+                        var extraData = Registry.Get(extra);
+                        Assert.IsNotNull(extraData);
+                        order.Add(new InitiativeEntry
+                        {
+                            Handle = extra,
+                            Roll = 9 - i,
+                            Modifier = 0,
+                            IsPlayer = extraData.Team == Team.Player
+                        });
+                    }
+                }
+
+                SetPrivateField(TurnManager, "initiativeOrder", order);
+                SetPrivateField(TurnManager, "currentIndex", 0);
+                SetPrivateField(TurnManager, "state", state);
+            }
+
+            public void AddActorToInitiativeOrder(EntityHandle actor)
+            {
+                var data = Registry.Get(actor);
+                Assert.IsNotNull(data);
+
+                var order = GetPrivateField<List<InitiativeEntry>>(TurnManager, "initiativeOrder");
+                order.Add(new InitiativeEntry
+                {
+                    Handle = actor,
+                    Roll = 5,
+                    Modifier = 0,
+                    IsPlayer = data.Team == Team.Player
+                });
+            }
+
+            public void SetDelayTurnBeginTriggerOpen(bool open)
+            {
+                SetPrivateField(TurnManager, "delayTurnBeginTriggerOpen", open);
+            }
+
+            public void PumpActionBarUpdate()
+            {
+                InvokePrivate(ActionBar, "Update");
+            }
+
             public void SetWeaponTraits(EntityHandle actor, WeaponTraitFlags traits)
             {
                 var data = Registry.Get(actor);
@@ -490,6 +614,9 @@ namespace PF2e.Tests
                 Assert.IsFalse(EscapeButton.interactable);
                 Assert.IsFalse(RaiseShieldButton.interactable);
                 Assert.IsFalse(StandButton.interactable);
+                Assert.IsFalse(DelayButton.interactable);
+                Assert.IsFalse(ReturnNowButton.interactable);
+                Assert.IsFalse(SkipDelayWindowButton.interactable);
             }
 
             public void AssertNoHighlights()
@@ -549,6 +676,13 @@ namespace PF2e.Tests
             var field = target.GetType().GetField(fieldName, InstanceNonPublic);
             Assert.IsNotNull(field, $"Missing auto-property backing field '{fieldName}' on {target.GetType().Name}");
             field.SetValue(target, value);
+        }
+
+        private static T GetPrivateField<T>(object target, string fieldName)
+        {
+            var field = target.GetType().GetField(fieldName, InstanceNonPublic);
+            Assert.IsNotNull(field, $"Missing field '{fieldName}' on {target.GetType().Name}");
+            return (T)field.GetValue(target);
         }
     }
 }

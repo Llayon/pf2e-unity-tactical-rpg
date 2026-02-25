@@ -278,6 +278,8 @@ namespace PF2e.TurnSystem
             var reactorData = entityManager.Registry.Get(option.entity);
             if (reactorData == null || !reactorData.IsAlive)
                 return 0;
+            if (!turnManager.CanUseReaction(option.entity))
+                return 0;
 
             bool? decided = null;
             reactionPolicy.DecideReaction(

@@ -31,6 +31,9 @@ namespace PF2e.Presentation
         [SerializeField] private Button escapeButton;
         [SerializeField] private Button raiseShieldButton;
         [SerializeField] private Button standButton;
+        [SerializeField] private Button delayButton;
+        [SerializeField] private Button returnNowButton;
+        [SerializeField] private Button skipDelayWindowButton;
 
         [Header("Highlights (optional overlays)")]
         [SerializeField] private Image strikeHighlight;
@@ -44,6 +47,10 @@ namespace PF2e.Presentation
         [SerializeField] private Image standHighlight;
 
         private bool buttonListenersBound;
+        private bool cachedDelayUiStateValid;
+        private bool cachedDelayReturnWindowOpen;
+        private bool cachedDelayTurnBeginTriggerOpen;
+        private int cachedDelayedActorCount = -1;
 
 #if UNITY_EDITOR
         private void OnValidate()
@@ -65,6 +72,7 @@ namespace PF2e.Presentation
             if (escapeButton == null) Debug.LogWarning("[ActionBar] escapeButton not assigned", this);
             if (raiseShieldButton == null) Debug.LogWarning("[ActionBar] raiseShieldButton not assigned", this);
             if (standButton == null) Debug.LogWarning("[ActionBar] standButton not assigned", this);
+            // delay/return/skip buttons are optional in older scenes; no warning spam.
         }
 #endif
 
@@ -74,6 +82,9 @@ namespace PF2e.Presentation
 
             SetCombatVisible(false);
             SetAllInteractable(false);
+            SetDelayWindowControlsVisible(false);
+            SetDelayControlInteractable(false);
+            SetDelayReturnControlsInteractable(false, false);
             ClearAllHighlights();
         }
 
@@ -98,6 +109,7 @@ namespace PF2e.Presentation
             targetingController.OnModeChanged += HandleModeChanged;
 
             HandleModeChanged(targetingController.ActiveMode);
+            CacheDelayUiSnapshot();
             RefreshAvailability();
         }
 
@@ -132,6 +144,9 @@ namespace PF2e.Presentation
             boundCount += BindButton(escapeButton, OnEscapeClicked);
             boundCount += BindButton(raiseShieldButton, OnRaiseShieldClicked);
             boundCount += BindButton(standButton, OnStandClicked);
+            boundCount += BindButton(delayButton, OnDelayClicked);
+            boundCount += BindButton(returnNowButton, OnReturnNowClicked);
+            boundCount += BindButton(skipDelayWindowButton, OnSkipDelayWindowClicked);
 
             if (boundCount > 0)
                 buttonListenersBound = true;
@@ -158,6 +173,9 @@ namespace PF2e.Presentation
 
             SetCombatVisible(false);
             SetAllInteractable(false);
+            SetDelayControlInteractable(false);
+            SetDelayWindowControlsVisible(false);
+            SetDelayReturnControlsInteractable(false, false);
             ClearAllHighlights();
         }
 
@@ -172,6 +190,7 @@ namespace PF2e.Presentation
                 targetingController.CancelTargeting();
 
             SetAllInteractable(false);
+            SetDelayControlInteractable(false);
             ClearAllHighlights();
         }
 
@@ -210,8 +229,25 @@ namespace PF2e.Presentation
             if (turnManager == null || entityManager == null || entityManager.Registry == null || actionExecutor == null)
             {
                 SetAllInteractable(false);
+                SetDelayControlInteractable(false);
+                SetDelayWindowControlsVisible(false);
+                SetDelayReturnControlsInteractable(false, false);
                 return;
             }
+
+            if (turnManager.IsDelayReturnWindowOpen)
+            {
+                SetAllInteractable(false);
+                SetDelayControlInteractable(false);
+                SetDelayWindowControlsVisible(true);
+
+                bool canReturnNow = turnManager.TryGetFirstDelayedPlayerActor(out _);
+                SetDelayReturnControlsInteractable(canReturnNow, true);
+                return;
+            }
+
+            SetDelayWindowControlsVisible(false);
+            SetDelayReturnControlsInteractable(false, false);
 
             bool canAct = turnManager.IsPlayerTurn
                        && !actionExecutor.IsBusy
@@ -220,6 +256,7 @@ namespace PF2e.Presentation
             if (!canAct)
             {
                 SetAllInteractable(false);
+                SetDelayControlInteractable(false);
                 return;
             }
 
@@ -228,6 +265,7 @@ namespace PF2e.Presentation
             if (data == null || !data.IsAlive)
             {
                 SetAllInteractable(false);
+                SetDelayControlInteractable(false);
                 return;
             }
 
@@ -242,6 +280,7 @@ namespace PF2e.Presentation
             SetInteractable(escapeButton, IsGrabbedOrRestrained(data));
             SetInteractable(raiseShieldButton, CanRaiseShield(data));
             SetInteractable(standButton, HasCondition(data, ConditionType.Prone));
+            SetDelayControlInteractable(turnManager.CanDelayCurrentTurn());
         }
 
         private static bool HasWeaponTrait(EntityData data, WeaponTraitFlags trait)
@@ -293,9 +332,33 @@ namespace PF2e.Presentation
             SetInteractable(standButton, enabled);
         }
 
+        private void SetDelayControlInteractable(bool enabled)
+        {
+            SetInteractable(delayButton, enabled);
+        }
+
+        private void SetDelayReturnControlsInteractable(bool canReturnNow, bool canSkip)
+        {
+            SetInteractable(returnNowButton, canReturnNow);
+            SetInteractable(skipDelayWindowButton, canSkip);
+        }
+
+        private void SetDelayWindowControlsVisible(bool visible)
+        {
+            SetButtonVisible(returnNowButton, visible);
+            SetButtonVisible(skipDelayWindowButton, visible);
+        }
+
         private static void SetInteractable(Button button, bool enabled)
         {
             if (button != null) button.interactable = enabled;
+        }
+
+        private static void SetButtonVisible(Button button, bool visible)
+        {
+            if (button == null) return;
+            if (button.gameObject.activeSelf != visible)
+                button.gameObject.SetActive(visible);
         }
 
         private void ClearAllHighlights()
@@ -316,6 +379,40 @@ namespace PF2e.Presentation
             if (image == null) return;
             if (image.gameObject.activeSelf != active)
                 image.gameObject.SetActive(active);
+        }
+
+        private void Update()
+        {
+            if (turnManager == null) return;
+
+            bool delayWindowOpen = turnManager.IsDelayReturnWindowOpen;
+            bool delayTriggerOpen = turnManager.IsDelayTurnBeginTriggerOpen;
+            int delayedCount = turnManager.DelayedActorCount;
+
+            if (cachedDelayUiStateValid
+                && cachedDelayReturnWindowOpen == delayWindowOpen
+                && cachedDelayTurnBeginTriggerOpen == delayTriggerOpen
+                && cachedDelayedActorCount == delayedCount)
+            {
+                return;
+            }
+
+            CacheDelayUiSnapshot();
+            RefreshAvailability();
+        }
+
+        private void CacheDelayUiSnapshot()
+        {
+            if (turnManager == null)
+            {
+                cachedDelayUiStateValid = false;
+                return;
+            }
+
+            cachedDelayReturnWindowOpen = turnManager.IsDelayReturnWindowOpen;
+            cachedDelayTurnBeginTriggerOpen = turnManager.IsDelayTurnBeginTriggerOpen;
+            cachedDelayedActorCount = turnManager.DelayedActorCount;
+            cachedDelayUiStateValid = true;
         }
 
         private void OnStrikeClicked()
@@ -363,6 +460,37 @@ namespace PF2e.Presentation
         {
             if (actionExecutor == null) return;
             actionExecutor.TryExecuteStand();
+        }
+
+        private void OnDelayClicked()
+        {
+            if (turnManager == null) return;
+
+            if (targetingController != null && targetingController.ActiveMode != TargetingMode.None)
+                targetingController.CancelTargeting();
+
+            if (turnManager.TryDelayCurrentTurn())
+                RefreshAvailability();
+        }
+
+        private void OnReturnNowClicked()
+        {
+            if (turnManager == null) return;
+            if (!turnManager.TryGetFirstDelayedPlayerActor(out var actor)) return;
+
+            if (turnManager.TryReturnDelayedActor(actor))
+                RefreshAvailability();
+        }
+
+        private void OnSkipDelayWindowClicked()
+        {
+            if (turnManager == null) return;
+
+            if (turnManager.IsDelayReturnWindowOpen)
+            {
+                turnManager.SkipDelayReturnWindow();
+                RefreshAvailability();
+            }
         }
 
         private void ToggleOrBeginTargeting(TargetingMode mode, System.Action<EntityHandle> onConfirm)

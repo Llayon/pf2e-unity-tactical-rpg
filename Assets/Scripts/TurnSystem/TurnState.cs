@@ -11,5 +11,6 @@ namespace PF2e.TurnSystem
         ExecutingAction  = 3, // Action in progress (blocks input)
         EnemyTurn        = 4, // AI processing
         CombatOver       = 5, // Encounter ended
+        DelayReturnWindow = 6, // Between-turn delay return trigger window
     }
 }

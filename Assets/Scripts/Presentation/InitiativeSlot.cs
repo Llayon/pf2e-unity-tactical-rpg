@@ -23,13 +23,15 @@ namespace PF2e.Presentation
 
         private Color baseColor;
         private bool defeated;
+        private bool delayed;
+        private string baseDisplayName = string.Empty;
 
         public void SetupStatic(EntityHandle handle, string displayName, Team team)
         {
             Handle = handle;
-
-            if (nameText != null)
-                nameText.SetText(displayName);
+            baseDisplayName = displayName ?? string.Empty;
+            delayed = false;
+            ApplyNameVisual();
 
             baseColor = team == Team.Player ? playerColor :
                         team == Team.Enemy  ? enemyColor  : neutralColor;
@@ -60,10 +62,52 @@ namespace PF2e.Presentation
             ApplyColors();
         }
 
+        public void SetDelayed(bool value)
+        {
+            if (delayed == value) return;
+            delayed = value;
+            ApplyNameVisual();
+            ApplyAlphaVisual();
+        }
+
         private void ApplyColors()
         {
             if (background != null)
                 background.color = defeated ? defeatedColor : baseColor;
+
+            ApplyAlphaVisual();
+        }
+
+        private void ApplyNameVisual()
+        {
+            if (nameText == null) return;
+            nameText.SetText(delayed ? $"{baseDisplayName} (Delayed)" : baseDisplayName);
+        }
+
+        private void ApplyAlphaVisual()
+        {
+            float alpha = delayed ? 0.55f : 1f;
+
+            if (background != null)
+            {
+                var c = background.color;
+                c.a = alpha;
+                background.color = c;
+            }
+
+            if (hpBarFill != null)
+            {
+                var c = hpBarFill.color;
+                c.a = alpha;
+                hpBarFill.color = c;
+            }
+
+            if (nameText != null)
+            {
+                var c = nameText.color;
+                c.a = alpha;
+                nameText.color = c;
+            }
         }
     }
 }
