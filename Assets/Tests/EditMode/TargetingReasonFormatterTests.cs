@@ -56,6 +56,31 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void Strike_SuccessWithCoverWarning_ReturnsWarningMessage()
+        {
+            var msg = TargetingReasonFormatter.ForPreview(
+                TargetingMode.Strike,
+                TargetingEvaluationResult.SuccessWithWarning(TargetingWarningReason.CoverAcBonus),
+                strikeIsRanged: true);
+
+            Assert.AreEqual(TargetingHintTone.Warning, msg.Tone);
+            Assert.AreEqual("Strike: valid target (cover: +2 AC)", msg.Text);
+        }
+
+        [Test]
+        public void Strike_SuccessWithCoverAndConcealmentWarnings_UsesCombinedRiskMessage()
+        {
+            var msg = TargetingReasonFormatter.ForPreview(
+                TargetingMode.Strike,
+                TargetingEvaluationResult.SuccessWithWarning(
+                    TargetingWarningReason.CoverAcBonus | TargetingWarningReason.ConcealmentFlatCheck),
+                strikeIsRanged: true);
+
+            Assert.AreEqual(TargetingHintTone.Warning, msg.Tone);
+            Assert.AreEqual("Strike: valid target (cover: +2 AC; concealed: DC 5 flat check)", msg.Text);
+        }
+
+        [Test]
         public void Trip_WrongTeam_ReturnsChooseEnemy()
         {
             var msg = TargetingReasonFormatter.ForPreview(

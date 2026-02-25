@@ -107,6 +107,38 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void HoverStrikeCovered_ShowsWarningTextAndColor()
+        {
+            using var ctx = new TargetingHintTestContext();
+            var actor = ctx.RegisterEntity("Archer", Team.Player);
+            var blocker = ctx.RegisterEntity("Crate", Team.Neutral);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(actor);
+
+            var bow = ctx.CreateWeaponDef(isRanged: true, rangeIncrementFeet: 60, maxRangeIncrements: 6);
+            ctx.Registry.Get(actor).EquippedWeapon = new WeaponInstance { def = bow };
+
+            ctx.WireEntityManagerGridForStrikePreview();
+            ctx.SetWalkableCells(
+                new Vector3Int(0, 0, 0),
+                new Vector3Int(1, 0, 0),
+                new Vector3Int(2, 0, 0));
+            ctx.PlaceEntity(actor, new Vector3Int(0, 0, 0));
+            ctx.PlaceEntity(blocker, new Vector3Int(1, 0, 0));
+            ctx.PlaceEntity(enemy, new Vector3Int(2, 0, 0));
+
+            // Use TargetingController fallback validation path in this lightweight UI harness.
+            SetPrivateField(ctx.TargetingController, "actionExecutor", null);
+
+            ctx.TargetingController.BeginTargeting(TargetingMode.Strike);
+            ctx.GridManager.SetHoveredEntity(enemy);
+
+            AssertVisible(ctx);
+            Assert.AreEqual("Strike: valid target (cover: +2 AC)", ctx.HintTextValue);
+            Assert.AreEqual(new Color(1f, 0.85f, 0.35f, 1f), ctx.HintTextColor);
+        }
+
+        [Test]
         public void HoverInvalid_ShowsInvalidTextAndColor()
         {
             using var ctx = new TargetingHintTestContext();
@@ -345,6 +377,35 @@ namespace PF2e.Tests
                 });
                 SetPrivateField(TurnManager, "currentIndex", 0);
                 SetPrivateField(TurnManager, "state", TurnState.PlayerTurn);
+            }
+
+            public void WireEntityManagerGridForStrikePreview()
+            {
+                SetPrivateField(EntityManager, "gridManager", GridManager);
+
+                if (EntityManager.Occupancy == null)
+                    SetAutoPropertyBackingField(EntityManager, "Occupancy", new OccupancyMap(Registry));
+            }
+
+            public void SetWalkableCells(params Vector3Int[] cells)
+            {
+                if (GridManager.Data == null)
+                    SetAutoPropertyBackingField(GridManager, "Data", new GridData(1f, 1f));
+
+                for (int i = 0; i < cells.Length; i++)
+                    GridManager.Data.SetCell(cells[i], CellData.CreateWalkable());
+            }
+
+            public void PlaceEntity(EntityHandle handle, Vector3Int cell)
+            {
+                var data = Registry.Get(handle);
+                Assert.IsNotNull(data);
+
+                data.GridPosition = cell;
+                Assert.IsNotNull(EntityManager.Occupancy, "EntityManager.Occupancy should exist in test context.");
+                Assert.IsTrue(
+                    EntityManager.Occupancy.Place(handle, cell, data.SizeCells),
+                    $"Failed to place {data.Name} at {cell}");
             }
 
             public void Dispose()

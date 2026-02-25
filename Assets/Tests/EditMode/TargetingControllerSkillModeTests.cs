@@ -4,6 +4,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 using PF2e.Core;
+using PF2e.Grid;
 using PF2e.Managers;
 using PF2e.TurnSystem;
 
@@ -209,6 +210,67 @@ namespace PF2e.Tests
             Assert.AreEqual(TargetingFailureReason.None, detailed.failureReason);
             Assert.IsFalse(detailed.HasWarning);
             Assert.AreEqual(TargetingWarningReason.None, detailed.warningReason);
+        }
+
+        [Test]
+        public void PreviewEntityDetailed_StrikeMode_RangedCoveredTarget_ReturnsSuccessWithCoverWarning()
+        {
+            using var ctx = new TargetingSkillModeContext();
+            var actor = ctx.RegisterEntity("Archer", Team.Player);
+            var blocker = ctx.RegisterEntity("Crate", Team.Neutral);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(actor);
+
+            var bow = ctx.CreateWeaponDef(isRanged: true, rangeIncrementFeet: 60, maxRangeIncrements: 6);
+            ctx.Registry.Get(actor).EquippedWeapon = new WeaponInstance { def = bow };
+            ctx.ConfigureStrikeLinePreviewGrid(
+                new Vector3Int(0, 0, 0),
+                new Vector3Int(1, 0, 0),
+                new Vector3Int(2, 0, 0));
+            ctx.PlaceEntity(actor, new Vector3Int(0, 0, 0));
+            ctx.PlaceEntity(blocker, new Vector3Int(1, 0, 0));
+            ctx.PlaceEntity(enemy, new Vector3Int(2, 0, 0));
+
+            ctx.Controller.BeginTargeting(TargetingMode.Strike);
+
+            var detailed = ctx.Controller.PreviewEntityDetailed(enemy);
+
+            Assert.AreEqual(TargetingResult.Success, detailed.result);
+            Assert.AreEqual(TargetingFailureReason.None, detailed.failureReason);
+            Assert.IsTrue(detailed.HasWarning);
+            Assert.AreEqual(TargetingWarningReason.CoverAcBonus, detailed.warningReason);
+        }
+
+        [Test]
+        public void PreviewEntityDetailed_StrikeMode_RangedCoveredAndConcealedTarget_ReturnsCombinedWarnings()
+        {
+            using var ctx = new TargetingSkillModeContext();
+            var actor = ctx.RegisterEntity("Archer", Team.Player);
+            var blocker = ctx.RegisterEntity("Crate", Team.Neutral);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(actor);
+
+            var bow = ctx.CreateWeaponDef(isRanged: true, rangeIncrementFeet: 60, maxRangeIncrements: 6);
+            ctx.Registry.Get(actor).EquippedWeapon = new WeaponInstance { def = bow };
+            ctx.Registry.Get(enemy).Conditions.Add(new ActiveCondition(ConditionType.Concealed));
+            ctx.ConfigureStrikeLinePreviewGrid(
+                new Vector3Int(0, 0, 0),
+                new Vector3Int(1, 0, 0),
+                new Vector3Int(2, 0, 0));
+            ctx.PlaceEntity(actor, new Vector3Int(0, 0, 0));
+            ctx.PlaceEntity(blocker, new Vector3Int(1, 0, 0));
+            ctx.PlaceEntity(enemy, new Vector3Int(2, 0, 0));
+
+            ctx.Controller.BeginTargeting(TargetingMode.Strike);
+
+            var detailed = ctx.Controller.PreviewEntityDetailed(enemy);
+
+            Assert.AreEqual(TargetingResult.Success, detailed.result);
+            Assert.AreEqual(TargetingFailureReason.None, detailed.failureReason);
+            Assert.IsTrue(detailed.HasWarning);
+            Assert.AreEqual(
+                TargetingWarningReason.CoverAcBonus | TargetingWarningReason.ConcealmentFlatCheck,
+                detailed.warningReason);
         }
 
         [Test]
@@ -580,6 +642,35 @@ namespace PF2e.Tests
                 SetPrivateField(TurnManager, "initiativeOrder", order);
                 SetPrivateField(TurnManager, "currentIndex", 0);
                 SetPrivateField(TurnManager, "state", TurnState.PlayerTurn);
+            }
+
+            public void ConfigureStrikeLinePreviewGrid(params Vector3Int[] walkableCells)
+            {
+                var gridGo = new GameObject("TargetingSkillModeTests_GridManager");
+                gridGo.transform.SetParent(root.transform);
+
+                var gridManager = gridGo.AddComponent<GridManager>();
+                var gridData = new GridData(1f, 1f);
+                for (int i = 0; i < walkableCells.Length; i++)
+                    gridData.SetCell(walkableCells[i], CellData.CreateWalkable());
+
+                SetAutoPropertyBackingField(gridManager, "Data", gridData);
+                SetPrivateField(EntityManager, "gridManager", gridManager);
+            }
+
+            public void PlaceEntity(EntityHandle handle, Vector3Int cell)
+            {
+                var data = Registry.Get(handle);
+                Assert.IsNotNull(data);
+
+                if (EntityManager.Occupancy == null)
+                    SetAutoPropertyBackingField(EntityManager, "Occupancy", new OccupancyMap(Registry));
+
+                data.GridPosition = cell;
+                Assert.IsNotNull(EntityManager.Occupancy, "EntityManager.Occupancy should exist in test context.");
+                Assert.IsTrue(
+                    EntityManager.Occupancy.Place(handle, cell, data.SizeCells),
+                    $"Failed to place {data.Name} at {cell}");
             }
 
             public void Dispose()

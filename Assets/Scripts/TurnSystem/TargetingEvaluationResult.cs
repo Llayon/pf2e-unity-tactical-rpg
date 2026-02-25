@@ -49,7 +49,14 @@ namespace PF2e.TurnSystem
 
         public TargetingEvaluationResult WithWarning(TargetingWarningReason warningReason)
         {
-            return new TargetingEvaluationResult(result, failureReason, warningReason);
+            if (warningReason == TargetingWarningReason.None)
+                return this;
+
+            var combinedWarnings = this.warningReason | warningReason;
+            if (combinedWarnings == this.warningReason)
+                return this;
+
+            return new TargetingEvaluationResult(result, failureReason, combinedWarnings);
         }
 
         private static TargetingResult MapResult(TargetingFailureReason reason)

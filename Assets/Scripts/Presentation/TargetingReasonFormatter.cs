@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using PF2e.TurnSystem;
 
 namespace PF2e.Presentation
@@ -64,14 +65,41 @@ namespace PF2e.Presentation
 
         private static string GetWarningMessage(TargetingMode mode, TargetingWarningReason warning)
         {
+            if (mode == TargetingMode.Strike && TryBuildStrikeWarningMessage(warning, out string strikeWarningMessage))
+                return strikeWarningMessage;
+
             return warning switch
             {
                 TargetingWarningReason.ConcealmentFlatCheck when mode == TargetingMode.Strike
                     => "Strike: valid target (concealed: DC 5 flat check)",
                 TargetingWarningReason.ConcealmentFlatCheck
                     => "Valid target (concealed: DC 5 flat check)",
+                TargetingWarningReason.CoverAcBonus when mode == TargetingMode.Strike
+                    => "Strike: valid target (cover: +2 AC)",
+                TargetingWarningReason.CoverAcBonus
+                    => "Valid target (cover: +2 AC)",
                 _ => GetValidMessage(mode)
             };
+        }
+
+        private static bool TryBuildStrikeWarningMessage(TargetingWarningReason warning, out string message)
+        {
+            var parts = new List<string>(2);
+
+            if ((warning & TargetingWarningReason.CoverAcBonus) != 0)
+                parts.Add("cover: +2 AC");
+
+            if ((warning & TargetingWarningReason.ConcealmentFlatCheck) != 0)
+                parts.Add("concealed: DC 5 flat check");
+
+            if (parts.Count == 0)
+            {
+                message = null;
+                return false;
+            }
+
+            message = $"Strike: valid target ({string.Join("; ", parts)})";
+            return true;
         }
 
         private static string GetInvalidMessage(TargetingMode mode, TargetingFailureReason reason, bool strikeIsRanged)

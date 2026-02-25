@@ -293,9 +293,6 @@ namespace PF2e.TurnSystem
             if (ActiveMode != TargetingMode.Strike)
                 return evaluation;
 
-            if (evaluation.HasWarning)
-                return evaluation;
-
             if (turnManager == null || entityManager == null || entityManager.Registry == null)
                 return evaluation;
 
@@ -308,10 +305,29 @@ namespace PF2e.TurnSystem
             if (!actorData.EquippedWeapon.IsRanged)
                 return evaluation;
 
-            if (!targetData.HasCondition(ConditionType.Concealed))
-                return evaluation;
+            TargetingWarningReason warnings = TargetingWarningReason.None;
 
-            return evaluation.WithWarning(TargetingWarningReason.ConcealmentFlatCheck);
+            if (actorData.GridPosition.y == targetData.GridPosition.y && entityManager.GridData != null)
+            {
+                var line = StrikeLineResolver.ResolveSameElevation(
+                    entityManager.GridData,
+                    entityManager.Occupancy,
+                    actorData.GridPosition,
+                    targetData.GridPosition,
+                    actor,
+                    target);
+
+                if (line.hasLineOfSight && line.coverAcBonus > 0)
+                    warnings |= TargetingWarningReason.CoverAcBonus;
+            }
+
+            if (!targetData.HasCondition(ConditionType.Concealed))
+                return warnings == TargetingWarningReason.None
+                    ? evaluation
+                    : evaluation.WithWarning(warnings);
+
+            warnings |= TargetingWarningReason.ConcealmentFlatCheck;
+            return evaluation.WithWarning(warnings);
         }
 
         /// <summary>
