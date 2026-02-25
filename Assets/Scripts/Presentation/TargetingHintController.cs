@@ -29,6 +29,7 @@ namespace PF2e.Presentation
         [SerializeField] private Color infoColor = new Color(0.9f, 0.9f, 0.95f, 1f);
         [SerializeField] private Color validColor = new Color(0.45f, 1f, 0.55f, 1f);
         [SerializeField] private Color invalidColor = new Color(1f, 0.55f, 0.5f, 1f);
+        [SerializeField] private Color warningColor = new Color(1f, 0.85f, 0.35f, 1f);
         [SerializeField] private bool hideWhenModeNone = true;
 
         private EntityHandle? hoveredEntity;
@@ -216,6 +217,7 @@ namespace PF2e.Presentation
             {
                 TargetingHintTone.Valid => validColor,
                 TargetingHintTone.Invalid => invalidColor,
+                TargetingHintTone.Warning => warningColor,
                 _ => infoColor
             };
 

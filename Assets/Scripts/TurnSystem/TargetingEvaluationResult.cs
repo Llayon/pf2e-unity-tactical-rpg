@@ -8,23 +8,48 @@ namespace PF2e.TurnSystem
     {
         public readonly TargetingResult result;
         public readonly TargetingFailureReason failureReason;
+        public readonly TargetingWarningReason warningReason;
 
         public bool IsSuccess => result == TargetingResult.Success;
+        public bool HasWarning => warningReason != TargetingWarningReason.None;
 
-        public TargetingEvaluationResult(TargetingResult result, TargetingFailureReason failureReason)
+        public TargetingEvaluationResult(
+            TargetingResult result,
+            TargetingFailureReason failureReason,
+            TargetingWarningReason warningReason = TargetingWarningReason.None)
         {
             this.result = result;
             this.failureReason = failureReason;
+            this.warningReason = warningReason;
         }
 
         public static TargetingEvaluationResult Success()
         {
-            return new TargetingEvaluationResult(TargetingResult.Success, TargetingFailureReason.None);
+            return new TargetingEvaluationResult(
+                TargetingResult.Success,
+                TargetingFailureReason.None,
+                TargetingWarningReason.None);
+        }
+
+        public static TargetingEvaluationResult SuccessWithWarning(TargetingWarningReason warningReason)
+        {
+            return new TargetingEvaluationResult(
+                TargetingResult.Success,
+                TargetingFailureReason.None,
+                warningReason);
         }
 
         public static TargetingEvaluationResult FromFailure(TargetingFailureReason reason)
         {
-            return new TargetingEvaluationResult(MapResult(reason), reason);
+            return new TargetingEvaluationResult(
+                MapResult(reason),
+                reason,
+                TargetingWarningReason.None);
+        }
+
+        public TargetingEvaluationResult WithWarning(TargetingWarningReason warningReason)
+        {
+            return new TargetingEvaluationResult(result, failureReason, warningReason);
         }
 
         private static TargetingResult MapResult(TargetingFailureReason reason)

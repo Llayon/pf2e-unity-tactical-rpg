@@ -261,7 +261,7 @@ namespace PF2e.TurnSystem
                             ClearTargeting();
                         }
                     }
-                    return evaluation;
+                    return AttachPreviewWarnings(evaluation, handle);
 
                 // future: RangedStrike, SpellSingle, HealSingle
                 default:
@@ -283,6 +283,35 @@ namespace PF2e.TurnSystem
             return result == TargetingResult.Success
                 ? TargetingEvaluationResult.Success()
                 : TargetingEvaluationResult.FromFailure(MapBasicResultToFailure(result));
+        }
+
+        private TargetingEvaluationResult AttachPreviewWarnings(TargetingEvaluationResult evaluation, EntityHandle target)
+        {
+            if (!evaluation.IsSuccess)
+                return evaluation;
+
+            if (ActiveMode != TargetingMode.Strike)
+                return evaluation;
+
+            if (evaluation.HasWarning)
+                return evaluation;
+
+            if (turnManager == null || entityManager == null || entityManager.Registry == null)
+                return evaluation;
+
+            var actor = turnManager.CurrentEntity;
+            var actorData = actor.IsValid ? entityManager.Registry.Get(actor) : null;
+            var targetData = target.IsValid ? entityManager.Registry.Get(target) : null;
+            if (actorData == null || targetData == null)
+                return evaluation;
+
+            if (!actorData.EquippedWeapon.IsRanged)
+                return evaluation;
+
+            if (!targetData.HasCondition(ConditionType.Concealed))
+                return evaluation;
+
+            return evaluation.WithWarning(TargetingWarningReason.ConcealmentFlatCheck);
         }
 
         /// <summary>

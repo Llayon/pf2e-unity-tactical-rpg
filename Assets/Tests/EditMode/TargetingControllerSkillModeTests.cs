@@ -167,6 +167,51 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void PreviewEntityDetailed_StrikeMode_RangedConcealedTarget_ReturnsSuccessWithConcealmentWarning()
+        {
+            using var ctx = new TargetingSkillModeContext();
+            var actor = ctx.RegisterEntity("Archer", Team.Player);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(actor);
+
+            var bow = ctx.CreateWeaponDef(isRanged: true, rangeIncrementFeet: 60, maxRangeIncrements: 6);
+            ctx.Registry.Get(actor).EquippedWeapon = new WeaponInstance { def = bow };
+            ctx.Registry.Get(enemy).Conditions.Add(new ActiveCondition(ConditionType.Concealed));
+
+            ctx.Controller.BeginTargeting(TargetingMode.Strike);
+
+            var detailed = ctx.Controller.PreviewEntityDetailed(enemy);
+
+            Assert.AreEqual(TargetingResult.Success, detailed.result);
+            Assert.AreEqual(TargetingFailureReason.None, detailed.failureReason);
+            Assert.IsTrue(detailed.HasWarning);
+            Assert.AreEqual(TargetingWarningReason.ConcealmentFlatCheck, detailed.warningReason);
+            Assert.AreEqual(TargetingMode.Strike, ctx.Controller.ActiveMode);
+        }
+
+        [Test]
+        public void PreviewEntityDetailed_StrikeMode_MeleeConcealedTarget_ReturnsSuccessWithoutWarning()
+        {
+            using var ctx = new TargetingSkillModeContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(actor);
+
+            var sword = ctx.CreateWeaponDef(isRanged: false, reachFeet: 5);
+            ctx.Registry.Get(actor).EquippedWeapon = new WeaponInstance { def = sword };
+            ctx.Registry.Get(enemy).Conditions.Add(new ActiveCondition(ConditionType.Concealed));
+
+            ctx.Controller.BeginTargeting(TargetingMode.Strike);
+
+            var detailed = ctx.Controller.PreviewEntityDetailed(enemy);
+
+            Assert.AreEqual(TargetingResult.Success, detailed.result);
+            Assert.AreEqual(TargetingFailureReason.None, detailed.failureReason);
+            Assert.IsFalse(detailed.HasWarning);
+            Assert.AreEqual(TargetingWarningReason.None, detailed.warningReason);
+        }
+
+        [Test]
         public void PreviewEntityDetailed_ModeNone_ReturnsModeNotSupported()
         {
             using var ctx = new TargetingSkillModeContext();
@@ -442,6 +487,7 @@ namespace PF2e.Tests
         private sealed class TargetingSkillModeContext : System.IDisposable
         {
             private readonly bool oldIgnoreLogs;
+            private readonly List<ScriptableObject> createdAssets = new();
             private readonly GameObject root;
             private readonly GameObject eventBusGo;
             private readonly GameObject entityManagerGo;
@@ -502,6 +548,22 @@ namespace PF2e.Tests
                 });
             }
 
+            public WeaponDefinition CreateWeaponDef(
+                bool isRanged,
+                int reachFeet = 5,
+                int rangeIncrementFeet = 0,
+                int maxRangeIncrements = 0)
+            {
+                var def = ScriptableObject.CreateInstance<WeaponDefinition>();
+                def.itemName = "Test Weapon";
+                def.isRanged = isRanged;
+                def.reachFeet = reachFeet;
+                def.rangeIncrementFeet = rangeIncrementFeet;
+                def.maxRangeIncrements = maxRangeIncrements;
+                createdAssets.Add(def);
+                return def;
+            }
+
             public void SetCurrentActor(EntityHandle actor)
             {
                 var order = new List<InitiativeEntry>
@@ -523,6 +585,11 @@ namespace PF2e.Tests
             public void Dispose()
             {
                 if (root != null) Object.DestroyImmediate(root);
+                for (int i = 0; i < createdAssets.Count; i++)
+                {
+                    if (createdAssets[i] != null)
+                        Object.DestroyImmediate(createdAssets[i]);
+                }
                 LogAssert.ignoreFailingMessages = oldIgnoreLogs;
             }
         }

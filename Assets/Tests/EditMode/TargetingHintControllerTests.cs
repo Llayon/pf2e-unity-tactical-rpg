@@ -84,6 +84,29 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void HoverStrikeConcealed_ShowsWarningTextAndColor()
+        {
+            using var ctx = new TargetingHintTestContext();
+            var actor = ctx.RegisterEntity("Archer", Team.Player);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(actor);
+
+            var bow = ctx.CreateWeaponDef(isRanged: true, rangeIncrementFeet: 60, maxRangeIncrements: 6);
+            ctx.Registry.Get(actor).EquippedWeapon = new WeaponInstance { def = bow };
+            ctx.Registry.Get(enemy).Conditions.Add(new ActiveCondition(ConditionType.Concealed));
+
+            // Use TargetingController fallback validation path in this lightweight UI harness.
+            SetPrivateField(ctx.TargetingController, "actionExecutor", null);
+
+            ctx.TargetingController.BeginTargeting(TargetingMode.Strike);
+            ctx.GridManager.SetHoveredEntity(enemy);
+
+            AssertVisible(ctx);
+            Assert.AreEqual("Strike: valid target (concealed: DC 5 flat check)", ctx.HintTextValue);
+            Assert.AreEqual(new Color(1f, 0.85f, 0.35f, 1f), ctx.HintTextColor);
+        }
+
+        [Test]
         public void HoverInvalid_ShowsInvalidTextAndColor()
         {
             using var ctx = new TargetingHintTestContext();
@@ -286,6 +309,22 @@ namespace PF2e.Tests
                     Size = CreatureSize.Medium,
                     GridPosition = Vector3Int.zero
                 });
+            }
+
+            public WeaponDefinition CreateWeaponDef(
+                bool isRanged,
+                int reachFeet = 5,
+                int rangeIncrementFeet = 0,
+                int maxRangeIncrements = 0)
+            {
+                var def = ScriptableObject.CreateInstance<WeaponDefinition>();
+                def.itemName = "Test Weapon";
+                def.isRanged = isRanged;
+                def.reachFeet = reachFeet;
+                def.rangeIncrementFeet = rangeIncrementFeet;
+                def.maxRangeIncrements = maxRangeIncrements;
+                createdAssets.Add(def);
+                return def;
             }
 
             public void SetCurrentActor(EntityHandle actor)

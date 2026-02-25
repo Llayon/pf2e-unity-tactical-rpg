@@ -21,6 +21,9 @@ namespace PF2e.Presentation
             if (mode == TargetingMode.None)
                 return TargetingHintMessage.Hidden();
 
+            if (evaluation.IsSuccess && evaluation.HasWarning)
+                return new TargetingHintMessage(TargetingHintTone.Warning, GetWarningMessage(mode, evaluation.warningReason));
+
             if (evaluation.IsSuccess)
                 return new TargetingHintMessage(TargetingHintTone.Valid, GetValidMessage(mode));
 
@@ -56,6 +59,18 @@ namespace PF2e.Presentation
                 TargetingMode.Escape => "Escape: valid target (best of Athletics/Acrobatics)",
                 TargetingMode.Strike => "Strike: valid target",
                 _ => "Valid target"
+            };
+        }
+
+        private static string GetWarningMessage(TargetingMode mode, TargetingWarningReason warning)
+        {
+            return warning switch
+            {
+                TargetingWarningReason.ConcealmentFlatCheck when mode == TargetingMode.Strike
+                    => "Strike: valid target (concealed: DC 5 flat check)",
+                TargetingWarningReason.ConcealmentFlatCheck
+                    => "Valid target (concealed: DC 5 flat check)",
+                _ => GetValidMessage(mode)
             };
         }
 

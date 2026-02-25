@@ -5,6 +5,7 @@ namespace PF2e.Presentation
         Hidden = 0,
         Info = 1,
         Valid = 2,
-        Invalid = 3
+        Invalid = 3,
+        Warning = 4
     }
 }
