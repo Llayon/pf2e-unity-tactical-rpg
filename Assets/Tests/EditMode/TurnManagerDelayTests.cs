@@ -367,6 +367,113 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void TurnManager_DelayWithPlannedAnchor_TwoPlayersTwoEnemies_DoesNotOpenReturnWindow_BeforeAnchorAndAutoResumesOnAnchor()
+        {
+            var context = CreateCombatContextWithTwoPlayersTwoEnemies("TM_Delay_Planned_2P2E");
+            try
+            {
+                var fighterHandle = context.player.Handle;
+                var wizardHandle = context.player2.Handle;
+                var firstEnemyHandle = context.turnManager.InitiativeOrder[2].Handle;
+                var anchorEnemyHandle = context.turnManager.InitiativeOrder[3].Handle;
+
+                Assert.AreEqual(fighterHandle, context.turnManager.CurrentEntity, "Setup expects Fighter to act first.");
+                context.turnManager.EndTurn(); // Fighter ends -> Wizard turn
+
+                Assert.AreEqual(TurnState.PlayerTurn, context.turnManager.State);
+                Assert.AreEqual(wizardHandle, context.turnManager.CurrentEntity, "Wizard should act second in setup.");
+
+                Assert.IsTrue(context.turnManager.TryBeginDelayPlacementSelection());
+                Assert.IsTrue(context.turnManager.TryDelayCurrentTurnAfterActor(anchorEnemyHandle));
+
+                Assert.AreEqual(TurnState.EnemyTurn, context.turnManager.State);
+                Assert.AreEqual(firstEnemyHandle, context.turnManager.CurrentEntity, "First enemy should act immediately after Wizard delays.");
+                Assert.IsTrue(context.turnManager.IsDelayed(wizardHandle));
+                Assert.IsTrue(context.turnManager.TryGetDelayedPlannedAnchor(wizardHandle, out var plannedAnchor));
+                Assert.AreEqual(anchorEnemyHandle, plannedAnchor);
+
+                context.turnManager.EndTurn(); // first enemy ends, anchor not yet reached
+
+                Assert.AreEqual(TurnState.EnemyTurn, context.turnManager.State, "Return window must not open before planned anchor turn ends.");
+                Assert.AreEqual(anchorEnemyHandle, context.turnManager.CurrentEntity);
+                Assert.IsFalse(context.turnManager.IsDelayReturnWindowOpen);
+
+                context.turnManager.EndTurn(); // anchor enemy ends -> auto resume Wizard
+
+                Assert.AreEqual(TurnState.PlayerTurn, context.turnManager.State, "Planned delay should auto-resume on anchor end.");
+                Assert.AreEqual(wizardHandle, context.turnManager.CurrentEntity);
+                Assert.IsFalse(context.turnManager.IsDelayReturnWindowOpen);
+                Assert.IsFalse(context.turnManager.IsDelayed(wizardHandle));
+            }
+            finally
+            {
+                DestroyContext(context);
+            }
+        }
+
+        [Test]
+        public void TurnManager_DelayWithSamePlannedAnchor_TwoPlayers_AutoResumesBothSequentially_WithoutReturnWindow()
+        {
+            var context = CreateCombatContextWithTwoPlayersTwoEnemies("TM_Delay_Planned_Chain");
+            try
+            {
+                var fighterHandle = context.player.Handle;
+                var wizardHandle = context.player2.Handle;
+                var firstPlayerHandle = context.turnManager.InitiativeOrder[0].Handle;
+                var secondPlayerHandle = context.turnManager.InitiativeOrder[1].Handle;
+                var anchorEnemyHandle = context.turnManager.InitiativeOrder[3].Handle;
+                var enemyAHandle = context.enemy.Handle;
+                var enemyBHandle = context.enemy2.Handle;
+
+                // Fighter delays after the later enemy.
+                Assert.AreEqual(firstPlayerHandle, context.turnManager.CurrentEntity);
+                Assert.IsTrue(context.turnManager.TryBeginDelayPlacementSelection());
+                Assert.IsTrue(context.turnManager.TryDelayCurrentTurnAfterActor(anchorEnemyHandle));
+
+                // Second player (now current) delays after the same later enemy.
+                Assert.AreEqual(TurnState.PlayerTurn, context.turnManager.State);
+                Assert.AreEqual(secondPlayerHandle, context.turnManager.CurrentEntity);
+                Assert.IsTrue(context.turnManager.TryBeginDelayPlacementSelection());
+                Assert.IsTrue(context.turnManager.TryDelayCurrentTurnAfterActor(anchorEnemyHandle));
+
+                // First enemy acts; no return window yet.
+                Assert.AreEqual(TurnState.EnemyTurn, context.turnManager.State);
+                var firstActingEnemy = context.turnManager.CurrentEntity;
+                Assert.IsTrue(firstActingEnemy == enemyAHandle || firstActingEnemy == enemyBHandle);
+                context.turnManager.EndTurn();
+
+                Assert.AreEqual(TurnState.EnemyTurn, context.turnManager.State);
+                Assert.IsFalse(context.turnManager.IsDelayReturnWindowOpen);
+                Assert.AreNotEqual(firstActingEnemy, context.turnManager.CurrentEntity, "Second enemy should act next after the first enemy ends.");
+                Assert.IsTrue(context.turnManager.CurrentEntity == enemyAHandle || context.turnManager.CurrentEntity == enemyBHandle);
+
+                // Anchor enemy ends -> first delayed player auto-resumes.
+                context.turnManager.EndTurn();
+
+                Assert.AreEqual(TurnState.PlayerTurn, context.turnManager.State);
+                Assert.IsFalse(context.turnManager.IsDelayReturnWindowOpen);
+                Assert.IsTrue(context.turnManager.CurrentEntity == fighterHandle || context.turnManager.CurrentEntity == wizardHandle);
+
+                var firstResumed = context.turnManager.CurrentEntity;
+                var secondResumed = firstResumed == fighterHandle ? wizardHandle : fighterHandle;
+                Assert.IsTrue(context.turnManager.IsDelayed(secondResumed), "Second planned delayed player should still be delayed pending chained auto-resume.");
+
+                // First resumed player ends -> second delayed player auto-resumes (no manual return window).
+                context.turnManager.EndTurn();
+
+                Assert.AreEqual(TurnState.PlayerTurn, context.turnManager.State);
+                Assert.AreEqual(secondResumed, context.turnManager.CurrentEntity);
+                Assert.IsFalse(context.turnManager.IsDelayReturnWindowOpen);
+                Assert.IsFalse(context.turnManager.IsDelayed(secondResumed));
+                Assert.AreEqual(0, context.turnManager.DelayedActorCount);
+            }
+            finally
+            {
+                DestroyContext(context);
+            }
+        }
+
+        [Test]
         public void TurnManager_CanDelayCurrentTurn_Fails_WhenOnlyOneInitiativeEntry()
         {
             var context = CreateCombatContext("TM_Delay_OneActor");
@@ -476,6 +583,55 @@ namespace PF2e.Tests
             };
         }
 
+        private static TestCombatContext CreateCombatContextWithTwoPlayersTwoEnemies(string namePrefix)
+        {
+            var turnManagerGo = new GameObject($"{namePrefix}_TurnManager");
+            var entityManagerGo = new GameObject($"{namePrefix}_EntityManager");
+
+            var turnManager = turnManagerGo.AddComponent<TurnManager>();
+            LogAssert.Expect(LogType.Error, "[EntityManager] Missing reference: GridManager. Assign it in Inspector.");
+            var entityManager = entityManagerGo.AddComponent<EntityManager>();
+            var registry = new EntityRegistry();
+
+            SetPrivateField(turnManager, "entityManager", entityManager);
+            SetAutoPropertyBackingField(entityManager, "Registry", registry);
+
+            // Keep player-player initiative order deterministic across random d20 rolls:
+            // SortValue = Roll*1000 + Mod*10, so we need >19000 delta in Mod*10 to dominate any roll swing.
+            var fighter = CreateEntity("Fighter", Team.Player, 10000);
+            registry.Register(fighter);
+            var wizard = CreateEntity("Wizard", Team.Player, 6000);
+            registry.Register(wizard);
+            var enemyA = CreateEntity("EnemyA", Team.Enemy, 20);
+            registry.Register(enemyA);
+            var enemyB = CreateEntity("EnemyB", Team.Enemy, 10);
+            registry.Register(enemyB);
+
+            turnManager.StartCombat();
+
+            Assert.AreEqual(TurnState.PlayerTurn, turnManager.State, "Player should act first in test setup.");
+            Assert.AreEqual(4, turnManager.InitiativeOrder.Count, "Expected 4 actors in initiative.");
+            Assert.AreEqual(fighter.Handle, turnManager.InitiativeOrder[0].Handle);
+            Assert.AreEqual(wizard.Handle, turnManager.InitiativeOrder[1].Handle);
+            Assert.IsTrue(
+                turnManager.InitiativeOrder[2].Handle == enemyA.Handle || turnManager.InitiativeOrder[2].Handle == enemyB.Handle,
+                "Third initiative slot should belong to one of the enemies.");
+            Assert.IsTrue(
+                turnManager.InitiativeOrder[3].Handle == enemyA.Handle || turnManager.InitiativeOrder[3].Handle == enemyB.Handle,
+                "Fourth initiative slot should belong to one of the enemies.");
+
+            return new TestCombatContext
+            {
+                turnManagerGo = turnManagerGo,
+                entityManagerGo = entityManagerGo,
+                turnManager = turnManager,
+                player = fighter,
+                player2 = wizard,
+                enemy = enemyA,
+                enemy2 = enemyB
+            };
+        }
+
         private static void DestroyContext(TestCombatContext context)
         {
             if (context.turnManagerGo != null)
@@ -530,6 +686,7 @@ namespace PF2e.Tests
             public GameObject entityManagerGo;
             public TurnManager turnManager;
             public EntityData player;
+            public EntityData player2;
             public EntityData enemy;
             public EntityData enemy2;
         }

@@ -129,6 +129,7 @@ namespace PF2e.TurnSystem
             public readonly EntityHandle actor;
             public readonly int delayedRoundNumber;
             public readonly bool delayImmediateEffectsApplied;
+            public readonly bool isPlannedAutoResume;
             public readonly EntityHandle originalAnchorActor;
             public readonly EntityHandle plannedReturnAfterActor;
             public readonly InitiativeEntry initiativeEntry;
@@ -137,6 +138,7 @@ namespace PF2e.TurnSystem
                 EntityHandle actor,
                 int delayedRoundNumber,
                 bool delayImmediateEffectsApplied,
+                bool isPlannedAutoResume,
                 EntityHandle originalAnchorActor,
                 EntityHandle plannedReturnAfterActor,
                 InitiativeEntry initiativeEntry)
@@ -144,6 +146,7 @@ namespace PF2e.TurnSystem
                 this.actor = actor;
                 this.delayedRoundNumber = delayedRoundNumber;
                 this.delayImmediateEffectsApplied = delayImmediateEffectsApplied;
+                this.isPlannedAutoResume = isPlannedAutoResume;
                 this.originalAnchorActor = originalAnchorActor;
                 this.plannedReturnAfterActor = plannedReturnAfterActor;
                 this.initiativeEntry = initiativeEntry;
@@ -257,8 +260,6 @@ namespace PF2e.TurnSystem
             if (entityManager == null || entityManager.Registry == null)
                 return false;
 
-            EntityHandle firstPlanned = EntityHandle.None;
-
             foreach (var kvp in delayedTurns)
             {
                 var handle = kvp.Key;
@@ -266,20 +267,13 @@ namespace PF2e.TurnSystem
                 var data = entityManager.Registry.Get(handle);
                 if (data == null || !data.IsAlive) continue;
                 if (data.Team != Team.Player) continue;
+                if (record.isPlannedAutoResume) continue;
 
-                // Prefer manual-delay actors for Return Now fallback UI.
-                if (!record.plannedReturnAfterActor.IsValid)
-                {
-                    actor = handle;
-                    return true;
-                }
-
-                if (!firstPlanned.IsValid)
-                    firstPlanned = handle;
+                actor = handle;
+                return true;
             }
 
-            actor = firstPlanned;
-            return actor.IsValid;
+            return false;
         }
 
         public bool TryGetDelayedPlannedAnchor(EntityHandle actor, out EntityHandle anchorActor)
@@ -714,6 +708,7 @@ namespace PF2e.TurnSystem
                 actor,
                 roundNumber,
                 delayImmediateEffectsApplied: true,
+                isPlannedAutoResume: plannedReturnAfterActor.IsValid,
                 originalAnchorActor: GetPreviousInitiativeActorForCurrentIndex(),
                 plannedReturnAfterActor: plannedReturnAfterActor,
                 initiativeEntry: currentEntry);
@@ -749,8 +744,17 @@ namespace PF2e.TurnSystem
             if (delayedTurns.Count <= 0)
                 return false;
 
+            bool hasPlannedPlayerDelayed = HasEligiblePlayerControlledPlannedDelayedActor();
+
             if (TryAutoResumePlannedDelayedActor(afterActor))
                 return true;
+
+            if (hasPlannedPlayerDelayed && !HasEligiblePlayerControlledManualDelayedActor())
+            {
+                // A planned delay exists but its anchor was not this actor. Keep advancing without fallback window.
+                // This prevents Return/Skip UI from appearing for Owlcat-style preselected delays.
+                return false;
+            }
 
             if (!HasEligiblePlayerControlledManualDelayedActor())
                 return false; // 29c.2 auto-skip when no eligible player delayed actors.
@@ -806,11 +810,13 @@ namespace PF2e.TurnSystem
             if (entityManager == null || entityManager.Registry == null)
                 return false;
 
-            EntityHandle chosen = EntityHandle.None;
+            List<EntityHandle> matchingPlannedPlayers = null;
 
             foreach (var kvp in delayedTurns)
             {
                 var record = kvp.Value;
+                if (!record.isPlannedAutoResume)
+                    continue;
                 if (record.plannedReturnAfterActor != afterActor)
                     continue;
 
@@ -820,10 +826,35 @@ namespace PF2e.TurnSystem
                 if (data.Team != Team.Player)
                     continue; // MVP scope
 
-                if (!chosen.IsValid || record.actor.Id < chosen.Id)
-                    chosen = record.actor;
+                matchingPlannedPlayers ??= new List<EntityHandle>(4);
+                matchingPlannedPlayers.Add(record.actor);
             }
 
+            if (matchingPlannedPlayers == null || matchingPlannedPlayers.Count == 0)
+                return false;
+
+            matchingPlannedPlayers.Sort(static (a, b) => a.Id.CompareTo(b.Id));
+
+            // If multiple delayed actors selected the same planned anchor, auto-chain them so they resume
+            // sequentially after one another without opening the manual Return/Skip window.
+            for (int i = 1; i < matchingPlannedPlayers.Count; i++)
+            {
+                var actor = matchingPlannedPlayers[i];
+                var nextAnchor = matchingPlannedPlayers[i - 1];
+                if (!delayedTurns.TryGetValue(actor, out var record))
+                    continue;
+
+                delayedTurns[actor] = new DelayedTurnRecord(
+                    actor: record.actor,
+                    delayedRoundNumber: record.delayedRoundNumber,
+                    delayImmediateEffectsApplied: record.delayImmediateEffectsApplied,
+                    isPlannedAutoResume: true,
+                    originalAnchorActor: record.originalAnchorActor,
+                    plannedReturnAfterActor: nextAnchor,
+                    initiativeEntry: record.initiativeEntry);
+            }
+
+            var chosen = matchingPlannedPlayers[0];
             if (!chosen.IsValid)
                 return false;
 
@@ -871,7 +902,26 @@ namespace PF2e.TurnSystem
                 var data = entityManager.Registry.Get(actor);
                 if (data == null || !data.IsAlive) continue;
                 if (data.Team != Team.Player) continue; // 29c.2 MVP scope
-                if (record.plannedReturnAfterActor.IsValid) continue; // planned delays should auto-resume without manual window
+                if (record.isPlannedAutoResume) continue; // planned delays should auto-resume without manual window
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool HasEligiblePlayerControlledPlannedDelayedActor()
+        {
+            if (entityManager == null || entityManager.Registry == null)
+                return false;
+
+            foreach (var kvp in delayedTurns)
+            {
+                var actor = kvp.Key;
+                var record = kvp.Value;
+                var data = entityManager.Registry.Get(actor);
+                if (data == null || !data.IsAlive) continue;
+                if (data.Team != Team.Player) continue;
+                if (!record.isPlannedAutoResume) continue;
                 return true;
             }
 
