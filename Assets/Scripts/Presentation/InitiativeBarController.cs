@@ -45,8 +45,8 @@ namespace PF2e.Presentation
         private readonly Dictionary<EntityHandle, InitiativeSlot> slotByHandle
             = new Dictionary<EntityHandle, InitiativeSlot>();
         private readonly HashSet<EntityHandle> appendedDelayedHandles = new HashSet<EntityHandle>();
-        private bool delayPlacementHoverActive;
         private bool markersOverlayDirty;
+        private DelayPlacementPromptPresenter delayPromptPresenter;
 
         private void OnEnable()
         {
@@ -92,7 +92,7 @@ namespace PF2e.Presentation
             SetPanelVisible(true);
             if (roundLabel != null)
                 roundLabel.SetText("Round {0}", turnManager.RoundNumber);
-            SetDelayPlacementPromptVisible(false);
+            HideDelayPlacementPrompt();
             BuildSlots(turnManager.InitiativeOrder);
             UpdateHighlight();
         }
@@ -100,7 +100,7 @@ namespace PF2e.Presentation
         private void HandleCombatEnded(in CombatEndedEvent e)
         {
             SetPanelVisible(false);
-            SetDelayPlacementPromptVisible(false);
+            HideDelayPlacementPrompt();
             ClearSlotsToPool();
         }
 
@@ -111,7 +111,7 @@ namespace PF2e.Presentation
             AutoSizePanelToContent();
             MarkMarkersOverlayDirty();
             if (turnManager == null || !turnManager.IsDelayPlacementSelectionOpen)
-                SetDelayPlacementPromptVisible(false);
+                HideDelayPlacementPrompt();
         }
 
         private void HandleTurnStarted(in TurnStartedEvent e)
@@ -264,7 +264,7 @@ namespace PF2e.Presentation
             }
 
             activeInsertionMarkers.Clear();
-            delayPlacementHoverActive = false;
+            delayPromptPresenter?.ClearHoverState();
             markersOverlayDirty = false;
         }
 
@@ -297,7 +297,7 @@ namespace PF2e.Presentation
         private void EnsureRuntimeUiReferences()
         {
             EnsureMarkersOverlayContainer();
-            EnsureDelayPlacementPromptLabel();
+            EnsureDelayPlacementPromptPresenter();
         }
 
         private Transform GetMarkersOverlayParent()
@@ -329,117 +329,27 @@ namespace PF2e.Presentation
             markersOverlayContainer = rect;
         }
 
-        private void EnsureDelayPlacementPromptLabel()
+        private void EnsureDelayPlacementPromptPresenter()
         {
-            if (delayPlacementPromptLabel != null)
+            if (delayPromptPresenter == null)
             {
-                EnsureDelayPlacementPromptRootFromLabel();
-                StyleDelayPlacementPromptBanner();
-                return;
+                delayPromptPresenter = new DelayPlacementPromptPresenter(
+                    delayPromptMinWidth,
+                    delayPromptMaxWidth,
+                    delayPromptTextPaddingX,
+                    delayPromptOffsetY);
             }
-            if (panelRoot == null || roundLabel == null)
-                return;
+            delayPromptPresenter.Bind(
+                panelRoot,
+                roundLabel,
+                delayPlacementPromptRoot,
+                delayPlacementPromptLabel,
+                delayPlacementPromptBackground);
+            delayPromptPresenter.EnsureView();
 
-            var rootGo = new GameObject(
-                "DelayPlacementPromptBanner",
-                typeof(RectTransform),
-                typeof(CanvasRenderer),
-                typeof(Image));
-            var rootRect = rootGo.GetComponent<RectTransform>();
-            rootRect.SetParent(panelRoot.transform, false);
-            rootRect.anchorMin = new Vector2(0.5f, 1f);
-            rootRect.anchorMax = new Vector2(0.5f, 1f);
-            rootRect.pivot = new Vector2(0.5f, 0f);
-            rootRect.anchoredPosition = new Vector2(0f, delayPromptOffsetY);
-            rootRect.sizeDelta = new Vector2(460f, 24f);
-            rootRect.SetAsLastSibling();
-
-            delayPlacementPromptRoot = rootGo;
-            delayPlacementPromptBackground = rootGo.GetComponent<Image>();
-
-            var clone = Instantiate(roundLabel, rootRect);
-            clone.gameObject.name = "DelayPlacementPromptLabel";
-            clone.gameObject.SetActive(true);
-            clone.raycastTarget = false;
-            clone.enableWordWrapping = false;
-            clone.overflowMode = TextOverflowModes.Ellipsis;
-            clone.alignment = TextAlignmentOptions.Center;
-            clone.fontStyle = FontStyles.Bold;
-
-            var promptRect = clone.rectTransform;
-            promptRect.anchorMin = Vector2.zero;
-            promptRect.anchorMax = Vector2.one;
-            promptRect.offsetMin = new Vector2(10f, 2f);
-            promptRect.offsetMax = new Vector2(-10f, -2f);
-
-            delayPlacementPromptLabel = clone;
-            StyleDelayPlacementPromptBanner();
-            delayPlacementPromptRoot.SetActive(false);
-        }
-
-        private void EnsureDelayPlacementPromptRootFromLabel()
-        {
-            if (delayPlacementPromptLabel == null)
-                return;
-
-            if (delayPlacementPromptRoot == null)
-            {
-                var candidate = delayPlacementPromptLabel.transform.parent != null
-                    ? delayPlacementPromptLabel.transform.parent.gameObject
-                    : null;
-
-                if (candidate != null && candidate.name.Contains("DelayPlacementPrompt"))
-                    delayPlacementPromptRoot = candidate;
-            }
-
-            if (delayPlacementPromptBackground == null && delayPlacementPromptRoot != null)
-                delayPlacementPromptBackground = delayPlacementPromptRoot.GetComponent<Image>();
-        }
-
-        private void StyleDelayPlacementPromptBanner()
-        {
-            if (delayPlacementPromptBackground != null)
-            {
-                delayPlacementPromptBackground.raycastTarget = false;
-                delayPlacementPromptBackground.color = new Color(0.07f, 0.07f, 0.1f, 0.92f);
-
-                if (delayPlacementPromptBackground.GetComponent<Outline>() == null)
-                {
-                    var outline = delayPlacementPromptBackground.gameObject.AddComponent<Outline>();
-                    outline.effectColor = new Color(1f, 0.9f, 0.45f, 0.45f);
-                    outline.effectDistance = new Vector2(1f, -1f);
-                }
-            }
-
-            if (delayPlacementPromptLabel != null)
-            {
-                delayPlacementPromptLabel.raycastTarget = false;
-                delayPlacementPromptLabel.enableWordWrapping = false;
-                delayPlacementPromptLabel.overflowMode = TextOverflowModes.Ellipsis;
-                delayPlacementPromptLabel.alignment = TextAlignmentOptions.Center;
-                delayPlacementPromptLabel.color = new Color(0.98f, 0.95f, 0.82f, 1f);
-
-                if (delayPlacementPromptLabel.GetComponent<Shadow>() == null)
-                {
-                    var shadow = delayPlacementPromptLabel.gameObject.AddComponent<Shadow>();
-                    shadow.effectColor = new Color(0f, 0f, 0f, 0.75f);
-                    shadow.effectDistance = new Vector2(1f, -1f);
-                }
-            }
-
-            if (delayPlacementPromptRoot != null)
-            {
-                var rootRect = delayPlacementPromptRoot.transform as RectTransform;
-                if (rootRect != null)
-                {
-                    rootRect.anchorMin = new Vector2(0.5f, 1f);
-                    rootRect.anchorMax = new Vector2(0.5f, 1f);
-                    rootRect.pivot = new Vector2(0.5f, 0f);
-                    rootRect.anchoredPosition = new Vector2(0f, delayPromptOffsetY);
-                }
-            }
-
-            UpdateDelayPlacementPromptBannerSize();
+            delayPlacementPromptRoot = delayPromptPresenter.PromptRoot;
+            delayPlacementPromptLabel = delayPromptPresenter.PromptLabel;
+            delayPlacementPromptBackground = delayPromptPresenter.PromptBackground;
         }
 
         private static void CopyRectTransformLayout(RectTransform source, RectTransform target)
@@ -753,13 +663,12 @@ namespace PF2e.Presentation
             if (marker == null)
                 return;
 
-            delayPlacementHoverActive = true;
             SetDelayPlacementHintForAnchor(marker.AnchorHandle);
         }
 
         private void HandleInsertionMarkerHoverExited(InitiativeInsertionMarker marker)
         {
-            delayPlacementHoverActive = false;
+            delayPromptPresenter?.ClearHoverState();
             RefreshDelayPlacementHintLabel();
         }
 
@@ -788,26 +697,29 @@ namespace PF2e.Presentation
 
             if (!turnManager.IsDelayPlacementSelectionOpen)
             {
-                SetDelayPlacementPromptVisible(false);
+                HideDelayPlacementPrompt();
                 return;
             }
 
-            if (delayPlacementPromptLabel == null)
+            EnsureDelayPlacementPromptPresenter();
+            if (delayPromptPresenter == null)
+                return;
+            if (delayPromptPresenter.IsHoverActive)
                 return;
 
-            if (delayPlacementHoverActive)
-                return;
-
-            delayPlacementPromptLabel.SetText("Choose delay position (between portraits)");
-            UpdateDelayPlacementPromptBannerSize();
-            SetDelayPlacementPromptVisible(true);
+            delayPromptPresenter.ShowDefaultPrompt();
+            SyncPromptRefsFromPresenter();
         }
 
         private void SetDelayPlacementHintForAnchor(EntityHandle anchorHandle)
         {
-            if (delayPlacementPromptLabel == null || turnManager == null)
+            if (turnManager == null)
                 return;
             if (!turnManager.IsDelayPlacementSelectionOpen)
+                return;
+
+            EnsureDelayPlacementPromptPresenter();
+            if (delayPromptPresenter == null)
                 return;
 
             string anchorName = anchorHandle.Id.ToString();
@@ -818,49 +730,28 @@ namespace PF2e.Presentation
                     anchorName = data.Name;
             }
 
-            delayPlacementPromptLabel.SetText($"Delay after {anchorName}");
-            UpdateDelayPlacementPromptBannerSize();
-            SetDelayPlacementPromptVisible(true);
+            delayPromptPresenter.ShowAnchorPrompt(anchorName);
+            SyncPromptRefsFromPresenter();
         }
 
-        private void SetDelayPlacementPromptVisible(bool visible)
+        private void HideDelayPlacementPrompt()
         {
-            if (delayPlacementPromptRoot != null)
-            {
-                if (delayPlacementPromptRoot.activeSelf != visible)
-                    delayPlacementPromptRoot.SetActive(visible);
-                return;
-            }
-
-            if (delayPlacementPromptLabel == null)
+            EnsureDelayPlacementPromptPresenter();
+            if (delayPromptPresenter == null)
                 return;
 
-            if (delayPlacementPromptLabel.gameObject.activeSelf != visible)
-                delayPlacementPromptLabel.gameObject.SetActive(visible);
+            delayPromptPresenter.Hide();
+            SyncPromptRefsFromPresenter();
         }
 
-        private void UpdateDelayPlacementPromptBannerSize()
+        private void SyncPromptRefsFromPresenter()
         {
-            if (delayPlacementPromptRoot == null || delayPlacementPromptLabel == null)
+            if (delayPromptPresenter == null)
                 return;
 
-            var rootRect = delayPlacementPromptRoot.transform as RectTransform;
-            if (rootRect == null)
-                return;
-
-            string text = delayPlacementPromptLabel.text;
-            if (string.IsNullOrEmpty(text))
-                return;
-
-            float preferredWidth = delayPlacementPromptLabel.GetPreferredValues(text).x;
-            float targetWidth = Mathf.Clamp(preferredWidth + delayPromptTextPaddingX, delayPromptMinWidth, delayPromptMaxWidth);
-
-            var size = rootRect.sizeDelta;
-            if (Mathf.Abs(size.x - targetWidth) > 0.5f)
-            {
-                size.x = targetWidth;
-                rootRect.sizeDelta = size;
-            }
+            delayPlacementPromptRoot = delayPromptPresenter.PromptRoot;
+            delayPlacementPromptLabel = delayPromptPresenter.PromptLabel;
+            delayPlacementPromptBackground = delayPromptPresenter.PromptBackground;
         }
 
 #if UNITY_EDITOR
