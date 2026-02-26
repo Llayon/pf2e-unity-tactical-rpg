@@ -128,7 +128,8 @@ public static class CombatLogUIBuilder
         lineText.color = Color.white;
 
         var lineLE = lineTemplateGO.AddComponent<LayoutElement>();
-        lineLE.preferredHeight = 22;
+        lineLE.minHeight = 26f;
+        lineLE.preferredHeight = -1f; // let TMP preferred height drive wrapping lines
 
         lineTemplateGO.SetActive(false); // CRITICAL: template must be inactive
 

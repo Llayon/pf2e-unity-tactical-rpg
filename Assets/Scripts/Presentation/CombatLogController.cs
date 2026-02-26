@@ -43,6 +43,7 @@ namespace PF2e.Presentation
         private float combatStartTime = -1f;
         private bool scrollPending;
         private bool inCombat;
+        private float cachedMinLineHeight = 0f;
 
 #if UNITY_EDITOR
         private void OnValidate()
@@ -73,6 +74,8 @@ namespace PF2e.Presentation
 
             if (lineTemplate.gameObject.activeSelf)
                 lineTemplate.gameObject.SetActive(false);
+
+            CacheTemplateLineHeight();
 
             eventBus.OnLogEntry += HandleBusLogEntry;
             Canvas.willRenderCanvases += HandleWillRenderCanvases;
@@ -130,7 +133,9 @@ namespace PF2e.Presentation
                 RecycleOldestLine();
 
             var line = GetLineInstance();
+            EnsureLineIsLastChild(line);
             line.text = FormatLine(text);
+            RefreshLinePreferredHeight(line);
             line.gameObject.SetActive(true);
 
             activeLines.Enqueue(line);
@@ -172,6 +177,72 @@ namespace PF2e.Presentation
             inst.gameObject.name = "CombatLogLine";
             inst.gameObject.SetActive(false);
             return inst;
+        }
+
+        private void EnsureLineIsLastChild(TextMeshProUGUI line)
+        {
+            if (line == null || content == null)
+                return;
+
+            var lineTransform = line.transform;
+            if (lineTransform.parent != content)
+                lineTransform.SetParent(content, false);
+
+            lineTransform.SetAsLastSibling();
+        }
+
+        private void CacheTemplateLineHeight()
+        {
+            cachedMinLineHeight = 0f;
+            if (lineTemplate == null)
+                return;
+
+            if (lineTemplate.TryGetComponent<LayoutElement>(out var templateLayout))
+            {
+                if (templateLayout.minHeight > 0f)
+                    cachedMinLineHeight = Mathf.Max(cachedMinLineHeight, templateLayout.minHeight);
+                if (templateLayout.preferredHeight > 0f)
+                    cachedMinLineHeight = Mathf.Max(cachedMinLineHeight, templateLayout.preferredHeight);
+            }
+
+            if (cachedMinLineHeight <= 0f)
+                cachedMinLineHeight = 24f;
+        }
+
+        private void RefreshLinePreferredHeight(TextMeshProUGUI line)
+        {
+            if (line == null)
+                return;
+            if (!line.TryGetComponent<LayoutElement>(out var lineLayout))
+                return;
+
+            float availableWidth = GetLineAvailableWidth();
+            if (availableWidth <= 1f)
+            {
+                lineLayout.preferredHeight = cachedMinLineHeight;
+                return;
+            }
+
+            // Keep wrapping behavior, but let line height grow to the TMP preferred height.
+            Vector2 preferred = line.GetPreferredValues(line.text, availableWidth, 0f);
+            float targetHeight = Mathf.Max(cachedMinLineHeight, Mathf.Ceil(preferred.y));
+            if (Mathf.Abs(lineLayout.preferredHeight - targetHeight) > 0.5f)
+                lineLayout.preferredHeight = targetHeight;
+        }
+
+        private float GetLineAvailableWidth()
+        {
+            if (content == null)
+                return 0f;
+
+            float width = content.rect.width;
+            if (width <= 0f)
+                return 0f;
+
+            if (content.TryGetComponent<VerticalLayoutGroup>(out var vlg))
+                width -= (vlg.padding.left + vlg.padding.right);
+
+            return Mathf.Max(0f, width);
         }
 
         private void RecycleOldestLine()
