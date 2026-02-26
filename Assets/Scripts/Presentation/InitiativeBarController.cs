@@ -46,6 +46,7 @@ namespace PF2e.Presentation
         private DelayPlacementMarkerOverlayPresenter delayMarkerOverlayPresenter;
         private DelayPlacementPromptPresenter delayPromptPresenter;
         private DelayPlacementInteractionCoordinator delayPlacementInteractionCoordinator;
+        private DelayInitiativeRowPlanner delayInitiativeRowPlanner;
 
         private void OnEnable()
         {
@@ -263,6 +264,7 @@ namespace PF2e.Presentation
             EnsureDelayPlacementPromptPresenter();
             EnsureDelayPlacementInteractionCoordinator();
             EnsureDelayPlacementMarkerOverlayPresenter();
+            EnsureDelayInitiativeRowPlanner();
         }
 
         private Transform GetMarkersOverlayParent()
@@ -338,6 +340,14 @@ namespace PF2e.Presentation
             delayMarkerOverlayPresenter.OnMarkerClicked += delayPlacementInteractionCoordinator.HandleMarkerClicked;
             delayMarkerOverlayPresenter.OnMarkerHoverEntered += delayPlacementInteractionCoordinator.HandleMarkerHoverEntered;
             delayMarkerOverlayPresenter.OnMarkerHoverExited += delayPlacementInteractionCoordinator.HandleMarkerHoverExited;
+        }
+
+        private void EnsureDelayInitiativeRowPlanner()
+        {
+            if (delayInitiativeRowPlanner == null)
+                delayInitiativeRowPlanner = new DelayInitiativeRowPlanner();
+
+            delayInitiativeRowPlanner.Bind(turnManager, entityManager);
         }
 
         private static void CopyRectTransformLayout(RectTransform source, RectTransform target)
@@ -500,8 +510,6 @@ namespace PF2e.Presentation
             delayMarkerOverlayPresenter?.MarkDirtyIfAny();
         }
 
-        private readonly List<EntityData> delayedEntityBuffer = new List<EntityData>(8);
-
         private void CreateOrRefreshSlot(EntityData data, bool isDelayed)
         {
             if (data == null || !data.Handle.IsValid)
@@ -525,11 +533,9 @@ namespace PF2e.Presentation
 
         private void AppendInsertionMarkerIfNeeded(EntityHandle anchorHandle)
         {
-            if (turnManager == null)
+            if (delayInitiativeRowPlanner == null)
                 return;
-            if (!turnManager.IsDelayPlacementSelectionOpen)
-                return;
-            if (!turnManager.IsValidDelayAnchorForCurrentTurn(anchorHandle))
+            if (!delayInitiativeRowPlanner.ShouldAppendPlacementMarker(anchorHandle))
                 return;
 
             EnsureDelayPlacementMarkerOverlayPresenter();
@@ -542,43 +548,22 @@ namespace PF2e.Presentation
 
         private void AppendDelayedSlotsAnchoredTo(EntityHandle anchorHandle)
         {
-            if (turnManager == null || entityManager == null || entityManager.Registry == null)
+            if (delayInitiativeRowPlanner == null)
                 return;
 
-            delayedEntityBuffer.Clear();
-            foreach (var data in entityManager.Registry.GetAll())
-            {
-                if (data == null || !data.Handle.IsValid) continue;
-                if (!turnManager.IsDelayed(data.Handle)) continue;
-                if (appendedDelayedHandles.Contains(data.Handle)) continue;
-                if (!turnManager.TryGetDelayedPlannedAnchor(data.Handle, out var plannedAnchor)) continue;
-                if (plannedAnchor != anchorHandle) continue;
-
-                delayedEntityBuffer.Add(data);
-            }
-
-            delayedEntityBuffer.Sort(static (a, b) => a.Handle.Id.CompareTo(b.Handle.Id));
-            for (int i = 0; i < delayedEntityBuffer.Count; i++)
-                CreateOrRefreshSlot(delayedEntityBuffer[i], isDelayed: true);
+            var delayedAnchored = delayInitiativeRowPlanner.CollectDelayedAnchoredTo(anchorHandle, appendedDelayedHandles);
+            for (int i = 0; i < delayedAnchored.Count; i++)
+                CreateOrRefreshSlot(delayedAnchored[i], isDelayed: true);
         }
 
         private void AppendRemainingDelayedSlots()
         {
-            if (turnManager == null || entityManager == null || entityManager.Registry == null)
+            if (delayInitiativeRowPlanner == null)
                 return;
 
-            delayedEntityBuffer.Clear();
-            foreach (var data in entityManager.Registry.GetAll())
-            {
-                if (data == null || !data.Handle.IsValid) continue;
-                if (!turnManager.IsDelayed(data.Handle)) continue;
-                if (appendedDelayedHandles.Contains(data.Handle)) continue;
-                delayedEntityBuffer.Add(data);
-            }
-
-            delayedEntityBuffer.Sort(static (a, b) => a.Handle.Id.CompareTo(b.Handle.Id));
-            for (int i = 0; i < delayedEntityBuffer.Count; i++)
-                CreateOrRefreshSlot(delayedEntityBuffer[i], isDelayed: true);
+            var remainingDelayed = delayInitiativeRowPlanner.CollectRemainingDelayed(appendedDelayedHandles);
+            for (int i = 0; i < remainingDelayed.Count; i++)
+                CreateOrRefreshSlot(remainingDelayed[i], isDelayed: true);
         }
 
         private void HandleSlotClicked(InitiativeSlot slot)
