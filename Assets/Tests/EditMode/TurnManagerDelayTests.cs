@@ -337,16 +337,19 @@ namespace PF2e.Tests
             var context = CreateCombatContextWithTwoEnemies("TM_Delay_Planned_NoEarlyWindow");
             try
             {
+                var firstEnemyHandle = context.turnManager.InitiativeOrder[1].Handle;
+                var anchorEnemyHandle = context.turnManager.InitiativeOrder[2].Handle;
+
                 Assert.IsTrue(context.turnManager.TryBeginDelayPlacementSelection());
-                Assert.IsTrue(context.turnManager.TryDelayCurrentTurnAfterActor(context.enemy2.Handle));
+                Assert.IsTrue(context.turnManager.TryDelayCurrentTurnAfterActor(anchorEnemyHandle));
 
                 Assert.AreEqual(TurnState.EnemyTurn, context.turnManager.State);
-                Assert.AreEqual(context.enemy.Handle, context.turnManager.CurrentEntity, "First enemy should act after player delays.");
+                Assert.AreEqual(firstEnemyHandle, context.turnManager.CurrentEntity, "First enemy should act after player delays.");
 
                 context.turnManager.EndTurn(); // first enemy ends; planned anchor (enemy2) has not ended yet
 
                 Assert.AreEqual(TurnState.EnemyTurn, context.turnManager.State, "Delay return window should not open before planned anchor turn ends.");
-                Assert.AreEqual(context.enemy2.Handle, context.turnManager.CurrentEntity);
+                Assert.AreEqual(anchorEnemyHandle, context.turnManager.CurrentEntity);
                 Assert.IsFalse(context.turnManager.IsDelayReturnWindowOpen);
                 Assert.IsTrue(context.turnManager.IsDelayed(context.player.Handle));
 
@@ -454,8 +457,13 @@ namespace PF2e.Tests
             Assert.AreEqual(player.Handle, turnManager.CurrentEntity, "Current actor must be player in test setup.");
             Assert.AreEqual(3, turnManager.InitiativeOrder.Count, "Expected 3 actors in initiative.");
             Assert.AreEqual(player.Handle, turnManager.InitiativeOrder[0].Handle);
-            Assert.AreEqual(enemy.Handle, turnManager.InitiativeOrder[1].Handle);
-            Assert.AreEqual(enemy2.Handle, turnManager.InitiativeOrder[2].Handle);
+            Assert.AreNotEqual(turnManager.InitiativeOrder[1].Handle, turnManager.InitiativeOrder[2].Handle);
+            Assert.IsTrue(
+                turnManager.InitiativeOrder[1].Handle == enemy.Handle || turnManager.InitiativeOrder[1].Handle == enemy2.Handle,
+                "Second initiative slot should belong to one of the enemies.");
+            Assert.IsTrue(
+                turnManager.InitiativeOrder[2].Handle == enemy.Handle || turnManager.InitiativeOrder[2].Handle == enemy2.Handle,
+                "Third initiative slot should belong to one of the enemies.");
 
             return new TestCombatContext
             {
