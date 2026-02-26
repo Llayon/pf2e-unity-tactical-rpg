@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 using PF2e.Core;
 using PF2e.Managers;
@@ -17,14 +18,35 @@ namespace PF2e.Presentation
         [Header("UI")]
         [SerializeField] private GameObject panelRoot;
         [SerializeField] private TextMeshProUGUI roundLabel;
+        [SerializeField] private GameObject delayPlacementPromptRoot;
+        [SerializeField] private TextMeshProUGUI delayPlacementPromptLabel;
+        [SerializeField] private Image delayPlacementPromptBackground;
         [SerializeField] private Transform slotsContainer;
+        [SerializeField] private RectTransform markersOverlayContainer;
         [SerializeField] private InitiativeSlot slotPrefab;
+        [SerializeField] private InitiativeInsertionMarker insertionMarkerPrefab;
+
+        [Header("Panel Layout")]
+        [SerializeField] private bool autoSizePanelToSlotsContent = true;
+        [SerializeField] private float minPanelWidth = 180f;
+        [SerializeField] private float maxPanelWidth = 900f;
+        [SerializeField] private float panelContentPaddingX = 12f;
+
+        [Header("Delay Prompt Layout")]
+        [SerializeField] private float delayPromptMinWidth = 220f;
+        [SerializeField] private float delayPromptMaxWidth = 460f;
+        [SerializeField] private float delayPromptTextPaddingX = 28f;
+        [SerializeField] private float delayPromptOffsetY = 4f;
 
         private readonly List<InitiativeSlot> activeSlots = new List<InitiativeSlot>(32);
         private readonly Stack<InitiativeSlot> slotPool = new Stack<InitiativeSlot>(32);
+        private readonly List<InitiativeInsertionMarker> activeInsertionMarkers = new List<InitiativeInsertionMarker>(32);
+        private readonly Stack<InitiativeInsertionMarker> insertionMarkerPool = new Stack<InitiativeInsertionMarker>(32);
         private readonly Dictionary<EntityHandle, InitiativeSlot> slotByHandle
             = new Dictionary<EntityHandle, InitiativeSlot>();
         private readonly HashSet<EntityHandle> appendedDelayedHandles = new HashSet<EntityHandle>();
+        private bool cachedDelayPlacementSelectionOpen;
+        private bool delayPlacementHoverActive;
 
         private void OnEnable()
         {
@@ -60,9 +82,11 @@ namespace PF2e.Presentation
         {
             if (turnManager == null) return;
 
+            EnsureRuntimeUiReferences();
             SetPanelVisible(true);
             if (roundLabel != null)
                 roundLabel.SetText("Round {0}", turnManager.RoundNumber);
+            SetDelayPlacementPromptVisible(false);
             BuildSlots(turnManager.InitiativeOrder);
             UpdateHighlight();
         }
@@ -70,6 +94,7 @@ namespace PF2e.Presentation
         private void HandleCombatEnded(in CombatEndedEvent e)
         {
             SetPanelVisible(false);
+            SetDelayPlacementPromptVisible(false);
             ClearSlotsToPool();
         }
 
@@ -77,6 +102,9 @@ namespace PF2e.Presentation
         {
             if (roundLabel != null)
                 roundLabel.SetText("Round {0}", e.round);
+            AutoSizePanelToContent();
+            if (turnManager == null || !turnManager.IsDelayPlacementSelectionOpen)
+                SetDelayPlacementPromptVisible(false);
         }
 
         private void HandleTurnStarted(in TurnStartedEvent e)
@@ -107,6 +135,7 @@ namespace PF2e.Presentation
 
         private void BuildSlots(IReadOnlyList<InitiativeEntry> order)
         {
+            EnsureRuntimeUiReferences();
             ClearSlotsToPool();
             slotByHandle.Clear();
             appendedDelayedHandles.Clear();
@@ -120,10 +149,19 @@ namespace PF2e.Presentation
                 if (data == null) continue;
 
                 CreateOrRefreshSlot(data, isDelayed: false);
+                AppendInsertionMarkerIfNeeded(handle);
                 AppendDelayedSlotsAnchoredTo(handle);
             }
 
             AppendRemainingDelayedSlots();
+
+            var slotsRect = slotsContainer as RectTransform;
+            if (slotsRect != null)
+                LayoutRebuilder.ForceRebuildLayoutImmediate(slotsRect);
+
+            AutoSizePanelToContent();
+            RepositionInsertionMarkers();
+            RefreshDelayPlacementHintLabel();
         }
 
         private InitiativeSlot GetSlot()
@@ -138,8 +176,37 @@ namespace PF2e.Presentation
             return inst;
         }
 
+        private InitiativeInsertionMarker GetInsertionMarker()
+        {
+            if (insertionMarkerPool.Count > 0)
+                return insertionMarkerPool.Pop();
+
+            EnsureRuntimeUiReferences();
+            InitiativeInsertionMarker inst;
+            if (insertionMarkerPrefab != null)
+            {
+                inst = Instantiate(insertionMarkerPrefab, GetMarkersOverlayParent());
+            }
+            else
+            {
+                var go = new GameObject(
+                    "InitiativeInsertionMarker",
+                    typeof(RectTransform),
+                    typeof(UnityEngine.UI.LayoutElement),
+                    typeof(UnityEngine.UI.Image),
+                    typeof(InitiativeInsertionMarker));
+                go.transform.SetParent(GetMarkersOverlayParent(), false);
+                inst = go.GetComponent<InitiativeInsertionMarker>();
+            }
+
+            inst.gameObject.SetActive(false);
+            return inst;
+        }
+
         private void ClearSlotsToPool()
         {
+            ClearInsertionMarkersToPool();
+
             for (int i = 0; i < activeSlots.Count; i++)
             {
                 var s = activeSlots[i];
@@ -153,6 +220,24 @@ namespace PF2e.Presentation
             }
             activeSlots.Clear();
             slotByHandle.Clear();
+        }
+
+        private void ClearInsertionMarkersToPool()
+        {
+            for (int i = 0; i < activeInsertionMarkers.Count; i++)
+            {
+                var marker = activeInsertionMarkers[i];
+                if (marker == null) continue;
+
+                marker.OnClicked -= HandleInsertionMarkerClicked;
+                marker.OnHoverEntered -= HandleInsertionMarkerHoverEntered;
+                marker.OnHoverExited -= HandleInsertionMarkerHoverExited;
+                marker.gameObject.SetActive(false);
+                insertionMarkerPool.Push(marker);
+            }
+
+            activeInsertionMarkers.Clear();
+            delayPlacementHoverActive = false;
         }
 
         private void UpdateHighlight()
@@ -181,6 +266,334 @@ namespace PF2e.Presentation
                 panelRoot.SetActive(visible);
         }
 
+        private void EnsureRuntimeUiReferences()
+        {
+            EnsureMarkersOverlayContainer();
+            EnsureDelayPlacementPromptLabel();
+        }
+
+        private Transform GetMarkersOverlayParent()
+        {
+            EnsureMarkersOverlayContainer();
+            if (markersOverlayContainer != null)
+                return markersOverlayContainer;
+
+            return slotsContainer;
+        }
+
+        private void EnsureMarkersOverlayContainer()
+        {
+            var slotsRect = slotsContainer as RectTransform;
+            if (slotsRect == null || slotsRect.parent == null)
+                return;
+
+            if (markersOverlayContainer != null)
+            {
+                CopyRectTransformLayout(slotsRect, markersOverlayContainer);
+                return;
+            }
+
+            var go = new GameObject("DelayMarkersOverlay", typeof(RectTransform));
+            var rect = go.GetComponent<RectTransform>();
+            rect.SetParent(slotsRect.parent, false);
+            CopyRectTransformLayout(slotsRect, rect);
+            rect.SetSiblingIndex(slotsRect.GetSiblingIndex() + 1);
+            markersOverlayContainer = rect;
+        }
+
+        private void EnsureDelayPlacementPromptLabel()
+        {
+            if (delayPlacementPromptLabel != null)
+            {
+                EnsureDelayPlacementPromptRootFromLabel();
+                StyleDelayPlacementPromptBanner();
+                return;
+            }
+            if (panelRoot == null || roundLabel == null)
+                return;
+
+            var rootGo = new GameObject(
+                "DelayPlacementPromptBanner",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image));
+            var rootRect = rootGo.GetComponent<RectTransform>();
+            rootRect.SetParent(panelRoot.transform, false);
+            rootRect.anchorMin = new Vector2(0.5f, 1f);
+            rootRect.anchorMax = new Vector2(0.5f, 1f);
+            rootRect.pivot = new Vector2(0.5f, 0f);
+            rootRect.anchoredPosition = new Vector2(0f, delayPromptOffsetY);
+            rootRect.sizeDelta = new Vector2(460f, 24f);
+            rootRect.SetAsLastSibling();
+
+            delayPlacementPromptRoot = rootGo;
+            delayPlacementPromptBackground = rootGo.GetComponent<Image>();
+
+            var clone = Instantiate(roundLabel, rootRect);
+            clone.gameObject.name = "DelayPlacementPromptLabel";
+            clone.gameObject.SetActive(true);
+            clone.raycastTarget = false;
+            clone.enableWordWrapping = false;
+            clone.overflowMode = TextOverflowModes.Ellipsis;
+            clone.alignment = TextAlignmentOptions.Center;
+            clone.fontStyle = FontStyles.Bold;
+
+            var promptRect = clone.rectTransform;
+            promptRect.anchorMin = Vector2.zero;
+            promptRect.anchorMax = Vector2.one;
+            promptRect.offsetMin = new Vector2(10f, 2f);
+            promptRect.offsetMax = new Vector2(-10f, -2f);
+
+            delayPlacementPromptLabel = clone;
+            StyleDelayPlacementPromptBanner();
+            delayPlacementPromptRoot.SetActive(false);
+        }
+
+        private void EnsureDelayPlacementPromptRootFromLabel()
+        {
+            if (delayPlacementPromptLabel == null)
+                return;
+
+            if (delayPlacementPromptRoot == null)
+            {
+                var candidate = delayPlacementPromptLabel.transform.parent != null
+                    ? delayPlacementPromptLabel.transform.parent.gameObject
+                    : null;
+
+                if (candidate != null && candidate.name.Contains("DelayPlacementPrompt"))
+                    delayPlacementPromptRoot = candidate;
+            }
+
+            if (delayPlacementPromptBackground == null && delayPlacementPromptRoot != null)
+                delayPlacementPromptBackground = delayPlacementPromptRoot.GetComponent<Image>();
+        }
+
+        private void StyleDelayPlacementPromptBanner()
+        {
+            if (delayPlacementPromptBackground != null)
+            {
+                delayPlacementPromptBackground.raycastTarget = false;
+                delayPlacementPromptBackground.color = new Color(0.07f, 0.07f, 0.1f, 0.92f);
+
+                if (delayPlacementPromptBackground.GetComponent<Outline>() == null)
+                {
+                    var outline = delayPlacementPromptBackground.gameObject.AddComponent<Outline>();
+                    outline.effectColor = new Color(1f, 0.9f, 0.45f, 0.45f);
+                    outline.effectDistance = new Vector2(1f, -1f);
+                }
+            }
+
+            if (delayPlacementPromptLabel != null)
+            {
+                delayPlacementPromptLabel.raycastTarget = false;
+                delayPlacementPromptLabel.enableWordWrapping = false;
+                delayPlacementPromptLabel.overflowMode = TextOverflowModes.Ellipsis;
+                delayPlacementPromptLabel.alignment = TextAlignmentOptions.Center;
+                delayPlacementPromptLabel.color = new Color(0.98f, 0.95f, 0.82f, 1f);
+
+                if (delayPlacementPromptLabel.GetComponent<Shadow>() == null)
+                {
+                    var shadow = delayPlacementPromptLabel.gameObject.AddComponent<Shadow>();
+                    shadow.effectColor = new Color(0f, 0f, 0f, 0.75f);
+                    shadow.effectDistance = new Vector2(1f, -1f);
+                }
+            }
+
+            if (delayPlacementPromptRoot != null)
+            {
+                var rootRect = delayPlacementPromptRoot.transform as RectTransform;
+                if (rootRect != null)
+                {
+                    rootRect.anchorMin = new Vector2(0.5f, 1f);
+                    rootRect.anchorMax = new Vector2(0.5f, 1f);
+                    rootRect.pivot = new Vector2(0.5f, 0f);
+                    rootRect.anchoredPosition = new Vector2(0f, delayPromptOffsetY);
+                }
+            }
+
+            UpdateDelayPlacementPromptBannerSize();
+        }
+
+        private static void CopyRectTransformLayout(RectTransform source, RectTransform target)
+        {
+            if (source == null || target == null)
+                return;
+
+            target.anchorMin = source.anchorMin;
+            target.anchorMax = source.anchorMax;
+            target.pivot = source.pivot;
+            target.anchoredPosition = source.anchoredPosition;
+            target.sizeDelta = source.sizeDelta;
+            target.localScale = Vector3.one;
+            target.localRotation = Quaternion.identity;
+        }
+
+        private void AutoSizePanelToContent()
+        {
+            if (!autoSizePanelToSlotsContent)
+                return;
+            if (panelRoot == null || slotsContainer == null)
+                return;
+
+            var panelRect = panelRoot.transform as RectTransform;
+            var slotsRect = slotsContainer as RectTransform;
+            if (panelRect == null || slotsRect == null)
+                return;
+
+            float targetWidth = ComputePanelContentWidthFromBounds(panelRect);
+            if (targetWidth <= 0f)
+            {
+                float slotsContentWidth = ComputeSlotsContentWidth();
+                float leftInset = slotsRect.offsetMin.x;
+                float rightInset = Mathf.Max(0f, -slotsRect.offsetMax.x);
+                targetWidth = leftInset + rightInset + slotsContentWidth;
+                if (roundLabel != null)
+                    targetWidth = Mathf.Max(targetWidth, GetRoundLabelPreferredWidth() + 16f);
+            }
+
+            targetWidth = Mathf.Clamp(targetWidth + panelContentPaddingX, minPanelWidth, maxPanelWidth);
+
+            var size = panelRect.sizeDelta;
+            if (Mathf.Abs(size.x - targetWidth) < 0.5f)
+                return;
+
+            size.x = targetWidth;
+            panelRect.sizeDelta = size;
+
+            if (markersOverlayContainer != null)
+                CopyRectTransformLayout(slotsRect, markersOverlayContainer);
+        }
+
+        private float ComputeSlotsContentWidth()
+        {
+            if (activeSlots.Count <= 0)
+                return 0f;
+
+            float width = 0f;
+            float spacing = 0f;
+            float paddingLeft = 0f;
+            float paddingRight = 0f;
+
+            if (slotsContainer != null && slotsContainer.TryGetComponent<HorizontalLayoutGroup>(out var h))
+            {
+                spacing = h.spacing;
+                paddingLeft = h.padding.left;
+                paddingRight = h.padding.right;
+            }
+
+            width += paddingLeft + paddingRight;
+
+            for (int i = 0; i < activeSlots.Count; i++)
+            {
+                if (i > 0)
+                    width += spacing;
+
+                var slot = activeSlots[i];
+                if (slot == null)
+                    continue;
+
+                if (slot.TryGetComponent<LayoutElement>(out var le) && le.preferredWidth > 0f)
+                    width += le.preferredWidth;
+                else if (slot.transform is RectTransform rect)
+                    width += rect.rect.width;
+            }
+
+            return width;
+        }
+
+        private float ComputePanelContentWidthFromBounds(RectTransform panelRect)
+        {
+            if (panelRect == null)
+                return 0f;
+
+            bool hasBounds = false;
+            Bounds combinedBounds = default;
+
+            if (roundLabel != null)
+            {
+                var labelRect = roundLabel.rectTransform;
+                if (labelRect != null)
+                {
+                    var labelBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(panelRect, labelRect);
+                    combinedBounds = labelBounds;
+                    hasBounds = true;
+                }
+            }
+
+            for (int i = 0; i < activeSlots.Count; i++)
+            {
+                var slot = activeSlots[i];
+                if (slot == null)
+                    continue;
+
+                var slotRect = slot.transform as RectTransform;
+                if (slotRect == null)
+                    continue;
+
+                var slotBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(panelRect, slotRect);
+                if (!hasBounds)
+                {
+                    combinedBounds = slotBounds;
+                    hasBounds = true;
+                }
+                else
+                {
+                    combinedBounds.Encapsulate(slotBounds.min);
+                    combinedBounds.Encapsulate(slotBounds.max);
+                }
+            }
+
+            return hasBounds ? Mathf.Max(0f, combinedBounds.size.x) : 0f;
+        }
+
+        private float GetRoundLabelPreferredWidth()
+        {
+            if (roundLabel == null)
+                return 0f;
+
+            string text = roundLabel.text;
+            if (string.IsNullOrEmpty(text))
+                return 0f;
+
+            Vector2 preferred = roundLabel.GetPreferredValues(text);
+            return Mathf.Max(0f, preferred.x);
+        }
+
+        private void RepositionInsertionMarkers()
+        {
+            if (activeInsertionMarkers.Count == 0)
+                return;
+
+            var overlayRect = markersOverlayContainer;
+            if (overlayRect == null)
+                return;
+
+            var slotsRect = slotsContainer as RectTransform;
+            if (slotsRect == null)
+                return;
+
+            float spacing = 0f;
+            if (slotsContainer != null && slotsContainer.TryGetComponent<HorizontalLayoutGroup>(out var h))
+                spacing = h.spacing;
+
+            for (int i = 0; i < activeInsertionMarkers.Count; i++)
+            {
+                var marker = activeInsertionMarkers[i];
+                if (marker == null) continue;
+                if (!slotByHandle.TryGetValue(marker.AnchorHandle, out var anchorSlot) || anchorSlot == null)
+                    continue;
+
+                var anchorRect = anchorSlot.transform as RectTransform;
+                if (anchorRect == null)
+                    continue;
+
+                var rightCenterWorld = anchorRect.TransformPoint(
+                    new Vector3(anchorRect.rect.xMax + (spacing * 0.5f), anchorRect.rect.center.y, 0f));
+                var localPoint = overlayRect.InverseTransformPoint(rightCenterWorld);
+                marker.SetOverlayPlacement(localPoint.x);
+            }
+        }
+
         private readonly List<EntityData> delayedEntityBuffer = new List<EntityData>(8);
 
         private void CreateOrRefreshSlot(EntityData data, bool isDelayed)
@@ -202,6 +615,28 @@ namespace PF2e.Presentation
             slotByHandle[data.Handle] = slot;
             if (isDelayed)
                 appendedDelayedHandles.Add(data.Handle);
+        }
+
+        private void AppendInsertionMarkerIfNeeded(EntityHandle anchorHandle)
+        {
+            if (turnManager == null)
+                return;
+            if (!turnManager.IsDelayPlacementSelectionOpen)
+                return;
+            if (!turnManager.IsValidDelayAnchorForCurrentTurn(anchorHandle))
+                return;
+
+            var marker = GetInsertionMarker();
+            marker.transform.SetParent(GetMarkersOverlayParent(), false);
+            marker.gameObject.SetActive(true);
+            marker.OnClicked -= HandleInsertionMarkerClicked;
+            marker.OnClicked += HandleInsertionMarkerClicked;
+            marker.OnHoverEntered -= HandleInsertionMarkerHoverEntered;
+            marker.OnHoverEntered += HandleInsertionMarkerHoverEntered;
+            marker.OnHoverExited -= HandleInsertionMarkerHoverExited;
+            marker.OnHoverExited += HandleInsertionMarkerHoverExited;
+            marker.Setup(anchorHandle, canSelect: true);
+            activeInsertionMarkers.Add(marker);
         }
 
         private void AppendDelayedSlotsAnchoredTo(EntityHandle anchorHandle)
@@ -250,15 +685,140 @@ namespace PF2e.Presentation
             if (slot == null || turnManager == null)
                 return;
 
+            if (turnManager.IsDelayPlacementSelectionOpen)
+            {
+                // WotR-style delay placement uses insertion markers between portraits, not portrait clicks.
+                return;
+            }
+        }
+
+        private void HandleInsertionMarkerClicked(InitiativeInsertionMarker marker)
+        {
+            if (marker == null || turnManager == null)
+                return;
             if (!turnManager.IsDelayPlacementSelectionOpen)
                 return;
 
-            if (!turnManager.TryDelayCurrentTurnAfterActor(slot.Handle))
+            if (!turnManager.TryDelayCurrentTurnAfterActor(marker.AnchorHandle))
                 return;
 
             // TurnStarted will also rebuild, but refresh immediately keeps the click responsive.
             BuildSlots(turnManager.InitiativeOrder);
             UpdateHighlight();
+        }
+
+        private void HandleInsertionMarkerHoverEntered(InitiativeInsertionMarker marker)
+        {
+            if (marker == null)
+                return;
+
+            delayPlacementHoverActive = true;
+            SetDelayPlacementHintForAnchor(marker.AnchorHandle);
+        }
+
+        private void HandleInsertionMarkerHoverExited(InitiativeInsertionMarker marker)
+        {
+            delayPlacementHoverActive = false;
+            RefreshDelayPlacementHintLabel();
+        }
+
+        private void Update()
+        {
+            if (turnManager == null)
+                return;
+
+            bool delayPlacementOpen = turnManager.IsDelayPlacementSelectionOpen;
+            if (delayPlacementOpen && activeInsertionMarkers.Count > 0)
+                RepositionInsertionMarkers();
+
+            if (cachedDelayPlacementSelectionOpen == delayPlacementOpen)
+                return;
+
+            cachedDelayPlacementSelectionOpen = delayPlacementOpen;
+            BuildSlots(turnManager.InitiativeOrder);
+            UpdateHighlight();
+        }
+
+        private void RefreshDelayPlacementHintLabel()
+        {
+            if (turnManager == null)
+                return;
+
+            if (!turnManager.IsDelayPlacementSelectionOpen)
+            {
+                SetDelayPlacementPromptVisible(false);
+                return;
+            }
+
+            if (delayPlacementPromptLabel == null)
+                return;
+
+            if (delayPlacementHoverActive)
+                return;
+
+            delayPlacementPromptLabel.SetText("Choose delay position (between portraits)");
+            UpdateDelayPlacementPromptBannerSize();
+            SetDelayPlacementPromptVisible(true);
+        }
+
+        private void SetDelayPlacementHintForAnchor(EntityHandle anchorHandle)
+        {
+            if (delayPlacementPromptLabel == null || turnManager == null)
+                return;
+            if (!turnManager.IsDelayPlacementSelectionOpen)
+                return;
+
+            string anchorName = anchorHandle.Id.ToString();
+            if (entityManager != null && entityManager.Registry != null)
+            {
+                var data = entityManager.Registry.Get(anchorHandle);
+                if (data != null && !string.IsNullOrEmpty(data.Name))
+                    anchorName = data.Name;
+            }
+
+            delayPlacementPromptLabel.SetText($"Delay after {anchorName}");
+            UpdateDelayPlacementPromptBannerSize();
+            SetDelayPlacementPromptVisible(true);
+        }
+
+        private void SetDelayPlacementPromptVisible(bool visible)
+        {
+            if (delayPlacementPromptRoot != null)
+            {
+                if (delayPlacementPromptRoot.activeSelf != visible)
+                    delayPlacementPromptRoot.SetActive(visible);
+                return;
+            }
+
+            if (delayPlacementPromptLabel == null)
+                return;
+
+            if (delayPlacementPromptLabel.gameObject.activeSelf != visible)
+                delayPlacementPromptLabel.gameObject.SetActive(visible);
+        }
+
+        private void UpdateDelayPlacementPromptBannerSize()
+        {
+            if (delayPlacementPromptRoot == null || delayPlacementPromptLabel == null)
+                return;
+
+            var rootRect = delayPlacementPromptRoot.transform as RectTransform;
+            if (rootRect == null)
+                return;
+
+            string text = delayPlacementPromptLabel.text;
+            if (string.IsNullOrEmpty(text))
+                return;
+
+            float preferredWidth = delayPlacementPromptLabel.GetPreferredValues(text).x;
+            float targetWidth = Mathf.Clamp(preferredWidth + delayPromptTextPaddingX, delayPromptMinWidth, delayPromptMaxWidth);
+
+            var size = rootRect.sizeDelta;
+            if (Mathf.Abs(size.x - targetWidth) > 0.5f)
+            {
+                size.x = targetWidth;
+                rootRect.sizeDelta = size;
+            }
         }
 
 #if UNITY_EDITOR

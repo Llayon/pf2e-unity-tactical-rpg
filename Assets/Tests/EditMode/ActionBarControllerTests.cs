@@ -113,6 +113,30 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void PlannedDelay_AutoResume_DoesNotShowReturnOrSkipButtons()
+        {
+            using var ctx = new ActionBarTestContext();
+            var player = ctx.RegisterEntity("Fighter", Team.Player);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActorWithOrder(player, TurnState.PlayerTurn, actionsRemaining: 3, enemy);
+            ctx.SetDelayTurnBeginTriggerOpen(true);
+            ctx.EventBus.PublishCombatStarted();
+            ctx.RefreshAvailability();
+
+            Assert.IsTrue(ctx.TurnManager.TryBeginDelayPlacementSelection());
+            Assert.IsTrue(ctx.TurnManager.TryDelayCurrentTurnAfterActor(enemy));
+            Assert.AreEqual(TurnState.EnemyTurn, ctx.TurnManager.State);
+
+            ctx.TurnManager.EndTurn(); // enemy end -> planned delay auto-resume
+            ctx.PumpActionBarUpdate();
+
+            Assert.AreEqual(TurnState.PlayerTurn, ctx.TurnManager.State);
+            Assert.IsFalse(ctx.TurnManager.IsDelayReturnWindowOpen);
+            Assert.IsFalse(ctx.ReturnNowButton.gameObject.activeSelf);
+            Assert.IsFalse(ctx.SkipDelayWindowButton.gameObject.activeSelf);
+        }
+
+        [Test]
         public void RefreshAvailability_WeaponWithTripTrait_EnablesTrip()
         {
             using var ctx = new ActionBarTestContext();

@@ -332,6 +332,38 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void TurnManager_DelayWithPlannedAnchor_DoesNotOpenReturnWindowBeforeAnchorTurnEnds()
+        {
+            var context = CreateCombatContextWithTwoEnemies("TM_Delay_Planned_NoEarlyWindow");
+            try
+            {
+                Assert.IsTrue(context.turnManager.TryBeginDelayPlacementSelection());
+                Assert.IsTrue(context.turnManager.TryDelayCurrentTurnAfterActor(context.enemy2.Handle));
+
+                Assert.AreEqual(TurnState.EnemyTurn, context.turnManager.State);
+                Assert.AreEqual(context.enemy.Handle, context.turnManager.CurrentEntity, "First enemy should act after player delays.");
+
+                context.turnManager.EndTurn(); // first enemy ends; planned anchor (enemy2) has not ended yet
+
+                Assert.AreEqual(TurnState.EnemyTurn, context.turnManager.State, "Delay return window should not open before planned anchor turn ends.");
+                Assert.AreEqual(context.enemy2.Handle, context.turnManager.CurrentEntity);
+                Assert.IsFalse(context.turnManager.IsDelayReturnWindowOpen);
+                Assert.IsTrue(context.turnManager.IsDelayed(context.player.Handle));
+
+                context.turnManager.EndTurn(); // planned anchor ends -> auto resume player
+
+                Assert.AreEqual(TurnState.PlayerTurn, context.turnManager.State);
+                Assert.AreEqual(context.player.Handle, context.turnManager.CurrentEntity);
+                Assert.IsFalse(context.turnManager.IsDelayReturnWindowOpen);
+                Assert.IsFalse(context.turnManager.IsDelayed(context.player.Handle));
+            }
+            finally
+            {
+                DestroyContext(context);
+            }
+        }
+
+        [Test]
         public void TurnManager_CanDelayCurrentTurn_Fails_WhenOnlyOneInitiativeEntry()
         {
             var context = CreateCombatContext("TM_Delay_OneActor");
@@ -397,6 +429,45 @@ namespace PF2e.Tests
             };
         }
 
+        private static TestCombatContext CreateCombatContextWithTwoEnemies(string namePrefix)
+        {
+            var turnManagerGo = new GameObject($"{namePrefix}_TurnManager");
+            var entityManagerGo = new GameObject($"{namePrefix}_EntityManager");
+
+            var turnManager = turnManagerGo.AddComponent<TurnManager>();
+            LogAssert.Expect(LogType.Error, "[EntityManager] Missing reference: GridManager. Assign it in Inspector.");
+            var entityManager = entityManagerGo.AddComponent<EntityManager>();
+            var registry = new EntityRegistry();
+
+            SetPrivateField(turnManager, "entityManager", entityManager);
+            SetAutoPropertyBackingField(entityManager, "Registry", registry);
+
+            var player = CreateEntity("Player", Team.Player, 5000);
+            registry.Register(player);
+            var enemy = CreateEntity("EnemyA", Team.Enemy, 20);
+            registry.Register(enemy);
+            var enemy2 = CreateEntity("EnemyB", Team.Enemy, 10);
+            registry.Register(enemy2);
+
+            turnManager.StartCombat();
+            Assert.AreEqual(TurnState.PlayerTurn, turnManager.State, "Player should act first in test setup.");
+            Assert.AreEqual(player.Handle, turnManager.CurrentEntity, "Current actor must be player in test setup.");
+            Assert.AreEqual(3, turnManager.InitiativeOrder.Count, "Expected 3 actors in initiative.");
+            Assert.AreEqual(player.Handle, turnManager.InitiativeOrder[0].Handle);
+            Assert.AreEqual(enemy.Handle, turnManager.InitiativeOrder[1].Handle);
+            Assert.AreEqual(enemy2.Handle, turnManager.InitiativeOrder[2].Handle);
+
+            return new TestCombatContext
+            {
+                turnManagerGo = turnManagerGo,
+                entityManagerGo = entityManagerGo,
+                turnManager = turnManager,
+                player = player,
+                enemy = enemy,
+                enemy2 = enemy2
+            };
+        }
+
         private static void DestroyContext(TestCombatContext context)
         {
             if (context.turnManagerGo != null)
@@ -452,6 +523,7 @@ namespace PF2e.Tests
             public TurnManager turnManager;
             public EntityData player;
             public EntityData enemy;
+            public EntityData enemy2;
         }
     }
 }

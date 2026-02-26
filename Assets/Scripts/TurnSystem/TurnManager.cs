@@ -257,18 +257,29 @@ namespace PF2e.TurnSystem
             if (entityManager == null || entityManager.Registry == null)
                 return false;
 
+            EntityHandle firstPlanned = EntityHandle.None;
+
             foreach (var kvp in delayedTurns)
             {
                 var handle = kvp.Key;
+                var record = kvp.Value;
                 var data = entityManager.Registry.Get(handle);
                 if (data == null || !data.IsAlive) continue;
                 if (data.Team != Team.Player) continue;
 
-                actor = handle;
-                return true;
+                // Prefer manual-delay actors for Return Now fallback UI.
+                if (!record.plannedReturnAfterActor.IsValid)
+                {
+                    actor = handle;
+                    return true;
+                }
+
+                if (!firstPlanned.IsValid)
+                    firstPlanned = handle;
             }
 
-            return false;
+            actor = firstPlanned;
+            return actor.IsValid;
         }
 
         public bool TryGetDelayedPlannedAnchor(EntityHandle actor, out EntityHandle anchorActor)
@@ -741,7 +752,7 @@ namespace PF2e.TurnSystem
             if (TryAutoResumePlannedDelayedActor(afterActor))
                 return true;
 
-            if (!HasEligiblePlayerControlledDelayedActor())
+            if (!HasEligiblePlayerControlledManualDelayedActor())
                 return false; // 29c.2 auto-skip when no eligible player delayed actors.
 
             delayReturnWindowAfterActor = afterActor;
@@ -848,7 +859,7 @@ namespace PF2e.TurnSystem
             return -1;
         }
 
-        private bool HasEligiblePlayerControlledDelayedActor()
+        private bool HasEligiblePlayerControlledManualDelayedActor()
         {
             if (entityManager == null || entityManager.Registry == null)
                 return false;
@@ -856,9 +867,11 @@ namespace PF2e.TurnSystem
             foreach (var kvp in delayedTurns)
             {
                 var actor = kvp.Key;
+                var record = kvp.Value;
                 var data = entityManager.Registry.Get(actor);
                 if (data == null || !data.IsAlive) continue;
                 if (data.Team != Team.Player) continue; // 29c.2 MVP scope
+                if (record.plannedReturnAfterActor.IsValid) continue; // planned delays should auto-resume without manual window
                 return true;
             }
 
