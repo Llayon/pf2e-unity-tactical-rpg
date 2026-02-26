@@ -40,12 +40,10 @@ namespace PF2e.Presentation
 
         private readonly List<InitiativeSlot> activeSlots = new List<InitiativeSlot>(32);
         private readonly Stack<InitiativeSlot> slotPool = new Stack<InitiativeSlot>(32);
-        private readonly List<InitiativeInsertionMarker> activeInsertionMarkers = new List<InitiativeInsertionMarker>(32);
-        private readonly Stack<InitiativeInsertionMarker> insertionMarkerPool = new Stack<InitiativeInsertionMarker>(32);
         private readonly Dictionary<EntityHandle, InitiativeSlot> slotByHandle
             = new Dictionary<EntityHandle, InitiativeSlot>();
         private readonly HashSet<EntityHandle> appendedDelayedHandles = new HashSet<EntityHandle>();
-        private bool markersOverlayDirty;
+        private DelayPlacementMarkerOverlayPresenter delayMarkerOverlayPresenter;
         private DelayPlacementPromptPresenter delayPromptPresenter;
 
         private void OnEnable()
@@ -188,7 +186,10 @@ namespace PF2e.Presentation
             AutoSizePanelToContent();
             RepositionInsertionMarkers();
             RefreshDelayPlacementHintLabel();
-            markersOverlayDirty = activeInsertionMarkers.Count > 0 && turnManager != null && turnManager.IsDelayPlacementSelectionOpen;
+            if (turnManager != null && turnManager.IsDelayPlacementSelectionOpen)
+                delayMarkerOverlayPresenter?.MarkDirtyIfAny();
+            else
+                delayMarkerOverlayPresenter?.ClearDirty();
         }
 
         private InitiativeSlot GetSlot()
@@ -199,33 +200,6 @@ namespace PF2e.Presentation
             // Parent to slotsContainer immediately — never orphan a UI element outside Canvas
             var inst = Instantiate(slotPrefab, slotsContainer);
             inst.gameObject.name = "InitiativeSlot";
-            inst.gameObject.SetActive(false);
-            return inst;
-        }
-
-        private InitiativeInsertionMarker GetInsertionMarker()
-        {
-            if (insertionMarkerPool.Count > 0)
-                return insertionMarkerPool.Pop();
-
-            EnsureRuntimeUiReferences();
-            InitiativeInsertionMarker inst;
-            if (insertionMarkerPrefab != null)
-            {
-                inst = Instantiate(insertionMarkerPrefab, GetMarkersOverlayParent());
-            }
-            else
-            {
-                var go = new GameObject(
-                    "InitiativeInsertionMarker",
-                    typeof(RectTransform),
-                    typeof(UnityEngine.UI.LayoutElement),
-                    typeof(UnityEngine.UI.Image),
-                    typeof(InitiativeInsertionMarker));
-                go.transform.SetParent(GetMarkersOverlayParent(), false);
-                inst = go.GetComponent<InitiativeInsertionMarker>();
-            }
-
             inst.gameObject.SetActive(false);
             return inst;
         }
@@ -251,21 +225,8 @@ namespace PF2e.Presentation
 
         private void ClearInsertionMarkersToPool()
         {
-            for (int i = 0; i < activeInsertionMarkers.Count; i++)
-            {
-                var marker = activeInsertionMarkers[i];
-                if (marker == null) continue;
-
-                marker.OnClicked -= HandleInsertionMarkerClicked;
-                marker.OnHoverEntered -= HandleInsertionMarkerHoverEntered;
-                marker.OnHoverExited -= HandleInsertionMarkerHoverExited;
-                marker.gameObject.SetActive(false);
-                insertionMarkerPool.Push(marker);
-            }
-
-            activeInsertionMarkers.Clear();
+            delayMarkerOverlayPresenter?.ClearToPool();
             delayPromptPresenter?.ClearHoverState();
-            markersOverlayDirty = false;
         }
 
         private void UpdateHighlight()
@@ -297,6 +258,7 @@ namespace PF2e.Presentation
         private void EnsureRuntimeUiReferences()
         {
             EnsureMarkersOverlayContainer();
+            EnsureDelayPlacementMarkerOverlayPresenter();
             EnsureDelayPlacementPromptPresenter();
         }
 
@@ -350,6 +312,17 @@ namespace PF2e.Presentation
             delayPlacementPromptRoot = delayPromptPresenter.PromptRoot;
             delayPlacementPromptLabel = delayPromptPresenter.PromptLabel;
             delayPlacementPromptBackground = delayPromptPresenter.PromptBackground;
+        }
+
+        private void EnsureDelayPlacementMarkerOverlayPresenter()
+        {
+            if (delayMarkerOverlayPresenter != null)
+                return;
+
+            delayMarkerOverlayPresenter = new DelayPlacementMarkerOverlayPresenter();
+            delayMarkerOverlayPresenter.OnMarkerClicked += HandleInsertionMarkerClicked;
+            delayMarkerOverlayPresenter.OnMarkerHoverEntered += HandleInsertionMarkerHoverEntered;
+            delayMarkerOverlayPresenter.OnMarkerHoverExited += HandleInsertionMarkerHoverExited;
         }
 
         private static void CopyRectTransformLayout(RectTransform source, RectTransform target)
@@ -499,50 +472,17 @@ namespace PF2e.Presentation
 
         private void RepositionInsertionMarkers()
         {
-            if (activeInsertionMarkers.Count == 0)
-                return;
-
-            var overlayRect = markersOverlayContainer;
-            if (overlayRect == null)
-                return;
-
-            var slotsRect = slotsContainer as RectTransform;
-            if (slotsRect == null)
-                return;
-
-            float spacing = 0f;
-            if (slotsContainer != null && slotsContainer.TryGetComponent<HorizontalLayoutGroup>(out var h))
-                spacing = h.spacing;
-
-            for (int i = 0; i < activeInsertionMarkers.Count; i++)
-            {
-                var marker = activeInsertionMarkers[i];
-                if (marker == null) continue;
-                if (!slotByHandle.TryGetValue(marker.AnchorHandle, out var anchorSlot) || anchorSlot == null)
-                    continue;
-
-                var anchorRect = anchorSlot.transform as RectTransform;
-                if (anchorRect == null)
-                    continue;
-
-                var rightCenterWorld = anchorRect.TransformPoint(
-                    new Vector3(anchorRect.rect.xMax + (spacing * 0.5f), anchorRect.rect.center.y, 0f));
-                var localPoint = overlayRect.InverseTransformPoint(rightCenterWorld);
-                marker.SetOverlayPlacement(localPoint.x);
-            }
-
-            markersOverlayDirty = false;
+            EnsureDelayPlacementMarkerOverlayPresenter();
+            delayMarkerOverlayPresenter?.RepositionMarkers(
+                markersOverlayContainer,
+                slotsContainer,
+                slotByHandle);
         }
 
         private void MarkMarkersOverlayDirty()
         {
-            if (activeInsertionMarkers.Count <= 0)
-            {
-                markersOverlayDirty = false;
-                return;
-            }
-
-            markersOverlayDirty = true;
+            EnsureDelayPlacementMarkerOverlayPresenter();
+            delayMarkerOverlayPresenter?.MarkDirtyIfAny();
         }
 
         private readonly List<EntityData> delayedEntityBuffer = new List<EntityData>(8);
@@ -577,17 +517,12 @@ namespace PF2e.Presentation
             if (!turnManager.IsValidDelayAnchorForCurrentTurn(anchorHandle))
                 return;
 
-            var marker = GetInsertionMarker();
-            marker.transform.SetParent(GetMarkersOverlayParent(), false);
-            marker.gameObject.SetActive(true);
-            marker.OnClicked -= HandleInsertionMarkerClicked;
-            marker.OnClicked += HandleInsertionMarkerClicked;
-            marker.OnHoverEntered -= HandleInsertionMarkerHoverEntered;
-            marker.OnHoverEntered += HandleInsertionMarkerHoverEntered;
-            marker.OnHoverExited -= HandleInsertionMarkerHoverExited;
-            marker.OnHoverExited += HandleInsertionMarkerHoverExited;
-            marker.Setup(anchorHandle, canSelect: true);
-            activeInsertionMarkers.Add(marker);
+            EnsureDelayPlacementMarkerOverlayPresenter();
+            delayMarkerOverlayPresenter?.AddMarker(
+                anchorHandle,
+                canSelect: true,
+                GetMarkersOverlayParent(),
+                insertionMarkerPrefab);
         }
 
         private void AppendDelayedSlotsAnchoredTo(EntityHandle anchorHandle)
@@ -643,14 +578,14 @@ namespace PF2e.Presentation
             }
         }
 
-        private void HandleInsertionMarkerClicked(InitiativeInsertionMarker marker)
+        private void HandleInsertionMarkerClicked(EntityHandle anchorHandle)
         {
-            if (marker == null || turnManager == null)
+            if (!anchorHandle.IsValid || turnManager == null)
                 return;
             if (!turnManager.IsDelayPlacementSelectionOpen)
                 return;
 
-            if (!turnManager.TryDelayCurrentTurnAfterActor(marker.AnchorHandle))
+            if (!turnManager.TryDelayCurrentTurnAfterActor(anchorHandle))
                 return;
 
             // TurnStarted will also rebuild, but refresh immediately keeps the click responsive.
@@ -658,15 +593,15 @@ namespace PF2e.Presentation
             UpdateHighlight();
         }
 
-        private void HandleInsertionMarkerHoverEntered(InitiativeInsertionMarker marker)
+        private void HandleInsertionMarkerHoverEntered(EntityHandle anchorHandle)
         {
-            if (marker == null)
+            if (!anchorHandle.IsValid)
                 return;
 
-            SetDelayPlacementHintForAnchor(marker.AnchorHandle);
+            SetDelayPlacementHintForAnchor(anchorHandle);
         }
 
-        private void HandleInsertionMarkerHoverExited(InitiativeInsertionMarker marker)
+        private void HandleInsertionMarkerHoverExited(EntityHandle anchorHandle)
         {
             delayPromptPresenter?.ClearHoverState();
             RefreshDelayPlacementHintLabel();
@@ -674,16 +609,16 @@ namespace PF2e.Presentation
 
         private void LateUpdate()
         {
-            if (!markersOverlayDirty)
+            if (delayMarkerOverlayPresenter == null || !delayMarkerOverlayPresenter.IsDirty)
                 return;
             if (turnManager == null)
             {
-                markersOverlayDirty = false;
+                delayMarkerOverlayPresenter.ClearDirty();
                 return;
             }
-            if (!turnManager.IsDelayPlacementSelectionOpen || activeInsertionMarkers.Count <= 0)
+            if (!turnManager.IsDelayPlacementSelectionOpen || !delayMarkerOverlayPresenter.HasActiveMarkers)
             {
-                markersOverlayDirty = false;
+                delayMarkerOverlayPresenter.ClearDirty();
                 return;
             }
 
