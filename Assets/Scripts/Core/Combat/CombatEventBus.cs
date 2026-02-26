@@ -43,6 +43,13 @@ namespace PF2e.Core
         public delegate void SkillCheckResolvedHandler(in SkillCheckResolvedEvent e);
         public delegate void ShieldRaisedHandler(in ShieldRaisedEvent e);
         public delegate void ShieldBlockResolvedHandler(in ShieldBlockResolvedEvent e);
+        public delegate void DelayTurnBeginTriggerChangedHandler(in DelayTurnBeginTriggerChangedEvent e);
+        public delegate void DelayPlacementSelectionChangedHandler(in DelayPlacementSelectionChangedEvent e);
+        public delegate void DelayReturnWindowOpenedHandler(in DelayReturnWindowOpenedEvent e);
+        public delegate void DelayReturnWindowClosedHandler(in DelayReturnWindowClosedEvent e);
+        public delegate void DelayedTurnEnteredHandler(in DelayedTurnEnteredEvent e);
+        public delegate void DelayedTurnResumedHandler(in DelayedTurnResumedEvent e);
+        public delegate void DelayedTurnExpiredHandler(in DelayedTurnExpiredEvent e);
 
         public event Action<CombatLogEntry> OnLogEntry;
         public event StrikePreDamageHandler OnStrikePreDamageTyped;
@@ -51,6 +58,13 @@ namespace PF2e.Core
         public event SkillCheckResolvedHandler OnSkillCheckResolvedTyped;
         public event ShieldRaisedHandler OnShieldRaisedTyped;
         public event ShieldBlockResolvedHandler OnShieldBlockResolvedTyped;
+        public event DelayTurnBeginTriggerChangedHandler OnDelayTurnBeginTriggerChangedTyped;
+        public event DelayPlacementSelectionChangedHandler OnDelayPlacementSelectionChangedTyped;
+        public event DelayReturnWindowOpenedHandler OnDelayReturnWindowOpenedTyped;
+        public event DelayReturnWindowClosedHandler OnDelayReturnWindowClosedTyped;
+        public event DelayedTurnEnteredHandler OnDelayedTurnEnteredTyped;
+        public event DelayedTurnResumedHandler OnDelayedTurnResumedTyped;
+        public event DelayedTurnExpiredHandler OnDelayedTurnExpiredTyped;
 
         public void Publish(CombatLogEntry entry)
         {
@@ -156,6 +170,50 @@ namespace PF2e.Core
 
             OnShieldBlockResolvedTyped?.Invoke(in e);
         }
+
+        #region Typed: Delay
+        public void PublishDelayTurnBeginTriggerChanged(EntityHandle actor, bool isOpen)
+        {
+            var e = new DelayTurnBeginTriggerChangedEvent(actor, isOpen);
+            OnDelayTurnBeginTriggerChangedTyped?.Invoke(in e);
+        }
+
+        public void PublishDelayPlacementSelectionChanged(EntityHandle actor, bool isOpen)
+        {
+            var e = new DelayPlacementSelectionChangedEvent(actor, isOpen);
+            OnDelayPlacementSelectionChangedTyped?.Invoke(in e);
+        }
+
+        public void PublishDelayReturnWindowOpened(EntityHandle afterActor)
+        {
+            var e = new DelayReturnWindowOpenedEvent(afterActor);
+            OnDelayReturnWindowOpenedTyped?.Invoke(in e);
+        }
+
+        public void PublishDelayReturnWindowClosed(EntityHandle afterActor)
+        {
+            var e = new DelayReturnWindowClosedEvent(afterActor);
+            OnDelayReturnWindowClosedTyped?.Invoke(in e);
+        }
+
+        public void PublishDelayedTurnEntered(EntityHandle actor, EntityHandle plannedReturnAfterActor)
+        {
+            var e = new DelayedTurnEnteredEvent(actor, plannedReturnAfterActor);
+            OnDelayedTurnEnteredTyped?.Invoke(in e);
+        }
+
+        public void PublishDelayedTurnResumed(EntityHandle actor, EntityHandle afterActor, bool wasPlanned)
+        {
+            var e = new DelayedTurnResumedEvent(actor, afterActor, wasPlanned);
+            OnDelayedTurnResumedTyped?.Invoke(in e);
+        }
+
+        public void PublishDelayedTurnExpired(EntityHandle actor, EntityHandle afterActor)
+        {
+            var e = new DelayedTurnExpiredEvent(actor, afterActor);
+            OnDelayedTurnExpiredTyped?.Invoke(in e);
+        }
+        #endregion
 
         #region Typed: Turn
         public delegate void CombatStartedHandler(in CombatStartedEvent e);

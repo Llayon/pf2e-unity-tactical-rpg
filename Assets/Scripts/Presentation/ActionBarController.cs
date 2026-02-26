@@ -47,12 +47,6 @@ namespace PF2e.Presentation
         [SerializeField] private Image standHighlight;
 
         private bool buttonListenersBound;
-        private bool cachedDelayUiStateValid;
-        private bool cachedDelayReturnWindowOpen;
-        private bool cachedDelayPlacementSelectionOpen;
-        private bool cachedDelayTurnBeginTriggerOpen;
-        private int cachedDelayedActorCount = -1;
-
 #if UNITY_EDITOR
         private void OnValidate()
         {
@@ -107,10 +101,16 @@ namespace PF2e.Presentation
             eventBus.OnActionsChangedTyped += HandleActionsChanged;
             eventBus.OnConditionChangedTyped += HandleConditionChanged;
             eventBus.OnShieldRaisedTyped += HandleShieldRaised;
+            eventBus.OnDelayTurnBeginTriggerChangedTyped += HandleDelayTurnBeginTriggerChanged;
+            eventBus.OnDelayPlacementSelectionChangedTyped += HandleDelayPlacementSelectionChanged;
+            eventBus.OnDelayReturnWindowOpenedTyped += HandleDelayReturnWindowOpened;
+            eventBus.OnDelayReturnWindowClosedTyped += HandleDelayReturnWindowClosed;
+            eventBus.OnDelayedTurnEnteredTyped += HandleDelayedTurnEntered;
+            eventBus.OnDelayedTurnResumedTyped += HandleDelayedTurnResumed;
+            eventBus.OnDelayedTurnExpiredTyped += HandleDelayedTurnExpired;
             targetingController.OnModeChanged += HandleModeChanged;
 
             HandleModeChanged(targetingController.ActiveMode);
-            CacheDelayUiSnapshot();
             RefreshAvailability();
         }
 
@@ -125,6 +125,13 @@ namespace PF2e.Presentation
                 eventBus.OnActionsChangedTyped -= HandleActionsChanged;
                 eventBus.OnConditionChangedTyped -= HandleConditionChanged;
                 eventBus.OnShieldRaisedTyped -= HandleShieldRaised;
+                eventBus.OnDelayTurnBeginTriggerChangedTyped -= HandleDelayTurnBeginTriggerChanged;
+                eventBus.OnDelayPlacementSelectionChangedTyped -= HandleDelayPlacementSelectionChanged;
+                eventBus.OnDelayReturnWindowOpenedTyped -= HandleDelayReturnWindowOpened;
+                eventBus.OnDelayReturnWindowClosedTyped -= HandleDelayReturnWindowClosed;
+                eventBus.OnDelayedTurnEnteredTyped -= HandleDelayedTurnEntered;
+                eventBus.OnDelayedTurnResumedTyped -= HandleDelayedTurnResumed;
+                eventBus.OnDelayedTurnExpiredTyped -= HandleDelayedTurnExpired;
             }
 
             if (targetingController != null)
@@ -206,6 +213,41 @@ namespace PF2e.Presentation
         }
 
         private void HandleShieldRaised(in ShieldRaisedEvent e)
+        {
+            RefreshAvailability();
+        }
+
+        private void HandleDelayTurnBeginTriggerChanged(in DelayTurnBeginTriggerChangedEvent e)
+        {
+            RefreshAvailability();
+        }
+
+        private void HandleDelayPlacementSelectionChanged(in DelayPlacementSelectionChangedEvent e)
+        {
+            RefreshAvailability();
+        }
+
+        private void HandleDelayReturnWindowOpened(in DelayReturnWindowOpenedEvent e)
+        {
+            RefreshAvailability();
+        }
+
+        private void HandleDelayReturnWindowClosed(in DelayReturnWindowClosedEvent e)
+        {
+            RefreshAvailability();
+        }
+
+        private void HandleDelayedTurnEntered(in DelayedTurnEnteredEvent e)
+        {
+            RefreshAvailability();
+        }
+
+        private void HandleDelayedTurnResumed(in DelayedTurnResumedEvent e)
+        {
+            RefreshAvailability();
+        }
+
+        private void HandleDelayedTurnExpired(in DelayedTurnExpiredEvent e)
         {
             RefreshAvailability();
         }
@@ -388,43 +430,6 @@ namespace PF2e.Presentation
             if (image == null) return;
             if (image.gameObject.activeSelf != active)
                 image.gameObject.SetActive(active);
-        }
-
-        private void Update()
-        {
-            if (turnManager == null) return;
-
-            bool delayWindowOpen = turnManager.IsDelayReturnWindowOpen;
-            bool delayPlacementOpen = turnManager.IsDelayPlacementSelectionOpen;
-            bool delayTriggerOpen = turnManager.IsDelayTurnBeginTriggerOpen;
-            int delayedCount = turnManager.DelayedActorCount;
-
-            if (cachedDelayUiStateValid
-                && cachedDelayReturnWindowOpen == delayWindowOpen
-                && cachedDelayPlacementSelectionOpen == delayPlacementOpen
-                && cachedDelayTurnBeginTriggerOpen == delayTriggerOpen
-                && cachedDelayedActorCount == delayedCount)
-            {
-                return;
-            }
-
-            CacheDelayUiSnapshot();
-            RefreshAvailability();
-        }
-
-        private void CacheDelayUiSnapshot()
-        {
-            if (turnManager == null)
-            {
-                cachedDelayUiStateValid = false;
-                return;
-            }
-
-            cachedDelayReturnWindowOpen = turnManager.IsDelayReturnWindowOpen;
-            cachedDelayPlacementSelectionOpen = turnManager.IsDelayPlacementSelectionOpen;
-            cachedDelayTurnBeginTriggerOpen = turnManager.IsDelayTurnBeginTriggerOpen;
-            cachedDelayedActorCount = turnManager.DelayedActorCount;
-            cachedDelayUiStateValid = true;
         }
 
         private void OnStrikeClicked()

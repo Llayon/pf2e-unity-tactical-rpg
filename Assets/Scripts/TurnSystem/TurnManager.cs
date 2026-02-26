@@ -203,8 +203,8 @@ namespace PF2e.TurnSystem
                 Debug.LogWarning("[TurnManager] EndTurn called but not in PlayerTurn or EnemyTurn state.");
                 return;
             }
-            delayTurnBeginTriggerOpen = false;
-            delayPlacementSelectionOpen = false;
+            SetDelayTurnBeginTriggerOpen(false);
+            SetDelayPlacementSelectionOpen(false);
 
             var endingEntity = CurrentEntity;
             var data = entityManager.Registry.Get(endingEntity);
@@ -292,13 +292,13 @@ namespace PF2e.TurnSystem
             if (!CanDelayCurrentTurn())
                 return false;
 
-            delayPlacementSelectionOpen = true;
+            SetDelayPlacementSelectionOpen(true);
             return true;
         }
 
         public void CancelDelayPlacementSelection()
         {
-            delayPlacementSelectionOpen = false;
+            SetDelayPlacementSelectionOpen(false);
         }
 
         public bool IsValidDelayAnchorForCurrentTurn(EntityHandle anchorActor)
@@ -386,11 +386,12 @@ namespace PF2e.TurnSystem
 
             delayedTurns.Remove(actor);
             delayReactionSuppressed.Remove(actor);
-            delayReturnWindowAfterActor = EntityHandle.None;
-            delayPlacementSelectionOpen = false;
+            ClearDelayReturnWindowIfOpen();
+            SetDelayPlacementSelectionOpen(false, actor);
 
             currentIndex = insertIndex;
             OpenTurnForActor(actor, data, openDelayTriggerWindow: false); // resumed delayed turn
+            PublishDelayedTurnResumed(actor, afterActor, record.isPlannedAutoResume);
             return true;
         }
 
@@ -402,7 +403,7 @@ namespace PF2e.TurnSystem
                 return;
             }
 
-            delayReturnWindowAfterActor = EntityHandle.None;
+            ClearDelayReturnWindowIfOpen();
             AdvanceInitiativeAfterTurnEnd();
         }
 
@@ -427,8 +428,8 @@ namespace PF2e.TurnSystem
                 return;
             }
 
-            delayTurnBeginTriggerOpen = false;
-            delayPlacementSelectionOpen = false;
+            SetDelayTurnBeginTriggerOpen(false, actor);
+            SetDelayPlacementSelectionOpen(false, actor);
             stateBeforeExecution = state;
             state = TurnState.ExecutingAction;
             executingActor = actor.IsValid ? actor : CurrentEntity;
@@ -528,6 +529,56 @@ namespace PF2e.TurnSystem
         }
 
         // ─── Private Methods ──────────────────────────────────────────────────
+
+        private EntityHandle ResolveDelayEventActor(EntityHandle actorHint = default)
+        {
+            if (actorHint.IsValid)
+                return actorHint;
+
+            if (CurrentEntity.IsValid)
+                return CurrentEntity;
+
+            if (executingActor.IsValid)
+                return executingActor;
+
+            return EntityHandle.None;
+        }
+
+        private void SetDelayTurnBeginTriggerOpen(bool isOpen, EntityHandle actorHint = default)
+        {
+            if (delayTurnBeginTriggerOpen == isOpen)
+                return;
+
+            delayTurnBeginTriggerOpen = isOpen;
+            PublishDelayTurnBeginTriggerChanged(ResolveDelayEventActor(actorHint), isOpen);
+        }
+
+        private void SetDelayPlacementSelectionOpen(bool isOpen, EntityHandle actorHint = default)
+        {
+            if (delayPlacementSelectionOpen == isOpen)
+                return;
+
+            delayPlacementSelectionOpen = isOpen;
+            PublishDelayPlacementSelectionChanged(ResolveDelayEventActor(actorHint), isOpen);
+        }
+
+        private void OpenDelayReturnWindow(EntityHandle afterActor)
+        {
+            delayReturnWindowAfterActor = afterActor;
+            state = TurnState.DelayReturnWindow;
+            PublishDelayReturnWindowOpened(afterActor);
+            Debug.Log($"[TurnManager] Delay return window opened after actor {afterActor.Id}.");
+        }
+
+        private void ClearDelayReturnWindowIfOpen()
+        {
+            if (!delayReturnWindowAfterActor.IsValid)
+                return;
+
+            var closedAfterActor = delayReturnWindowAfterActor;
+            delayReturnWindowAfterActor = EntityHandle.None;
+            PublishDelayReturnWindowClosed(closedAfterActor);
+        }
 
         private void RollInitiative()
         {
@@ -692,8 +743,8 @@ namespace PF2e.TurnSystem
             if (data == null)
                 return false;
 
-            delayTurnBeginTriggerOpen = false;
-            delayPlacementSelectionOpen = false;
+            SetDelayTurnBeginTriggerOpen(false, actor);
+            SetDelayPlacementSelectionOpen(false, actor);
 
             ApplyDelayImmediateEffects(actor, data);
 
@@ -715,6 +766,7 @@ namespace PF2e.TurnSystem
 
             delayedTurns[actor] = delayedRecord;
             delayReactionSuppressed.Add(actor);
+            PublishDelayedTurnEntered(actor, plannedReturnAfterActor);
 
             initiativeOrder.RemoveAt(currentIndex);
 
@@ -759,9 +811,7 @@ namespace PF2e.TurnSystem
             if (!HasEligiblePlayerControlledManualDelayedActor())
                 return false; // 29c.2 auto-skip when no eligible player delayed actors.
 
-            delayReturnWindowAfterActor = afterActor;
-            state = TurnState.DelayReturnWindow;
-            Debug.Log($"[TurnManager] Delay return window opened after actor {afterActor.Id}.");
+            OpenDelayReturnWindow(afterActor);
             return true;
         }
 
@@ -800,6 +850,7 @@ namespace PF2e.TurnSystem
 
                 int insertIndex = GetInsertionIndexAfterAnchor(afterActor);
                 initiativeOrder.Insert(insertIndex, record.initiativeEntry);
+                PublishDelayedTurnExpired(record.actor, afterActor);
             }
         }
 
@@ -934,8 +985,8 @@ namespace PF2e.TurnSystem
                 return;
 
             state = data.Team == Team.Player ? TurnState.PlayerTurn : TurnState.EnemyTurn;
-            delayTurnBeginTriggerOpen = openDelayTriggerWindow;
-            delayPlacementSelectionOpen = false;
+            SetDelayTurnBeginTriggerOpen(openDelayTriggerWindow, actor);
+            SetDelayPlacementSelectionOpen(false, actor);
 
             if (entityManager != null)
                 entityManager.SelectEntity(actor);
@@ -970,9 +1021,9 @@ namespace PF2e.TurnSystem
 
         private void ResetDelayState()
         {
-            delayTurnBeginTriggerOpen = false;
-            delayPlacementSelectionOpen = false;
-            delayReturnWindowAfterActor = EntityHandle.None;
+            SetDelayTurnBeginTriggerOpen(false);
+            SetDelayPlacementSelectionOpen(false);
+            ClearDelayReturnWindowIfOpen();
             delayedTurns.Clear();
             delayReactionSuppressed.Clear();
         }
@@ -1055,6 +1106,41 @@ namespace PF2e.TurnSystem
         {
             OnInitiativeRolled?.Invoke(e);
             eventBus?.PublishInitiativeRolled(e.order);
+        }
+
+        private void PublishDelayTurnBeginTriggerChanged(EntityHandle actor, bool isOpen)
+        {
+            eventBus?.PublishDelayTurnBeginTriggerChanged(actor, isOpen);
+        }
+
+        private void PublishDelayPlacementSelectionChanged(EntityHandle actor, bool isOpen)
+        {
+            eventBus?.PublishDelayPlacementSelectionChanged(actor, isOpen);
+        }
+
+        private void PublishDelayReturnWindowOpened(EntityHandle afterActor)
+        {
+            eventBus?.PublishDelayReturnWindowOpened(afterActor);
+        }
+
+        private void PublishDelayReturnWindowClosed(EntityHandle afterActor)
+        {
+            eventBus?.PublishDelayReturnWindowClosed(afterActor);
+        }
+
+        private void PublishDelayedTurnEntered(EntityHandle actor, EntityHandle plannedReturnAfterActor)
+        {
+            eventBus?.PublishDelayedTurnEntered(actor, plannedReturnAfterActor);
+        }
+
+        private void PublishDelayedTurnResumed(EntityHandle actor, EntityHandle afterActor, bool wasPlanned)
+        {
+            eventBus?.PublishDelayedTurnResumed(actor, afterActor, wasPlanned);
+        }
+
+        private void PublishDelayedTurnExpired(EntityHandle actor, EntityHandle afterActor)
+        {
+            eventBus?.PublishDelayedTurnExpired(actor, afterActor);
         }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD

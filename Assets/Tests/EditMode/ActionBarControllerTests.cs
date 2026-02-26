@@ -72,7 +72,6 @@ namespace PF2e.Tests
 
             Assert.IsTrue(ctx.TurnManager.TryDelayCurrentTurn(), "Setup should enter enemy turn with delayed player.");
             ctx.TurnManager.EndTurn(); // opens DelayReturnWindow
-            ctx.PumpActionBarUpdate();
 
             Assert.AreEqual(TurnState.DelayReturnWindow, ctx.TurnManager.State);
             Assert.IsFalse(ctx.StrikeButton.interactable);
@@ -97,7 +96,6 @@ namespace PF2e.Tests
             Assert.IsTrue(ctx.DelayButton.interactable);
 
             ctx.DelayButton.onClick.Invoke();
-            ctx.PumpActionBarUpdate();
 
             Assert.AreEqual(TurnState.PlayerTurn, ctx.TurnManager.State);
             Assert.IsTrue(ctx.TurnManager.IsDelayPlacementSelectionOpen);
@@ -106,7 +104,6 @@ namespace PF2e.Tests
             Assert.IsFalse(ctx.StrikeButton.interactable, "Normal actions should be disabled during delay placement selection.");
 
             ctx.DelayButton.onClick.Invoke();
-            ctx.PumpActionBarUpdate();
 
             Assert.IsFalse(ctx.TurnManager.IsDelayPlacementSelectionOpen);
             Assert.IsTrue(ctx.DelayButton.interactable);
@@ -128,7 +125,6 @@ namespace PF2e.Tests
             Assert.AreEqual(TurnState.EnemyTurn, ctx.TurnManager.State);
 
             ctx.TurnManager.EndTurn(); // enemy end -> planned delay auto-resume
-            ctx.PumpActionBarUpdate();
 
             Assert.AreEqual(TurnState.PlayerTurn, ctx.TurnManager.State);
             Assert.IsFalse(ctx.TurnManager.IsDelayReturnWindowOpen);
@@ -589,7 +585,8 @@ namespace PF2e.Tests
 
             public void PumpActionBarUpdate()
             {
-                InvokePrivate(ActionBar, "Update");
+                // ActionBarController delay UI refresh is event-driven now; keep helper semantics by forcing a refresh.
+                InvokePrivate(ActionBar, "RefreshAvailability");
             }
 
             public void SetWeaponTraits(EntityHandle actor, WeaponTraitFlags traits)

@@ -45,8 +45,8 @@ namespace PF2e.Presentation
         private readonly Dictionary<EntityHandle, InitiativeSlot> slotByHandle
             = new Dictionary<EntityHandle, InitiativeSlot>();
         private readonly HashSet<EntityHandle> appendedDelayedHandles = new HashSet<EntityHandle>();
-        private bool cachedDelayPlacementSelectionOpen;
         private bool delayPlacementHoverActive;
+        private bool markersOverlayDirty;
 
         private void OnEnable()
         {
@@ -56,6 +56,9 @@ namespace PF2e.Presentation
                 eventBus.OnCombatEndedTyped += HandleCombatEnded;
                 eventBus.OnRoundStartedTyped += HandleRoundStarted;
                 eventBus.OnTurnStartedTyped += HandleTurnStarted;
+                eventBus.OnDelayPlacementSelectionChangedTyped += HandleDelayPlacementSelectionChanged;
+                eventBus.OnDelayReturnWindowOpenedTyped += HandleDelayReturnWindowOpened;
+                eventBus.OnDelayReturnWindowClosedTyped += HandleDelayReturnWindowClosed;
                 eventBus.OnStrikeResolved  += HandleStrikeResolved;
                 eventBus.OnEntityDefeated  += HandleEntityDefeated;
             }
@@ -71,6 +74,9 @@ namespace PF2e.Presentation
                 eventBus.OnCombatEndedTyped -= HandleCombatEnded;
                 eventBus.OnRoundStartedTyped -= HandleRoundStarted;
                 eventBus.OnTurnStartedTyped -= HandleTurnStarted;
+                eventBus.OnDelayPlacementSelectionChangedTyped -= HandleDelayPlacementSelectionChanged;
+                eventBus.OnDelayReturnWindowOpenedTyped -= HandleDelayReturnWindowOpened;
+                eventBus.OnDelayReturnWindowClosedTyped -= HandleDelayReturnWindowClosed;
                 eventBus.OnStrikeResolved  -= HandleStrikeResolved;
                 eventBus.OnEntityDefeated  -= HandleEntityDefeated;
             }
@@ -103,6 +109,7 @@ namespace PF2e.Presentation
             if (roundLabel != null)
                 roundLabel.SetText("Round {0}", e.round);
             AutoSizePanelToContent();
+            MarkMarkersOverlayDirty();
             if (turnManager == null || !turnManager.IsDelayPlacementSelectionOpen)
                 SetDelayPlacementPromptVisible(false);
         }
@@ -111,6 +118,25 @@ namespace PF2e.Presentation
         {
             if (turnManager != null)
                 BuildSlots(turnManager.InitiativeOrder);
+            UpdateHighlight();
+        }
+
+        private void HandleDelayPlacementSelectionChanged(in DelayPlacementSelectionChangedEvent e)
+        {
+            if (turnManager == null)
+                return;
+
+            BuildSlots(turnManager.InitiativeOrder);
+            UpdateHighlight();
+        }
+
+        private void HandleDelayReturnWindowOpened(in DelayReturnWindowOpenedEvent e)
+        {
+            UpdateHighlight(); // clears active slot highlight while inter-turn Delay window is open
+        }
+
+        private void HandleDelayReturnWindowClosed(in DelayReturnWindowClosedEvent e)
+        {
             UpdateHighlight();
         }
 
@@ -162,6 +188,7 @@ namespace PF2e.Presentation
             AutoSizePanelToContent();
             RepositionInsertionMarkers();
             RefreshDelayPlacementHintLabel();
+            markersOverlayDirty = activeInsertionMarkers.Count > 0 && turnManager != null && turnManager.IsDelayPlacementSelectionOpen;
         }
 
         private InitiativeSlot GetSlot()
@@ -238,6 +265,7 @@ namespace PF2e.Presentation
 
             activeInsertionMarkers.Clear();
             delayPlacementHoverActive = false;
+            markersOverlayDirty = false;
         }
 
         private void UpdateHighlight()
@@ -592,6 +620,19 @@ namespace PF2e.Presentation
                 var localPoint = overlayRect.InverseTransformPoint(rightCenterWorld);
                 marker.SetOverlayPlacement(localPoint.x);
             }
+
+            markersOverlayDirty = false;
+        }
+
+        private void MarkMarkersOverlayDirty()
+        {
+            if (activeInsertionMarkers.Count <= 0)
+            {
+                markersOverlayDirty = false;
+                return;
+            }
+
+            markersOverlayDirty = true;
         }
 
         private readonly List<EntityData> delayedEntityBuffer = new List<EntityData>(8);
@@ -722,21 +763,22 @@ namespace PF2e.Presentation
             RefreshDelayPlacementHintLabel();
         }
 
-        private void Update()
+        private void LateUpdate()
         {
+            if (!markersOverlayDirty)
+                return;
             if (turnManager == null)
+            {
+                markersOverlayDirty = false;
                 return;
-
-            bool delayPlacementOpen = turnManager.IsDelayPlacementSelectionOpen;
-            if (delayPlacementOpen && activeInsertionMarkers.Count > 0)
-                RepositionInsertionMarkers();
-
-            if (cachedDelayPlacementSelectionOpen == delayPlacementOpen)
+            }
+            if (!turnManager.IsDelayPlacementSelectionOpen || activeInsertionMarkers.Count <= 0)
+            {
+                markersOverlayDirty = false;
                 return;
+            }
 
-            cachedDelayPlacementSelectionOpen = delayPlacementOpen;
-            BuildSlots(turnManager.InitiativeOrder);
-            UpdateHighlight();
+            RepositionInsertionMarkers();
         }
 
         private void RefreshDelayPlacementHintLabel()
