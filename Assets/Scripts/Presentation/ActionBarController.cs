@@ -49,6 +49,7 @@ namespace PF2e.Presentation
         private bool buttonListenersBound;
         private bool cachedDelayUiStateValid;
         private bool cachedDelayReturnWindowOpen;
+        private bool cachedDelayPlacementSelectionOpen;
         private bool cachedDelayTurnBeginTriggerOpen;
         private int cachedDelayedActorCount = -1;
 
@@ -249,6 +250,14 @@ namespace PF2e.Presentation
             SetDelayWindowControlsVisible(false);
             SetDelayReturnControlsInteractable(false, false);
 
+            if (turnManager.IsDelayPlacementSelectionOpen)
+            {
+                SetAllInteractable(false);
+                // Keep Delay enabled as a cancel toggle while choosing initiative slot.
+                SetDelayControlInteractable(true);
+                return;
+            }
+
             bool canAct = turnManager.IsPlayerTurn
                        && !actionExecutor.IsBusy
                        && turnManager.ActionsRemaining > 0;
@@ -386,11 +395,13 @@ namespace PF2e.Presentation
             if (turnManager == null) return;
 
             bool delayWindowOpen = turnManager.IsDelayReturnWindowOpen;
+            bool delayPlacementOpen = turnManager.IsDelayPlacementSelectionOpen;
             bool delayTriggerOpen = turnManager.IsDelayTurnBeginTriggerOpen;
             int delayedCount = turnManager.DelayedActorCount;
 
             if (cachedDelayUiStateValid
                 && cachedDelayReturnWindowOpen == delayWindowOpen
+                && cachedDelayPlacementSelectionOpen == delayPlacementOpen
                 && cachedDelayTurnBeginTriggerOpen == delayTriggerOpen
                 && cachedDelayedActorCount == delayedCount)
             {
@@ -410,6 +421,7 @@ namespace PF2e.Presentation
             }
 
             cachedDelayReturnWindowOpen = turnManager.IsDelayReturnWindowOpen;
+            cachedDelayPlacementSelectionOpen = turnManager.IsDelayPlacementSelectionOpen;
             cachedDelayTurnBeginTriggerOpen = turnManager.IsDelayTurnBeginTriggerOpen;
             cachedDelayedActorCount = turnManager.DelayedActorCount;
             cachedDelayUiStateValid = true;
@@ -469,7 +481,14 @@ namespace PF2e.Presentation
             if (targetingController != null && targetingController.ActiveMode != TargetingMode.None)
                 targetingController.CancelTargeting();
 
-            if (turnManager.TryDelayCurrentTurn())
+            if (turnManager.IsDelayPlacementSelectionOpen)
+            {
+                turnManager.CancelDelayPlacementSelection();
+                RefreshAvailability();
+                return;
+            }
+
+            if (turnManager.TryBeginDelayPlacementSelection())
                 RefreshAvailability();
         }
 

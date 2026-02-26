@@ -1,11 +1,13 @@
+using System;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using TMPro;
 using PF2e.Core;
 
 namespace PF2e.Presentation
 {
-    public class InitiativeSlot : MonoBehaviour
+    public class InitiativeSlot : MonoBehaviour, IPointerClickHandler
     {
         [Header("UI")]
         [SerializeField] private TMP_Text nameText;
@@ -25,6 +27,8 @@ namespace PF2e.Presentation
         private bool defeated;
         private bool delayed;
         private string baseDisplayName = string.Empty;
+
+        public event Action<InitiativeSlot> OnClicked;
 
         public void SetupStatic(EntityHandle handle, string displayName, Team team)
         {
@@ -108,6 +112,14 @@ namespace PF2e.Presentation
                 c.a = alpha;
                 nameText.color = c;
             }
+        }
+
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            if (eventData == null) return;
+            if (eventData.button != PointerEventData.InputButton.Left) return;
+
+            OnClicked?.Invoke(this);
         }
     }
 }

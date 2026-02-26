@@ -281,6 +281,57 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void TurnManager_DelayPlacementSelection_AnchorLaterActor_DelaysWithPlannedAnchor()
+        {
+            var context = CreateCombatContext("TM_Delay_PlannedAnchor");
+            try
+            {
+                Assert.IsTrue(context.turnManager.TryBeginDelayPlacementSelection());
+                Assert.IsTrue(context.turnManager.IsDelayPlacementSelectionOpen);
+                Assert.IsTrue(context.turnManager.IsValidDelayAnchorForCurrentTurn(context.enemy.Handle));
+                Assert.IsFalse(context.turnManager.IsValidDelayAnchorForCurrentTurn(context.player.Handle));
+
+                Assert.IsTrue(context.turnManager.TryDelayCurrentTurnAfterActor(context.enemy.Handle));
+
+                Assert.IsFalse(context.turnManager.IsDelayPlacementSelectionOpen);
+                Assert.IsTrue(context.turnManager.IsDelayed(context.player.Handle));
+                Assert.IsTrue(context.turnManager.TryGetDelayedPlannedAnchor(context.player.Handle, out var plannedAnchor));
+                Assert.AreEqual(context.enemy.Handle, plannedAnchor);
+                Assert.AreEqual(TurnState.EnemyTurn, context.turnManager.State);
+            }
+            finally
+            {
+                DestroyContext(context);
+            }
+        }
+
+        [Test]
+        public void TurnManager_DelayWithPlannedAnchor_AutoResumesAfterAnchorTurn_WithoutReturnWindow()
+        {
+            var context = CreateCombatContext("TM_Delay_AutoResume");
+            try
+            {
+                Assert.IsTrue(context.turnManager.TryBeginDelayPlacementSelection());
+                Assert.IsTrue(context.turnManager.TryDelayCurrentTurnAfterActor(context.enemy.Handle));
+
+                Assert.AreEqual(TurnState.EnemyTurn, context.turnManager.State);
+                Assert.AreEqual(context.enemy.Handle, context.turnManager.CurrentEntity);
+
+                context.turnManager.EndTurn();
+
+                Assert.AreEqual(TurnState.PlayerTurn, context.turnManager.State, "Planned delay should auto-resume when anchor turn ends.");
+                Assert.AreEqual(context.player.Handle, context.turnManager.CurrentEntity);
+                Assert.IsFalse(context.turnManager.IsDelayReturnWindowOpen);
+                Assert.IsFalse(context.turnManager.IsDelayed(context.player.Handle));
+                Assert.AreEqual(0, context.turnManager.DelayedActorCount);
+            }
+            finally
+            {
+                DestroyContext(context);
+            }
+        }
+
+        [Test]
         public void TurnManager_CanDelayCurrentTurn_Fails_WhenOnlyOneInitiativeEntry()
         {
             var context = CreateCombatContext("TM_Delay_OneActor");

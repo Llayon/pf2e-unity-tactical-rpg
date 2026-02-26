@@ -24,6 +24,7 @@ namespace PF2e.Presentation
         private readonly Stack<InitiativeSlot> slotPool = new Stack<InitiativeSlot>(32);
         private readonly Dictionary<EntityHandle, InitiativeSlot> slotByHandle
             = new Dictionary<EntityHandle, InitiativeSlot>();
+        private readonly HashSet<EntityHandle> appendedDelayedHandles = new HashSet<EntityHandle>();
 
         private void OnEnable()
         {
@@ -108,6 +109,7 @@ namespace PF2e.Presentation
         {
             ClearSlotsToPool();
             slotByHandle.Clear();
+            appendedDelayedHandles.Clear();
 
             if (order == null || entityManager == null || entityManager.Registry == null) return;
 
@@ -117,46 +119,11 @@ namespace PF2e.Presentation
                 var data = entityManager.Registry.Get(handle);
                 if (data == null) continue;
 
-                var slot = GetSlot();
-                slot.transform.SetParent(slotsContainer, false);
-                slot.gameObject.SetActive(true);
-
-                slot.SetupStatic(handle, data.Name, data.Team);
-                slot.RefreshHP(data.CurrentHP, data.MaxHP, data.IsAlive);
-                slot.SetDelayed(turnManager != null && turnManager.IsDelayed(handle));
-
-                activeSlots.Add(slot);
-                slotByHandle[handle] = slot;
+                CreateOrRefreshSlot(data, isDelayed: false);
+                AppendDelayedSlotsAnchoredTo(handle);
             }
 
-            if (turnManager == null)
-                return;
-
-            delayedEntityBuffer.Clear();
-            foreach (var data in entityManager.Registry.GetAll())
-            {
-                if (data == null || !data.Handle.IsValid) continue;
-                if (!turnManager.IsDelayed(data.Handle)) continue;
-                if (slotByHandle.ContainsKey(data.Handle)) continue;
-                delayedEntityBuffer.Add(data);
-            }
-
-            delayedEntityBuffer.Sort(static (a, b) => a.Handle.Id.CompareTo(b.Handle.Id));
-
-            for (int i = 0; i < delayedEntityBuffer.Count; i++)
-            {
-                var data = delayedEntityBuffer[i];
-                var slot = GetSlot();
-                slot.transform.SetParent(slotsContainer, false);
-                slot.gameObject.SetActive(true);
-
-                slot.SetupStatic(data.Handle, data.Name, data.Team);
-                slot.RefreshHP(data.CurrentHP, data.MaxHP, data.IsAlive);
-                slot.SetDelayed(true);
-
-                activeSlots.Add(slot);
-                slotByHandle[data.Handle] = slot;
-            }
+            AppendRemainingDelayedSlots();
         }
 
         private InitiativeSlot GetSlot()
@@ -178,6 +145,7 @@ namespace PF2e.Presentation
                 var s = activeSlots[i];
                 if (s == null) continue;
 
+                s.OnClicked -= HandleSlotClicked;
                 s.SetHighlight(false);
                 s.gameObject.SetActive(false);
                 // Keep under slotsContainer — stays inside Canvas hierarchy
@@ -214,6 +182,84 @@ namespace PF2e.Presentation
         }
 
         private readonly List<EntityData> delayedEntityBuffer = new List<EntityData>(8);
+
+        private void CreateOrRefreshSlot(EntityData data, bool isDelayed)
+        {
+            if (data == null || !data.Handle.IsValid)
+                return;
+
+            var slot = GetSlot();
+            slot.transform.SetParent(slotsContainer, false);
+            slot.gameObject.SetActive(true);
+            slot.OnClicked -= HandleSlotClicked;
+            slot.OnClicked += HandleSlotClicked;
+
+            slot.SetupStatic(data.Handle, data.Name, data.Team);
+            slot.RefreshHP(data.CurrentHP, data.MaxHP, data.IsAlive);
+            slot.SetDelayed(isDelayed);
+
+            activeSlots.Add(slot);
+            slotByHandle[data.Handle] = slot;
+            if (isDelayed)
+                appendedDelayedHandles.Add(data.Handle);
+        }
+
+        private void AppendDelayedSlotsAnchoredTo(EntityHandle anchorHandle)
+        {
+            if (turnManager == null || entityManager == null || entityManager.Registry == null)
+                return;
+
+            delayedEntityBuffer.Clear();
+            foreach (var data in entityManager.Registry.GetAll())
+            {
+                if (data == null || !data.Handle.IsValid) continue;
+                if (!turnManager.IsDelayed(data.Handle)) continue;
+                if (appendedDelayedHandles.Contains(data.Handle)) continue;
+                if (!turnManager.TryGetDelayedPlannedAnchor(data.Handle, out var plannedAnchor)) continue;
+                if (plannedAnchor != anchorHandle) continue;
+
+                delayedEntityBuffer.Add(data);
+            }
+
+            delayedEntityBuffer.Sort(static (a, b) => a.Handle.Id.CompareTo(b.Handle.Id));
+            for (int i = 0; i < delayedEntityBuffer.Count; i++)
+                CreateOrRefreshSlot(delayedEntityBuffer[i], isDelayed: true);
+        }
+
+        private void AppendRemainingDelayedSlots()
+        {
+            if (turnManager == null || entityManager == null || entityManager.Registry == null)
+                return;
+
+            delayedEntityBuffer.Clear();
+            foreach (var data in entityManager.Registry.GetAll())
+            {
+                if (data == null || !data.Handle.IsValid) continue;
+                if (!turnManager.IsDelayed(data.Handle)) continue;
+                if (appendedDelayedHandles.Contains(data.Handle)) continue;
+                delayedEntityBuffer.Add(data);
+            }
+
+            delayedEntityBuffer.Sort(static (a, b) => a.Handle.Id.CompareTo(b.Handle.Id));
+            for (int i = 0; i < delayedEntityBuffer.Count; i++)
+                CreateOrRefreshSlot(delayedEntityBuffer[i], isDelayed: true);
+        }
+
+        private void HandleSlotClicked(InitiativeSlot slot)
+        {
+            if (slot == null || turnManager == null)
+                return;
+
+            if (!turnManager.IsDelayPlacementSelectionOpen)
+                return;
+
+            if (!turnManager.TryDelayCurrentTurnAfterActor(slot.Handle))
+                return;
+
+            // TurnStarted will also rebuild, but refresh immediately keeps the click responsive.
+            BuildSlots(turnManager.InitiativeOrder);
+            UpdateHighlight();
+        }
 
 #if UNITY_EDITOR
         private void OnValidate()

@@ -22,6 +22,7 @@ namespace PF2e.TurnSystem
         [SerializeField] private int currentIndex = -1;
         [SerializeField] private int roundNumber = 0;
         [SerializeField] private bool delayTurnBeginTriggerOpen;
+        [SerializeField] private bool delayPlacementSelectionOpen;
         [SerializeField] private EntityHandle delayReturnWindowAfterActor = EntityHandle.None;
 
         private List<InitiativeEntry> initiativeOrder = new();
@@ -86,6 +87,7 @@ namespace PF2e.TurnSystem
         }
 
         public bool IsDelayTurnBeginTriggerOpen => delayTurnBeginTriggerOpen;
+        public bool IsDelayPlacementSelectionOpen => delayPlacementSelectionOpen;
 
         public int DelayedActorCount => delayedTurns.Count;
 
@@ -128,6 +130,7 @@ namespace PF2e.TurnSystem
             public readonly int delayedRoundNumber;
             public readonly bool delayImmediateEffectsApplied;
             public readonly EntityHandle originalAnchorActor;
+            public readonly EntityHandle plannedReturnAfterActor;
             public readonly InitiativeEntry initiativeEntry;
 
             public DelayedTurnRecord(
@@ -135,12 +138,14 @@ namespace PF2e.TurnSystem
                 int delayedRoundNumber,
                 bool delayImmediateEffectsApplied,
                 EntityHandle originalAnchorActor,
+                EntityHandle plannedReturnAfterActor,
                 InitiativeEntry initiativeEntry)
             {
                 this.actor = actor;
                 this.delayedRoundNumber = delayedRoundNumber;
                 this.delayImmediateEffectsApplied = delayImmediateEffectsApplied;
                 this.originalAnchorActor = originalAnchorActor;
+                this.plannedReturnAfterActor = plannedReturnAfterActor;
                 this.initiativeEntry = initiativeEntry;
             }
         }
@@ -196,6 +201,7 @@ namespace PF2e.TurnSystem
                 return;
             }
             delayTurnBeginTriggerOpen = false;
+            delayPlacementSelectionOpen = false;
 
             var endingEntity = CurrentEntity;
             var data = entityManager.Registry.Get(endingEntity);
@@ -265,6 +271,63 @@ namespace PF2e.TurnSystem
             return false;
         }
 
+        public bool TryGetDelayedPlannedAnchor(EntityHandle actor, out EntityHandle anchorActor)
+        {
+            anchorActor = EntityHandle.None;
+            if (!actor.IsValid) return false;
+            if (!delayedTurns.TryGetValue(actor, out var record)) return false;
+            if (!record.plannedReturnAfterActor.IsValid) return false;
+
+            anchorActor = record.plannedReturnAfterActor;
+            return true;
+        }
+
+        public bool TryBeginDelayPlacementSelection()
+        {
+            if (!CanDelayCurrentTurn())
+                return false;
+
+            delayPlacementSelectionOpen = true;
+            return true;
+        }
+
+        public void CancelDelayPlacementSelection()
+        {
+            delayPlacementSelectionOpen = false;
+        }
+
+        public bool IsValidDelayAnchorForCurrentTurn(EntityHandle anchorActor)
+        {
+            if (!delayPlacementSelectionOpen) return false;
+            if (!CanDelayCurrentTurn()) return false;
+            if (!anchorActor.IsValid) return false;
+
+            var currentActor = CurrentEntity;
+            if (!currentActor.IsValid || currentActor == anchorActor)
+                return false;
+
+            int anchorIndex = FindInitiativeIndex(anchorActor);
+            if (anchorIndex < 0)
+                return false;
+
+            if (anchorIndex <= currentIndex)
+                return false; // Owlcat-style: choose a later slot in the current round only.
+
+            if (entityManager == null || entityManager.Registry == null)
+                return false;
+
+            var anchorData = entityManager.Registry.Get(anchorActor);
+            return anchorData != null && anchorData.IsAlive;
+        }
+
+        public bool TryDelayCurrentTurnAfterActor(EntityHandle anchorActor)
+        {
+            if (!IsValidDelayAnchorForCurrentTurn(anchorActor))
+                return false;
+
+            return TryDelayCurrentTurnInternal(anchorActor);
+        }
+
         public bool CanDelayCurrentTurn()
         {
             if (state != TurnState.PlayerTurn) return false;
@@ -287,60 +350,21 @@ namespace PF2e.TurnSystem
 
         public bool TryDelayCurrentTurn()
         {
-            if (!CanDelayCurrentTurn())
-                return false;
-
-            var actor = CurrentEntity;
-            var data = entityManager.Registry.Get(actor);
-            if (data == null)
-                return false;
-
-            delayTurnBeginTriggerOpen = false;
-
-            ApplyDelayImmediateEffects(actor, data);
-
-            if (currentIndex < 0 || currentIndex >= initiativeOrder.Count || initiativeOrder[currentIndex].Handle != actor)
-            {
-                Debug.LogError("[TurnManager] TryDelayCurrentTurn lost current initiative position. Delay aborted.");
-                return false;
-            }
-
-            var currentEntry = initiativeOrder[currentIndex];
-            var delayedRecord = new DelayedTurnRecord(
-                actor,
-                roundNumber,
-                delayImmediateEffectsApplied: true,
-                originalAnchorActor: GetPreviousInitiativeActorForCurrentIndex(),
-                initiativeEntry: currentEntry);
-
-            delayedTurns[actor] = delayedRecord;
-            delayReactionSuppressed.Add(actor);
-
-            initiativeOrder.RemoveAt(currentIndex);
-
-            if (initiativeOrder.Count == 0)
-            {
-                Debug.LogWarning("[TurnManager] Delay removed the only active initiative entry unexpectedly. Restoring actor to initiative.");
-                initiativeOrder.Insert(0, currentEntry);
-                delayedTurns.Remove(actor);
-                delayReactionSuppressed.Remove(actor);
-                return false;
-            }
-
-            if (CheckVictory()) return true;
-
-            if (currentIndex >= initiativeOrder.Count)
-                StartNextRound();
-            else
-                StartCurrentTurn();
-
-            return true;
+            return TryDelayCurrentTurnInternal(EntityHandle.None);
         }
 
         public bool TryReturnDelayedActor(EntityHandle actor)
         {
             if (state != TurnState.DelayReturnWindow)
                 return false;
+            if (!delayReturnWindowAfterActor.IsValid)
+                return false;
+
+            return TryResumeDelayedActorInternal(actor, delayReturnWindowAfterActor);
+        }
+
+        private bool TryResumeDelayedActorInternal(EntityHandle actor, EntityHandle afterActor)
+        {
             if (!actor.IsValid)
                 return false;
             if (!delayedTurns.TryGetValue(actor, out var record))
@@ -352,12 +376,13 @@ namespace PF2e.TurnSystem
             if (data == null || !data.IsAlive)
                 return false;
 
-            int insertIndex = GetInsertionIndexAfterAnchor(delayReturnWindowAfterActor);
+            int insertIndex = GetInsertionIndexAfterAnchor(afterActor);
             initiativeOrder.Insert(insertIndex, record.initiativeEntry);
 
             delayedTurns.Remove(actor);
             delayReactionSuppressed.Remove(actor);
             delayReturnWindowAfterActor = EntityHandle.None;
+            delayPlacementSelectionOpen = false;
 
             currentIndex = insertIndex;
             OpenTurnForActor(actor, data, openDelayTriggerWindow: false); // resumed delayed turn
@@ -398,6 +423,7 @@ namespace PF2e.TurnSystem
             }
 
             delayTurnBeginTriggerOpen = false;
+            delayPlacementSelectionOpen = false;
             stateBeforeExecution = state;
             state = TurnState.ExecutingAction;
             executingActor = actor.IsValid ? actor : CurrentEntity;
@@ -651,12 +677,69 @@ namespace PF2e.TurnSystem
             ApplyEndTurnEffects(actor, data);
         }
 
+        private bool TryDelayCurrentTurnInternal(EntityHandle plannedReturnAfterActor)
+        {
+            if (!CanDelayCurrentTurn())
+                return false;
+
+            var actor = CurrentEntity;
+            var data = entityManager.Registry.Get(actor);
+            if (data == null)
+                return false;
+
+            delayTurnBeginTriggerOpen = false;
+            delayPlacementSelectionOpen = false;
+
+            ApplyDelayImmediateEffects(actor, data);
+
+            if (currentIndex < 0 || currentIndex >= initiativeOrder.Count || initiativeOrder[currentIndex].Handle != actor)
+            {
+                Debug.LogError("[TurnManager] TryDelayCurrentTurn lost current initiative position. Delay aborted.");
+                return false;
+            }
+
+            var currentEntry = initiativeOrder[currentIndex];
+            var delayedRecord = new DelayedTurnRecord(
+                actor,
+                roundNumber,
+                delayImmediateEffectsApplied: true,
+                originalAnchorActor: GetPreviousInitiativeActorForCurrentIndex(),
+                plannedReturnAfterActor: plannedReturnAfterActor,
+                initiativeEntry: currentEntry);
+
+            delayedTurns[actor] = delayedRecord;
+            delayReactionSuppressed.Add(actor);
+
+            initiativeOrder.RemoveAt(currentIndex);
+
+            if (initiativeOrder.Count == 0)
+            {
+                Debug.LogWarning("[TurnManager] Delay removed the only active initiative entry unexpectedly. Restoring actor to initiative.");
+                initiativeOrder.Insert(0, currentEntry);
+                delayedTurns.Remove(actor);
+                delayReactionSuppressed.Remove(actor);
+                return false;
+            }
+
+            if (CheckVictory()) return true;
+
+            if (currentIndex >= initiativeOrder.Count)
+                StartNextRound();
+            else
+                StartCurrentTurn();
+
+            return true;
+        }
+
         private bool TryOpenDelayReturnWindow(EntityHandle afterActor)
         {
             ExpireDelayedTurnsIfDueAfter(afterActor);
 
             if (delayedTurns.Count <= 0)
                 return false;
+
+            if (TryAutoResumePlannedDelayedActor(afterActor))
+                return true;
 
             if (!HasEligiblePlayerControlledDelayedActor())
                 return false; // 29c.2 auto-skip when no eligible player delayed actors.
@@ -703,6 +786,37 @@ namespace PF2e.TurnSystem
                 int insertIndex = GetInsertionIndexAfterAnchor(afterActor);
                 initiativeOrder.Insert(insertIndex, record.initiativeEntry);
             }
+        }
+
+        private bool TryAutoResumePlannedDelayedActor(EntityHandle afterActor)
+        {
+            if (!afterActor.IsValid || delayedTurns.Count <= 0)
+                return false;
+            if (entityManager == null || entityManager.Registry == null)
+                return false;
+
+            EntityHandle chosen = EntityHandle.None;
+
+            foreach (var kvp in delayedTurns)
+            {
+                var record = kvp.Value;
+                if (record.plannedReturnAfterActor != afterActor)
+                    continue;
+
+                var data = entityManager.Registry.Get(record.actor);
+                if (data == null || !data.IsAlive)
+                    continue;
+                if (data.Team != Team.Player)
+                    continue; // MVP scope
+
+                if (!chosen.IsValid || record.actor.Id < chosen.Id)
+                    chosen = record.actor;
+            }
+
+            if (!chosen.IsValid)
+                return false;
+
+            return TryResumeDelayedActorInternal(chosen, afterActor);
         }
 
         private int GetInsertionIndexAfterAnchor(EntityHandle anchorActor)
@@ -758,6 +872,7 @@ namespace PF2e.TurnSystem
 
             state = data.Team == Team.Player ? TurnState.PlayerTurn : TurnState.EnemyTurn;
             delayTurnBeginTriggerOpen = openDelayTriggerWindow;
+            delayPlacementSelectionOpen = false;
 
             if (entityManager != null)
                 entityManager.SelectEntity(actor);
@@ -793,6 +908,7 @@ namespace PF2e.TurnSystem
         private void ResetDelayState()
         {
             delayTurnBeginTriggerOpen = false;
+            delayPlacementSelectionOpen = false;
             delayReturnWindowAfterActor = EntityHandle.None;
             delayedTurns.Clear();
             delayReactionSuppressed.Clear();

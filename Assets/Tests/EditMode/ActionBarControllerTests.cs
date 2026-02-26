@@ -84,7 +84,7 @@ namespace PF2e.Tests
         }
 
         [Test]
-        public void DelayButton_Click_DelaysCurrentTurn()
+        public void DelayButton_Click_EntersAndCancelsPlacementSelectionMode()
         {
             using var ctx = new ActionBarTestContext();
             var player = ctx.RegisterEntity("Fighter", Team.Player);
@@ -99,11 +99,17 @@ namespace PF2e.Tests
             ctx.DelayButton.onClick.Invoke();
             ctx.PumpActionBarUpdate();
 
-            Assert.AreEqual(TurnState.EnemyTurn, ctx.TurnManager.State);
-            Assert.AreEqual(enemy, ctx.TurnManager.CurrentEntity);
-            Assert.AreEqual(1, ctx.TurnManager.DelayedActorCount);
-            Assert.IsTrue(ctx.TurnManager.IsDelayed(player));
-            Assert.IsFalse(ctx.DelayButton.interactable);
+            Assert.AreEqual(TurnState.PlayerTurn, ctx.TurnManager.State);
+            Assert.IsTrue(ctx.TurnManager.IsDelayPlacementSelectionOpen);
+            Assert.AreEqual(0, ctx.TurnManager.DelayedActorCount);
+            Assert.IsTrue(ctx.DelayButton.interactable, "Delay remains enabled as cancel toggle while selecting anchor.");
+            Assert.IsFalse(ctx.StrikeButton.interactable, "Normal actions should be disabled during delay placement selection.");
+
+            ctx.DelayButton.onClick.Invoke();
+            ctx.PumpActionBarUpdate();
+
+            Assert.IsFalse(ctx.TurnManager.IsDelayPlacementSelectionOpen);
+            Assert.IsTrue(ctx.DelayButton.interactable);
         }
 
         [Test]
