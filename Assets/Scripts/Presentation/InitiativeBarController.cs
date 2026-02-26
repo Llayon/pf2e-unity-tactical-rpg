@@ -45,6 +45,7 @@ namespace PF2e.Presentation
         private readonly HashSet<EntityHandle> appendedDelayedHandles = new HashSet<EntityHandle>();
         private DelayPlacementMarkerOverlayPresenter delayMarkerOverlayPresenter;
         private DelayPlacementPromptPresenter delayPromptPresenter;
+        private DelayPlacementInteractionCoordinator delayPlacementInteractionCoordinator;
 
         private void OnEnable()
         {
@@ -126,6 +127,7 @@ namespace PF2e.Presentation
 
             BuildSlots(turnManager.InitiativeOrder);
             UpdateHighlight();
+            RefreshDelayPlacementHintLabel();
         }
 
         private void HandleDelayReturnWindowOpened(in DelayReturnWindowOpenedEvent e)
@@ -226,7 +228,7 @@ namespace PF2e.Presentation
         private void ClearInsertionMarkersToPool()
         {
             delayMarkerOverlayPresenter?.ClearToPool();
-            delayPromptPresenter?.ClearHoverState();
+            delayPlacementInteractionCoordinator?.ClearHoverState();
         }
 
         private void UpdateHighlight()
@@ -258,8 +260,9 @@ namespace PF2e.Presentation
         private void EnsureRuntimeUiReferences()
         {
             EnsureMarkersOverlayContainer();
-            EnsureDelayPlacementMarkerOverlayPresenter();
             EnsureDelayPlacementPromptPresenter();
+            EnsureDelayPlacementInteractionCoordinator();
+            EnsureDelayPlacementMarkerOverlayPresenter();
         }
 
         private Transform GetMarkersOverlayParent()
@@ -314,15 +317,27 @@ namespace PF2e.Presentation
             delayPlacementPromptBackground = delayPromptPresenter.PromptBackground;
         }
 
+        private void EnsureDelayPlacementInteractionCoordinator()
+        {
+            if (delayPlacementInteractionCoordinator == null)
+            {
+                delayPlacementInteractionCoordinator = new DelayPlacementInteractionCoordinator();
+                delayPlacementInteractionCoordinator.OnDelayPlacementCommitted += HandleDelayPlacementCommitted;
+            }
+
+            delayPlacementInteractionCoordinator.Bind(turnManager, entityManager, delayPromptPresenter);
+        }
+
         private void EnsureDelayPlacementMarkerOverlayPresenter()
         {
+            EnsureDelayPlacementInteractionCoordinator();
             if (delayMarkerOverlayPresenter != null)
                 return;
 
             delayMarkerOverlayPresenter = new DelayPlacementMarkerOverlayPresenter();
-            delayMarkerOverlayPresenter.OnMarkerClicked += HandleInsertionMarkerClicked;
-            delayMarkerOverlayPresenter.OnMarkerHoverEntered += HandleInsertionMarkerHoverEntered;
-            delayMarkerOverlayPresenter.OnMarkerHoverExited += HandleInsertionMarkerHoverExited;
+            delayMarkerOverlayPresenter.OnMarkerClicked += delayPlacementInteractionCoordinator.HandleMarkerClicked;
+            delayMarkerOverlayPresenter.OnMarkerHoverEntered += delayPlacementInteractionCoordinator.HandleMarkerHoverEntered;
+            delayMarkerOverlayPresenter.OnMarkerHoverExited += delayPlacementInteractionCoordinator.HandleMarkerHoverExited;
         }
 
         private static void CopyRectTransformLayout(RectTransform source, RectTransform target)
@@ -578,33 +593,14 @@ namespace PF2e.Presentation
             }
         }
 
-        private void HandleInsertionMarkerClicked(EntityHandle anchorHandle)
+        private void HandleDelayPlacementCommitted()
         {
-            if (!anchorHandle.IsValid || turnManager == null)
-                return;
-            if (!turnManager.IsDelayPlacementSelectionOpen)
-                return;
-
-            if (!turnManager.TryDelayCurrentTurnAfterActor(anchorHandle))
+            if (turnManager == null)
                 return;
 
             // TurnStarted will also rebuild, but refresh immediately keeps the click responsive.
             BuildSlots(turnManager.InitiativeOrder);
             UpdateHighlight();
-        }
-
-        private void HandleInsertionMarkerHoverEntered(EntityHandle anchorHandle)
-        {
-            if (!anchorHandle.IsValid)
-                return;
-
-            SetDelayPlacementHintForAnchor(anchorHandle);
-        }
-
-        private void HandleInsertionMarkerHoverExited(EntityHandle anchorHandle)
-        {
-            delayPromptPresenter?.ClearHoverState();
-            RefreshDelayPlacementHintLabel();
         }
 
         private void LateUpdate()
@@ -627,55 +623,15 @@ namespace PF2e.Presentation
 
         private void RefreshDelayPlacementHintLabel()
         {
-            if (turnManager == null)
-                return;
-
-            if (!turnManager.IsDelayPlacementSelectionOpen)
-            {
-                HideDelayPlacementPrompt();
-                return;
-            }
-
-            EnsureDelayPlacementPromptPresenter();
-            if (delayPromptPresenter == null)
-                return;
-            if (delayPromptPresenter.IsHoverActive)
-                return;
-
-            delayPromptPresenter.ShowDefaultPrompt();
-            SyncPromptRefsFromPresenter();
-        }
-
-        private void SetDelayPlacementHintForAnchor(EntityHandle anchorHandle)
-        {
-            if (turnManager == null)
-                return;
-            if (!turnManager.IsDelayPlacementSelectionOpen)
-                return;
-
-            EnsureDelayPlacementPromptPresenter();
-            if (delayPromptPresenter == null)
-                return;
-
-            string anchorName = anchorHandle.Id.ToString();
-            if (entityManager != null && entityManager.Registry != null)
-            {
-                var data = entityManager.Registry.Get(anchorHandle);
-                if (data != null && !string.IsNullOrEmpty(data.Name))
-                    anchorName = data.Name;
-            }
-
-            delayPromptPresenter.ShowAnchorPrompt(anchorName);
+            EnsureRuntimeUiReferences();
+            delayPlacementInteractionCoordinator?.RefreshPromptForCurrentState();
             SyncPromptRefsFromPresenter();
         }
 
         private void HideDelayPlacementPrompt()
         {
-            EnsureDelayPlacementPromptPresenter();
-            if (delayPromptPresenter == null)
-                return;
-
-            delayPromptPresenter.Hide();
+            EnsureRuntimeUiReferences();
+            delayPlacementInteractionCoordinator?.HidePrompt();
             SyncPromptRefsFromPresenter();
         }
 
