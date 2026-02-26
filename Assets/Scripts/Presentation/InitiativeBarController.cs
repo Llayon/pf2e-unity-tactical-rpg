@@ -313,10 +313,7 @@ namespace PF2e.Presentation
                 delayPlacementPromptLabel,
                 delayPlacementPromptBackground);
             delayPromptPresenter.EnsureView();
-
-            delayPlacementPromptRoot = delayPromptPresenter.PromptRoot;
-            delayPlacementPromptLabel = delayPromptPresenter.PromptLabel;
-            delayPlacementPromptBackground = delayPromptPresenter.PromptBackground;
+            SyncDelayPromptRefsFromPresenter();
         }
 
         private void EnsureDelayPlacementInteractionCoordinator()
@@ -332,9 +329,14 @@ namespace PF2e.Presentation
 
         private void EnsureDelayPlacementMarkerOverlayPresenter()
         {
-            EnsureDelayPlacementInteractionCoordinator();
             if (delayMarkerOverlayPresenter != null)
                 return;
+
+            if (delayPlacementInteractionCoordinator == null)
+            {
+                Debug.LogWarning("[InitiativeBarController] Delay interaction coordinator missing before marker presenter init.", this);
+                return;
+            }
 
             delayMarkerOverlayPresenter = new DelayPlacementMarkerOverlayPresenter();
             delayMarkerOverlayPresenter.OnMarkerClicked += delayPlacementInteractionCoordinator.HandleMarkerClicked;
@@ -608,19 +610,22 @@ namespace PF2e.Presentation
 
         private void RefreshDelayPlacementHintLabel()
         {
-            EnsureRuntimeUiReferences();
+            EnsureDelayPlacementPromptPresenter();
+            EnsureDelayPlacementInteractionCoordinator();
             delayPlacementInteractionCoordinator?.RefreshPromptForCurrentState();
-            SyncPromptRefsFromPresenter();
         }
 
         private void HideDelayPlacementPrompt()
         {
-            EnsureRuntimeUiReferences();
+            if (delayPlacementInteractionCoordinator == null && delayPromptPresenter == null && delayPlacementPromptRoot == null)
+                return;
+
+            EnsureDelayPlacementPromptPresenter();
+            EnsureDelayPlacementInteractionCoordinator();
             delayPlacementInteractionCoordinator?.HidePrompt();
-            SyncPromptRefsFromPresenter();
         }
 
-        private void SyncPromptRefsFromPresenter()
+        private void SyncDelayPromptRefsFromPresenter()
         {
             if (delayPromptPresenter == null)
                 return;
