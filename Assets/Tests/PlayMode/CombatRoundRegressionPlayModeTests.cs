@@ -859,6 +859,444 @@ namespace PF2e.Tests
                 "TurnManager must not remain in ExecutingAction after reaction prompt timeout auto-decline.");
         }
 
+        [UnityTest]
+        public IEnumerator GT_P29_PM_413_DelayPlanned_AutoResumesAfterAnchor_NoManualWindow()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+
+            BoostAllCombatantsHP(200);
+            ConfigureDeterministicDelayInitiative(fighter, wizard, goblin1, goblin2);
+
+            int returnWindowOpenedCount = 0;
+            bool enteredSeen = false;
+            EntityHandle enteredActor = EntityHandle.None;
+            EntityHandle enteredAnchor = EntityHandle.None;
+            bool resumedSeen = false;
+            EntityHandle resumedActor = EntityHandle.None;
+            EntityHandle resumedAfterActor = EntityHandle.None;
+
+            void EnteredHandler(in DelayedTurnEnteredEvent e)
+            {
+                enteredSeen = true;
+                enteredActor = e.actor;
+                enteredAnchor = e.plannedReturnAfterActor;
+            }
+
+            void OpenedHandler(in DelayReturnWindowOpenedEvent e)
+            {
+                returnWindowOpenedCount++;
+            }
+
+            void ResumedHandler(in DelayedTurnResumedEvent e)
+            {
+                resumedSeen = true;
+                resumedActor = e.actor;
+                resumedAfterActor = e.afterActor;
+                Assert.IsTrue(e.wasPlanned, "Planned delay resume event must report wasPlanned=true.");
+            }
+
+            eventBus.OnDelayedTurnEnteredTyped += EnteredHandler;
+            eventBus.OnDelayReturnWindowOpenedTyped += OpenedHandler;
+            eventBus.OnDelayedTurnResumedTyped += ResumedHandler;
+
+            try
+            {
+                turnManager.StartCombat();
+                Assert.IsTrue(
+                    TryResolvePlannedDelaySetup(out var delayedActor, out var plannedAnchor),
+                    "Could not resolve a player+anchor setup for planned delay.");
+
+                yield return AdvanceToActorTurn(
+                    delayedActor,
+                    SimulationTimeoutSeconds,
+                    "Did not reach selected player turn for planned-delay test.");
+
+                var delayedActorData = entityManager.Registry.Get(delayedActor);
+                Assert.IsNotNull(delayedActorData);
+                Assert.AreEqual(Team.Player, delayedActorData.Team);
+
+                Assert.IsTrue(turnManager.TryBeginDelayPlacementSelection(), "Expected delay placement mode to open.");
+                Assert.IsTrue(
+                    turnManager.IsValidDelayAnchorForCurrentTurn(plannedAnchor),
+                    "Resolved planned anchor is not valid for current actor.");
+
+                Assert.IsTrue(turnManager.TryDelayCurrentTurnAfterActor(plannedAnchor), "Expected planned delay to succeed.");
+                Assert.IsTrue(turnManager.IsDelayed(delayedActor), "Current player should be tracked as delayed.");
+                Assert.IsTrue(enteredSeen, "Expected DelayedTurnEntered event.");
+                Assert.AreEqual(delayedActor, enteredActor);
+                Assert.AreEqual(plannedAnchor, enteredAnchor);
+
+                float deadline = Time.realtimeSinceStartup + SimulationTimeoutSeconds;
+                bool anchorEnded = false;
+                while (!anchorEnded)
+                {
+                    if (Time.realtimeSinceStartup > deadline)
+                        Assert.Fail("Timeout waiting to reach planned anchor turn end.");
+
+                    if (turnManager.State == TurnState.DelayReturnWindow)
+                        Assert.Fail("Manual delay return window opened for planned delay.");
+
+                    if (turnManager.State == TurnState.PlayerTurn || turnManager.State == TurnState.EnemyTurn)
+                    {
+                        bool isPlannedAnchorTurn = turnManager.State == TurnState.EnemyTurn && turnManager.CurrentEntity == plannedAnchor;
+                        turnManager.EndTurn();
+                        if (isPlannedAnchorTurn)
+                            anchorEnded = true;
+                    }
+
+                    yield return null;
+                }
+
+                yield return WaitUntilOrTimeout(
+                    () => resumedSeen,
+                    DefaultTimeoutSeconds,
+                    "Planned delayed actor did not auto-resume after anchor turn.");
+
+                Assert.AreEqual(delayedActor, resumedActor, "Wrong actor resumed for planned delay.");
+                Assert.AreEqual(plannedAnchor, resumedAfterActor, "Planned resume should be tied to selected anchor.");
+                Assert.AreEqual(0, returnWindowOpenedCount, "Planned delay must not open manual Return/Skip window.");
+                Assert.AreEqual(TurnState.PlayerTurn, turnManager.State);
+                Assert.AreEqual(delayedActor, turnManager.CurrentEntity);
+                Assert.IsFalse(turnManager.IsDelayReturnWindowOpen);
+                Assert.IsFalse(turnManager.IsDelayed(delayedActor));
+            }
+            finally
+            {
+                eventBus.OnDelayedTurnEnteredTyped -= EnteredHandler;
+                eventBus.OnDelayReturnWindowOpenedTyped -= OpenedHandler;
+                eventBus.OnDelayedTurnResumedTyped -= ResumedHandler;
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator GT_P29_PM_414_DelayPlanned_MultiActorSameAnchor_AutoChainResumesAll()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+
+            BoostAllCombatantsHP(200);
+            ConfigureDeterministicDelayInitiative(fighter, wizard, goblin1, goblin2);
+
+            int returnWindowOpenedCount = 0;
+            var enteredActors = new HashSet<EntityHandle>();
+            var resumedPlannedActors = new HashSet<EntityHandle>();
+            var resumedTurnStartedActors = new HashSet<EntityHandle>();
+            bool captureResumedTurnStarts = false;
+            EntityHandle firstDelayedPlayer = EntityHandle.None;
+            EntityHandle secondDelayedPlayer = EntityHandle.None;
+            EntityHandle sharedAnchor = EntityHandle.None;
+
+            void EnteredHandler(in DelayedTurnEnteredEvent e)
+            {
+                enteredActors.Add(e.actor);
+                if (sharedAnchor.IsValid)
+                    Assert.AreEqual(sharedAnchor, e.plannedReturnAfterActor, "Both delayed players should use the same planned anchor.");
+            }
+
+            void OpenedHandler(in DelayReturnWindowOpenedEvent e)
+            {
+                returnWindowOpenedCount++;
+            }
+
+            void ResumedHandler(in DelayedTurnResumedEvent e)
+            {
+                Assert.IsTrue(e.wasPlanned, "Planned chain resumes must report wasPlanned=true.");
+                resumedPlannedActors.Add(e.actor);
+            }
+
+            void TurnStartedHandler(in TurnStartedEvent e)
+            {
+                if (!captureResumedTurnStarts)
+                    return;
+                if (e.actor == firstDelayedPlayer || e.actor == secondDelayedPlayer)
+                    resumedTurnStartedActors.Add(e.actor);
+            }
+
+            eventBus.OnDelayedTurnEnteredTyped += EnteredHandler;
+            eventBus.OnDelayReturnWindowOpenedTyped += OpenedHandler;
+            eventBus.OnDelayedTurnResumedTyped += ResumedHandler;
+            eventBus.OnTurnStartedTyped += TurnStartedHandler;
+
+            try
+            {
+                turnManager.StartCombat();
+                Assert.IsTrue(
+                    TryResolvePlannedDelayChainSetup(out firstDelayedPlayer, out secondDelayedPlayer, out sharedAnchor),
+                    "Could not resolve two players + shared anchor setup for planned-delay chain.");
+
+                yield return AdvanceToActorTurn(
+                    firstDelayedPlayer,
+                    SimulationTimeoutSeconds,
+                    "Did not reach first selected player turn for planned-delay chain.");
+
+                Assert.IsTrue(turnManager.TryBeginDelayPlacementSelection(), "Expected delay placement mode to open for first delayed player.");
+                Assert.IsTrue(
+                    turnManager.IsValidDelayAnchorForCurrentTurn(sharedAnchor),
+                    "Resolved shared anchor is not valid for first delayed player.");
+
+                Assert.IsTrue(turnManager.TryDelayCurrentTurnAfterActor(sharedAnchor), "First planned delay failed.");
+
+                float secondPlayerDeadline = Time.realtimeSinceStartup + SimulationTimeoutSeconds;
+                while (!(turnManager.State == TurnState.PlayerTurn && turnManager.CurrentEntity == secondDelayedPlayer))
+                {
+                    if (Time.realtimeSinceStartup > secondPlayerDeadline)
+                        Assert.Fail("Timeout waiting for second player turn before anchor resolution.");
+
+                    if (turnManager.State == TurnState.EnemyTurn && turnManager.CurrentEntity == sharedAnchor)
+                    {
+                        Assert.Fail(
+                            "Shared planned anchor reached before second player could select the same anchor. " +
+                            "Deterministic initiative assumptions were violated.");
+                    }
+
+                    if (turnManager.State == TurnState.PlayerTurn || turnManager.State == TurnState.EnemyTurn)
+                        turnManager.EndTurn();
+
+                    yield return null;
+                }
+
+                Assert.IsTrue(turnManager.TryBeginDelayPlacementSelection());
+                Assert.IsTrue(
+                    turnManager.IsValidDelayAnchorForCurrentTurn(sharedAnchor),
+                    "Resolved shared anchor is not valid for second delayed player.");
+                Assert.IsTrue(turnManager.TryDelayCurrentTurnAfterActor(sharedAnchor), "Second planned delay failed.");
+                Assert.IsTrue(turnManager.IsDelayed(firstDelayedPlayer));
+                Assert.IsTrue(turnManager.IsDelayed(secondDelayedPlayer));
+                captureResumedTurnStarts = true;
+
+                float deadline = Time.realtimeSinceStartup + SimulationTimeoutSeconds;
+                while (resumedPlannedActors.Count < 2 || resumedTurnStartedActors.Count < 2)
+                {
+                    if (Time.realtimeSinceStartup > deadline)
+                    {
+                        Assert.Fail(
+                            "Timeout waiting for planned-delay chain to resume both players. " +
+                            $"resumedEvents={resumedPlannedActors.Count}, resumedTurnStarts={resumedTurnStartedActors.Count}.");
+                    }
+
+                    if (turnManager.State == TurnState.DelayReturnWindow)
+                        Assert.Fail("Manual delay return window opened during planned-delay auto-chain.");
+
+                    if (turnManager.State == TurnState.PlayerTurn || turnManager.State == TurnState.EnemyTurn)
+                        turnManager.EndTurn();
+
+                    yield return null;
+                }
+
+                Assert.AreEqual(2, enteredActors.Count, "Both players should enter delayed state.");
+                Assert.IsTrue(enteredActors.Contains(firstDelayedPlayer));
+                Assert.IsTrue(enteredActors.Contains(secondDelayedPlayer));
+                Assert.AreEqual(2, resumedPlannedActors.Count, "Both delayed players should auto-resume.");
+                Assert.IsTrue(resumedPlannedActors.Contains(firstDelayedPlayer));
+                Assert.IsTrue(resumedPlannedActors.Contains(secondDelayedPlayer));
+                Assert.AreEqual(2, resumedTurnStartedActors.Count, "Both resumed players should receive turns.");
+                Assert.AreEqual(0, returnWindowOpenedCount, "Planned-delay chain should not open manual Return/Skip window.");
+                Assert.AreEqual(0, turnManager.DelayedActorCount, "All delayed players should have resumed.");
+            }
+            finally
+            {
+                eventBus.OnDelayedTurnEnteredTyped -= EnteredHandler;
+                eventBus.OnDelayReturnWindowOpenedTyped -= OpenedHandler;
+                eventBus.OnDelayedTurnResumedTyped -= ResumedHandler;
+                eventBus.OnTurnStartedTyped -= TurnStartedHandler;
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator GT_P29_PM_415_DelayManual_ReturnWindow_ReturnNowResumesActor()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+
+            BoostAllCombatantsHP(200);
+            ConfigureDeterministicDelayInitiative(fighter, wizard, goblin1, goblin2);
+
+            int returnWindowOpenedCount = 0;
+            int returnWindowClosedCount = 0;
+            bool resumedManualSeen = false;
+            EntityHandle resumedAfterActor = EntityHandle.None;
+            EntityHandle delayedActor = EntityHandle.None;
+
+            void OpenedHandler(in DelayReturnWindowOpenedEvent e)
+            {
+                returnWindowOpenedCount++;
+            }
+
+            void ClosedHandler(in DelayReturnWindowClosedEvent e)
+            {
+                returnWindowClosedCount++;
+            }
+
+            void ResumedHandler(in DelayedTurnResumedEvent e)
+            {
+                if (!delayedActor.IsValid || e.actor != delayedActor)
+                    return;
+
+                resumedManualSeen = true;
+                resumedAfterActor = e.afterActor;
+                Assert.IsFalse(e.wasPlanned, "Manual return should publish wasPlanned=false.");
+            }
+
+            eventBus.OnDelayReturnWindowOpenedTyped += OpenedHandler;
+            eventBus.OnDelayReturnWindowClosedTyped += ClosedHandler;
+            eventBus.OnDelayedTurnResumedTyped += ResumedHandler;
+
+            try
+            {
+                turnManager.StartCombat();
+                yield return AdvanceToNextPlayerTurn(
+                    DefaultTimeoutSeconds,
+                    "Did not reach a player turn for manual return test.");
+
+                delayedActor = turnManager.CurrentEntity;
+                var delayedData = entityManager.Registry.Get(delayedActor);
+                Assert.IsNotNull(delayedData);
+                Assert.AreEqual(Team.Player, delayedData.Team);
+
+                Assert.IsTrue(turnManager.TryDelayCurrentTurn(), "Manual delay should succeed at turn start.");
+                Assert.IsTrue(turnManager.IsDelayed(delayedActor));
+
+                yield return WaitUntilOrTimeout(
+                    () => (turnManager.State == TurnState.PlayerTurn || turnManager.State == TurnState.EnemyTurn)
+                        && turnManager.CurrentEntity != delayedActor,
+                    DefaultTimeoutSeconds,
+                    "Did not advance to the next actor after manual delay.");
+
+                var windowAnchorActor = turnManager.CurrentEntity;
+
+                turnManager.EndTurn(); // should open manual delay return window after next actor ends
+
+                yield return WaitUntilOrTimeout(
+                    () => turnManager.State == TurnState.DelayReturnWindow && turnManager.IsDelayReturnWindowOpen,
+                    DefaultTimeoutSeconds,
+                    "Manual delay return window did not open.");
+
+                Assert.GreaterOrEqual(returnWindowOpenedCount, 1, "Expected DelayReturnWindowOpened event.");
+                Assert.AreEqual(windowAnchorActor, turnManager.DelayReturnWindowAfterActor, "Window anchor should be the actor whose turn just ended.");
+
+                Assert.IsTrue(turnManager.TryReturnDelayedActor(delayedActor), "ReturnNow should resume delayed actor.");
+
+                yield return WaitUntilOrTimeout(
+                    () => resumedManualSeen
+                        && turnManager.State == TurnState.PlayerTurn
+                        && turnManager.CurrentEntity == delayedActor,
+                    DefaultTimeoutSeconds,
+                    "Manual ReturnNow did not resume delayed actor.");
+
+                Assert.AreEqual(windowAnchorActor, resumedAfterActor);
+                Assert.IsFalse(turnManager.IsDelayed(delayedActor));
+                Assert.IsFalse(turnManager.IsDelayReturnWindowOpen);
+                Assert.GreaterOrEqual(returnWindowClosedCount, 1, "Expected DelayReturnWindowClosed event on return.");
+            }
+            finally
+            {
+                eventBus.OnDelayReturnWindowOpenedTyped -= OpenedHandler;
+                eventBus.OnDelayReturnWindowClosedTyped -= ClosedHandler;
+                eventBus.OnDelayedTurnResumedTyped -= ResumedHandler;
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator GT_P29_PM_416_DelayManual_ReturnWindow_SkipContinuesFlow()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+
+            BoostAllCombatantsHP(200);
+            ConfigureDeterministicDelayInitiative(fighter, wizard, goblin1, goblin2);
+
+            int returnWindowOpenedCount = 0;
+            int resumedEventsCount = 0;
+
+            void OpenedHandler(in DelayReturnWindowOpenedEvent e)
+            {
+                returnWindowOpenedCount++;
+            }
+
+            void ResumedHandler(in DelayedTurnResumedEvent e)
+            {
+                resumedEventsCount++;
+            }
+
+            eventBus.OnDelayReturnWindowOpenedTyped += OpenedHandler;
+            eventBus.OnDelayedTurnResumedTyped += ResumedHandler;
+
+            try
+            {
+                turnManager.StartCombat();
+                yield return AdvanceToNextPlayerTurn(
+                    DefaultTimeoutSeconds,
+                    "Did not reach a player turn for manual skip test.");
+
+                var delayedActor = turnManager.CurrentEntity;
+                var delayedData = entityManager.Registry.Get(delayedActor);
+                Assert.IsNotNull(delayedData);
+                Assert.AreEqual(Team.Player, delayedData.Team);
+
+                Assert.IsTrue(turnManager.TryDelayCurrentTurn(), "Manual delay should succeed before skip test.");
+
+                yield return WaitUntilOrTimeout(
+                    () => (turnManager.State == TurnState.PlayerTurn || turnManager.State == TurnState.EnemyTurn)
+                        && turnManager.CurrentEntity != delayedActor,
+                    DefaultTimeoutSeconds,
+                    "Did not advance to next actor after manual delay in skip test.");
+
+                var firstWindowAnchor = turnManager.CurrentEntity;
+
+                turnManager.EndTurn(); // opens first manual return window
+
+                yield return WaitUntilOrTimeout(
+                    () => turnManager.State == TurnState.DelayReturnWindow && turnManager.IsDelayReturnWindowOpen,
+                    DefaultTimeoutSeconds,
+                    "First manual DelayReturnWindow did not open.");
+
+                Assert.GreaterOrEqual(returnWindowOpenedCount, 1);
+                Assert.AreEqual(firstWindowAnchor, turnManager.DelayReturnWindowAfterActor);
+                Assert.IsTrue(turnManager.IsDelayed(delayedActor), "Delayed actor should remain delayed before Skip.");
+
+                turnManager.SkipDelayReturnWindow();
+
+                Assert.AreNotEqual(TurnState.DelayReturnWindow, turnManager.State, "Skip should immediately close DelayReturnWindow.");
+                Assert.IsFalse(turnManager.IsDelayReturnWindowOpen);
+                Assert.IsTrue(turnManager.IsDelayed(delayedActor), "Skip should not auto-resume delayed actor.");
+                Assert.AreNotEqual(delayedActor, turnManager.CurrentEntity, "Flow should continue to other actors after Skip.");
+
+                float deadline = Time.realtimeSinceStartup + SimulationTimeoutSeconds;
+                while (returnWindowOpenedCount < 2)
+                {
+                    if (Time.realtimeSinceStartup > deadline)
+                    {
+                        Assert.Fail(
+                            "Timeout waiting for second DelayReturnWindow after Skip. " +
+                            $"state={turnManager.State}, current={turnManager.CurrentEntity.Id}, opened={returnWindowOpenedCount}.");
+                    }
+
+                    if (turnManager.State == TurnState.PlayerTurn || turnManager.State == TurnState.EnemyTurn)
+                        turnManager.EndTurn();
+
+                    yield return null;
+                }
+
+                Assert.GreaterOrEqual(returnWindowOpenedCount, 2, "Skip should continue initiative flow and allow later return windows.");
+                Assert.AreEqual(0, resumedEventsCount, "Skip path should not resume delayed actor automatically.");
+                Assert.IsTrue(turnManager.IsDelayed(delayedActor), "Delayed actor should still be pending after Skip-only flow.");
+            }
+            finally
+            {
+                eventBus.OnDelayReturnWindowOpenedTyped -= OpenedHandler;
+                eventBus.OnDelayedTurnResumedTyped -= ResumedHandler;
+            }
+        }
+
         private void ResolveSceneReferences()
         {
             turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();
@@ -1153,6 +1591,142 @@ namespace PF2e.Tests
 
                 data.MaxHP = hpValue;
                 data.CurrentHP = hpValue;
+            }
+        }
+
+        private static void ConfigureDeterministicDelayInitiative(
+            EntityData fighter,
+            EntityData wizard,
+            EntityData goblin1,
+            EntityData goblin2)
+        {
+            // Keep an extreme spread so random d20 initiative rolls cannot reorder teams.
+            fighter.Wisdom = 200000;
+            wizard.Wisdom = 199000;
+            goblin1.Wisdom = -199000;
+            goblin2.Wisdom = -200000;
+        }
+
+        private bool TryResolvePlannedDelaySetup(out EntityHandle playerActor, out EntityHandle anchorEnemy)
+        {
+            playerActor = EntityHandle.None;
+            anchorEnemy = EntityHandle.None;
+            if (turnManager == null || entityManager == null || entityManager.Registry == null)
+                return false;
+
+            var order = turnManager.InitiativeOrder;
+            if (order == null || order.Count <= 0)
+                return false;
+
+            for (int i = 0; i < order.Count; i++)
+            {
+                var candidate = order[i].Handle;
+                var candidateData = entityManager.Registry.Get(candidate);
+                if (candidateData == null || !candidateData.IsAlive || candidateData.Team != Team.Player)
+                    continue;
+
+                EntityHandle latestEnemyAfter = EntityHandle.None;
+                for (int j = i + 1; j < order.Count; j++)
+                {
+                    var enemyCandidate = order[j].Handle;
+                    var enemyData = entityManager.Registry.Get(enemyCandidate);
+                    if (enemyData == null || !enemyData.IsAlive || enemyData.Team != Team.Enemy)
+                        continue;
+
+                    latestEnemyAfter = enemyCandidate;
+                }
+
+                if (!latestEnemyAfter.IsValid)
+                    continue;
+
+                playerActor = candidate;
+                anchorEnemy = latestEnemyAfter;
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool TryResolvePlannedDelayChainSetup(
+            out EntityHandle firstPlayer,
+            out EntityHandle secondPlayer,
+            out EntityHandle sharedAnchorEnemy)
+        {
+            firstPlayer = EntityHandle.None;
+            secondPlayer = EntityHandle.None;
+            sharedAnchorEnemy = EntityHandle.None;
+            if (turnManager == null || entityManager == null || entityManager.Registry == null)
+                return false;
+
+            var order = turnManager.InitiativeOrder;
+            if (order == null || order.Count <= 0)
+                return false;
+
+            for (int i = 0; i < order.Count; i++)
+            {
+                var playerA = order[i].Handle;
+                var playerAData = entityManager.Registry.Get(playerA);
+                if (playerAData == null || !playerAData.IsAlive || playerAData.Team != Team.Player)
+                    continue;
+
+                for (int k = i + 1; k < order.Count; k++)
+                {
+                    var playerB = order[k].Handle;
+                    var playerBData = entityManager.Registry.Get(playerB);
+                    if (playerBData == null || !playerBData.IsAlive || playerBData.Team != Team.Player)
+                        continue;
+
+                    EntityHandle latestEnemyAfter = EntityHandle.None;
+                    for (int j = k + 1; j < order.Count; j++)
+                    {
+                        var enemyCandidate = order[j].Handle;
+                        var enemyData = entityManager.Registry.Get(enemyCandidate);
+                        if (enemyData == null || !enemyData.IsAlive || enemyData.Team != Team.Enemy)
+                            continue;
+
+                        latestEnemyAfter = enemyCandidate;
+                    }
+
+                    if (!latestEnemyAfter.IsValid)
+                        continue;
+
+                    firstPlayer = playerA;
+                    secondPlayer = playerB;
+                    sharedAnchorEnemy = latestEnemyAfter;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private IEnumerator AdvanceToActorTurn(EntityHandle actor, float timeoutSeconds, string timeoutReason)
+        {
+            float deadline = Time.realtimeSinceStartup + timeoutSeconds;
+            while (!(turnManager.State == TurnState.PlayerTurn && turnManager.CurrentEntity == actor))
+            {
+                if (Time.realtimeSinceStartup > deadline)
+                    Assert.Fail($"Timeout after {timeoutSeconds:0.##}s: {timeoutReason}");
+
+                if (turnManager.State == TurnState.PlayerTurn || turnManager.State == TurnState.EnemyTurn)
+                    turnManager.EndTurn();
+
+                yield return null;
+            }
+        }
+
+        private IEnumerator AdvanceToNextPlayerTurn(float timeoutSeconds, string timeoutReason)
+        {
+            float deadline = Time.realtimeSinceStartup + timeoutSeconds;
+            while (turnManager.State != TurnState.PlayerTurn)
+            {
+                if (Time.realtimeSinceStartup > deadline)
+                    Assert.Fail($"Timeout after {timeoutSeconds:0.##}s: {timeoutReason}");
+
+                if (turnManager.State == TurnState.EnemyTurn)
+                    turnManager.EndTurn();
+
+                yield return null;
             }
         }
 
