@@ -39,6 +39,7 @@ namespace PF2e.Grid
         private GridFloorController floorController;
         private bool visualsEnabled = true;
         private PointerEventData pointerEventData;
+        private EventSystem pointerEventSystem;
         private readonly List<RaycastResult> uiRaycastResults = new List<RaycastResult>(8);
 
         private void OnEnable()
@@ -267,8 +268,11 @@ namespace PF2e.Grid
             if (es == null)
                 return false;
 
-            if (pointerEventData == null || pointerEventData.eventSystem != es)
+            if (pointerEventData == null || pointerEventSystem != es)
+            {
                 pointerEventData = new PointerEventData(es);
+                pointerEventSystem = es;
+            }
 
             pointerEventData.Reset();
             pointerEventData.position = screenPosition;
