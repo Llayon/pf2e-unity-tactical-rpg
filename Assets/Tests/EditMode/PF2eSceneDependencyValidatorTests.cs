@@ -86,6 +86,32 @@ namespace PF2e.Tests
             Assert.AreSame(initiativeBar, GetPrivateField<InitiativeBarController>(orchestrator, "initiativeBarController"));
         }
 
+        [Test]
+        public void AutoFix_WhenDelayUiOrchestratorAlreadyExists_DoesNotCreateDuplicate()
+        {
+            Assert.IsTrue(System.IO.File.Exists(SampleScenePath), $"Missing scene: {SampleScenePath}");
+
+            EditorSceneManager.OpenScene(SampleScenePath, OpenSceneMode.Single);
+
+            var existing = Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
+            for (int i = 0; i < existing.Length; i++)
+            {
+                Object.DestroyImmediate(existing[i]);
+            }
+
+            var singletonGo = new GameObject("DelayUiOrchestrator_IdempotencyTest");
+            singletonGo.AddComponent<DelayUiOrchestrator>();
+            Assert.AreEqual(
+                1,
+                Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None).Length,
+                "Test precondition: exactly one DelayUiOrchestrator must exist before autofix.");
+
+            InvokePrivateValidatorMethodWithBoolArg("RunAutoFix", false);
+
+            var after = Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
+            Assert.AreEqual(1, after.Length, "AutoFix must keep DelayUiOrchestrator singleton idempotent.");
+        }
+
         private static void InvokePrivateValidatorMethod(string methodName)
         {
             var validatorType = FindTypeByName("PF2eSceneDependencyValidator");
