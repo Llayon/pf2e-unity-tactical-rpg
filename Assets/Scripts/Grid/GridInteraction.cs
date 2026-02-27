@@ -1,10 +1,12 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.EventSystems;
 using PF2e.Data;
 using PF2e.Core;
 using PF2e.Managers;
 using PF2e.Presentation.Entity;
 using PF2e.TurnSystem;
+using System.Collections.Generic;
 
 namespace PF2e.Grid
 {
@@ -36,6 +38,8 @@ namespace PF2e.Grid
         private UnityEngine.Camera mainCamera;
         private GridFloorController floorController;
         private bool visualsEnabled = true;
+        private PointerEventData pointerEventData;
+        private readonly List<RaycastResult> uiRaycastResults = new List<RaycastResult>(8);
 
         private void OnEnable()
         {
@@ -110,6 +114,13 @@ namespace PF2e.Grid
             if (mouse == null) return;
 
             Vector2 mousePos = mouse.position.ReadValue();
+            if (IsPointerOverUI(mousePos))
+            {
+                ClearHover();
+                gridManager.SetHoveredEntity(null);
+                return;
+            }
+
             Ray ray = mainCamera.ScreenPointToRay(new Vector3(mousePos.x, mousePos.y, 0));
 
             var hits = Physics.RaycastAll(ray, maxRayDistance, gridLayerMask);
@@ -248,6 +259,25 @@ namespace PF2e.Grid
                 highlightPool.Return(hoverHighlight);
                 hoverHighlight = null;
             }
+        }
+
+        private bool IsPointerOverUI(Vector2 screenPosition)
+        {
+            var es = EventSystem.current;
+            if (es == null)
+                return false;
+
+            if (pointerEventData == null || pointerEventData.eventSystem != es)
+                pointerEventData = new PointerEventData(es);
+
+            pointerEventData.Reset();
+            pointerEventData.position = screenPosition;
+
+            uiRaycastResults.Clear();
+            es.RaycastAll(pointerEventData, uiRaycastResults);
+            bool isOver = uiRaycastResults.Count > 0;
+            uiRaycastResults.Clear();
+            return isOver;
         }
 
         /// <summary>
