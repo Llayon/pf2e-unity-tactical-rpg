@@ -51,6 +51,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Delay UI fanout can be centralized via `DelayUiOrchestrator` (`ActionBarController` + `InitiativeBarController`), while controllers keep internal typed-event fallback for scenes/tests without explicit orchestrator wiring.
 - Scene tooling now understands Delay fanout wiring: `PF2eSceneDependencyValidator` validates `DelayUiOrchestrator` refs and `AutoFix` can create/wire it when both Action Bar and Initiative Bar are present.
 - Scene tooling guard now has EditMode coverage: `PF2eSceneDependencyValidatorTests` verifies clean non-sample scene auto-returns to `SampleScene` through the workflow guard path.
+- `SampleScene` UI baseline now has EditMode smoke coverage: `PF2eSceneDependencyValidatorTests` asserts presence of critical combat UI controllers (`ActionBarController`, `InitiativeBarController`, `DelayUiOrchestrator`, `TurnUIController`, `CombatLogController`).
 - Condition flow is now centralized through `ConditionService`; future rule expansion risk is concentrated in one place (good), but expanding stacking/implied rules must preserve deterministic tests.
 - Reaction UX introduces a mixed sync/async execution split: `AITurnController` enemy strike flow is coroutine-based for modal reaction windows, while `PlayerActionExecutor` strike flow remains sync for the current self-only Shield Block MVP.
 - Targeting UX now depends on validation-path equivalence: `TargetingController.PreviewEntity(...)` / `PreviewEntityDetailed(...)` and confirm click routing must stay in sync (shared evaluation core) to avoid "green highlight but invalid click" drift.
@@ -184,7 +185,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Legacy forwarder stubs (`TurnManagerLogForwarder`, `TurnManagerTypedForwarder`) were removed from scenes and code; turn/combat typed flow is direct `TurnManager -> CombatEventBus`.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Add dedicated scene/autofix regression coverage to assert `DelayUiOrchestrator` auto-create path and field wiring.
+1. Add dedicated scene/autofix regression coverage to assert `DelayUiOrchestrator` auto-create path and field wiring details (not only component presence).
 2. Add focused PlayMode coverage for edge Delay expiry semantics (full-round timeout/expiration path) through UI-driven setup rather than direct API setup.
 3. Decide whether combat log should remain hard-capped (`maxLines=80`) or gain optional extended history (virtualized scrollback/export) before content scale increases.
 

@@ -85,6 +85,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-079 | P1 | done | Builder | Introduce top-level Delay UI orchestrator with safe fallback wiring (`Phase 29j`) | `DelayUiOrchestrator` now owns Delay typed-event fanout for `ActionBarController` + `InitiativeBarController` when present, while controllers keep internal event fallback for scenes/tests without explicit orchestrator wiring |
 | T-080 | P1 | done | Builder | Add Delay UI orchestrator validator/autofix wiring (`Phase 29j.1`) | Scene validator now checks `DelayUiOrchestrator` refs and warns when missing in scenes that have both Action Bar and Initiative Bar; autofix creates/wires orchestrator automatically in that case |
 | T-081 | P1 | done | Verifier | Add EditMode regression for validator auto-fix workflow guard (`Phase 29j.2`) | New EditMode test proves guard returns from clean non-sample scene to `SampleScene` after auto-fix workflow |
+| T-082 | P1 | done | Verifier | Add `SampleScene` UI presence smoke regression | New EditMode smoke test verifies critical combat UI controllers exist in `SampleScene` (`ActionBar`, `InitiativeBar`, `DelayUiOrchestrator`, `TurnUI`, `CombatLog`) |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

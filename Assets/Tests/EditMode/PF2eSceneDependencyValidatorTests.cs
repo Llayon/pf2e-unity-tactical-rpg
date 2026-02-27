@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
+using PF2e.Presentation;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
 
@@ -28,6 +29,25 @@ namespace PF2e.Tests
 
             var activeAfter = SceneManager.GetActiveScene();
             Assert.AreEqual(SampleScenePath, activeAfter.path);
+        }
+
+        [Test]
+        public void SampleScene_Smoke_WiresCriticalCombatUiControllers()
+        {
+            Assert.IsTrue(System.IO.File.Exists(SampleScenePath), $"Missing scene: {SampleScenePath}");
+
+            EditorSceneManager.OpenScene(SampleScenePath, OpenSceneMode.Single);
+
+            Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<ActionBarController>(),
+                "SampleScene must contain ActionBarController.");
+            Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<InitiativeBarController>(),
+                "SampleScene must contain InitiativeBarController.");
+            Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<DelayUiOrchestrator>(),
+                "SampleScene must contain DelayUiOrchestrator.");
+            Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<TurnUIController>(),
+                "SampleScene must contain TurnUIController.");
+            Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<CombatLogController>(),
+                "SampleScene must contain CombatLogController.");
         }
 
         private static void InvokePrivateValidatorMethod(string methodName)
