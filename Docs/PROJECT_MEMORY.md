@@ -18,7 +18,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - `Assets/Scripts/Grid`: grid data, pathfinding, rendering, floor controls, click/hover interaction.
 - `Assets/Scripts/TurnSystem`: turn state machine, input routing, action execution (`StrideAction`, `StrikeAction`, `StandAction`, `RaiseShieldAction`, `ShieldBlockAction`, `TripAction`, `ShoveAction`, `GrappleAction`, `EscapeAction`, `DemoralizeAction`), phased strike/reaction windows, generic check system (`CheckResolver`), targeting, grapple lifecycle (`GrappleLifecycleController` + `GrappleService`), enemy AI orchestration (`AITurnController`), and AI decision seam (`IAIDecisionPolicy` + `SimpleMeleeDecisionPolicy`) plus reaction decision seam (`IReactionDecisionPolicy`, runtime default `ModalReactionPolicy`).
 - `Assets/Scripts/Managers`: `EntityManager` scene orchestration, spawning test entities (now including optional fighter shield + reaction preference), view management.
-- `Assets/Scripts/Presentation`: UI/controllers/log forwarders, initiative/floating damage visuals, action bar, targeting world tint feedback, targeting reason hint UI, and Delay initiative/prompt composition helpers (`DelayPlacementPromptPresenter`, `DelayPlacementMarkerOverlayPresenter`, `DelayPlacementInteractionCoordinator`, `DelayInitiativeRowPlanner`).
+- `Assets/Scripts/Presentation`: UI/controllers/log forwarders, initiative/floating damage visuals, action bar, targeting world tint feedback, targeting reason hint UI, Delay initiative/prompt composition helpers (`DelayPlacementPromptPresenter`, `DelayPlacementMarkerOverlayPresenter`, `DelayPlacementInteractionCoordinator`, `DelayInitiativeRowPlanner`), and top-level Delay UI mediation (`DelayUiOrchestrator`).
 - `Assets/Scripts/Data`: ScriptableObject configs (`GridConfig`).
 - `Assets/Tests/EditMode`: NUnit EditMode coverage for grid/pathfinding/occupancy/turn primitives.
 - `Assets/Tests/PlayMode`: smoke tests for encounter-end UX and scene-level flows.
@@ -48,7 +48,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Runtime dependency chain is tight (`TurnManager -> EntityManager -> GridManager`; input and visualizers depend on both).
 - Turn flow now uses typed payloads end-to-end: `TurnManager` publishes typed structs to its own events and directly to `CombatEventBus`; runtime consumers subscribe on typed bus channels.
 - Delay UX is event-driven: `TurnManager` publishes typed delay channels (`DelayTurnBeginTriggerChanged`, `DelayPlacementSelectionChanged`, `DelayReturnWindowOpened/Closed`, `DelayedTurnEntered/Resumed/Expired`) and UI refresh is triggered from these events (no per-frame delay polling).
-- Delay initiative presentation is modularized but still UI-coupled around `InitiativeBarController` wiring; the controller composes extracted presenters/coordinator/planner and remains sensitive to missing prefab refs (runtime fallback exists).
+- Delay UI fanout can be centralized via `DelayUiOrchestrator` (`ActionBarController` + `InitiativeBarController`), while controllers keep internal typed-event fallback for scenes/tests without explicit orchestrator wiring.
 - Condition flow is now centralized through `ConditionService`; future rule expansion risk is concentrated in one place (good), but expanding stacking/implied rules must preserve deterministic tests.
 - Reaction UX introduces a mixed sync/async execution split: `AITurnController` enemy strike flow is coroutine-based for modal reaction windows, while `PlayerActionExecutor` strike flow remains sync for the current self-only Shield Block MVP.
 - Targeting UX now depends on validation-path equivalence: `TargetingController.PreviewEntity(...)` / `PreviewEntityDetailed(...)` and confirm click routing must stay in sync (shared evaluation core) to avoid "green highlight but invalid click" drift.
@@ -172,6 +172,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - PlayMode regression now covers multi-round movement/AI/condition-tick flow, blocked-turn recovery, sticky-target lock behavior, ranged concealment/cover logic, Shield Block reaction prompts, and Delay planned/manual plus pointer-level UI click flows; full matrix coverage for spells/visibility states is still pending.
 - Ranged strike MVP is implemented (bow path, range increment penalties, grid LoS + simple cover AC, concealment flat-check misses via `Concealed`, `Volley` penalty, weapon-aware strike targeting, and crit math support for `Deadly`/`Fatal`), but advanced ranged rules remain deferred: ammo, reload, hidden/undetected and richer visibility states, volley-info preview UX, striking-rune scaling for crit traits, and crit specialization effects.
 - Delay UX is currently hybrid by design: Owlcat-style planned insertion is primary, while manual inter-turn `Return`/`Skip` controls are retained as fallback for non-planned delayed actors.
+- `DelayUiOrchestrator` is implemented but currently optional in scene wiring; fallback subscriptions remain active when orchestrator is absent/disabled.
 - `ModalReactionPolicy` is the runtime default for both controllers; `AutoShieldBlockPolicy` remains in code for tests and simple synchronous policy scenarios.
 - Combat round regression deadlock assertions now combine lock duration with turn-progress signals to reduce CI timing flakes while still detecting real stuck locks.
 - PF2e feat/rule-engine architecture is intentionally deferred: no generic `FeatDefinition`/rule-engine/modifier-stack runtime is built yet. Current guardrails are documented (modifier `{value,type,source}`, capability grants separate, `EntityData` state + resolver context split) and should be implemented only when concrete gameplay features require them (second typed-bonus conflict, first feat-granted capability, etc.).
@@ -180,7 +181,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Legacy forwarder stubs (`TurnManagerLogForwarder`, `TurnManagerTypedForwarder`) were removed from scenes and code; turn/combat typed flow is direct `TurnManager -> CombatEventBus`.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Continue presentation/domain decoupling by introducing a top-level Delay UI orchestrator that owns ActionBar + InitiativeBar Delay state mediation, reducing remaining Delay-specific wiring inside `InitiativeBarController`.
+1. Wire `DelayUiOrchestrator` into scene validator/autofix + authored scene wiring so centralized fanout path is guaranteed at runtime.
 2. Add focused PlayMode coverage for edge Delay expiry semantics (full-round timeout/expiration path) through UI-driven setup rather than direct API setup.
 3. Decide whether combat log should remain hard-capped (`maxLines=80`) or gain optional extended history (virtualized scrollback/export) before content scale increases.
 

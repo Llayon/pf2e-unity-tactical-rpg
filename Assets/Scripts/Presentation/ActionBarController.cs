@@ -47,6 +47,7 @@ namespace PF2e.Presentation
         [SerializeField] private Image standHighlight;
 
         private bool buttonListenersBound;
+        private bool delayEventsSubscribedInternally;
 #if UNITY_EDITOR
         private void OnValidate()
         {
@@ -101,13 +102,23 @@ namespace PF2e.Presentation
             eventBus.OnActionsChangedTyped += HandleActionsChanged;
             eventBus.OnConditionChangedTyped += HandleConditionChanged;
             eventBus.OnShieldRaisedTyped += HandleShieldRaised;
-            eventBus.OnDelayTurnBeginTriggerChangedTyped += HandleDelayTurnBeginTriggerChanged;
-            eventBus.OnDelayPlacementSelectionChangedTyped += HandleDelayPlacementSelectionChanged;
-            eventBus.OnDelayReturnWindowOpenedTyped += HandleDelayReturnWindowOpened;
-            eventBus.OnDelayReturnWindowClosedTyped += HandleDelayReturnWindowClosed;
-            eventBus.OnDelayedTurnEnteredTyped += HandleDelayedTurnEntered;
-            eventBus.OnDelayedTurnResumedTyped += HandleDelayedTurnResumed;
-            eventBus.OnDelayedTurnExpiredTyped += HandleDelayedTurnExpired;
+
+            if (!IsExternalDelayOrchestratorPresent())
+            {
+                eventBus.OnDelayTurnBeginTriggerChangedTyped += HandleDelayTurnBeginTriggerChanged;
+                eventBus.OnDelayPlacementSelectionChangedTyped += HandleDelayPlacementSelectionChanged;
+                eventBus.OnDelayReturnWindowOpenedTyped += HandleDelayReturnWindowOpened;
+                eventBus.OnDelayReturnWindowClosedTyped += HandleDelayReturnWindowClosed;
+                eventBus.OnDelayedTurnEnteredTyped += HandleDelayedTurnEntered;
+                eventBus.OnDelayedTurnResumedTyped += HandleDelayedTurnResumed;
+                eventBus.OnDelayedTurnExpiredTyped += HandleDelayedTurnExpired;
+                delayEventsSubscribedInternally = true;
+            }
+            else
+            {
+                delayEventsSubscribedInternally = false;
+            }
+
             targetingController.OnModeChanged += HandleModeChanged;
 
             HandleModeChanged(targetingController.ActiveMode);
@@ -125,13 +136,17 @@ namespace PF2e.Presentation
                 eventBus.OnActionsChangedTyped -= HandleActionsChanged;
                 eventBus.OnConditionChangedTyped -= HandleConditionChanged;
                 eventBus.OnShieldRaisedTyped -= HandleShieldRaised;
-                eventBus.OnDelayTurnBeginTriggerChangedTyped -= HandleDelayTurnBeginTriggerChanged;
-                eventBus.OnDelayPlacementSelectionChangedTyped -= HandleDelayPlacementSelectionChanged;
-                eventBus.OnDelayReturnWindowOpenedTyped -= HandleDelayReturnWindowOpened;
-                eventBus.OnDelayReturnWindowClosedTyped -= HandleDelayReturnWindowClosed;
-                eventBus.OnDelayedTurnEnteredTyped -= HandleDelayedTurnEntered;
-                eventBus.OnDelayedTurnResumedTyped -= HandleDelayedTurnResumed;
-                eventBus.OnDelayedTurnExpiredTyped -= HandleDelayedTurnExpired;
+                if (delayEventsSubscribedInternally)
+                {
+                    eventBus.OnDelayTurnBeginTriggerChangedTyped -= HandleDelayTurnBeginTriggerChanged;
+                    eventBus.OnDelayPlacementSelectionChangedTyped -= HandleDelayPlacementSelectionChanged;
+                    eventBus.OnDelayReturnWindowOpenedTyped -= HandleDelayReturnWindowOpened;
+                    eventBus.OnDelayReturnWindowClosedTyped -= HandleDelayReturnWindowClosed;
+                    eventBus.OnDelayedTurnEnteredTyped -= HandleDelayedTurnEntered;
+                    eventBus.OnDelayedTurnResumedTyped -= HandleDelayedTurnResumed;
+                    eventBus.OnDelayedTurnExpiredTyped -= HandleDelayedTurnExpired;
+                    delayEventsSubscribedInternally = false;
+                }
             }
 
             if (targetingController != null)
@@ -219,35 +234,40 @@ namespace PF2e.Presentation
 
         private void HandleDelayTurnBeginTriggerChanged(in DelayTurnBeginTriggerChangedEvent e)
         {
-            RefreshAvailability();
+            RefreshDelayUiFromOrchestrator();
         }
 
         private void HandleDelayPlacementSelectionChanged(in DelayPlacementSelectionChangedEvent e)
         {
-            RefreshAvailability();
+            RefreshDelayUiFromOrchestrator();
         }
 
         private void HandleDelayReturnWindowOpened(in DelayReturnWindowOpenedEvent e)
         {
-            RefreshAvailability();
+            RefreshDelayUiFromOrchestrator();
         }
 
         private void HandleDelayReturnWindowClosed(in DelayReturnWindowClosedEvent e)
         {
-            RefreshAvailability();
+            RefreshDelayUiFromOrchestrator();
         }
 
         private void HandleDelayedTurnEntered(in DelayedTurnEnteredEvent e)
         {
-            RefreshAvailability();
+            RefreshDelayUiFromOrchestrator();
         }
 
         private void HandleDelayedTurnResumed(in DelayedTurnResumedEvent e)
         {
-            RefreshAvailability();
+            RefreshDelayUiFromOrchestrator();
         }
 
         private void HandleDelayedTurnExpired(in DelayedTurnExpiredEvent e)
+        {
+            RefreshDelayUiFromOrchestrator();
+        }
+
+        public void RefreshDelayUiFromOrchestrator()
         {
             RefreshAvailability();
         }
@@ -430,6 +450,12 @@ namespace PF2e.Presentation
             if (image == null) return;
             if (image.gameObject.activeSelf != active)
                 image.gameObject.SetActive(active);
+        }
+
+        private static bool IsExternalDelayOrchestratorPresent()
+        {
+            var orchestrator = UnityEngine.Object.FindFirstObjectByType<DelayUiOrchestrator>();
+            return orchestrator != null && orchestrator.isActiveAndEnabled;
         }
 
         private void OnStrikeClicked()

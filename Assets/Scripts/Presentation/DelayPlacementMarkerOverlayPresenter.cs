@@ -1,5 +1,4 @@
 using System;
-using System;
 using System.Collections.Generic;
 using PF2e.Core;
 using UnityEngine;
