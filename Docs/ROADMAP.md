@@ -36,6 +36,9 @@
 - Add parameterized strike crit-trait support for `Deadly` and `Fatal`, and ranged close-range `Volley` penalty support (`Phases 25.2–25.4`). (Done)
 - Implement `RepositionAction` core (`Athletics` vs `Fortitude DC`, Attack trait, path-validated forced movement, and source-grapple requirement exception path) with EditMode/PlayMode coverage (`Phase 26`). (Done)
 - Implement ranged `Strike` line-of-sight + simple cover MVP (grid-based supercover with permissive corner), integrate `NoLineOfSight` targeting validation and cover AC payload/runtime/log polish (`Phase 27`). (Done)
+- Implement ranged `Strike` concealment MVP (`Phase 28`): DC 5 flat check on would-hit vs `Concealed`, preserve AC degree in payload, downgrade final outcome to `Failure` on flat-check miss, and integrate logs/preview warning hints. (Done)
+- Implement Delay action architecture and MVP flow (`Phase 29b–29e`): turn-lifecycle split hooks, delay trigger window, planned insertion-slot selection between initiative portraits, automatic planned resume chaining, and manual Return/Skip fallback window only for non-planned delayed actors. (Done)
+- Remove per-frame Delay UI polling and migrate to typed delay bus events; extract Delay initiative presenters/coordinator/planner (`Phase 29f–29g`). (Done)
 
 ## Phase 3 — Content & UX Polish (In Progress)
 - Add more encounter layouts and data-driven authoring flow.
@@ -43,6 +46,8 @@
 - Add Action Bar UI (clickable actions + hotkey hints + targeting-mode highlight) with scene builder and validator support (`Phase 23`). (Done)
 - Add world-space targeting feedback (`eligible` highlight + hover valid/invalid tint) and target reason hint panel powered by `TargetingController` preview reasons (`Phases 23.1–23.2`). (Done)
 - Add playable two-step `Reposition` targeting UX (target -> check -> destination cell on success), cell highlights/hints, Action Bar wiring, and Reposition control polish (`Phases 26.1a–26.2`). (Done)
+- Fix combat log high-volume readability: wrapped-line preferred-height sizing, pooled-line sibling order, and retention cap notice (`Showing last N lines`). (Done)
+- Harden input/UI interaction boundaries: block camera wheel zoom and grid click/hover raycasts while pointer is over UI. (Done)
 - Balance pass for encounter duration and difficulty curve.
 
 ## Phase 4 — Release Hardening (Planned)
