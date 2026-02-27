@@ -81,6 +81,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-075 | P1 | done | Builder | Block grid click-through when pointer is over UI | Grid hover/click processing now stops while pointer is over UI, preventing accidental movement/targeting from button clicks |
 | T-076 | P1 | done | Builder | Fix GridInteraction pointer EventSystem compile break | `GridInteraction` now caches/uses the current `EventSystem` safely (no invalid `PointerEventData.eventSystem` usage) and PlayMode compile gate is clean |
 | T-077 | P1 | done | Verifier | Add Delay orchestration PlayMode regressions (`Phase 29h`) | New PlayMode tests cover planned delay auto-resume without manual window, same-anchor multi-player auto-chain, manual delay `ReturnNow` resume, and manual delay `Skip` flow continuation |
+| T-078 | P1 | done | Verifier | Add pointer-level Delay UI PlayMode regressions (`Phase 29i`) | New PlayMode tests validate UI pointer click path for Action Bar `Delay` toggle, initiative insertion marker commit, and `ReturnNow`/`Skip` button wiring in `DelayReturnWindow` |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal
