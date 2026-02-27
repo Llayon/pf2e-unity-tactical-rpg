@@ -30,6 +30,8 @@ namespace PF2e.Presentation
         [SerializeField] private CanvasGroup canvasGroup;
         [SerializeField] private bool autoScrollToBottom = true;
         [SerializeField] private int maxLines = 80;
+        [SerializeField] private bool showRetentionNotice = true;
+        [SerializeField] private TextMeshProUGUI retentionNoticeLabel;
 
         [Header("Formatting")]
         [SerializeField] private bool showLineNumbers = true;
@@ -76,6 +78,9 @@ namespace PF2e.Presentation
                 lineTemplate.gameObject.SetActive(false);
 
             CacheTemplateLineHeight();
+            EnsureRetentionNoticeLabel();
+            UpdateRetentionNoticeLabelText();
+            RefreshRetentionNoticeVisibility();
 
             eventBus.OnLogEntry += HandleBusLogEntry;
             Canvas.willRenderCanvases += HandleWillRenderCanvases;
@@ -277,6 +282,52 @@ namespace PF2e.Presentation
                 scrollRect.verticalNormalizedPosition = 0f;
         }
 
+        private void EnsureRetentionNoticeLabel()
+        {
+            if (!showRetentionNotice || retentionNoticeLabel != null || lineTemplate == null)
+                return;
+
+            var inst = Instantiate(lineTemplate, transform);
+            inst.gameObject.name = "CombatLogRetentionNotice";
+            inst.gameObject.SetActive(true);
+            inst.raycastTarget = false;
+            inst.enableWordWrapping = false;
+            inst.overflowMode = TextOverflowModes.Ellipsis;
+            inst.alignment = TextAlignmentOptions.TopRight;
+            inst.fontStyle = FontStyles.Italic;
+            inst.fontSize = Mathf.Max(12f, lineTemplate.fontSize * 0.75f);
+            inst.color = new Color(0.95f, 0.93f, 0.86f, 0.72f);
+
+            if (inst.TryGetComponent<LayoutElement>(out var le))
+                le.enabled = false;
+
+            var rect = inst.rectTransform;
+            rect.SetParent(transform, false);
+            rect.anchorMin = new Vector2(1f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(1f, 1f);
+            rect.anchoredPosition = new Vector2(-10f, -10f);
+            rect.sizeDelta = new Vector2(260f, 20f);
+
+            retentionNoticeLabel = inst;
+        }
+
+        private void UpdateRetentionNoticeLabelText()
+        {
+            if (retentionNoticeLabel == null)
+                return;
+
+            retentionNoticeLabel.SetText("Showing last {0} lines", Mathf.Max(1, maxLines));
+        }
+
+        private void RefreshRetentionNoticeVisibility()
+        {
+            if (retentionNoticeLabel == null)
+                return;
+
+            retentionNoticeLabel.gameObject.SetActive(showRetentionNotice && inCombat && Mathf.Max(1, maxLines) > 0);
+        }
+
         private string ResolveName(EntityHandle handle)
         {
             if (entityManager == null || entityManager.Registry == null)
@@ -290,6 +341,7 @@ namespace PF2e.Presentation
         {
             inCombat = value;
             RefreshVisibility();
+            RefreshRetentionNoticeVisibility();
         }
 
         private void RefreshVisibility()

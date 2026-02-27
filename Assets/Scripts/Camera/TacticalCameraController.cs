@@ -1,5 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.EventSystems;
+using System.Collections.Generic;
 
 namespace PF2e.Camera
 {
@@ -12,12 +14,15 @@ namespace PF2e.Camera
     {
         [SerializeField] private TacticalCameraSettings settings;
         [SerializeField] private UnityEngine.Camera cam;
+        [Header("Input Filtering")]
+        [SerializeField] private bool blockZoomWhenPointerOverUI = true;
 
         private Vector3 focusPoint;
         private float yaw;
         private float distance;
         private float targetDistance;
         private float pitch;
+        private readonly List<RaycastResult> uiRaycastResults = new List<RaycastResult>(8);
 
         // SmoothDamp velocity — only for zoom
         private float distanceVelocity;
@@ -108,9 +113,12 @@ namespace PF2e.Camera
             float scrollY = mouse != null ? mouse.scroll.ReadValue().y : 0f;
             if (scrollY != 0f)
             {
-                float scrollNormalized = scrollY / 120f;
-                targetDistance -= scrollNormalized * settings.zoomSpeed;
-                targetDistance = Mathf.Clamp(targetDistance, settings.minDistance, settings.maxDistance);
+                if (!blockZoomWhenPointerOverUI || !IsPointerOverUI(mouse))
+                {
+                    float scrollNormalized = scrollY / 120f;
+                    targetDistance -= scrollNormalized * settings.zoomSpeed;
+                    targetDistance = Mathf.Clamp(targetDistance, settings.minDistance, settings.maxDistance);
+                }
             }
 
             distance = Mathf.SmoothDamp(distance, targetDistance, ref distanceVelocity, settings.zoomSmoothTime);
@@ -141,6 +149,27 @@ namespace PF2e.Camera
         public void SetFocusPoint(Vector3 point)
         {
             focusPoint = point;
+        }
+
+        private bool IsPointerOverUI(Mouse mouse)
+        {
+            if (mouse == null)
+                return false;
+
+            var es = EventSystem.current;
+            if (es == null)
+                return false;
+
+            var pointerData = new PointerEventData(es)
+            {
+                position = mouse.position.ReadValue()
+            };
+
+            uiRaycastResults.Clear();
+            es.RaycastAll(pointerData, uiRaycastResults);
+            bool overUi = uiRaycastResults.Count > 0;
+            uiRaycastResults.Clear();
+            return overUi;
         }
     }
 }
