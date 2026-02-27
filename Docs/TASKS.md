@@ -83,6 +83,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-077 | P1 | done | Verifier | Add Delay orchestration PlayMode regressions (`Phase 29h`) | New PlayMode tests cover planned delay auto-resume without manual window, same-anchor multi-player auto-chain, manual delay `ReturnNow` resume, and manual delay `Skip` flow continuation |
 | T-078 | P1 | done | Verifier | Add pointer-level Delay UI PlayMode regressions (`Phase 29i`) | New PlayMode tests validate UI pointer click path for Action Bar `Delay` toggle, initiative insertion marker commit, and `ReturnNow`/`Skip` button wiring in `DelayReturnWindow` |
 | T-079 | P1 | done | Builder | Introduce top-level Delay UI orchestrator with safe fallback wiring (`Phase 29j`) | `DelayUiOrchestrator` now owns Delay typed-event fanout for `ActionBarController` + `InitiativeBarController` when present, while controllers keep internal event fallback for scenes/tests without explicit orchestrator wiring |
+| T-080 | P1 | done | Builder | Add Delay UI orchestrator validator/autofix wiring (`Phase 29j.1`) | Scene validator now checks `DelayUiOrchestrator` refs and warns when missing in scenes that have both Action Bar and Initiative Bar; autofix creates/wires orchestrator automatically in that case |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

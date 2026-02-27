@@ -78,6 +78,7 @@ public static class PF2eSceneDependencyValidator
         errors += ValidateAll<FloatingDamageUI>(ValidateFloatingDamageUI);
         errors += ValidateAll<InitiativeBarController>(ValidateInitiativeBarController);
         errors += ValidateAll<ActionBarController>(ValidateActionBarController);
+        errors += ValidateAll<DelayUiOrchestrator>(ValidateDelayUiOrchestrator);
         errors += ValidateAll<TargetingHintController>(ValidateTargetingHintController);
         errors += ValidateAll<TargetingFeedbackController>(ValidateTargetingFeedbackController);
         errors += ValidateAll<ConditionLogForwarder>(ValidateConditionLogForwarder);
@@ -109,6 +110,7 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<EncounterFlowController>();
         errors += ErrorIfMoreThanOne<InitiativeBarController>();
         errors += ErrorIfMoreThanOne<ActionBarController>();
+        errors += ErrorIfMoreThanOne<DelayUiOrchestrator>();
         errors += ErrorIfMoreThanOne<TargetingHintController>();
         errors += ErrorIfMoreThanOne<TargetingFeedbackController>();
         errors += ErrorIfMoreThanOne<ConditionLogForwarder>();
@@ -151,6 +153,11 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnIfNone<EncounterEndPanelController>();
         warnings += WarnIfNone<EncounterFlowController>();
         warnings += WarnIfNone<ActionBarController>();
+        if (UnityEngine.Object.FindObjectsByType<ActionBarController>(FindObjectsSortMode.None).Length > 0 &&
+            UnityEngine.Object.FindObjectsByType<InitiativeBarController>(FindObjectsSortMode.None).Length > 0)
+        {
+            warnings += WarnIfNone<DelayUiOrchestrator>();
+        }
         warnings += WarnIfNone<TargetingHintController>();
         warnings += WarnIfNone<TargetingFeedbackController>();
         warnings += WarnIfNone<DamageLogForwarder>();
@@ -380,6 +387,13 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnRef(c, "escapeHighlight", "Image");
         warnings += WarnRef(c, "raiseShieldHighlight", "Image");
         warnings += WarnRef(c, "standHighlight", "Image");
+    }
+
+    private static void ValidateDelayUiOrchestrator(DelayUiOrchestrator c, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(c, "eventBus", "CombatEventBus");
+        errors += RequireRef(c, "actionBarController", "ActionBarController");
+        errors += RequireRef(c, "initiativeBarController", "InitiativeBarController");
     }
 
     private static void ValidateTargetingFeedbackController(TargetingFeedbackController c, ref int errors, ref int warnings)
@@ -655,8 +669,23 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         TryGetSingleton(out ReactionPromptController reactionPromptControllerSingleton, logIfMissing: false);
         TryGetSingleton(out GrappleLifecycleController grappleLifecycleSingleton, logIfMissing: false);
         TryGetSingleton(out ActionBarController actionBarControllerSingleton, logIfMissing: false);
+        TryGetSingleton(out InitiativeBarController initiativeBarControllerSingleton, logIfMissing: false);
+        TryGetSingleton(out DelayUiOrchestrator delayUiOrchestratorSingleton, logIfMissing: false);
         TryGetSingleton(out TargetingHintController targetingHintControllerSingleton, logIfMissing: false);
         TryGetSingleton(out TargetingFeedbackController targetingFeedbackControllerSingleton, logIfMissing: false);
+
+        if (delayUiOrchestratorSingleton == null &&
+            eventBus != null &&
+            actionBarControllerSingleton != null &&
+            initiativeBarControllerSingleton != null)
+        {
+            var orchestratorGo = new GameObject("DelayUiOrchestrator");
+            Undo.RegisterCreatedObjectUndo(orchestratorGo, "Create DelayUiOrchestrator");
+            delayUiOrchestratorSingleton = orchestratorGo.AddComponent<DelayUiOrchestrator>();
+            EditorUtility.SetDirty(orchestratorGo);
+            fixedCount++;
+            Debug.Log("[PF2eAutoFix] Created DelayUiOrchestrator.");
+        }
 
         // Fix null references only
 
@@ -877,6 +906,14 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
             fixedCount += FixAll<ActionBarController>("targetingController", targetingController);
         if (actionBarControllerSingleton != null)
             fixedCount += AutoWireActionBarController(actionBarControllerSingleton);
+
+        // DelayUiOrchestrator (Phase 29j)
+        if (eventBus != null)
+            fixedCount += FixAll<DelayUiOrchestrator>("eventBus", eventBus);
+        if (actionBarControllerSingleton != null)
+            fixedCount += FixAll<DelayUiOrchestrator>("actionBarController", actionBarControllerSingleton);
+        if (initiativeBarControllerSingleton != null)
+            fixedCount += FixAll<DelayUiOrchestrator>("initiativeBarController", initiativeBarControllerSingleton);
 
         // TargetingHintController (Phase 23.2)
         if (targetingHintControllerSingleton != null)
