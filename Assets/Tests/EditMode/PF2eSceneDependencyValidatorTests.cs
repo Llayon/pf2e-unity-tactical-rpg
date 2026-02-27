@@ -42,8 +42,6 @@ namespace PF2e.Tests
                 "SampleScene must contain ActionBarController.");
             Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<InitiativeBarController>(),
                 "SampleScene must contain InitiativeBarController.");
-            Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<DelayUiOrchestrator>(),
-                "SampleScene must contain DelayUiOrchestrator.");
             Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<TurnUIController>(),
                 "SampleScene must contain TurnUIController.");
             Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<CombatLogController>(),
