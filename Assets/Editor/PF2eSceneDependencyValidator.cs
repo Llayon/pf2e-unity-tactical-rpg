@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using System;
+using System.IO;
 using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -18,6 +19,7 @@ public static class PF2eSceneDependencyValidator
     private delegate void ValidatorDelegate<T>(T obj, ref int errors, ref int warnings);
 
     private const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+    private const string SampleScenePath = "Assets/Scenes/SampleScene.unity";
 
     [MenuItem("Tools/PF2e/Validate Scene Dependencies")]
     public static void Validate_WithDialog()
@@ -34,7 +36,7 @@ public static class PF2eSceneDependencyValidator
     [MenuItem("Tools/PF2e/Auto-Fix Scene Dependencies (Safe)")]
     public static void AutoFix_Safe()
     {
-        RunAutoFix();
+        RunAutoFix(returnToSampleScene: true);
     }
 
     /// <summary>
@@ -637,7 +639,7 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
 
     // ----------------- Auto-Fix -----------------
 
-    private static void RunAutoFix()
+    private static void RunAutoFix(bool returnToSampleScene = false)
     {
         Debug.Log($"[PF2eAutoFix] Auto-fix starting. Scene: {SceneManager.GetActiveScene().name}");
 
@@ -950,6 +952,43 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         else
         {
             Debug.Log("[PF2eAutoFix] Done. Nothing to fix (all references already assigned).");
+        }
+
+        if (returnToSampleScene)
+            TryReturnToSampleSceneIfSafe();
+    }
+
+    private static void TryReturnToSampleSceneIfSafe()
+    {
+        var activeScene = SceneManager.GetActiveScene();
+        if (!activeScene.IsValid())
+            return;
+
+        if (string.Equals(activeScene.path, SampleScenePath, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (!File.Exists(SampleScenePath))
+        {
+            Debug.LogWarning($"[PF2eAutoFix] Workflow guard: '{SampleScenePath}' not found. Staying on '{activeScene.path}'.");
+            return;
+        }
+
+        if (activeScene.isDirty)
+        {
+            Debug.LogWarning(
+                $"[PF2eAutoFix] Workflow guard: active scene '{activeScene.path}' has unsaved changes. " +
+                "Skipping automatic return to SampleScene.");
+            return;
+        }
+
+        var opened = EditorSceneManager.OpenScene(SampleScenePath, OpenSceneMode.Single);
+        if (opened.IsValid())
+        {
+            Debug.Log("[PF2eAutoFix] Workflow guard: returned to SampleScene after auto-fix.");
+        }
+        else
+        {
+            Debug.LogWarning("[PF2eAutoFix] Workflow guard: failed to open SampleScene after auto-fix.");
         }
     }
 
