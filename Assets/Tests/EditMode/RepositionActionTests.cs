@@ -191,6 +191,10 @@ namespace PF2e.Tests
                 Assert.AreEqual(SkillType.Athletics, last.skill);
                 Assert.AreEqual(actor, last.actor);
                 Assert.AreEqual(target, last.target);
+                Assert.IsTrue(last.hasOpposedProjection);
+                Assert.AreEqual(last.roll.total - last.dc, last.opposedProjection.margin);
+                Assert.AreEqual(CheckSourceType.Save, last.opposedProjection.defenderRoll.source.type);
+                Assert.AreEqual(SaveType.Fortitude, last.opposedProjection.defenderRoll.source.save);
             }
             finally
             {

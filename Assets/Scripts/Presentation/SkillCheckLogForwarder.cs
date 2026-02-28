@@ -43,10 +43,13 @@ namespace PF2e.Presentation
             var targetData = entityManager.Registry != null ? entityManager.Registry.Get(e.target) : null;
             string targetName = targetData?.Name ?? "Unknown";
             string actionLabel = string.IsNullOrEmpty(e.actionName) ? e.skill.ToString() : e.actionName;
+            string projectionToken = e.hasOpposedProjection
+                ? $" (cmp {RollBreakdownFormatter.FormatSigned(e.opposedProjection.margin)})"
+                : string.Empty;
 
             eventBus.Publish(
                 e.actor,
-                $"uses {actionLabel} on {targetName} — {RollBreakdownFormatter.FormatVsDc(e.roll, e.defenseSource, e.dc)} → {e.degree}",
+                $"uses {actionLabel} on {targetName} — {RollBreakdownFormatter.FormatVsDc(e.roll, e.defenseSource, e.dc)} → {e.degree}{projectionToken}",
                 CombatLogCategory.Attack);
         }
     }

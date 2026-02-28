@@ -100,6 +100,51 @@ namespace PF2e.Tests
             }
         }
 
+        [Test]
+        public void SkillCheckResolved_WithOpposedProjection_AppendsComparisonToken()
+        {
+            using var ctx = new SkillCheckLogContext();
+
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            var target = ctx.RegisterEntity("Goblin_1", Team.Enemy);
+
+            var roll = new CheckRoll(13, 7, CheckSource.Skill(SkillType.Athletics));
+            var projection = OpposedCheckResult.FromRollVsDc(roll, dc: 17, defenseSource: CheckSource.Save(SaveType.Fortitude));
+
+            var ev = new SkillCheckResolvedEvent(
+                actor,
+                target,
+                SkillType.Athletics,
+                roll,
+                defenseSource: CheckSource.Save(SaveType.Fortitude),
+                dc: 17,
+                degree: DegreeOfSuccess.Success,
+                actionName: "Reposition",
+                opposedProjection: projection);
+
+            int count = 0;
+            CombatLogEntry last = default;
+            ctx.EventBus.OnLogEntry += HandleLog;
+
+            try
+            {
+                ctx.EventBus.PublishSkillCheckResolved(in ev);
+
+                Assert.AreEqual(1, count);
+                StringAssert.Contains("(cmp +3)", last.Message);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry)
+            {
+                count++;
+                last = entry;
+            }
+        }
+
         private sealed class SkillCheckLogContext : System.IDisposable
         {
             private readonly bool oldIgnoreLogs;

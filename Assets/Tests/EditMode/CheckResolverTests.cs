@@ -205,6 +205,25 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void OpposedCheckResult_FromRollVsDc_UsesDcAsDefenderTotal()
+        {
+            var attackerRoll = new CheckRoll(13, 7, CheckSource.Skill(SkillType.Athletics));
+
+            var result = OpposedCheckResult.FromRollVsDc(
+                attackerRoll,
+                dc: 17,
+                defenseSource: CheckSource.Save(SaveType.Fortitude));
+
+            Assert.AreEqual(20, result.attackerRoll.total);
+            Assert.AreEqual(17, result.defenderRoll.total);
+            Assert.AreEqual(0, result.defenderRoll.naturalRoll);
+            Assert.AreEqual(3, result.margin);
+            Assert.AreEqual(OpposedCheckWinner.Attacker, result.winner);
+            Assert.AreEqual(CheckSourceType.Save, result.defenderRoll.source.type);
+            Assert.AreEqual(SaveType.Fortitude, result.defenderRoll.source.save);
+        }
+
+        [Test]
         public void ComputeCheckPenalty_FrightenedAndSickened_Max()
         {
             var conditions = new List<ActiveCondition>

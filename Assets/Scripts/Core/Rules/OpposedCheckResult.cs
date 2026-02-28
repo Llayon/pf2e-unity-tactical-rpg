@@ -38,5 +38,15 @@ namespace PF2e.Core
 
             return new OpposedCheckResult(in attackerRoll, in defenderRoll, margin, winner);
         }
+
+        /// <summary>
+        /// Builds an opposed-style projection for check-vs-DC flows.
+        /// The defender roll uses natural=0 and modifier=dc so defender.total equals the DC.
+        /// </summary>
+        public static OpposedCheckResult FromRollVsDc(in CheckRoll attackerRoll, int dc, in CheckSource defenseSource)
+        {
+            var defenderProjection = new CheckRoll(naturalRoll: 0, modifier: dc, defenseSource);
+            return FromRolls(in attackerRoll, in defenderProjection);
+        }
     }
 }

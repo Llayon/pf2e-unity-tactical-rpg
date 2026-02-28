@@ -108,6 +108,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-102 | P1 | done | Builder | Reserialize encounter flow runtime preset to actorId-era schema | `EncounterFlowUIPreset_RuntimeFallback.asset` now explicitly serializes initiative fields (`initiativeCheckMode`, `initiativeSkill`, `actorInitiativeOverrides`) with default Perception behavior and no overrides |
 | T-103 | P1 | done | Builder | Add validator warning pass for missing combatant `EncounterActorId` | `PF2eSceneDependencyValidator` now warns for alive `Player/Enemy` entities with empty `EncounterActorId` (when registry is available) and EditMode reflection coverage verifies warning contract |
 | T-104 | P1 | done | Builder | Add runtime initiative-start warning for missing combatant `EncounterActorId` | `TurnManager.StartCombat` now warns when alive `Player/Enemy` has empty `EncounterActorId` before initiative roll; `TurnManagerDelayTests` includes explicit warning contract case |
+| T-105 | P1 | done | Builder | Phase 30b pilot: carry `OpposedCheckResult` through Reposition action payload | `SkillCheckResolvedEvent` gained optional opposed-projection payload; `RepositionAction` now publishes projection built from check-vs-DC; `SkillCheckLogForwarder` appends comparison token from action payload; EditMode/PlayMode suites green |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

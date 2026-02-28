@@ -14,6 +14,8 @@ namespace PF2e.Core
         public readonly int dc;
         public readonly DegreeOfSuccess degree;
         public readonly string actionName;
+        public readonly bool hasOpposedProjection;
+        public readonly OpposedCheckResult opposedProjection;
 
         // Backward-compatible convenience accessors.
         public int naturalRoll => roll.naturalRoll;
@@ -38,6 +40,31 @@ namespace PF2e.Core
             this.dc = dc;
             this.degree = degree;
             this.actionName = actionName;
+            hasOpposedProjection = false;
+            opposedProjection = default;
+        }
+
+        public SkillCheckResolvedEvent(
+            EntityHandle actor,
+            EntityHandle target,
+            SkillType skill,
+            in CheckRoll roll,
+            in CheckSource defenseSource,
+            int dc,
+            DegreeOfSuccess degree,
+            string actionName,
+            in OpposedCheckResult opposedProjection)
+        {
+            this.actor = actor;
+            this.target = target;
+            this.skill = skill;
+            this.roll = roll;
+            this.defenseSource = defenseSource;
+            this.dc = dc;
+            this.degree = degree;
+            this.actionName = actionName;
+            hasOpposedProjection = true;
+            this.opposedProjection = opposedProjection;
         }
     }
 }
