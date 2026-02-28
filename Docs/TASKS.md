@@ -88,6 +88,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-082 | P1 | done | Verifier | Add `SampleScene` UI presence smoke regression | New EditMode smoke test verifies critical combat UI controllers exist in `SampleScene` (`ActionBar`, `InitiativeBar`, `TurnUI`, `CombatLog`) |
 | T-083 | P1 | done | Verifier | Add EditMode regression for DelayUiOrchestrator auto-create/wiring (`Phase 29j.4`) | New EditMode test removes `DelayUiOrchestrator`, invokes validator `RunAutoFix(false)`, and verifies orchestrator is recreated with `eventBus`/`actionBarController`/`initiativeBarController` wired |
 | T-084 | P1 | done | Verifier | Add EditMode idempotency regression for DelayUiOrchestrator autofix | New EditMode test verifies `RunAutoFix(false)` does not create duplicate `DelayUiOrchestrator` when one already exists |
+| T-085 | P1 | done | Verifier | Add EditMode regression for DelayUiOrchestrator rewiring of broken existing instance | New EditMode test nulls orchestrator refs (`eventBus`/`actionBarController`/`initiativeBarController`), runs `RunAutoFix(false)`, and verifies refs are restored without creating duplicates |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

@@ -112,6 +112,51 @@ namespace PF2e.Tests
             Assert.AreEqual(1, after.Length, "AutoFix must keep DelayUiOrchestrator singleton idempotent.");
         }
 
+        [Test]
+        public void AutoFix_WhenDelayUiOrchestratorExistsWithNullRefs_RewiresWithoutDuplicate()
+        {
+            Assert.IsTrue(System.IO.File.Exists(SampleScenePath), $"Missing scene: {SampleScenePath}");
+
+            EditorSceneManager.OpenScene(SampleScenePath, OpenSceneMode.Single);
+
+            var eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
+            var actionBar = UnityEngine.Object.FindFirstObjectByType<ActionBarController>();
+            var initiativeBar = UnityEngine.Object.FindFirstObjectByType<InitiativeBarController>();
+            Assert.IsNotNull(eventBus, "SampleScene must contain CombatEventBus.");
+            Assert.IsNotNull(actionBar, "SampleScene must contain ActionBarController.");
+            Assert.IsNotNull(initiativeBar, "SampleScene must contain InitiativeBarController.");
+
+            var all = UnityEngine.Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
+            if (all.Length == 0)
+            {
+                var go = new GameObject("DelayUiOrchestrator_RewireTest");
+                go.AddComponent<DelayUiOrchestrator>();
+                all = UnityEngine.Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
+            }
+
+            for (int i = 1; i < all.Length; i++)
+            {
+                UnityEngine.Object.DestroyImmediate(all[i]);
+            }
+
+            var orchestrator = UnityEngine.Object.FindFirstObjectByType<DelayUiOrchestrator>();
+            Assert.IsNotNull(orchestrator, "Test precondition: one DelayUiOrchestrator must exist.");
+
+            SetPrivateField(orchestrator, "eventBus", null);
+            SetPrivateField(orchestrator, "actionBarController", null);
+            SetPrivateField(orchestrator, "initiativeBarController", null);
+
+            InvokePrivateValidatorMethodWithBoolArg("RunAutoFix", false);
+
+            var after = UnityEngine.Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
+            Assert.AreEqual(1, after.Length, "AutoFix must not create duplicate DelayUiOrchestrator while rewiring.");
+
+            var rewired = after[0];
+            Assert.AreSame(eventBus, GetPrivateField<CombatEventBus>(rewired, "eventBus"));
+            Assert.AreSame(actionBar, GetPrivateField<ActionBarController>(rewired, "actionBarController"));
+            Assert.AreSame(initiativeBar, GetPrivateField<InitiativeBarController>(rewired, "initiativeBarController"));
+        }
+
         private static void InvokePrivateValidatorMethod(string methodName)
         {
             var validatorType = FindTypeByName("PF2eSceneDependencyValidator");
@@ -147,6 +192,13 @@ namespace PF2e.Tests
             var value = field.GetValue(target) as T;
             Assert.IsNotNull(value, $"Field '{fieldName}' is null on {target.GetType().Name}.");
             return value;
+        }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            var field = target.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.IsNotNull(field, $"Field '{fieldName}' not found on {target.GetType().Name}.");
+            field.SetValue(target, value);
         }
 
         private static Type FindTypeByName(string typeName)
