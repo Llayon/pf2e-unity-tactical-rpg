@@ -370,8 +370,7 @@ namespace PF2e.Tests
                     new InitiativeEntry
                     {
                         Handle = actor,
-                        Roll = 10,
-                        Modifier = 0,
+                        Roll = new CheckRoll(10, 0, CheckSource.Perception()),
                         IsPlayer = true
                     }
                 });

@@ -28,8 +28,8 @@ namespace PF2e.Tests
 
                 var initiative = new List<InitiativeEntry>
                 {
-                    new InitiativeEntry { Handle = source, Roll = 14, Modifier = 2, IsPlayer = false },
-                    new InitiativeEntry { Handle = target, Roll = 12, Modifier = 3, IsPlayer = true }
+                    new InitiativeEntry { Handle = source, Roll = new CheckRoll(14, 2, CheckSource.Perception()), IsPlayer = false },
+                    new InitiativeEntry { Handle = target, Roll = new CheckRoll(12, 3, CheckSource.Perception()), IsPlayer = true }
                 };
 
                 var options = new List<ReactionOption>();
@@ -63,7 +63,7 @@ namespace PF2e.Tests
 
                 var initiative = new List<InitiativeEntry>
                 {
-                    new InitiativeEntry { Handle = target, Roll = 10, Modifier = 0, IsPlayer = true }
+                    new InitiativeEntry { Handle = target, Roll = new CheckRoll(10, 0, CheckSource.Perception()), IsPlayer = true }
                 };
 
                 var options = new List<ReactionOption>();
@@ -124,7 +124,7 @@ namespace PF2e.Tests
 
                 var initiative = new List<InitiativeEntry>
                 {
-                    new InitiativeEntry { Handle = target, Roll = 10, Modifier = 0, IsPlayer = true }
+                    new InitiativeEntry { Handle = target, Roll = new CheckRoll(10, 0, CheckSource.Perception()), IsPlayer = true }
                 };
 
                 var options = new List<ReactionOption>();
@@ -163,9 +163,9 @@ namespace PF2e.Tests
 
                 var initiative = new List<InitiativeEntry>
                 {
-                    new InitiativeEntry { Handle = b, Roll = 20, Modifier = 0, IsPlayer = false },
-                    new InitiativeEntry { Handle = a, Roll = 15, Modifier = 0, IsPlayer = false },
-                    new InitiativeEntry { Handle = c, Roll = 10, Modifier = 0, IsPlayer = true }
+                    new InitiativeEntry { Handle = b, Roll = new CheckRoll(20, 0, CheckSource.Perception()), IsPlayer = false },
+                    new InitiativeEntry { Handle = a, Roll = new CheckRoll(15, 0, CheckSource.Perception()), IsPlayer = false },
+                    new InitiativeEntry { Handle = c, Roll = new CheckRoll(10, 0, CheckSource.Perception()), IsPlayer = true }
                 };
 
                 var visited = new List<EntityHandle>(3);
@@ -208,8 +208,8 @@ namespace PF2e.Tests
                 // Duplicate handle simulates bad upstream data and triggers guard path.
                 var initiative = new List<InitiativeEntry>
                 {
-                    new InitiativeEntry { Handle = target, Roll = 20, Modifier = 0, IsPlayer = true },
-                    new InitiativeEntry { Handle = target, Roll = 19, Modifier = 0, IsPlayer = true }
+                    new InitiativeEntry { Handle = target, Roll = new CheckRoll(20, 0, CheckSource.Perception()), IsPlayer = true },
+                    new InitiativeEntry { Handle = target, Roll = new CheckRoll(19, 0, CheckSource.Perception()), IsPlayer = true }
                 };
 
                 var options = new List<ReactionOption>();

@@ -46,7 +46,7 @@ namespace PF2e.Core
         public ProficiencyRank ReflexProf = ProficiencyRank.Trained;
         public ProficiencyRank WillProf = ProficiencyRank.Trained;
 
-        // ─── Perception (preparatory; initiative still uses Wis in Phase 21) ───
+        // ─── Perception ───
         public ProficiencyRank PerceptionProf = ProficiencyRank.Trained;
 
         // ─── Skill Proficiencies (MVP subset for early skill actions) ───

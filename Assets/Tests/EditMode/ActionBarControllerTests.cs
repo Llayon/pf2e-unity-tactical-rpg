@@ -512,8 +512,7 @@ namespace PF2e.Tests
                     new InitiativeEntry
                     {
                         Handle = actor,
-                        Roll = 10,
-                        Modifier = 0,
+                        Roll = new CheckRoll(10, 0, CheckSource.Perception()),
                         IsPlayer = actorData.Team == Team.Player
                     }
                 };
@@ -535,8 +534,7 @@ namespace PF2e.Tests
                     new InitiativeEntry
                     {
                         Handle = actor,
-                        Roll = 10,
-                        Modifier = 0,
+                        Roll = new CheckRoll(10, 0, CheckSource.Perception()),
                         IsPlayer = actorData.Team == Team.Player
                     }
                 };
@@ -551,8 +549,7 @@ namespace PF2e.Tests
                         order.Add(new InitiativeEntry
                         {
                             Handle = extra,
-                            Roll = 9 - i,
-                            Modifier = 0,
+                            Roll = new CheckRoll(9 - i, 0, CheckSource.Perception()),
                             IsPlayer = extraData.Team == Team.Player
                         });
                     }
@@ -572,8 +569,7 @@ namespace PF2e.Tests
                 order.Add(new InitiativeEntry
                 {
                     Handle = actor,
-                    Roll = 5,
-                    Modifier = 0,
+                    Roll = new CheckRoll(5, 0, CheckSource.Perception()),
                     IsPlayer = data.Team == Team.Player
                 });
             }

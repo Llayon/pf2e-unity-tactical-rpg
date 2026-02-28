@@ -429,8 +429,8 @@ namespace PF2e.Tests
 
                 SetPrivateField(TurnManager, "initiativeOrder", new List<InitiativeEntry>
                 {
-                    new InitiativeEntry { Handle = Player, Roll = 20, Modifier = 5, IsPlayer = true },
-                    new InitiativeEntry { Handle = EnemyOutOfRange, Roll = 1, Modifier = -1, IsPlayer = false }
+                    new InitiativeEntry { Handle = Player, Roll = new CheckRoll(20, 5, CheckSource.Perception()), IsPlayer = true },
+                    new InitiativeEntry { Handle = EnemyOutOfRange, Roll = new CheckRoll(1, -1, CheckSource.Perception()), IsPlayer = false }
                 });
                 SetPrivateField(TurnManager, "currentIndex", 0);
                 SetPrivateField(TurnManager, "state", TurnState.PlayerTurn);

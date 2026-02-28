@@ -2,17 +2,18 @@ namespace PF2e.Core
 {
     public readonly struct CheckResult
     {
-        public readonly int naturalRoll;
-        public readonly int modifier;
+        public readonly CheckRoll roll;
         public readonly int total;
         public readonly int dc;
         public readonly DegreeOfSuccess degree;
 
-        public CheckResult(int naturalRoll, int modifier, int total, int dc, DegreeOfSuccess degree)
+        public int naturalRoll => roll.naturalRoll;
+        public int modifier => roll.modifier;
+
+        public CheckResult(in CheckRoll roll, int dc, DegreeOfSuccess degree)
         {
-            this.naturalRoll = naturalRoll;
-            this.modifier = modifier;
-            this.total = total;
+            this.roll = roll;
+            this.total = roll.total;
             this.dc = dc;
             this.degree = degree;
         }

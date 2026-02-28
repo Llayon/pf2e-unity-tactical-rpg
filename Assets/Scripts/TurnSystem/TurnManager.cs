@@ -34,6 +34,7 @@ namespace PF2e.TurnSystem
         private readonly ConditionService conditionService = new();
         private readonly Dictionary<EntityHandle, DelayedTurnRecord> delayedTurns = new();
         private readonly HashSet<EntityHandle> delayReactionSuppressed = new();
+        private IRng initiativeRng = UnityRng.Shared;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         private const float ActionLockWarnSeconds = 4f;
@@ -111,6 +112,11 @@ namespace PF2e.TurnSystem
 
             var data = entityManager.Registry.Get(actor);
             return data != null && data.IsAlive && data.ReactionAvailable;
+        }
+
+        internal void SetInitiativeRngForTesting(IRng rng)
+        {
+            initiativeRng = rng ?? UnityRng.Shared;
         }
 
         // ─── Events ───────────────────────────────────────────────────────────
@@ -588,20 +594,18 @@ namespace PF2e.TurnSystem
             {
                 if (data == null || !data.IsAlive) continue;
 
-                                int roll       = UnityEngine.Random.Range(1, 21); // d20: 1-20 inclusive (max is exclusive)
-                int modifier   = data.WisMod;
-                bool isPlayer  = data.Team == Team.Player;
+                var roll = CheckResolver.RollPerception(data, initiativeRng);
+                bool isPlayer = data.Team == Team.Player;
 
                 initiativeOrder.Add(new InitiativeEntry
                 {
-                    Handle   = data.Handle,
-                    Roll     = roll,
-                    Modifier = modifier,
+                    Handle = data.Handle,
+                    Roll = roll,
                     IsPlayer = isPlayer,
                 });
             }
 
-            initiativeOrder.Sort((a, b) => b.SortValue.CompareTo(a.SortValue));
+            initiativeOrder.Sort(CompareInitiativeEntries);
 
             var sb = new System.Text.StringBuilder("[TurnManager] Initiative order:\n");
             for (int i = 0; i < initiativeOrder.Count; i++)
@@ -609,9 +613,24 @@ namespace PF2e.TurnSystem
                 var e    = initiativeOrder[i];
                 var d    = entityManager.Registry.Get(e.Handle);
                 string n = d?.Name ?? e.Handle.Id.ToString();
-                sb.AppendLine($"  {i + 1}. {n} — Roll: {e.Roll}, Mod: {e.Modifier}, SortValue: {e.SortValue}");
+                sb.AppendLine(
+                    $"  {i + 1}. {n} — d20: {e.Roll.naturalRoll}, Mod: {e.Roll.modifier}, Total: {e.Total}, Source: {e.Roll.source.ToShortLabel()}");
             }
             Debug.Log(sb.ToString());
+        }
+
+        private static int CompareInitiativeEntries(InitiativeEntry left, InitiativeEntry right)
+        {
+            return CheckComparer.CompareInitiative(left, right, InitiativeTieBreak);
+        }
+
+        private static int InitiativeTieBreak(in InitiativeEntry left, in InitiativeEntry right)
+        {
+            if (left.IsPlayer == right.IsPlayer)
+                return 0;
+
+            // PF2e RAW: on equal initiative result between PC and adversary, adversary acts first.
+            return left.IsPlayer ? 1 : -1;
         }
 
         private void StartNextRound()

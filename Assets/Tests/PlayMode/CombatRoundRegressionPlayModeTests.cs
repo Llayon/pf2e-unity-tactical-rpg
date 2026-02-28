@@ -600,7 +600,9 @@ namespace PF2e.Tests
                     var entry = receivedOrder[i];
                     Assert.IsTrue(entry.Handle.IsValid, "Initiative payload contains invalid handle.");
                     Assert.IsTrue(seenHandles.Add(entry.Handle.Id), $"Duplicate handle in initiative payload: {entry.Handle.Id}.");
-                    Assert.That(entry.Roll, Is.InRange(1, 20), "Initiative roll must be in [1, 20].");
+                    Assert.That(entry.Roll.naturalRoll, Is.InRange(1, 20), "Initiative roll must be in [1, 20].");
+                    Assert.AreEqual(entry.Roll.naturalRoll + entry.Roll.modifier, entry.Total, "Initiative total mismatch.");
+                    Assert.AreEqual(CheckSourceType.Perception, entry.Roll.source.type, "Initiative source should default to Perception.");
 
                     var data = entityManager.Registry.Get(entry.Handle);
                     Assert.IsNotNull(data, $"Initiative entry handle {entry.Handle.Id} not found in registry.");
@@ -618,10 +620,10 @@ namespace PF2e.Tests
 
                 for (int i = 1; i < receivedOrder.Count; i++)
                 {
-                    Assert.GreaterOrEqual(
-                        receivedOrder[i - 1].SortValue,
-                        receivedOrder[i].SortValue,
-                        "Initiative payload is not sorted descending by SortValue.");
+                    var previous = receivedOrder[i - 1];
+                    var current = receivedOrder[i];
+                    int compare = CheckComparer.CompareInitiative(previous, current, InitiativeTieBreakPolicy);
+                    Assert.LessOrEqual(compare, 0, "Initiative payload is not sorted by total/tie policy.");
                 }
             }
             finally
@@ -1705,6 +1707,14 @@ namespace PF2e.Tests
             wizard.Wisdom = 199000;
             goblin1.Wisdom = -199000;
             goblin2.Wisdom = -200000;
+        }
+
+        private static int InitiativeTieBreakPolicy(in InitiativeEntry left, in InitiativeEntry right)
+        {
+            if (left.IsPlayer == right.IsPlayer)
+                return 0;
+
+            return left.IsPlayer ? 1 : -1;
         }
 
         private EntityHandle ResolvePreviousInitiativeActor(EntityHandle actor)

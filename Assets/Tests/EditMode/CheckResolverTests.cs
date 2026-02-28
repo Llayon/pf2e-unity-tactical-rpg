@@ -113,6 +113,35 @@ namespace PF2e.Tests
 
             Assert.AreEqual(data.GetSkillModifier(SkillType.Athletics), result.modifier);
             Assert.AreEqual(19, result.total);
+            Assert.AreEqual(CheckSourceType.Skill, result.roll.source.type);
+            Assert.AreEqual(SkillType.Athletics, result.roll.source.skill);
+        }
+
+        [Test]
+        public void RollSave_UsesSaveSource()
+        {
+            var data = CreateEntity(level: 3, constitution: 14);
+            data.FortitudeProf = ProficiencyRank.Trained;
+
+            var result = CheckResolver.RollSave(data, SaveType.Fortitude, dc: 20, rng: new FixedRng(d20Rolls: new[] { 11 }));
+
+            Assert.AreEqual(CheckSourceType.Save, result.roll.source.type);
+            Assert.AreEqual(SaveType.Fortitude, result.roll.source.save);
+        }
+
+        [Test]
+        public void RollPerception_UsesPerceptionModifierAndSource()
+        {
+            var data = CreateEntity(level: 2, wisdom: 16);
+            data.PerceptionProf = ProficiencyRank.Expert; // level+4 => 6
+            // Wis 16 => +3, modifier total = 9
+
+            var roll = CheckResolver.RollPerception(data, new FixedRng(d20Rolls: new[] { 12 }));
+
+            Assert.AreEqual(12, roll.naturalRoll);
+            Assert.AreEqual(9, roll.modifier);
+            Assert.AreEqual(21, roll.total);
+            Assert.AreEqual(CheckSourceType.Perception, roll.source.type);
         }
 
         [Test]

@@ -1,5 +1,5 @@
 # Project Memory
-Last updated: 2026-02-27
+Last updated: 2026-02-28
 
 ## Vision
 Build a small, playable, turn-based tactical PF2e combat slice in Unity where one player-controlled party can move on a grid, spend 3 actions, strike enemies, and finish encounters with clear visual feedback. Prioritize correctness of core turn/action/combat flow, maintainable architecture, and incremental delivery over full PF2e coverage.
@@ -31,6 +31,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Input/UI boundaries are hardened: grid hover/click handlers and camera wheel-zoom are ignored when pointer is over UI, preventing button click-through movement and accidental zoom while scrolling UI.
 - Turn flow works: initiative roll, per-entity turns, 3 actions, action spending, and condition lifecycle processing via `ConditionService` (start/end turn deltas).
 - Delay flow works at MVP: Delay can be declared only in the turn-begin trigger window, opens initiative insertion markers between portraits, stores planned anchor return, auto-resumes planned delayed turns after anchor actor end (including multi-delayed auto-chain), keeps manual `Return`/`Skip` fallback only for non-planned delayed actors, and suppresses reactions while delayed.
+- Initiative now uses typed check primitives: `TurnManager.RollInitiative` rolls `CheckRoll` via `CheckResolver.RollPerception` (`PerceptionModifier`, not raw `WisMod`), orders by total (`natural + modifier`) with PF2e tie rule (adversary before player on equal result), and exposes roll-source breakdown in typed payload/log flow.
 - Movement works: occupancy-aware, multi-stride pathing, 5/10 diagonal parity, movement zone/path preview, animated movement.
 - Combat works at MVP level: weapon-aware strike resolution (melee + ranged), MAP increment, ranged range-increment penalties, ranged line-of-sight validation + simple cover AC bonus support, ranged concealment flat-check miss support (`Concealed`, DC 5 flat check on would-hit), ranged `Volley` penalty support, strike crit math support for `Deadly` and `Fatal`, phased strike flow (pre/post reaction extension points), damage apply, defeat hide + events, and generic non-strike damage pipeline (`DamageAppliedEvent` + `DamageApplicationService`) currently used by `Trip` crit damage.
 - Skill-action checks work at MVP level: generic `CheckResolver` + `SkillType`/`SaveType` + `SkillRules`, with `Trip`, `Shove`, `Grapple`, `Escape`, `Demoralize`, and `Reposition` implemented and wired through `PlayerActionExecutor`.
@@ -47,6 +48,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - High scene wiring coupling: `CombatController`, `TacticalGrid`, `EntityManager`, `CombatEventBus` must all be correctly referenced.
 - Runtime dependency chain is tight (`TurnManager -> EntityManager -> GridManager`; input and visualizers depend on both).
 - Turn flow now uses typed payloads end-to-end: `TurnManager` publishes typed structs to its own events and directly to `CombatEventBus`; runtime consumers subscribe on typed bus channels.
+- Check domain model now has reusable `CheckRoll` + `CheckSource` + `CheckComparer` primitives; `CheckResult` composes `CheckRoll` (`dc`/`degree` on top) while keeping backward-compatible accessors (`naturalRoll`, `modifier`, `total`).
 - Delay UX is event-driven: `TurnManager` publishes typed delay channels (`DelayTurnBeginTriggerChanged`, `DelayPlacementSelectionChanged`, `DelayReturnWindowOpened/Closed`, `DelayedTurnEntered/Resumed/Expired`) and UI refresh is triggered from these events (no per-frame delay polling).
 - Delay UI fanout can be centralized via `DelayUiOrchestrator` (`ActionBarController` + `InitiativeBarController`), while controllers keep internal typed-event fallback for scenes/tests without explicit orchestrator wiring.
 - Scene tooling now understands Delay fanout wiring: `PF2eSceneDependencyValidator` validates `DelayUiOrchestrator` refs and `AutoFix` can create/wire it when both Action Bar and Initiative Bar are present.
@@ -75,6 +77,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | Pathfinding + movement zones | Done | A*, occupancy-aware Dijkstra, action-based path search |
 | Entity model + occupancy | Done | Registry, handles, occupancy rules, entity views |
 | Turn state machine + actions economy | Done | Core loop works for both player and enemy turns; action lock tracks actor/source/duration with watchdog diagnostics; Delay turn-begin trigger, planned insertion, auto-resume chain, and fallback return-window state are integrated |
+| Initiative model + ordering | Done | Initiative uses `PerceptionModifier` with typed `CheckRoll` payload (`natural/modifier/total/source`), total-based ordering, enemy-first tie policy, deterministic fallback, and typed combat log breakdown |
 | Player actions (Stride/Strike/Stand/Raise Shield + skill actions) | Partial | `Strike` is weapon-aware (melee + ranged bow MVP with cover/concealment warning UX), `Delay` is implemented with planned insertion workflow, and `Trip`/`Shove`/`Grapple`/`Escape`/`Demoralize`/`Reposition` are playable; broader action set (spells, advanced athletics actions) still pending |
 | Generic checks + skill actions | Partial | `CheckResolver`, skill/save proficiencies/modifiers, and first tactical skill actions (including two-step `Reposition`) are implemented; broader PF2e action surface and richer rule interactions still pending |
 | PF2e strike/damage basics | Partial | Weapon-aware strike MVP (melee + ranged bow) with MAP, phased reaction windows, ranged range-increment penalties, ranged LoS + simple cover AC support, ranged concealment flat-check miss support, `Volley` trait penalty, and crit-trait support for `Deadly`/`Fatal`; generic non-strike damage event/application path exists for `Trip` crit damage; spells and advanced ranged rules (ammo/reload, hidden/undetected, greater concealment/vision interactions) not implemented |

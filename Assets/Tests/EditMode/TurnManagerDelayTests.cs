@@ -30,6 +30,48 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void TurnManager_SetInitiativeRngForTesting_ControlsRollOrder()
+        {
+            var turnManagerGo = new GameObject("TM_Delay_Rng_TurnManager");
+            var entityManagerGo = new GameObject("TM_Delay_Rng_EntityManager");
+
+            try
+            {
+                var turnManager = turnManagerGo.AddComponent<TurnManager>();
+                LogAssert.Expect(LogType.Error, "[EntityManager] Missing reference: GridManager. Assign it in Inspector.");
+                var entityManager = entityManagerGo.AddComponent<EntityManager>();
+                var registry = new EntityRegistry();
+
+                SetPrivateField(turnManager, "entityManager", entityManager);
+                SetAutoPropertyBackingField(entityManager, "Registry", registry);
+
+                var player = CreateEntity("Player", Team.Player, wisdom: 10);
+                var enemy = CreateEntity("Enemy", Team.Enemy, wisdom: 10);
+                registry.Register(player);
+                registry.Register(enemy);
+
+                InvokeNonPublicInstanceMethod(
+                    turnManager,
+                    "SetInitiativeRngForTesting",
+                    new FixedRng(new[] { 1, 20 }));
+
+                turnManager.StartCombat();
+
+                Assert.AreEqual(TurnState.EnemyTurn, turnManager.State);
+                Assert.AreEqual(enemy.Handle, turnManager.CurrentEntity);
+                Assert.AreEqual(20, turnManager.InitiativeOrder[0].Roll.naturalRoll);
+                Assert.AreEqual(1, turnManager.InitiativeOrder[1].Roll.naturalRoll);
+            }
+            finally
+            {
+                if (turnManagerGo != null)
+                    Object.DestroyImmediate(turnManagerGo);
+                if (entityManagerGo != null)
+                    Object.DestroyImmediate(entityManagerGo);
+            }
+        }
+
+        [Test]
         public void TurnManager_BeginActionExecution_ClosesDelayTriggerWindow()
         {
             var context = CreateCombatContext("TM_Delay_TriggerClose");
@@ -597,7 +639,7 @@ namespace PF2e.Tests
             SetAutoPropertyBackingField(entityManager, "Registry", registry);
 
             // Keep player-player initiative order deterministic across random d20 rolls:
-            // SortValue = Roll*1000 + Mod*10, so we need >19000 delta in Mod*10 to dominate any roll swing.
+            // initiative total = d20 + modifier, so a large modifier gap keeps order stable.
             var fighter = CreateEntity("Fighter", Team.Player, 10000);
             registry.Register(fighter);
             var wizard = CreateEntity("Wizard", Team.Player, 6000);
@@ -678,6 +720,39 @@ namespace PF2e.Tests
             var field = target.GetType().GetField(fieldName, InstanceNonPublic);
             Assert.IsNotNull(field, $"Missing backing field '{fieldName}' on {target.GetType().Name}");
             field.SetValue(target, value);
+        }
+
+        private static object InvokeNonPublicInstanceMethod(object target, string methodName, params object[] args)
+        {
+            var method = target.GetType().GetMethod(methodName, InstanceNonPublic);
+            Assert.IsNotNull(method, $"Missing method '{methodName}' on {target.GetType().Name}");
+            return method.Invoke(target, args);
+        }
+
+        private sealed class FixedRng : IRng
+        {
+            private readonly Queue<int> d20Queue;
+
+            public FixedRng(IEnumerable<int> d20Rolls)
+            {
+                d20Queue = d20Rolls != null ? new Queue<int>(d20Rolls) : new Queue<int>();
+            }
+
+            public int RollD20()
+            {
+                if (d20Queue.Count <= 0)
+                    return 10;
+
+                return Mathf.Clamp(d20Queue.Dequeue(), 1, 20);
+            }
+
+            public int RollDie(int sides)
+            {
+                if (sides <= 0)
+                    return 0;
+
+                return 1;
+            }
         }
 
         private sealed class TestCombatContext
