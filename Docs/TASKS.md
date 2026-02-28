@@ -100,6 +100,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-094 | P1 | done | Builder | Remove remaining initiative-log formatter duplication (`Phase 30g`) | `TurnLogForwarder` now formats initiative lines through shared `RollBreakdownFormatter` (`rolls initiative: SRC d20(n) +/-m = total`) and local `FormatSigned` duplication is removed; EditMode/PlayMode green |
 | T-095 | P1 | done | Builder | Add configurable initiative check mode with default Perception (`Phase 31a`) | `TurnManager` now supports initiative roll mode (`Perception` default, optional `Skill` source); `CheckResolver.RollSkill(...)` added; EditMode/PlayMode tests verify default Perception contract and skill-mode source/modifier payloads |
 | T-096 | P1 | done | Builder | Wire encounter-level initiative source config through Start Encounter flow (`Phase 31b`) | `EncounterFlowController` now applies encounter-configured initiative mode/skill to `TurnManager` before `StartCombat`; preset supports the same fields; PlayMode verifies skill-mode start-button flow and default Perception authoring contract remains intact |
+| T-097 | P1 | done | Builder | Support per-entity initiative skill override with Perception fallback (`Phase 31c`) | `EntityData` now supports authoring `UseInitiativeSkillOverride + InitiativeSkillOverride` (e.g. Avoiding Notice -> `Stealth`); `TurnManager` uses per-entity override first, then encounter/default source; mixed-source EditMode test and full PlayMode suite are green |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

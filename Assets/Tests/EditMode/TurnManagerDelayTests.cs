@@ -148,6 +148,55 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void TurnManager_StartCombat_PerEntityInitiativeOverride_UsesStealthOnlyForFlaggedActor()
+        {
+            var turnManagerGo = new GameObject("TM_Initiative_PerEntityOverride_TurnManager");
+            var entityManagerGo = new GameObject("TM_Initiative_PerEntityOverride_EntityManager");
+
+            try
+            {
+                var turnManager = turnManagerGo.AddComponent<TurnManager>();
+                LogAssert.Expect(LogType.Error, "[EntityManager] Missing reference: GridManager. Assign it in Inspector.");
+                var entityManager = entityManagerGo.AddComponent<EntityManager>();
+                var registry = new EntityRegistry();
+
+                SetPrivateField(turnManager, "entityManager", entityManager);
+                SetAutoPropertyBackingField(entityManager, "Registry", registry);
+
+                var stealthActor = CreateEntity("StealthActor", Team.Player, wisdom: 10);
+                stealthActor.Dexterity = 18;
+                stealthActor.UseInitiativeSkillOverride = true;
+                stealthActor.InitiativeSkillOverride = SkillType.Stealth;
+                registry.Register(stealthActor);
+
+                var normalActor = CreateEntity("NormalActor", Team.Enemy, wisdom: 16);
+                normalActor.Dexterity = 10;
+                registry.Register(normalActor);
+
+                InvokeNonPublicInstanceMethod(
+                    turnManager,
+                    "SetInitiativeRngForTesting",
+                    new FixedRng(new[] { 10, 10 }));
+
+                turnManager.StartCombat();
+
+                var stealthEntry = FindEntryByHandle(turnManager.InitiativeOrder, stealthActor.Handle);
+                Assert.AreEqual(CheckSourceType.Skill, stealthEntry.Roll.source.type);
+                Assert.AreEqual(SkillType.Stealth, stealthEntry.Roll.source.skill);
+
+                var normalEntry = FindEntryByHandle(turnManager.InitiativeOrder, normalActor.Handle);
+                Assert.AreEqual(CheckSourceType.Perception, normalEntry.Roll.source.type);
+            }
+            finally
+            {
+                if (turnManagerGo != null)
+                    Object.DestroyImmediate(turnManagerGo);
+                if (entityManagerGo != null)
+                    Object.DestroyImmediate(entityManagerGo);
+            }
+        }
+
+        [Test]
         public void TurnManager_ConfigureInitiativeChecks_ReturnsFalse_WhenCombatActive()
         {
             var context = CreateCombatContext("TM_Initiative_ConfigActive");

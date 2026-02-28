@@ -49,6 +49,13 @@ namespace PF2e.Core
         // ─── Perception ───
         public ProficiencyRank PerceptionProf = ProficiencyRank.Trained;
 
+        // ─── Initiative Source Override ───
+        // Default PF2e baseline: Perception.
+        // Authoring can opt specific creatures into a skill initiative source
+        // (for example Avoiding Notice -> Stealth).
+        public bool UseInitiativeSkillOverride = false;
+        public SkillType InitiativeSkillOverride = SkillType.Stealth;
+
         // ─── Skill Proficiencies (MVP subset for early skill actions) ───
         public ProficiencyRank AthleticsProf = ProficiencyRank.Untrained;
         public ProficiencyRank IntimidationProf = ProficiencyRank.Untrained;

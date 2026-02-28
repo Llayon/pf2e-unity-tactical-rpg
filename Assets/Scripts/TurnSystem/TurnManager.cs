@@ -645,6 +645,9 @@ namespace PF2e.TurnSystem
 
         private CheckRoll RollInitiativeForActor(EntityData actor)
         {
+            if (actor != null && actor.UseInitiativeSkillOverride)
+                return CheckResolver.RollSkill(actor, actor.InitiativeSkillOverride, initiativeRng);
+
             return initiativeCheckMode switch
             {
                 InitiativeCheckMode.Skill => CheckResolver.RollSkill(actor, initiativeSkill, initiativeRng),
