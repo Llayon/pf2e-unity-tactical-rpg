@@ -14,3 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: PF2e::PF2e.Data.EncounterFlowUIPreset
   autoCreateRuntimeButtons: 1
   encounterFlowPanelPrefab: {fileID: 100996482, guid: 5b373be55f3b48a3ab362cd810cc9b8d, type: 3}
+  initiativeCheckMode: 0
+  initiativeSkill: 14
+  actorInitiativeOverrides: []
