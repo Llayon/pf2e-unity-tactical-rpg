@@ -7,6 +7,8 @@ using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 using PF2e.Core;
+using PF2e.Data;
+using PF2e.Managers;
 using PF2e.Presentation;
 using PF2e.TurnSystem;
 
@@ -18,6 +20,7 @@ namespace PF2e.Tests
         private const float TimeoutSeconds = 6f;
 
         private TurnManager turnManager;
+        private EntityManager entityManager;
         private CombatEventBus eventBus;
         private EncounterFlowController encounterFlowController;
         private Button startEncounterButton;
@@ -36,10 +39,12 @@ namespace PF2e.Tests
             yield return null;
 
             turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();
+            entityManager = UnityEngine.Object.FindFirstObjectByType<EntityManager>();
             eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
             encounterFlowController = UnityEngine.Object.FindFirstObjectByType<EncounterFlowController>();
 
             Assert.IsNotNull(turnManager, "TurnManager not found in SampleScene.");
+            Assert.IsNotNull(entityManager, "EntityManager not found in SampleScene.");
             Assert.IsNotNull(eventBus, "CombatEventBus not found in SampleScene.");
             Assert.IsNotNull(encounterFlowController, "EncounterFlowController not found in SampleScene.");
 
@@ -212,6 +217,57 @@ namespace PF2e.Tests
                 () => turnManager.State == TurnState.Inactive,
                 TimeoutSeconds,
                 "End Encounter did not return turn manager to Inactive in skill-initiative test.");
+        }
+
+        [UnityTest]
+        public IEnumerator GT_P31_PM_421_StartButton_AppliesPerActorInitiativeOverride()
+        {
+            var overrides = new System.Collections.Generic.List<InitiativeActorOverride>
+            {
+                new InitiativeActorOverride
+                {
+                    actorName = "Wizard",
+                    useSkillOverride = true,
+                    skill = SkillType.Stealth
+                }
+            };
+
+            SetPrivateField(encounterFlowController, "initiativeCheckMode", InitiativeCheckMode.Perception);
+            SetPrivateField(encounterFlowController, "actorInitiativeOverrides", overrides);
+
+            Assert.AreEqual(TurnState.Inactive, turnManager.State);
+            startEncounterButton.onClick.Invoke();
+
+            yield return WaitUntilOrTimeout(
+                () => turnManager.State == TurnState.PlayerTurn || turnManager.State == TurnState.EnemyTurn,
+                TimeoutSeconds,
+                "Start Encounter did not start combat for per-actor initiative override test.");
+
+            bool wizardFound = false;
+            foreach (var entry in turnManager.InitiativeOrder)
+            {
+                var data = entityManager.Registry.Get(entry.Handle);
+                Assert.IsNotNull(data);
+
+                if (data.Name == "Wizard")
+                {
+                    wizardFound = true;
+                    Assert.AreEqual(CheckSourceType.Skill, entry.Roll.source.type);
+                    Assert.AreEqual(SkillType.Stealth, entry.Roll.source.skill);
+                }
+                else
+                {
+                    Assert.AreEqual(CheckSourceType.Perception, entry.Roll.source.type);
+                }
+            }
+
+            Assert.IsTrue(wizardFound, "Wizard entry not found in initiative order.");
+
+            endEncounterButton.onClick.Invoke();
+            yield return WaitUntilOrTimeout(
+                () => turnManager.State == TurnState.Inactive,
+                TimeoutSeconds,
+                "End Encounter did not return to Inactive in per-actor initiative override test.");
         }
 
         private static bool TryResolveButtons(out Button startButton, out Button endButton)

@@ -1,9 +1,18 @@
 using UnityEngine;
 using PF2e.Core;
 using PF2e.TurnSystem;
+using System.Collections.Generic;
 
 namespace PF2e.Data
 {
+    [System.Serializable]
+    public struct InitiativeActorOverride
+    {
+        public string actorName;
+        public bool useSkillOverride;
+        public SkillType skill;
+    }
+
     [CreateAssetMenu(fileName = "EncounterFlowUIPreset", menuName = "PF2e/UI/Encounter Flow Preset")]
     public class EncounterFlowUIPreset : ScriptableObject
     {
@@ -14,5 +23,6 @@ namespace PF2e.Data
         [Header("Encounter Rules")]
         public InitiativeCheckMode initiativeCheckMode = InitiativeCheckMode.Perception;
         public SkillType initiativeSkill = SkillType.Stealth;
+        public List<InitiativeActorOverride> actorInitiativeOverrides = new();
     }
 }

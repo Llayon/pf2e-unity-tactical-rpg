@@ -1,6 +1,7 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections.Generic;
 using PF2e.Core;
 using PF2e.Data;
 using PF2e.Managers;
@@ -29,6 +30,7 @@ namespace PF2e.Presentation
         [Header("Encounter Rules")]
         [SerializeField] private InitiativeCheckMode initiativeCheckMode = InitiativeCheckMode.Perception;
         [SerializeField] private SkillType initiativeSkill = SkillType.Stealth;
+        [SerializeField] private List<InitiativeActorOverride> actorInitiativeOverrides = new();
 
         [Header("UI")]
         [SerializeField] private Button startEncounterButton;
@@ -120,6 +122,7 @@ namespace PF2e.Presentation
                 return;
             }
 
+            ApplyActorInitiativeOverrides();
             turnManager.ConfigureInitiativeChecks(initiativeCheckMode, initiativeSkill);
             turnManager.StartCombat();
             RefreshButtons();
@@ -273,6 +276,47 @@ namespace PF2e.Presentation
             encounterFlowPanelPrefab = flowPreset.encounterFlowPanelPrefab;
             initiativeCheckMode = flowPreset.initiativeCheckMode;
             initiativeSkill = flowPreset.initiativeSkill;
+            actorInitiativeOverrides = flowPreset.actorInitiativeOverrides != null
+                ? new List<InitiativeActorOverride>(flowPreset.actorInitiativeOverrides)
+                : new List<InitiativeActorOverride>();
+        }
+
+        private void ApplyActorInitiativeOverrides()
+        {
+            if (entityManager == null || entityManager.Registry == null)
+                return;
+
+            foreach (var entity in entityManager.Registry.GetAll())
+            {
+                if (entity == null) continue;
+                entity.UseInitiativeSkillOverride = false;
+                entity.InitiativeSkillOverride = SkillType.Stealth;
+            }
+
+            if (actorInitiativeOverrides == null || actorInitiativeOverrides.Count == 0)
+                return;
+
+            var overridesByName = new Dictionary<string, InitiativeActorOverride>(System.StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < actorInitiativeOverrides.Count; i++)
+            {
+                var entry = actorInitiativeOverrides[i];
+                if (string.IsNullOrWhiteSpace(entry.actorName))
+                    continue;
+
+                overridesByName[entry.actorName.Trim()] = entry;
+            }
+
+            foreach (var entity in entityManager.Registry.GetAll())
+            {
+                if (entity == null || string.IsNullOrWhiteSpace(entity.Name))
+                    continue;
+
+                if (!overridesByName.TryGetValue(entity.Name.Trim(), out var entry))
+                    continue;
+
+                entity.UseInitiativeSkillOverride = entry.useSkillOverride;
+                entity.InitiativeSkillOverride = entry.skill;
+            }
         }
 
         private Button FindOrCreateButton(string name, string label)
