@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using PF2e.Core;
 using PF2e.TurnSystem;
 
 namespace PF2e.Presentation
@@ -52,11 +53,11 @@ namespace PF2e.Presentation
         {
             return mode switch
             {
-                TargetingMode.Trip => "Trip: valid target (Athletics vs Reflex DC)",
-                TargetingMode.Shove => "Shove: valid target (Athletics vs Fortitude DC)",
-                TargetingMode.Grapple => "Grapple: valid target (Athletics vs Fortitude DC)",
-                TargetingMode.Reposition => "Reposition: valid target (Athletics vs Fortitude DC)",
-                TargetingMode.Demoralize => "Demoralize: valid target (Intimidation vs Will DC)",
+                TargetingMode.Trip => $"Trip: valid target ({RollBreakdownFormatter.FormatCheckVsDcLabel(CheckSource.Skill(SkillType.Athletics), CheckSource.Save(SaveType.Reflex))})",
+                TargetingMode.Shove => $"Shove: valid target ({RollBreakdownFormatter.FormatCheckVsDcLabel(CheckSource.Skill(SkillType.Athletics), CheckSource.Save(SaveType.Fortitude))})",
+                TargetingMode.Grapple => $"Grapple: valid target ({RollBreakdownFormatter.FormatCheckVsDcLabel(CheckSource.Skill(SkillType.Athletics), CheckSource.Save(SaveType.Fortitude))})",
+                TargetingMode.Reposition => $"Reposition: valid target ({RollBreakdownFormatter.FormatCheckVsDcLabel(CheckSource.Skill(SkillType.Athletics), CheckSource.Save(SaveType.Fortitude))})",
+                TargetingMode.Demoralize => $"Demoralize: valid target ({RollBreakdownFormatter.FormatCheckVsDcLabel(CheckSource.Skill(SkillType.Intimidation), CheckSource.Save(SaveType.Will))})",
                 TargetingMode.Escape => "Escape: valid target (best of Athletics/Acrobatics)",
                 TargetingMode.Strike => "Strike: valid target",
                 _ => "Valid target"

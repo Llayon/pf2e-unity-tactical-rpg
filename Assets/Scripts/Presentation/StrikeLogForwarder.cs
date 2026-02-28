@@ -54,7 +54,7 @@ namespace PF2e.Presentation
             // 1. Attack roll line (always published)
             eventBus.Publish(e.attacker,
                 $"strikes {targetName} with {e.weaponName} — " +
-                $"{FormatRoll(e.attackRoll)} " +
+                $"{RollBreakdownFormatter.FormatRoll(e.attackRoll)} " +
                 $"[{BuildAttackBreakdown(e)}] " +
                 $"vs {e.defenseSource.ToShortLabel()} {e.dc}" +
                 (e.coverAcBonus != 0 ? $" + COVER({e.coverAcBonus:+#;-#;0})" : string.Empty) +
@@ -156,16 +156,6 @@ namespace PF2e.Presentation
                 $"atk({e.attackBonus}) + MAP({e.mapPenalty})" +
                 (e.rangePenalty != 0 ? $" + RNG({e.rangePenalty})" : string.Empty) +
                 (e.volleyPenalty != 0 ? $" + VOLLEY({e.volleyPenalty})" : string.Empty);
-        }
-
-        private static string FormatRoll(in CheckRoll roll)
-        {
-            return $"{roll.source.ToShortLabel()} d20({roll.naturalRoll}) {FormatSigned(roll.modifier)} = {roll.total}";
-        }
-
-        private static string FormatSigned(int value)
-        {
-            return value >= 0 ? $"+{value}" : value.ToString();
         }
     }
 }

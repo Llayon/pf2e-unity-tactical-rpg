@@ -46,18 +46,8 @@ namespace PF2e.Presentation
 
             eventBus.Publish(
                 e.actor,
-                $"uses {actionLabel} on {targetName} — {FormatRoll(e.attackerRoll)} vs {FormatRoll(e.defenderRoll)} → {e.winner} ({FormatSigned(e.margin)})",
+                $"uses {actionLabel} on {targetName} — {RollBreakdownFormatter.FormatRoll(e.attackerRoll)} vs {RollBreakdownFormatter.FormatRoll(e.defenderRoll)} → {e.winner} ({RollBreakdownFormatter.FormatSigned(e.margin)})",
                 CombatLogCategory.Attack);
-        }
-
-        private static string FormatRoll(in CheckRoll roll)
-        {
-            return $"{roll.source.ToShortLabel()} d20({roll.naturalRoll}) {FormatSigned(roll.modifier)} = {roll.total}";
-        }
-
-        private static string FormatSigned(int value)
-        {
-            return value >= 0 ? $"+{value}" : value.ToString();
         }
     }
 }
