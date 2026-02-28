@@ -92,6 +92,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-086 | P1 | done | Verifier | Add PlayMode regression for Delay full-round expiry semantics | New PlayMode test verifies manual delayed actor that repeatedly skips Return/Skip windows expires after one full round at original anchor (`DelayedTurnExpired`), is removed from delayed state, and gets reinserted turn without `DelayedTurnResumed` |
 | T-087 | P1 | done | Verifier | Add pointer-flow PlayMode regression for Delay expiry skip windows | `DelayUiPointerPlayModeTests` now covers repeated `Skip` button pointer clicks across DelayReturnWindow cycles until delayed actor expires and is reinserted |
 | T-088 | P0 | done | Builder | Refactor initiative to `CheckRoll` + Perception-based ordering and typed breakdown logs | Initiative now uses `CheckResolver.RollPerception` (`PerceptionModifier`), sorts by total with enemy-first tie policy, publishes deterministic payload/log breakdown (`d20 + source(mod) = total`), and EditMode/PlayMode regressions are green |
+| T-089 | P1 | done | Builder | Start Phase 30b with generic opposed-check foundation (`RollOpposedCheck`) | Added `OpposedCheckResult` domain primitive, `CheckResolver.RollOpposedCheck(...)`, typed bus event `OpposedCheckResolvedEvent`, `OpposedCheckLogForwarder`, and EditMode coverage for resolver + log forwarding |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

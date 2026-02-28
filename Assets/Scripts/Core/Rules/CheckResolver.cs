@@ -2,6 +2,34 @@ namespace PF2e.Core
 {
     public static class CheckResolver
     {
+        public static OpposedCheckResult RollOpposedCheck(
+            int attackerModifier,
+            int defenderModifier,
+            in CheckSource attackerSource,
+            in CheckSource defenderSource,
+            IRng rng)
+        {
+            if (rng == null)
+                rng = UnityRng.Shared;
+
+            var attackerRoll = new CheckRoll(rng.RollD20(), attackerModifier, attackerSource);
+            var defenderRoll = new CheckRoll(rng.RollD20(), defenderModifier, defenderSource);
+            return OpposedCheckResult.FromRolls(in attackerRoll, in defenderRoll);
+        }
+
+        public static OpposedCheckResult RollOpposedCheck(
+            int attackerModifier,
+            int defenderModifier,
+            IRng rng)
+        {
+            return RollOpposedCheck(
+                attackerModifier,
+                defenderModifier,
+                CheckSource.Custom("ATK"),
+                CheckSource.Custom("DEF"),
+                rng);
+        }
+
         public static CheckResult RollCheck(int modifier, int dc, IRng rng)
         {
             return RollCheck(modifier, dc, CheckSource.Custom("Check"), rng);

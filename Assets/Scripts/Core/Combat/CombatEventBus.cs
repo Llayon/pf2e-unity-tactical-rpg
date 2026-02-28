@@ -41,6 +41,7 @@ namespace PF2e.Core
         public delegate void StrikeResolvedHandler(in StrikeResolvedEvent e);
         public delegate void DamageAppliedHandler(in DamageAppliedEvent e);
         public delegate void SkillCheckResolvedHandler(in SkillCheckResolvedEvent e);
+        public delegate void OpposedCheckResolvedHandler(in OpposedCheckResolvedEvent e);
         public delegate void ShieldRaisedHandler(in ShieldRaisedEvent e);
         public delegate void ShieldBlockResolvedHandler(in ShieldBlockResolvedEvent e);
         public delegate void DelayTurnBeginTriggerChangedHandler(in DelayTurnBeginTriggerChangedEvent e);
@@ -56,6 +57,7 @@ namespace PF2e.Core
         public event StrikeResolvedHandler OnStrikeResolved;
         public event DamageAppliedHandler OnDamageAppliedTyped;
         public event SkillCheckResolvedHandler OnSkillCheckResolvedTyped;
+        public event OpposedCheckResolvedHandler OnOpposedCheckResolvedTyped;
         public event ShieldRaisedHandler OnShieldRaisedTyped;
         public event ShieldBlockResolvedHandler OnShieldBlockResolvedTyped;
         public event DelayTurnBeginTriggerChangedHandler OnDelayTurnBeginTriggerChangedTyped;
@@ -121,6 +123,11 @@ namespace PF2e.Core
         public void PublishSkillCheckResolved(in SkillCheckResolvedEvent ev)
         {
             OnSkillCheckResolvedTyped?.Invoke(in ev);
+        }
+
+        public void PublishOpposedCheckResolved(in OpposedCheckResolvedEvent ev)
+        {
+            OnOpposedCheckResolvedTyped?.Invoke(in ev);
         }
 
         public void PublishStrikePreDamage(

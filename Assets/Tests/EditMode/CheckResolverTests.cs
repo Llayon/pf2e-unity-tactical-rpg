@@ -145,6 +145,52 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void RollOpposedCheck_AttackerHigherTotal_Wins()
+        {
+            var result = CheckResolver.RollOpposedCheck(
+                attackerModifier: 7,
+                defenderModifier: 4,
+                attackerSource: CheckSource.Skill(SkillType.Athletics),
+                defenderSource: CheckSource.Save(SaveType.Fortitude),
+                rng: new FixedRng(d20Rolls: new[] { 12, 10 }));
+
+            Assert.AreEqual(19, result.attackerRoll.total);
+            Assert.AreEqual(14, result.defenderRoll.total);
+            Assert.AreEqual(5, result.margin);
+            Assert.AreEqual(OpposedCheckWinner.Attacker, result.winner);
+            Assert.AreEqual(CheckSourceType.Skill, result.attackerRoll.source.type);
+            Assert.AreEqual(CheckSourceType.Save, result.defenderRoll.source.type);
+        }
+
+        [Test]
+        public void RollOpposedCheck_DefenderHigherTotal_Wins()
+        {
+            var result = CheckResolver.RollOpposedCheck(
+                attackerModifier: 2,
+                defenderModifier: 8,
+                attackerSource: CheckSource.Skill(SkillType.Athletics),
+                defenderSource: CheckSource.Save(SaveType.Reflex),
+                rng: new FixedRng(d20Rolls: new[] { 8, 11 }));
+
+            Assert.AreEqual(-9, result.margin);
+            Assert.AreEqual(OpposedCheckWinner.Defender, result.winner);
+        }
+
+        [Test]
+        public void RollOpposedCheck_EqualTotals_IsTie()
+        {
+            var result = CheckResolver.RollOpposedCheck(
+                attackerModifier: 6,
+                defenderModifier: 9,
+                attackerSource: CheckSource.Skill(SkillType.Athletics),
+                defenderSource: CheckSource.Save(SaveType.Fortitude),
+                rng: new FixedRng(d20Rolls: new[] { 10, 7 }));
+
+            Assert.AreEqual(0, result.margin);
+            Assert.AreEqual(OpposedCheckWinner.Tie, result.winner);
+        }
+
+        [Test]
         public void ComputeCheckPenalty_FrightenedAndSickened_Max()
         {
             var conditions = new List<ActiveCondition>
