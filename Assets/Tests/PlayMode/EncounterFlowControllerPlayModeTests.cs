@@ -226,7 +226,7 @@ namespace PF2e.Tests
             {
                 new InitiativeActorOverride
                 {
-                    actorName = "Wizard",
+                    actorId = "wizard",
                     useSkillOverride = true,
                     skill = SkillType.Stealth
                 }
@@ -277,7 +277,7 @@ namespace PF2e.Tests
             {
                 new InitiativeActorOverride
                 {
-                    actorName = "UnknownSneaker",
+                    actorId = "unknown_sneaker",
                     useSkillOverride = true,
                     skill = SkillType.Stealth
                 }
@@ -285,7 +285,7 @@ namespace PF2e.Tests
 
             SetPrivateField(encounterFlowController, "initiativeCheckMode", InitiativeCheckMode.Perception);
             SetPrivateField(encounterFlowController, "actorInitiativeOverrides", overrides);
-            LogAssert.Expect(LogType.Warning, "[EncounterFlow] Initiative override actor not found: 'UnknownSneaker'.");
+            LogAssert.Expect(LogType.Warning, "[EncounterFlow] Initiative override actorId not found: 'unknown_sneaker'.");
 
             startEncounterButton.onClick.Invoke();
 
@@ -299,6 +299,52 @@ namespace PF2e.Tests
                 () => turnManager.State == TurnState.Inactive,
                 TimeoutSeconds,
                 "End Encounter did not return to Inactive with unknown actor override.");
+        }
+
+        [UnityTest]
+        public IEnumerator GT_P31_PM_423_StartButton_LegacyActorNameOverride_WarnsAndStillApplies()
+        {
+            var overrides = new System.Collections.Generic.List<InitiativeActorOverride>
+            {
+                new InitiativeActorOverride
+                {
+                    actorName = "Wizard",
+                    useSkillOverride = true,
+                    skill = SkillType.Stealth
+                }
+            };
+
+            SetPrivateField(encounterFlowController, "initiativeCheckMode", InitiativeCheckMode.Perception);
+            SetPrivateField(encounterFlowController, "actorInitiativeOverrides", overrides);
+            LogAssert.Expect(LogType.Warning, "[EncounterFlow] Initiative override uses legacy actorName 'Wizard'. Prefer actorId.");
+
+            startEncounterButton.onClick.Invoke();
+
+            yield return WaitUntilOrTimeout(
+                () => turnManager.State == TurnState.PlayerTurn || turnManager.State == TurnState.EnemyTurn,
+                TimeoutSeconds,
+                "Start Encounter did not start combat for legacy actorName override test.");
+
+            bool wizardFound = false;
+            foreach (var entry in turnManager.InitiativeOrder)
+            {
+                var data = entityManager.Registry.Get(entry.Handle);
+                Assert.IsNotNull(data);
+                if (data.Name != "Wizard")
+                    continue;
+
+                wizardFound = true;
+                Assert.AreEqual(CheckSourceType.Skill, entry.Roll.source.type);
+                Assert.AreEqual(SkillType.Stealth, entry.Roll.source.skill);
+            }
+
+            Assert.IsTrue(wizardFound, "Wizard entry not found in initiative order for legacy actorName override.");
+
+            endEncounterButton.onClick.Invoke();
+            yield return WaitUntilOrTimeout(
+                () => turnManager.State == TurnState.Inactive,
+                TimeoutSeconds,
+                "End Encounter did not return to Inactive for legacy actorName override test.");
         }
 
         private static bool TryResolveButtons(out Button startButton, out Button endButton)

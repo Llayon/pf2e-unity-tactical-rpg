@@ -12,6 +12,7 @@ namespace PF2e.Core
         // ─── Identity ───
         public EntityHandle Handle;
         public string Name;
+        public string EncounterActorId;
         public CreatureSize Size;
         public Team Team;
 

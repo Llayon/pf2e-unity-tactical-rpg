@@ -103,6 +103,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-097 | P1 | done | Builder | Support per-entity initiative skill override with Perception fallback (`Phase 31c`) | `EntityData` now supports authoring `UseInitiativeSkillOverride + InitiativeSkillOverride` (e.g. Avoiding Notice -> `Stealth`); `TurnManager` uses per-entity override first, then encounter/default source; mixed-source EditMode test and full PlayMode suite are green |
 | T-098 | P1 | done | Builder | Add encounter authoring list for per-actor initiative overrides (`Phase 31d`) | `EncounterFlowController`/`EncounterFlowUIPreset` now support an authoring list (`actorName`, `useSkillOverride`, `skill`) applied on Start Encounter; non-listed actors reset to default Perception source; PlayMode covers Wizard stealth override path |
 | T-099 | P1 | done | Builder | Warn on unknown actor names in initiative override authoring (`Phase 31e`) | `EncounterFlowController` now logs warning for override entries whose `actorName` is not found in registry on Start Encounter; PlayMode validates warning path and confirms combat still starts/ends correctly |
+| T-100 | P1 | done | Builder | Migrate initiative override keys to stable `actorId` with legacy-name fallback (`Phase 31f`) | `EntityData` now includes `EncounterActorId`; test entities are assigned stable ids; `InitiativeActorOverride` accepts `actorId` as primary key, keeps legacy `actorName` fallback with migration warning, and still warns on unresolved ids/names |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

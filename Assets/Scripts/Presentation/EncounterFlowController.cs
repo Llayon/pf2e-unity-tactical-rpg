@@ -296,14 +296,28 @@ namespace PF2e.Presentation
             if (actorInitiativeOverrides == null || actorInitiativeOverrides.Count == 0)
                 return;
 
-            var overridesByName = new Dictionary<string, InitiativeActorOverride>(System.StringComparer.OrdinalIgnoreCase);
+            var overridesById = new Dictionary<string, InitiativeActorOverride>(System.StringComparer.OrdinalIgnoreCase);
+            var overridesByLegacyName = new Dictionary<string, InitiativeActorOverride>(System.StringComparer.OrdinalIgnoreCase);
             for (int i = 0; i < actorInitiativeOverrides.Count; i++)
             {
                 var entry = actorInitiativeOverrides[i];
-                if (string.IsNullOrWhiteSpace(entry.actorName))
-                    continue;
+                string actorId = NormalizeKey(entry.actorId);
+                string actorName = NormalizeKey(entry.actorName);
 
-                overridesByName[entry.actorName.Trim()] = entry;
+                if (!string.IsNullOrEmpty(actorId))
+                {
+                    overridesById[actorId] = entry;
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(actorName))
+                {
+                    Debug.LogWarning($"[EncounterFlow] Initiative override uses legacy actorName '{actorName}'. Prefer actorId.", this);
+                    overridesByLegacyName[actorName] = entry;
+                    continue;
+                }
+
+                Debug.LogWarning("[EncounterFlow] Initiative override entry has no actorId/actorName key and will be ignored.", this);
             }
 
             foreach (var entity in entityManager.Registry.GetAll())
@@ -311,21 +325,46 @@ namespace PF2e.Presentation
                 if (entity == null || string.IsNullOrWhiteSpace(entity.Name))
                     continue;
 
-                if (!overridesByName.TryGetValue(entity.Name.Trim(), out var entry))
+                string actorId = NormalizeKey(entity.EncounterActorId);
+                string actorName = NormalizeKey(entity.Name);
+
+                if (string.IsNullOrEmpty(actorId) && !string.IsNullOrEmpty(actorName))
+                {
+                    // Migration helper: if actorId is not set on the entity yet, fallback to Name lookup for id-based entries.
+                    actorId = actorName;
+                }
+
+                InitiativeActorOverride entry = default;
+                bool found = false;
+
+                if (!string.IsNullOrEmpty(actorId) && overridesById.TryGetValue(actorId, out entry))
+                {
+                    overridesById.Remove(actorId);
+                    found = true;
+                }
+                else if (!string.IsNullOrEmpty(actorName) && overridesByLegacyName.TryGetValue(actorName, out entry))
+                {
+                    overridesByLegacyName.Remove(actorName);
+                    found = true;
+                }
+
+                if (!found)
                     continue;
 
                 entity.UseInitiativeSkillOverride = entry.useSkillOverride;
                 entity.InitiativeSkillOverride = entry.skill;
-                overridesByName.Remove(entity.Name.Trim());
             }
 
-            if (overridesByName.Count <= 0)
-                return;
+            foreach (var missingId in overridesById.Keys)
+                Debug.LogWarning($"[EncounterFlow] Initiative override actorId not found: '{missingId}'.", this);
 
-            foreach (var missingName in overridesByName.Keys)
-            {
-                Debug.LogWarning($"[EncounterFlow] Initiative override actor not found: '{missingName}'.", this);
-            }
+            foreach (var missingName in overridesByLegacyName.Keys)
+                Debug.LogWarning($"[EncounterFlow] Initiative override actorName not found: '{missingName}'.", this);
+        }
+
+        private static string NormalizeKey(string value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
         }
 
         private Button FindOrCreateButton(string name, string label)

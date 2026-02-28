@@ -158,7 +158,7 @@ private void OnValidate()
             // Fighter with +1 Striking weapon and armor (from inspector defs)
             var fighter = new EntityData
             {
-                Name = "Fighter", Team = Team.Player, Size = CreatureSize.Medium,
+                Name = "Fighter", EncounterActorId = "fighter", Team = Team.Player, Size = CreatureSize.Medium,
                 Level = 1, MaxHP = 20, CurrentHP = 20, ArmorClass = 18, Speed = 25,
                 Strength = 16, Dexterity = 12, Constitution = 14, Intelligence = 10, Wisdom = 12, Charisma = 8
             };
@@ -194,7 +194,7 @@ private void OnValidate()
             // Wizard with dagger and armor (from inspector defs)
             var wizard = new EntityData
             {
-                Name = "Wizard", Team = Team.Player, Size = CreatureSize.Medium,
+                Name = "Wizard", EncounterActorId = "wizard", Team = Team.Player, Size = CreatureSize.Medium,
                 Level = 1, MaxHP = 14, CurrentHP = 14, ArmorClass = 13, Speed = 25,
                 Strength = 8, Dexterity = 14, Constitution = 12, Intelligence = 18, Wisdom = 12, Charisma = 10
             };
@@ -225,7 +225,7 @@ private void OnValidate()
             // Goblin_1 (from inspector defs)
             var goblin1 = new EntityData
             {
-                Name = "Goblin_1", Team = Team.Enemy, Size = CreatureSize.Small,
+                Name = "Goblin_1", EncounterActorId = "goblin_1", Team = Team.Enemy, Size = CreatureSize.Small,
                 Level = -1, MaxHP = 6, CurrentHP = 6, ArmorClass = 16, Speed = 25,
                 Strength = 12, Dexterity = 16, Constitution = 10, Intelligence = 10, Wisdom = 10, Charisma = 8
             };
@@ -256,7 +256,7 @@ private void OnValidate()
             // Goblin_2 (from inspector defs)
             var goblin2 = new EntityData
             {
-                Name = "Goblin_2", Team = Team.Enemy, Size = CreatureSize.Small,
+                Name = "Goblin_2", EncounterActorId = "goblin_2", Team = Team.Enemy, Size = CreatureSize.Small,
                 Level = -1, MaxHP = 6, CurrentHP = 6, ArmorClass = 16, Speed = 25,
                 Strength = 12, Dexterity = 16, Constitution = 10, Intelligence = 10, Wisdom = 10, Charisma = 8
             };
