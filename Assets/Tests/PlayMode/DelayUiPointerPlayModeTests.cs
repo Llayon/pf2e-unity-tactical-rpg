@@ -22,6 +22,7 @@ namespace PF2e.Tests
 
         private TurnManager turnManager;
         private EntityManager entityManager;
+        private CombatEventBus eventBus;
         private ActionBarController actionBar;
         private EventSystem eventSystem;
         private GameObject createdEventSystem;
@@ -194,14 +195,110 @@ namespace PF2e.Tests
             Assert.AreNotEqual(delayedActor, turnManager.CurrentEntity, "Skip should continue initiative flow to another actor.");
         }
 
+        [UnityTest]
+        public IEnumerator GT_P29_PM_422_SkipButton_PointerFlow_ManualDelayedActor_ExpiresAfterFullRound()
+        {
+            ConfigureDeterministicDelayInitiative();
+            BoostAllCombatantsHP(200);
+
+            int expiredEventsCount = 0;
+            int resumedEventsCount = 0;
+            EntityHandle delayedActor = EntityHandle.None;
+            EntityHandle expectedExpireAfterActor = EntityHandle.None;
+            EntityHandle actualExpireAfterActor = EntityHandle.None;
+
+            void ExpiredHandler(in DelayedTurnExpiredEvent e)
+            {
+                if (!delayedActor.IsValid || e.actor != delayedActor)
+                    return;
+
+                expiredEventsCount++;
+                actualExpireAfterActor = e.afterActor;
+            }
+
+            void ResumedHandler(in DelayedTurnResumedEvent e)
+            {
+                if (!delayedActor.IsValid || e.actor != delayedActor)
+                    return;
+
+                resumedEventsCount++;
+            }
+
+            eventBus.OnDelayedTurnExpiredTyped += ExpiredHandler;
+            eventBus.OnDelayedTurnResumedTyped += ResumedHandler;
+
+            try
+            {
+                turnManager.StartCombat();
+                yield return AdvanceToNextPlayerTurn(DefaultTimeoutSeconds, "Did not reach player turn for Delay expiry pointer test.");
+
+                delayedActor = turnManager.CurrentEntity;
+                Assert.IsTrue(delayedActor.IsValid);
+                expectedExpireAfterActor = ResolvePreviousInitiativeActor(delayedActor);
+                Assert.IsTrue(expectedExpireAfterActor.IsValid, "Expected valid original anchor actor for delayed-turn expiry.");
+
+                // Current Action Bar flow exposes Owlcat-style planned delay selection only.
+                // Keep manual-delay setup via API and verify repeated Skip windows through pointer UI.
+                Assert.IsTrue(turnManager.TryDelayCurrentTurn(), "Manual delay setup failed.");
+                Assert.IsTrue(turnManager.IsDelayed(delayedActor));
+
+                float deadline = Time.realtimeSinceStartup + 25f;
+                while (expiredEventsCount == 0)
+                {
+                    if (Time.realtimeSinceStartup > deadline)
+                    {
+                        Assert.Fail(
+                            "Timeout waiting for delayed actor expiry while skipping windows via pointer flow. " +
+                            $"state={turnManager.State}, round={turnManager.RoundNumber}, current={turnManager.CurrentEntity.Id}.");
+                    }
+
+                    if (turnManager.State == TurnState.Inactive)
+                        Assert.Fail("Combat ended before delayed actor could expire in pointer-flow test.");
+
+                    if (turnManager.State == TurnState.DelayReturnWindow)
+                    {
+                        var skipButton = GetActionBarButton("skipDelayWindowButton");
+                        Assert.IsNotNull(skipButton);
+                        Assert.IsTrue(skipButton.gameObject.activeInHierarchy);
+                        Assert.IsTrue(skipButton.interactable);
+                        PointerClick(skipButton.gameObject);
+                    }
+                    else if (turnManager.State == TurnState.PlayerTurn || turnManager.State == TurnState.EnemyTurn)
+                    {
+                        turnManager.EndTurn();
+                    }
+
+                    yield return null;
+                }
+
+                Assert.AreEqual(1, expiredEventsCount, "Manual delayed actor should expire exactly once.");
+                Assert.AreEqual(0, resumedEventsCount, "Expired delayed actor must not publish DelayedTurnResumed.");
+                Assert.AreEqual(expectedExpireAfterActor, actualExpireAfterActor, "DelayedTurnExpired anchor mismatch.");
+                Assert.IsFalse(turnManager.IsDelayed(delayedActor));
+                Assert.GreaterOrEqual(turnManager.RoundNumber, 2, "Expiry should happen after a full round.");
+
+                yield return WaitUntilOrTimeout(
+                    () => turnManager.State == TurnState.PlayerTurn && turnManager.CurrentEntity == delayedActor,
+                    DefaultTimeoutSeconds,
+                    "Expired delayed actor did not receive reinserted turn.");
+            }
+            finally
+            {
+                eventBus.OnDelayedTurnExpiredTyped -= ExpiredHandler;
+                eventBus.OnDelayedTurnResumedTyped -= ResumedHandler;
+            }
+        }
+
         private void ResolveSceneReferences()
         {
             turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();
             entityManager = UnityEngine.Object.FindFirstObjectByType<EntityManager>();
+            eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
             actionBar = UnityEngine.Object.FindFirstObjectByType<ActionBarController>();
 
             Assert.IsNotNull(turnManager, "TurnManager not found.");
             Assert.IsNotNull(entityManager, "EntityManager not found.");
+            Assert.IsNotNull(eventBus, "CombatEventBus not found.");
             Assert.IsNotNull(actionBar, "ActionBarController not found.");
         }
 
@@ -293,6 +390,47 @@ namespace PF2e.Tests
             }
 
             return null;
+        }
+
+        private EntityHandle ResolvePreviousInitiativeActor(EntityHandle actor)
+        {
+            if (!actor.IsValid || turnManager == null)
+                return EntityHandle.None;
+
+            var order = turnManager.InitiativeOrder;
+            if (order == null || order.Count <= 1)
+                return EntityHandle.None;
+
+            int actorIndex = -1;
+            for (int i = 0; i < order.Count; i++)
+            {
+                if (order[i].Handle != actor)
+                    continue;
+
+                actorIndex = i;
+                break;
+            }
+
+            if (actorIndex < 0)
+                return EntityHandle.None;
+
+            int previousIndex = actorIndex - 1;
+            if (previousIndex < 0)
+                previousIndex = order.Count - 1;
+
+            return order[previousIndex].Handle;
+        }
+
+        private void BoostAllCombatantsHP(int hpValue)
+        {
+            foreach (var data in entityManager.Registry.GetAll())
+            {
+                if (data == null || !data.IsAlive) continue;
+                if (data.Team != Team.Player && data.Team != Team.Enemy) continue;
+
+                data.MaxHP = hpValue;
+                data.CurrentHP = hpValue;
+            }
         }
 
         private Button GetActionBarButton(string privateFieldName)
