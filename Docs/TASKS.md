@@ -97,6 +97,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-091 | P1 | done | Builder | Migrate strike payload/log breakdown to typed `CheckRoll`/source metadata (`Phase 30d`) | `StrikePhaseResult`/`StrikeResolvedEvent`/`StrikePreDamageEvent` now expose typed attack roll + defense source (and concealment roll when used), `StrikeAction` publishes pre-damage via typed roll overload, and strike log/tests validate new `ATK ... vs AC` contract |
 | T-092 | P1 | done | Builder | Unify roll breakdown formatter across logs and targeting hints (`Phase 30e`) | Added shared `RollBreakdownFormatter`; migrated Skill/Opposed/Strike log forwarders to it; targeting valid-hint formulas now come from the same source-label formatter; EditMode/PlayMode green |
 | T-093 | P1 | done | Builder | Consolidate strike attack-math and defense-with-cover formatting in shared formatter (`Phase 30f`) | `RollBreakdownFormatter` now owns strike attack token composition (`atk/MAP/RNG/VOLLEY`) and AC+cover formatting; `StrikeLogForwarder` no longer has local breakdown builder; new formatter tests cover optional token/cover behavior |
+| T-094 | P1 | done | Builder | Remove remaining initiative-log formatter duplication (`Phase 30g`) | `TurnLogForwarder` now formats initiative lines through shared `RollBreakdownFormatter` (`rolls initiative: SRC d20(n) +/-m = total`) and local `FormatSigned` duplication is removed; EditMode/PlayMode green |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

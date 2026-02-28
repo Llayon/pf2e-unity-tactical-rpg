@@ -90,7 +90,7 @@ namespace PF2e.Presentation
 
                 eventBus.Publish(
                     entry.Handle,
-                    $"rolls initiative d20({entry.Roll.naturalRoll}) + {entry.Roll.source.ToShortLabel()}({FormatSigned(entry.Roll.modifier)}) = {entry.Total}",
+                    $"rolls initiative: {RollBreakdownFormatter.FormatRoll(entry.Roll)}",
                     CombatLogCategory.Turn);
             }
         }
@@ -142,11 +142,6 @@ namespace PF2e.Presentation
             }
 
             lastActions = e.remaining;
-        }
-
-        private static string FormatSigned(int value)
-        {
-            return value >= 0 ? $"+{value}" : value.ToString();
         }
     }
 }

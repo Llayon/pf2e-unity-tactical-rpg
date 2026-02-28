@@ -43,9 +43,7 @@ namespace PF2e.Tests
                 Assert.AreEqual(fighter, last.Actor);
                 Assert.AreEqual(CombatLogCategory.Turn, last.Category);
                 StringAssert.Contains("rolls initiative", last.Message);
-                StringAssert.Contains("d20(14)", last.Message);
-                StringAssert.Contains("PRC(+7)", last.Message);
-                StringAssert.Contains("= 21", last.Message);
+                StringAssert.Contains("PRC d20(14) +7 = 21", last.Message);
             }
             finally
             {
