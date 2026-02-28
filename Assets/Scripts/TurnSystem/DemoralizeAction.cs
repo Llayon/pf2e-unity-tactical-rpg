@@ -70,7 +70,7 @@ namespace PF2e.TurnSystem
 
             int modifier = actorData.GetSkillModifier(SkillType.Intimidation);
             int dc = targetData.GetSaveDC(SaveType.Will);
-            var result = CheckResolver.RollCheck(modifier, dc, rng);
+            var result = CheckResolver.RollCheck(modifier, dc, CheckSource.Skill(SkillType.Intimidation), rng);
 
             conditionDeltaBuffer.Clear();
             switch (result.degree)
@@ -92,9 +92,8 @@ namespace PF2e.TurnSystem
                     actor,
                     target,
                     SkillType.Intimidation,
-                    result.naturalRoll,
-                    result.modifier,
-                    result.total,
+                    result.roll,
+                    CheckSource.Save(SaveType.Will),
                     result.dc,
                     result.degree,
                     ActionName);

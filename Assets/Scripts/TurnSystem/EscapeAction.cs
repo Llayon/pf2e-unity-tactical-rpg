@@ -80,7 +80,7 @@ namespace PF2e.TurnSystem
             actorData.MAPCount++;
 
             int dc = 10 + grapplerData.GetSkillModifier(SkillType.Athletics);
-            var result = CheckResolver.RollCheck(effectiveModifier, dc, rng);
+            var result = CheckResolver.RollCheck(effectiveModifier, dc, CheckSource.Skill(usedSkill), rng);
 
             conditionDeltaBuffer.Clear();
             if (result.degree == DegreeOfSuccess.Success || result.degree == DegreeOfSuccess.CriticalSuccess)
@@ -94,9 +94,8 @@ namespace PF2e.TurnSystem
                     actor,
                     grappler,
                     usedSkill,
-                    result.naturalRoll,
-                    result.modifier,
-                    result.total,
+                    result.roll,
+                    CheckSource.Skill(SkillType.Athletics),
                     result.dc,
                     result.degree,
                     ActionName);

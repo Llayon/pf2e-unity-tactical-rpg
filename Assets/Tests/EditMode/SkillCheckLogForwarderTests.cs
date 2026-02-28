@@ -26,9 +26,8 @@ namespace PF2e.Tests
                 actor,
                 target,
                 SkillType.Athletics,
-                naturalRoll: 13,
-                modifier: 7,
-                total: 20,
+                roll: new CheckRoll(13, 7, CheckSource.Skill(SkillType.Athletics)),
+                defenseSource: CheckSource.Save(SaveType.Fortitude),
                 dc: 17,
                 degree: DegreeOfSuccess.Success,
                 actionName: "Trip");
@@ -45,10 +44,8 @@ namespace PF2e.Tests
                 Assert.AreEqual(actor, last.Actor);
                 Assert.AreEqual(CombatLogCategory.Attack, last.Category);
                 StringAssert.Contains("uses Trip on Goblin_1", last.Message);
-                StringAssert.Contains("d20(13)", last.Message);
-                StringAssert.Contains("mod(7)", last.Message);
-                StringAssert.Contains("= 20", last.Message);
-                StringAssert.Contains("vs DC 17", last.Message);
+                StringAssert.Contains("ATHLETICS d20(13) +7 = 20", last.Message);
+                StringAssert.Contains("vs FORTITUDE DC 17", last.Message);
                 StringAssert.Contains("Success", last.Message);
             }
             finally
@@ -75,9 +72,8 @@ namespace PF2e.Tests
                 actor,
                 missingTarget,
                 SkillType.Athletics,
-                naturalRoll: 10,
-                modifier: 4,
-                total: 14,
+                roll: new CheckRoll(10, 4, CheckSource.Skill(SkillType.Athletics)),
+                defenseSource: CheckSource.Save(SaveType.Reflex),
                 dc: 18,
                 degree: DegreeOfSuccess.Failure,
                 actionName: "Trip");

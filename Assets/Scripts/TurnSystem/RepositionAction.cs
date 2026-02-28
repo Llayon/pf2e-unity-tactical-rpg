@@ -112,7 +112,7 @@ namespace PF2e.TurnSystem
             actorData.MAPCount++;
 
             int dc = targetData.GetSaveDC(SaveType.Fortitude);
-            var result = CheckResolver.RollCheck(effectiveModifier, dc, rng);
+            var result = CheckResolver.RollCheck(effectiveModifier, dc, CheckSource.Skill(SkillType.Athletics), rng);
 
             int maxMoveFeet = result.degree switch
             {
@@ -144,9 +144,8 @@ namespace PF2e.TurnSystem
                     actor,
                     target,
                     SkillType.Athletics,
-                    result.naturalRoll,
-                    result.modifier,
-                    result.total,
+                    result.roll,
+                    CheckSource.Save(SaveType.Fortitude),
                     result.dc,
                     result.degree,
                     ActionName);
@@ -181,17 +180,22 @@ namespace PF2e.TurnSystem
             Vector3Int destinationCell,
             in RepositionCheckContext context)
         {
-            if (entityManager == null || entityManager.Registry == null) return false;
-            if (context.degree != DegreeOfSuccess.Success && context.degree != DegreeOfSuccess.CriticalSuccess) return false;
-            if (context.actor != actor || context.target != target) return false;
+            Debug.Log($"[Reposition] TryApplyRepositionMove: dest={destinationCell}, degree={context.degree}, actor={context.actor.Id}, target={context.target.Id}");
+
+            if (entityManager == null || entityManager.Registry == null) { Debug.Log("[Reposition] FAIL: entityManager null"); return false; }
+            if (context.degree != DegreeOfSuccess.Success && context.degree != DegreeOfSuccess.CriticalSuccess) { Debug.Log($"[Reposition] FAIL: bad degree {context.degree}"); return false; }
+            if (context.actor != actor || context.target != target) { Debug.Log($"[Reposition] FAIL: handle mismatch ctx=({context.actor.Id},{context.target.Id}) args=({actor.Id},{target.Id})"); return false; }
 
             var actorData = entityManager.Registry.Get(actor);
             var targetData = entityManager.Registry.Get(target);
-            if (actorData == null || targetData == null || !actorData.IsAlive || !targetData.IsAlive) return false;
+            if (actorData == null || targetData == null || !actorData.IsAlive || !targetData.IsAlive) { Debug.Log("[Reposition] FAIL: data null or not alive"); return false; }
 
             tempDestinationBuffer.Clear();
             if (!TryGetValidDestinationsInternal(actorData, targetData, context.maxMoveFeet, tempDestinationBuffer))
+            {
+                Debug.Log($"[Reposition] FAIL: no valid destinations (maxMove={context.maxMoveFeet}, actorPos={actorData.GridPosition}, targetPos={targetData.GridPosition})");
                 return false;
+            }
 
             bool allowed = false;
             for (int i = 0; i < tempDestinationBuffer.Count; i++)
@@ -202,10 +206,15 @@ namespace PF2e.TurnSystem
                     break;
                 }
             }
-            if (!allowed) return false;
+            if (!allowed)
+            {
+                Debug.Log($"[Reposition] FAIL: dest {destinationCell} not in valid list ({tempDestinationBuffer.Count} cells). Valid: {string.Join(", ", tempDestinationBuffer)}");
+                return false;
+            }
 
-            // Forced movement path: EntityManager publishes EntityMovedEvent (forced=true) on successful move.
-            return entityManager.TryMoveEntityImmediate(target, destinationCell);
+            bool moveResult = entityManager.TryMoveEntityImmediate(target, destinationCell);
+            Debug.Log($"[Reposition] TryMoveEntityImmediate result={moveResult}");
+            return moveResult;
         }
 
         private void TryApplyCritFailureCounterReposition(EntityData controllerData, EntityData movedData)

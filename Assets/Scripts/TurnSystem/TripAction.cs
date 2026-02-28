@@ -79,7 +79,7 @@ namespace PF2e.TurnSystem
             actorData.MAPCount++;
 
             int dc = targetData.GetSaveDC(SaveType.Reflex);
-            var result = CheckResolver.RollCheck(effectiveModifier, dc, rng);
+            var result = CheckResolver.RollCheck(effectiveModifier, dc, CheckSource.Skill(SkillType.Athletics), rng);
 
             conditionDeltaBuffer.Clear();
 
@@ -107,9 +107,8 @@ namespace PF2e.TurnSystem
                     actor,
                     target,
                     SkillType.Athletics,
-                    result.naturalRoll,
-                    result.modifier,
-                    result.total,
+                    result.roll,
+                    CheckSource.Save(SaveType.Reflex),
                     result.dc,
                     result.degree,
                     ActionName);
