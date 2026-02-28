@@ -72,6 +72,82 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void TurnManager_StartCombat_DefaultInitiativeMode_UsesPerceptionSource()
+        {
+            var context = CreateCombatContext("TM_Initiative_DefaultPerception");
+            try
+            {
+                Assert.Greater(context.turnManager.InitiativeOrder.Count, 0);
+
+                for (int i = 0; i < context.turnManager.InitiativeOrder.Count; i++)
+                {
+                    var entry = context.turnManager.InitiativeOrder[i];
+                    Assert.AreEqual(CheckSourceType.Perception, entry.Roll.source.type);
+                }
+            }
+            finally
+            {
+                DestroyContext(context);
+            }
+        }
+
+        [Test]
+        public void TurnManager_StartCombat_SkillInitiativeMode_UsesConfiguredSkillSourceAndModifier()
+        {
+            var turnManagerGo = new GameObject("TM_Initiative_SkillMode_TurnManager");
+            var entityManagerGo = new GameObject("TM_Initiative_SkillMode_EntityManager");
+
+            try
+            {
+                var turnManager = turnManagerGo.AddComponent<TurnManager>();
+                LogAssert.Expect(LogType.Error, "[EntityManager] Missing reference: GridManager. Assign it in Inspector.");
+                var entityManager = entityManagerGo.AddComponent<EntityManager>();
+                var registry = new EntityRegistry();
+
+                SetPrivateField(turnManager, "entityManager", entityManager);
+                SetAutoPropertyBackingField(entityManager, "Registry", registry);
+
+                var player = CreateEntity("Player", Team.Player, wisdom: 10);
+                player.Dexterity = 18; // Stealth key ability, +4
+                registry.Register(player);
+
+                var enemy = CreateEntity("Enemy", Team.Enemy, wisdom: 10);
+                enemy.Dexterity = 12; // Stealth key ability, +1
+                registry.Register(enemy);
+
+                InvokeNonPublicInstanceMethod(
+                    turnManager,
+                    "SetInitiativeCheckModeForTesting",
+                    InitiativeCheckMode.Skill,
+                    SkillType.Stealth);
+
+                InvokeNonPublicInstanceMethod(
+                    turnManager,
+                    "SetInitiativeRngForTesting",
+                    new FixedRng(new[] { 10, 10 }));
+
+                turnManager.StartCombat();
+
+                var playerEntry = FindEntryByHandle(turnManager.InitiativeOrder, player.Handle);
+                Assert.AreEqual(CheckSourceType.Skill, playerEntry.Roll.source.type);
+                Assert.AreEqual(SkillType.Stealth, playerEntry.Roll.source.skill);
+                Assert.AreEqual(player.GetSkillModifier(SkillType.Stealth), playerEntry.Roll.modifier);
+
+                var enemyEntry = FindEntryByHandle(turnManager.InitiativeOrder, enemy.Handle);
+                Assert.AreEqual(CheckSourceType.Skill, enemyEntry.Roll.source.type);
+                Assert.AreEqual(SkillType.Stealth, enemyEntry.Roll.source.skill);
+                Assert.AreEqual(enemy.GetSkillModifier(SkillType.Stealth), enemyEntry.Roll.modifier);
+            }
+            finally
+            {
+                if (turnManagerGo != null)
+                    Object.DestroyImmediate(turnManagerGo);
+                if (entityManagerGo != null)
+                    Object.DestroyImmediate(entityManagerGo);
+            }
+        }
+
+        [Test]
         public void TurnManager_BeginActionExecution_ClosesDelayTriggerWindow()
         {
             var context = CreateCombatContext("TM_Delay_TriggerClose");
@@ -547,6 +623,18 @@ namespace PF2e.Tests
             }
 
             return false;
+        }
+
+        private static InitiativeEntry FindEntryByHandle(IReadOnlyList<InitiativeEntry> order, EntityHandle handle)
+        {
+            for (int i = 0; i < order.Count; i++)
+            {
+                if (order[i].Handle == handle)
+                    return order[i];
+            }
+
+            Assert.Fail($"Could not find initiative entry for handle {handle.Id}.");
+            return default;
         }
 
         private static TestCombatContext CreateCombatContext(string namePrefix)

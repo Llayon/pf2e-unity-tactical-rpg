@@ -145,6 +145,20 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void RollSkill_UsesSkillModifierAndSource()
+        {
+            var data = CreateEntity(level: 2, dexterity: 18);
+
+            var roll = CheckResolver.RollSkill(data, SkillType.Stealth, new FixedRng(d20Rolls: new[] { 11 }));
+
+            Assert.AreEqual(11, roll.naturalRoll);
+            Assert.AreEqual(data.GetSkillModifier(SkillType.Stealth), roll.modifier);
+            Assert.AreEqual(15, roll.total);
+            Assert.AreEqual(CheckSourceType.Skill, roll.source.type);
+            Assert.AreEqual(SkillType.Stealth, roll.source.skill);
+        }
+
+        [Test]
         public void RollOpposedCheck_AttackerHigherTotal_Wins()
         {
             var result = CheckResolver.RollOpposedCheck(

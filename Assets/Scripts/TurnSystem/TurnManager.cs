@@ -17,6 +17,10 @@ namespace PF2e.TurnSystem
         [SerializeField] private EntityManager entityManager;
         [SerializeField] private CombatEventBus eventBus;
 
+        [Header("Initiative")]
+        [SerializeField] private InitiativeCheckMode initiativeCheckMode = InitiativeCheckMode.Perception;
+        [SerializeField] private SkillType initiativeSkill = SkillType.Stealth;
+
         [Header("Debug — visible in Inspector")]
         [SerializeField] private TurnState state = TurnState.Inactive;
         [SerializeField] private int currentIndex = -1;
@@ -117,6 +121,12 @@ namespace PF2e.TurnSystem
         internal void SetInitiativeRngForTesting(IRng rng)
         {
             initiativeRng = rng ?? UnityRng.Shared;
+        }
+
+        internal void SetInitiativeCheckModeForTesting(InitiativeCheckMode mode, SkillType skill)
+        {
+            initiativeCheckMode = mode;
+            initiativeSkill = skill;
         }
 
         // ─── Events ───────────────────────────────────────────────────────────
@@ -594,7 +604,7 @@ namespace PF2e.TurnSystem
             {
                 if (data == null || !data.IsAlive) continue;
 
-                var roll = CheckResolver.RollPerception(data, initiativeRng);
+                var roll = RollInitiativeForActor(data);
                 bool isPlayer = data.Team == Team.Player;
 
                 initiativeOrder.Add(new InitiativeEntry
@@ -617,6 +627,15 @@ namespace PF2e.TurnSystem
                     $"  {i + 1}. {n} — d20: {e.Roll.naturalRoll}, Mod: {e.Roll.modifier}, Total: {e.Total}, Source: {e.Roll.source.ToShortLabel()}");
             }
             Debug.Log(sb.ToString());
+        }
+
+        private CheckRoll RollInitiativeForActor(EntityData actor)
+        {
+            return initiativeCheckMode switch
+            {
+                InitiativeCheckMode.Skill => CheckResolver.RollSkill(actor, initiativeSkill, initiativeRng),
+                _ => CheckResolver.RollPerception(actor, initiativeRng),
+            };
         }
 
         private static int CompareInitiativeEntries(InitiativeEntry left, InitiativeEntry right)

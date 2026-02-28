@@ -56,6 +56,16 @@ namespace PF2e.Core
             return new CheckRoll(nat, modifier, CheckSource.Perception());
         }
 
+        public static CheckRoll RollSkill(EntityData roller, SkillType skill, IRng rng)
+        {
+            if (rng == null)
+                rng = UnityRng.Shared;
+
+            int nat = rng.RollD20();
+            int modifier = roller != null ? roller.GetSkillModifier(skill) : 0;
+            return new CheckRoll(nat, modifier, CheckSource.Skill(skill));
+        }
+
         public static CheckResult RollSkillCheck(EntityData roller, SkillType skill, int dc, IRng rng)
         {
             if (roller == null)
