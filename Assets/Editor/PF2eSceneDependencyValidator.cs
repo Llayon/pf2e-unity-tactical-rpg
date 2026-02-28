@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using UnityEditor;
@@ -163,6 +164,7 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnIfNone<TargetingHintController>();
         warnings += WarnIfNone<TargetingFeedbackController>();
         warnings += WarnIfNone<DamageLogForwarder>();
+        warnings += WarnMissingEncounterActorIdsOnCombatants();
         warnings += WarnIfAny<ConditionTickForwarder>(
             "ConditionTickForwarder is deprecated and should be removed from scene.");
 
@@ -581,6 +583,56 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
 
         Debug.LogWarning($"[PF2eValidator] {message} Found: {activeCount}.");
         return 1;
+    }
+
+    private static int WarnMissingEncounterActorIdsOnCombatants()
+    {
+        int warnings = 0;
+        var entityManagers = UnityEngine.Object.FindObjectsByType<EntityManager>(FindObjectsSortMode.None);
+        if (entityManagers == null || entityManagers.Length == 0)
+            return 0;
+
+        for (int i = 0; i < entityManagers.Length; i++)
+        {
+            var entityManager = entityManagers[i];
+            if (entityManager == null || entityManager.Registry == null)
+                continue;
+
+            warnings += WarnMissingEncounterActorIds(entityManager.Registry.GetAll(), entityManager);
+        }
+
+        return warnings;
+    }
+
+    private static int WarnMissingEncounterActorIds(IEnumerable<EntityData> entities, UnityEngine.Object context)
+    {
+        if (entities == null)
+            return 0;
+
+        int warnings = 0;
+        foreach (var entity in entities)
+        {
+            if (entity == null || !entity.IsAlive)
+                continue;
+
+            if (entity.Team != Team.Player && entity.Team != Team.Enemy)
+                continue;
+
+            if (!string.IsNullOrWhiteSpace(entity.EncounterActorId))
+                continue;
+
+            string entityName = string.IsNullOrWhiteSpace(entity.Name)
+                ? $"Entity#{entity.Handle.Id}"
+                : entity.Name;
+
+            Debug.LogWarning(
+                $"[PF2eValidator] Entity '{entityName}' ({entity.Team}) has empty EncounterActorId. " +
+                "Initiative actorId overrides may not apply.",
+                context);
+            warnings++;
+        }
+
+        return warnings;
     }
 
     private static int RequireRef(Component c, string fieldName, string friendlyTypeName)

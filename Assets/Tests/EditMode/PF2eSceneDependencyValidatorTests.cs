@@ -1,12 +1,15 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using PF2e.Core;
 using PF2e.Presentation;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.TestTools;
 
 namespace PF2e.Tests
 {
@@ -157,6 +160,48 @@ namespace PF2e.Tests
             Assert.AreSame(initiativeBar, GetPrivateField<InitiativeBarController>(rewired, "initiativeBarController"));
         }
 
+        [Test]
+        public void Validator_MissingEncounterActorId_OnAliveCombatants_EmitsWarnings()
+        {
+            var entities = new List<EntityData>
+            {
+                new EntityData
+                {
+                    Name = "Fighter",
+                    Team = Team.Player,
+                    CurrentHP = 20,
+                    EncounterActorId = ""
+                },
+                new EntityData
+                {
+                    Name = "Goblin_1",
+                    Team = Team.Enemy,
+                    CurrentHP = 6,
+                    EncounterActorId = "   "
+                },
+                new EntityData
+                {
+                    Name = "DeadGoblin",
+                    Team = Team.Enemy,
+                    CurrentHP = 0,
+                    EncounterActorId = ""
+                },
+                new EntityData
+                {
+                    Name = "NeutralNpc",
+                    Team = Team.Neutral,
+                    CurrentHP = 10,
+                    EncounterActorId = ""
+                }
+            };
+
+            LogAssert.Expect(LogType.Warning, new Regex(@"\[PF2eValidator\] Entity 'Fighter' \(Player\) has empty EncounterActorId\."));
+            LogAssert.Expect(LogType.Warning, new Regex(@"\[PF2eValidator\] Entity 'Goblin_1' \(Enemy\) has empty EncounterActorId\."));
+
+            int warnings = InvokePrivateValidatorMethodForEncounterActorIds(entities);
+            Assert.AreEqual(2, warnings, "Only alive Player/Enemy entities with empty EncounterActorId should be warned.");
+        }
+
         private static void InvokePrivateValidatorMethod(string methodName)
         {
             var validatorType = FindTypeByName("PF2eSceneDependencyValidator");
@@ -217,6 +262,24 @@ namespace PF2e.Tests
                     }
                 })
                 .FirstOrDefault(t => t != null && t.Name == typeName);
+        }
+
+        private static int InvokePrivateValidatorMethodForEncounterActorIds(IEnumerable<EntityData> entities)
+        {
+            var validatorType = FindTypeByName("PF2eSceneDependencyValidator");
+            Assert.IsNotNull(validatorType, "PF2eSceneDependencyValidator type not found.");
+
+            var method = validatorType.GetMethod(
+                "WarnMissingEncounterActorIds",
+                BindingFlags.NonPublic | BindingFlags.Static,
+                null,
+                new[] { typeof(IEnumerable<EntityData>), typeof(UnityEngine.Object) },
+                null);
+            Assert.IsNotNull(method, "WarnMissingEncounterActorIds(IEnumerable<EntityData>, Object) not found.");
+
+            object result = method.Invoke(null, new object[] { entities, null });
+            Assert.IsNotNull(result, "WarnMissingEncounterActorIds returned null.");
+            return (int)result;
         }
     }
 }

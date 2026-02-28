@@ -106,6 +106,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-100 | P1 | done | Builder | Migrate initiative override keys to stable `actorId` with legacy-name fallback (`Phase 31f`) | `EntityData` now includes `EncounterActorId`; test entities are assigned stable ids; `InitiativeActorOverride` accepts `actorId` as primary key, keeps legacy `actorName` fallback with migration warning, and still warns on unresolved ids/names |
 | T-101 | P1 | done | Builder | Remove legacy `actorName` initiative override fallback and enforce `actorId` (`Phase 31g`) | `InitiativeActorOverride` now uses `actorId` only; `EncounterFlowController` matches overrides strictly by `EncounterActorId`, warns on empty `actorId` entries and unknown ids, and PlayMode coverage updated accordingly |
 | T-102 | P1 | done | Builder | Reserialize encounter flow runtime preset to actorId-era schema | `EncounterFlowUIPreset_RuntimeFallback.asset` now explicitly serializes initiative fields (`initiativeCheckMode`, `initiativeSkill`, `actorInitiativeOverrides`) with default Perception behavior and no overrides |
+| T-103 | P1 | done | Builder | Add validator warning pass for missing combatant `EncounterActorId` | `PF2eSceneDependencyValidator` now warns for alive `Player/Enemy` entities with empty `EncounterActorId` (when registry is available) and EditMode reflection coverage verifies warning contract |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal
