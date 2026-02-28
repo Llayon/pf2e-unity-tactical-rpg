@@ -36,6 +36,11 @@ namespace PF2e.Tests
             Assert.AreEqual(0, result.rangePenalty);
             Assert.AreEqual(0, result.volleyPenalty);
             Assert.AreEqual(16, result.total);
+            Assert.AreEqual("ATK", result.attackRoll.source.ToShortLabel());
+            Assert.AreEqual(14, result.attackRoll.naturalRoll);
+            Assert.AreEqual(2, result.attackRoll.modifier);
+            Assert.AreEqual(16, result.attackRoll.total);
+            Assert.AreEqual("AC", result.defenseSource.ToShortLabel());
             Assert.AreEqual(0, result.dc);
             Assert.AreEqual(DegreeOfSuccess.CriticalFailure, result.acDegree);
             Assert.AreEqual(DegreeOfSuccess.CriticalFailure, result.degree);
@@ -398,6 +403,9 @@ namespace PF2e.Tests
                 Assert.AreEqual(resolved.total, preDamageEvent.total);
                 Assert.AreEqual(resolved.dc, preDamageEvent.dc);
                 Assert.AreEqual(resolved.damageRolled, preDamageEvent.damageRolled);
+                Assert.AreEqual("ATK", preDamageEvent.attackRoll.source.ToShortLabel());
+                Assert.AreEqual(resolved.attackRoll.total, preDamageEvent.attackRoll.total);
+                Assert.AreEqual("AC", preDamageEvent.defenseSource.ToShortLabel());
             }
             finally
             {

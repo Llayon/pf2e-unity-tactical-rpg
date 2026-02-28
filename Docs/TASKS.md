@@ -94,6 +94,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-088 | P0 | done | Builder | Refactor initiative to `CheckRoll` + Perception-based ordering and typed breakdown logs | Initiative now uses `CheckResolver.RollPerception` (`PerceptionModifier`), sorts by total with enemy-first tie policy, publishes deterministic payload/log breakdown (`d20 + source(mod) = total`), and EditMode/PlayMode regressions are green |
 | T-089 | P1 | done | Builder | Start Phase 30b with generic opposed-check foundation (`RollOpposedCheck`) | Added `OpposedCheckResult` domain primitive, `CheckResolver.RollOpposedCheck(...)`, typed bus event `OpposedCheckResolvedEvent`, `OpposedCheckLogForwarder`, and EditMode coverage for resolver + log forwarding |
 | T-090 | P1 | done | Builder | Migrate skill-check action payloads to `CheckRoll` + explicit defense source (`Phase 30c`) | `SkillCheckResolvedEvent` now carries `CheckRoll` and `defenseSource`; action publishers (`Trip/Shove/Grapple/Escape/Reposition/Demoralize`) send typed roll source + DC source; `SkillCheckLogForwarder` and tests updated |
+| T-091 | P1 | done | Builder | Migrate strike payload/log breakdown to typed `CheckRoll`/source metadata (`Phase 30d`) | `StrikePhaseResult`/`StrikeResolvedEvent`/`StrikePreDamageEvent` now expose typed attack roll + defense source (and concealment roll when used), `StrikeAction` publishes pre-damage via typed roll overload, and strike log/tests validate new `ATK ... vs AC` contract |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

@@ -61,6 +61,8 @@ namespace PF2e.Tests
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 1);
+                StringAssert.Contains("ATK d20(12)", first.Message);
+                StringAssert.Contains("vs AC 18", first.Message);
                 StringAssert.DoesNotContain("RNG(", first.Message);
             }
             finally

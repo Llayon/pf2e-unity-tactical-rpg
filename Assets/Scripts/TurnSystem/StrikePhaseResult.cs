@@ -7,9 +7,16 @@ namespace PF2e.TurnSystem
     /// </summary>
     public readonly struct StrikePhaseResult
     {
+        private static readonly CheckSource AttackSource = CheckSource.Custom("ATK");
+        private static readonly CheckSource DefenseSource = CheckSource.Custom("AC");
+        private static readonly CheckSource ConcealmentSource = CheckSource.Custom("CONCEAL");
+
         public readonly EntityHandle attacker;
         public readonly EntityHandle target;
         public readonly string weaponName;
+        public readonly CheckRoll attackRoll;
+        public readonly CheckSource defenseSource;
+        public readonly CheckRoll concealmentRoll;
         public readonly int naturalRoll;
         public readonly int attackBonus;
         public readonly int mapPenalty;
@@ -55,6 +62,12 @@ namespace PF2e.TurnSystem
             this.attacker = attacker;
             this.target = target;
             this.weaponName = weaponName;
+            int attackModifier = attackBonus + mapPenalty + rangePenalty + volleyPenalty;
+            this.attackRoll = new CheckRoll(naturalRoll, attackModifier, AttackSource);
+            this.defenseSource = DefenseSource;
+            this.concealmentRoll = concealmentCheckRequired
+                ? new CheckRoll(concealmentFlatCheckRoll, 0, ConcealmentSource)
+                : default;
             this.naturalRoll = naturalRoll;
             this.attackBonus = attackBonus;
             this.mapPenalty = mapPenalty;

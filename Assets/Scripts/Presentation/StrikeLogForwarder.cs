@@ -54,12 +54,9 @@ namespace PF2e.Presentation
             // 1. Attack roll line (always published)
             eventBus.Publish(e.attacker,
                 $"strikes {targetName} with {e.weaponName} — " +
-                $"d20({e.naturalRoll}) + atk({e.attackBonus}) " +
-                $"+ MAP({e.mapPenalty})" +
-                (e.rangePenalty != 0 ? $" + RNG({e.rangePenalty})" : string.Empty) +
-                (e.volleyPenalty != 0 ? $" + VOLLEY({e.volleyPenalty})" : string.Empty) +
-                $" = {e.total} " +
-                $"vs AC {e.dc}" +
+                $"{FormatRoll(e.attackRoll)} " +
+                $"[{BuildAttackBreakdown(e)}] " +
+                $"vs {e.defenseSource.ToShortLabel()} {e.dc}" +
                 (e.coverAcBonus != 0 ? $" + COVER({e.coverAcBonus:+#;-#;0})" : string.Empty) +
                 $" → {e.acDegree}",
                 CombatLogCategory.Attack);
@@ -72,7 +69,7 @@ namespace PF2e.Presentation
             {
                 eventBus.Publish(
                     e.attacker,
-                    $"{GetWouldHitVerb(e.acDegree)} {targetName}, but concealment DC 5 flat check d20({e.concealmentFlatCheckRoll}) failed (miss).",
+                    $"{GetWouldHitVerb(e.acDegree)} {targetName}, but concealment DC 5 flat check d20({e.concealmentRoll.naturalRoll}) failed (miss).",
                     CombatLogCategory.Attack);
             }
             else if (isHit)
@@ -151,6 +148,24 @@ namespace PF2e.Presentation
             return acDegree == DegreeOfSuccess.CriticalSuccess
                 ? "would critically hit"
                 : "would hit";
+        }
+
+        private static string BuildAttackBreakdown(in StrikeResolvedEvent e)
+        {
+            return
+                $"atk({e.attackBonus}) + MAP({e.mapPenalty})" +
+                (e.rangePenalty != 0 ? $" + RNG({e.rangePenalty})" : string.Empty) +
+                (e.volleyPenalty != 0 ? $" + VOLLEY({e.volleyPenalty})" : string.Empty);
+        }
+
+        private static string FormatRoll(in CheckRoll roll)
+        {
+            return $"{roll.source.ToShortLabel()} d20({roll.naturalRoll}) {FormatSigned(roll.modifier)} = {roll.total}";
+        }
+
+        private static string FormatSigned(int value)
+        {
+            return value >= 0 ? $"+{value}" : value.ToString();
         }
     }
 }

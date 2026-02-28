@@ -153,6 +153,29 @@ namespace PF2e.Core
             OnStrikePreDamageTyped?.Invoke(in e);
         }
 
+        public void PublishStrikePreDamage(
+            EntityHandle attacker,
+            EntityHandle target,
+            in CheckRoll attackRoll,
+            in CheckSource defenseSource,
+            int dc,
+            DegreeOfSuccess degree,
+            int damageRolled,
+            DamageType damageType)
+        {
+            var e = new StrikePreDamageEvent(
+                attacker,
+                target,
+                in attackRoll,
+                in defenseSource,
+                dc,
+                degree,
+                damageRolled,
+                damageType);
+
+            OnStrikePreDamageTyped?.Invoke(in e);
+        }
+
         public void PublishShieldRaised(EntityHandle actor, int acBonus, int shieldHP, int shieldMaxHP)
         {
             var e = new ShieldRaisedEvent(actor, acBonus, shieldHP, shieldMaxHP);

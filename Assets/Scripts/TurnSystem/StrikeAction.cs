@@ -144,8 +144,8 @@ namespace PF2e.TurnSystem
                 eventBus?.PublishStrikePreDamage(
                     concealedMiss.attacker,
                     concealedMiss.target,
-                    concealedMiss.naturalRoll,
-                    concealedMiss.total,
+                    concealedMiss.attackRoll,
+                    concealedMiss.defenseSource,
                     concealedMiss.dc,
                     concealedMiss.degree,
                     concealedMiss.damageRolled,
@@ -178,8 +178,8 @@ namespace PF2e.TurnSystem
             eventBus?.PublishStrikePreDamage(
                 resolved.attacker,
                 resolved.target,
-                resolved.naturalRoll,
-                resolved.total,
+                resolved.attackRoll,
+                resolved.defenseSource,
                 resolved.dc,
                 resolved.degree,
                 resolved.damageRolled,
