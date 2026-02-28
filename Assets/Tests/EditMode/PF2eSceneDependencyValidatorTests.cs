@@ -57,27 +57,27 @@ namespace PF2e.Tests
 
             EditorSceneManager.OpenScene(SampleScenePath, OpenSceneMode.Single);
 
-            var eventBus = Object.FindFirstObjectByType<CombatEventBus>();
-            var actionBar = Object.FindFirstObjectByType<ActionBarController>();
-            var initiativeBar = Object.FindFirstObjectByType<InitiativeBarController>();
+            var eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
+            var actionBar = UnityEngine.Object.FindFirstObjectByType<ActionBarController>();
+            var initiativeBar = UnityEngine.Object.FindFirstObjectByType<InitiativeBarController>();
             Assert.IsNotNull(eventBus, "SampleScene must contain CombatEventBus.");
             Assert.IsNotNull(actionBar, "SampleScene must contain ActionBarController.");
             Assert.IsNotNull(initiativeBar, "SampleScene must contain InitiativeBarController.");
 
-            var existing = Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
+            var existing = UnityEngine.Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
             for (int i = 0; i < existing.Length; i++)
             {
-                Object.DestroyImmediate(existing[i]);
+                UnityEngine.Object.DestroyImmediate(existing[i]);
             }
 
             Assert.AreEqual(
                 0,
-                Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None).Length,
+                UnityEngine.Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None).Length,
                 "Test precondition: DelayUiOrchestrator must be missing before autofix.");
 
             InvokePrivateValidatorMethodWithBoolArg("RunAutoFix", false);
 
-            var after = Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
+            var after = UnityEngine.Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
             Assert.AreEqual(1, after.Length, "AutoFix must create exactly one DelayUiOrchestrator.");
 
             var orchestrator = after[0];
@@ -93,22 +93,22 @@ namespace PF2e.Tests
 
             EditorSceneManager.OpenScene(SampleScenePath, OpenSceneMode.Single);
 
-            var existing = Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
+            var existing = UnityEngine.Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
             for (int i = 0; i < existing.Length; i++)
             {
-                Object.DestroyImmediate(existing[i]);
+                UnityEngine.Object.DestroyImmediate(existing[i]);
             }
 
             var singletonGo = new GameObject("DelayUiOrchestrator_IdempotencyTest");
             singletonGo.AddComponent<DelayUiOrchestrator>();
             Assert.AreEqual(
                 1,
-                Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None).Length,
+                UnityEngine.Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None).Length,
                 "Test precondition: exactly one DelayUiOrchestrator must exist before autofix.");
 
             InvokePrivateValidatorMethodWithBoolArg("RunAutoFix", false);
 
-            var after = Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
+            var after = UnityEngine.Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
             Assert.AreEqual(1, after.Length, "AutoFix must keep DelayUiOrchestrator singleton idempotent.");
         }
 
