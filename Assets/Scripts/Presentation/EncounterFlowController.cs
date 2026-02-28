@@ -316,6 +316,15 @@ namespace PF2e.Presentation
 
                 entity.UseInitiativeSkillOverride = entry.useSkillOverride;
                 entity.InitiativeSkillOverride = entry.skill;
+                overridesByName.Remove(entity.Name.Trim());
+            }
+
+            if (overridesByName.Count <= 0)
+                return;
+
+            foreach (var missingName in overridesByName.Keys)
+            {
+                Debug.LogWarning($"[EncounterFlow] Initiative override actor not found: '{missingName}'.", this);
             }
         }
 

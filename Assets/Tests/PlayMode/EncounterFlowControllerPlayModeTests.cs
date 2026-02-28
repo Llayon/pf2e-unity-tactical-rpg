@@ -270,6 +270,37 @@ namespace PF2e.Tests
                 "End Encounter did not return to Inactive in per-actor initiative override test.");
         }
 
+        [UnityTest]
+        public IEnumerator GT_P31_PM_422_StartButton_UnknownOverrideActor_LogsWarning_AndStartsCombat()
+        {
+            var overrides = new System.Collections.Generic.List<InitiativeActorOverride>
+            {
+                new InitiativeActorOverride
+                {
+                    actorName = "UnknownSneaker",
+                    useSkillOverride = true,
+                    skill = SkillType.Stealth
+                }
+            };
+
+            SetPrivateField(encounterFlowController, "initiativeCheckMode", InitiativeCheckMode.Perception);
+            SetPrivateField(encounterFlowController, "actorInitiativeOverrides", overrides);
+            LogAssert.Expect(LogType.Warning, "[EncounterFlow] Initiative override actor not found: 'UnknownSneaker'.");
+
+            startEncounterButton.onClick.Invoke();
+
+            yield return WaitUntilOrTimeout(
+                () => turnManager.State == TurnState.PlayerTurn || turnManager.State == TurnState.EnemyTurn,
+                TimeoutSeconds,
+                "Start Encounter did not start combat with unknown actor override.");
+
+            endEncounterButton.onClick.Invoke();
+            yield return WaitUntilOrTimeout(
+                () => turnManager.State == TurnState.Inactive,
+                TimeoutSeconds,
+                "End Encounter did not return to Inactive with unknown actor override.");
+        }
+
         private static bool TryResolveButtons(out Button startButton, out Button endButton)
         {
             startButton = GameObject.Find("Canvas/EncounterFlowPanel/StartEncounterButton")?.GetComponent<Button>();
