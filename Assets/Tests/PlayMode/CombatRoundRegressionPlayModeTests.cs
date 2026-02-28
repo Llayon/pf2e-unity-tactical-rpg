@@ -1297,6 +1297,106 @@ namespace PF2e.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator GT_P29_PM_421_DelayManual_SkipFullRound_ExpiresAndReinsertsActor()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+
+            BoostAllCombatantsHP(200);
+            ConfigureDeterministicDelayInitiative(fighter, wizard, goblin1, goblin2);
+
+            int expiredEventsCount = 0;
+            int resumedEventsCount = 0;
+            EntityHandle delayedActor = EntityHandle.None;
+            EntityHandle expectedExpireAfterActor = EntityHandle.None;
+            EntityHandle actualExpireAfterActor = EntityHandle.None;
+
+            void ExpiredHandler(in DelayedTurnExpiredEvent e)
+            {
+                if (!delayedActor.IsValid || e.actor != delayedActor)
+                    return;
+
+                expiredEventsCount++;
+                actualExpireAfterActor = e.afterActor;
+            }
+
+            void ResumedHandler(in DelayedTurnResumedEvent e)
+            {
+                if (!delayedActor.IsValid || e.actor != delayedActor)
+                    return;
+
+                resumedEventsCount++;
+            }
+
+            eventBus.OnDelayedTurnExpiredTyped += ExpiredHandler;
+            eventBus.OnDelayedTurnResumedTyped += ResumedHandler;
+
+            try
+            {
+                turnManager.StartCombat();
+                yield return AdvanceToNextPlayerTurn(
+                    DefaultTimeoutSeconds,
+                    "Did not reach a player turn for delay-expiry test.");
+
+                delayedActor = turnManager.CurrentEntity;
+                var delayedData = entityManager.Registry.Get(delayedActor);
+                Assert.IsNotNull(delayedData);
+                Assert.AreEqual(Team.Player, delayedData.Team);
+
+                expectedExpireAfterActor = ResolvePreviousInitiativeActor(delayedActor);
+                Assert.IsTrue(
+                    expectedExpireAfterActor.IsValid,
+                    "Expected a valid original anchor actor for delayed-turn expiry contract.");
+
+                Assert.IsTrue(turnManager.TryDelayCurrentTurn(), "Manual delay should succeed at turn start.");
+                Assert.IsTrue(turnManager.IsDelayed(delayedActor), "Actor should enter delayed state.");
+
+                float deadline = Time.realtimeSinceStartup + SimulationTimeoutSeconds;
+                while (expiredEventsCount == 0)
+                {
+                    if (Time.realtimeSinceStartup > deadline)
+                    {
+                        Assert.Fail(
+                            "Timeout waiting for DelayedTurnExpired event. " +
+                            $"state={turnManager.State}, round={turnManager.RoundNumber}, current={turnManager.CurrentEntity.Id}, delayedCount={turnManager.DelayedActorCount}.");
+                    }
+
+                    if (turnManager.State == TurnState.Inactive)
+                        Assert.Fail("Combat ended before delayed actor could expire.");
+
+                    if (turnManager.State == TurnState.DelayReturnWindow)
+                    {
+                        turnManager.SkipDelayReturnWindow();
+                    }
+                    else if (turnManager.State == TurnState.PlayerTurn || turnManager.State == TurnState.EnemyTurn)
+                    {
+                        turnManager.EndTurn();
+                    }
+
+                    yield return null;
+                }
+
+                Assert.AreEqual(1, expiredEventsCount, "Delayed actor should expire exactly once in this scenario.");
+                Assert.AreEqual(0, resumedEventsCount, "Expired delayed turn must not publish DelayedTurnResumed.");
+                Assert.AreEqual(expectedExpireAfterActor, actualExpireAfterActor, "Expired event should identify original anchor actor.");
+                Assert.IsFalse(turnManager.IsDelayed(delayedActor), "Expired actor must be removed from delayed state.");
+                Assert.GreaterOrEqual(turnManager.RoundNumber, 2, "Expiry should occur only after at least one full round.");
+
+                yield return WaitUntilOrTimeout(
+                    () => turnManager.State == TurnState.PlayerTurn && turnManager.CurrentEntity == delayedActor,
+                    DefaultTimeoutSeconds,
+                    "Expired delayed actor did not receive the reinserted turn.");
+            }
+            finally
+            {
+                eventBus.OnDelayedTurnExpiredTyped -= ExpiredHandler;
+                eventBus.OnDelayedTurnResumedTyped -= ResumedHandler;
+            }
+        }
+
         private void ResolveSceneReferences()
         {
             turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();
@@ -1605,6 +1705,35 @@ namespace PF2e.Tests
             wizard.Wisdom = 199000;
             goblin1.Wisdom = -199000;
             goblin2.Wisdom = -200000;
+        }
+
+        private EntityHandle ResolvePreviousInitiativeActor(EntityHandle actor)
+        {
+            if (!actor.IsValid || turnManager == null)
+                return EntityHandle.None;
+
+            var order = turnManager.InitiativeOrder;
+            if (order == null || order.Count <= 1)
+                return EntityHandle.None;
+
+            int actorIndex = -1;
+            for (int i = 0; i < order.Count; i++)
+            {
+                if (order[i].Handle != actor)
+                    continue;
+
+                actorIndex = i;
+                break;
+            }
+
+            if (actorIndex < 0)
+                return EntityHandle.None;
+
+            int previousIndex = actorIndex - 1;
+            if (previousIndex < 0)
+                previousIndex = order.Count - 1;
+
+            return order[previousIndex].Handle;
         }
 
         private bool TryResolvePlannedDelaySetup(out EntityHandle playerActor, out EntityHandle anchorEnemy)
