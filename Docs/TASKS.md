@@ -99,6 +99,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-093 | P1 | done | Builder | Consolidate strike attack-math and defense-with-cover formatting in shared formatter (`Phase 30f`) | `RollBreakdownFormatter` now owns strike attack token composition (`atk/MAP/RNG/VOLLEY`) and AC+cover formatting; `StrikeLogForwarder` no longer has local breakdown builder; new formatter tests cover optional token/cover behavior |
 | T-094 | P1 | done | Builder | Remove remaining initiative-log formatter duplication (`Phase 30g`) | `TurnLogForwarder` now formats initiative lines through shared `RollBreakdownFormatter` (`rolls initiative: SRC d20(n) +/-m = total`) and local `FormatSigned` duplication is removed; EditMode/PlayMode green |
 | T-095 | P1 | done | Builder | Add configurable initiative check mode with default Perception (`Phase 31a`) | `TurnManager` now supports initiative roll mode (`Perception` default, optional `Skill` source); `CheckResolver.RollSkill(...)` added; EditMode/PlayMode tests verify default Perception contract and skill-mode source/modifier payloads |
+| T-096 | P1 | done | Builder | Wire encounter-level initiative source config through Start Encounter flow (`Phase 31b`) | `EncounterFlowController` now applies encounter-configured initiative mode/skill to `TurnManager` before `StartCombat`; preset supports the same fields; PlayMode verifies skill-mode start-button flow and default Perception authoring contract remains intact |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

@@ -26,6 +26,10 @@ namespace PF2e.Presentation
         [SerializeField] private bool useFlowPreset = false;
         [SerializeField] private EncounterFlowUIPreset flowPreset;
 
+        [Header("Encounter Rules")]
+        [SerializeField] private InitiativeCheckMode initiativeCheckMode = InitiativeCheckMode.Perception;
+        [SerializeField] private SkillType initiativeSkill = SkillType.Stealth;
+
         [Header("UI")]
         [SerializeField] private Button startEncounterButton;
         [SerializeField] private Button endEncounterButton;
@@ -116,6 +120,7 @@ namespace PF2e.Presentation
                 return;
             }
 
+            turnManager.ConfigureInitiativeChecks(initiativeCheckMode, initiativeSkill);
             turnManager.StartCombat();
             RefreshButtons();
         }
@@ -266,6 +271,8 @@ namespace PF2e.Presentation
 
             autoCreateRuntimeButtons = flowPreset.autoCreateRuntimeButtons;
             encounterFlowPanelPrefab = flowPreset.encounterFlowPanelPrefab;
+            initiativeCheckMode = flowPreset.initiativeCheckMode;
+            initiativeSkill = flowPreset.initiativeSkill;
         }
 
         private Button FindOrCreateButton(string name, string label)

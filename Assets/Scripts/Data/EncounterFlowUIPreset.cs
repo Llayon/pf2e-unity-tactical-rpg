@@ -1,4 +1,6 @@
 using UnityEngine;
+using PF2e.Core;
+using PF2e.TurnSystem;
 
 namespace PF2e.Data
 {
@@ -8,5 +10,9 @@ namespace PF2e.Data
         [Header("Runtime Fallback")]
         public bool autoCreateRuntimeButtons = true;
         public RectTransform encounterFlowPanelPrefab;
+
+        [Header("Encounter Rules")]
+        public InitiativeCheckMode initiativeCheckMode = InitiativeCheckMode.Perception;
+        public SkillType initiativeSkill = SkillType.Stealth;
     }
 }

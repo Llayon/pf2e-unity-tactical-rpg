@@ -148,6 +148,28 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void TurnManager_ConfigureInitiativeChecks_ReturnsFalse_WhenCombatActive()
+        {
+            var context = CreateCombatContext("TM_Initiative_ConfigActive");
+            try
+            {
+                Assert.AreNotEqual(TurnState.Inactive, context.turnManager.State, "Setup should be in active combat state.");
+                LogAssert.Expect(LogType.Warning, "[TurnManager] ConfigureInitiativeChecks ignored because combat is active.");
+
+                bool applied = context.turnManager.ConfigureInitiativeChecks(
+                    InitiativeCheckMode.Skill,
+                    SkillType.Stealth);
+
+                Assert.IsFalse(applied);
+                Assert.AreEqual(InitiativeCheckMode.Perception, context.turnManager.InitiativeMode);
+            }
+            finally
+            {
+                DestroyContext(context);
+            }
+        }
+
+        [Test]
         public void TurnManager_BeginActionExecution_ClosesDelayTriggerWindow()
         {
             var context = CreateCombatContext("TM_Delay_TriggerClose");

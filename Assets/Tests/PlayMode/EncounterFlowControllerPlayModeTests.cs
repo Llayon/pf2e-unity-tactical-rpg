@@ -55,12 +55,14 @@ namespace PF2e.Tests
             var autoCreate = ReadPrivateField<bool>(encounterFlowController, "autoCreateRuntimeButtons");
             var wiredStart = ReadPrivateField<Button>(encounterFlowController, "startEncounterButton");
             var wiredEnd = ReadPrivateField<Button>(encounterFlowController, "endEncounterButton");
+            var initiativeMode = ReadPrivateField<InitiativeCheckMode>(encounterFlowController, "initiativeCheckMode");
 
             Assert.IsFalse(autoCreate, "EncounterFlowController should default to authored scene wiring.");
             Assert.IsNotNull(wiredStart, "startEncounterButton should be serialized in scene authoring mode.");
             Assert.IsNotNull(wiredEnd, "endEncounterButton should be serialized in scene authoring mode.");
             Assert.AreEqual(startEncounterButton, wiredStart, "Resolved start button should match serialized reference.");
             Assert.AreEqual(endEncounterButton, wiredEnd, "Resolved end button should match serialized reference.");
+            Assert.AreEqual(InitiativeCheckMode.Perception, initiativeMode, "Encounter default initiative mode should be Perception.");
 
             yield return null;
         }
@@ -181,6 +183,35 @@ namespace PF2e.Tests
                 if (templateRoot != null)
                     UnityEngine.Object.Destroy(templateRoot);
             }
+        }
+
+        [UnityTest]
+        public IEnumerator GT_P31_PM_420_StartButton_UsesConfiguredSkillInitiativeMode()
+        {
+            SetPrivateField(encounterFlowController, "initiativeCheckMode", InitiativeCheckMode.Skill);
+            SetPrivateField(encounterFlowController, "initiativeSkill", SkillType.Stealth);
+
+            Assert.AreEqual(TurnState.Inactive, turnManager.State);
+            startEncounterButton.onClick.Invoke();
+
+            yield return WaitUntilOrTimeout(
+                () => turnManager.State == TurnState.PlayerTurn || turnManager.State == TurnState.EnemyTurn,
+                TimeoutSeconds,
+                "Start Encounter button did not start combat in skill-initiative test.");
+
+            var order = turnManager.InitiativeOrder;
+            Assert.Greater(order.Count, 0);
+            for (int i = 0; i < order.Count; i++)
+            {
+                Assert.AreEqual(CheckSourceType.Skill, order[i].Roll.source.type);
+                Assert.AreEqual(SkillType.Stealth, order[i].Roll.source.skill);
+            }
+
+            endEncounterButton.onClick.Invoke();
+            yield return WaitUntilOrTimeout(
+                () => turnManager.State == TurnState.Inactive,
+                TimeoutSeconds,
+                "End Encounter did not return turn manager to Inactive in skill-initiative test.");
         }
 
         private static bool TryResolveButtons(out Button startButton, out Button endButton)

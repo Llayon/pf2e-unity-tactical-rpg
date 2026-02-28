@@ -95,6 +95,8 @@ namespace PF2e.TurnSystem
         public bool IsDelayPlacementSelectionOpen => delayPlacementSelectionOpen;
 
         public int DelayedActorCount => delayedTurns.Count;
+        public InitiativeCheckMode InitiativeMode => initiativeCheckMode;
+        public SkillType InitiativeSkill => initiativeSkill;
 
         public bool IsDelayReturnWindowOpen => state == TurnState.DelayReturnWindow;
 
@@ -123,10 +125,22 @@ namespace PF2e.TurnSystem
             initiativeRng = rng ?? UnityRng.Shared;
         }
 
-        internal void SetInitiativeCheckModeForTesting(InitiativeCheckMode mode, SkillType skill)
+        public bool ConfigureInitiativeChecks(InitiativeCheckMode mode, SkillType skill = SkillType.Stealth)
         {
+            if (state != TurnState.Inactive)
+            {
+                Debug.LogWarning("[TurnManager] ConfigureInitiativeChecks ignored because combat is active.");
+                return false;
+            }
+
             initiativeCheckMode = mode;
             initiativeSkill = skill;
+            return true;
+        }
+
+        internal void SetInitiativeCheckModeForTesting(InitiativeCheckMode mode, SkillType skill)
+        {
+            ConfigureInitiativeChecks(mode, skill);
         }
 
         // ─── Events ───────────────────────────────────────────────────────────
