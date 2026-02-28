@@ -297,12 +297,10 @@ namespace PF2e.Presentation
                 return;
 
             var overridesById = new Dictionary<string, InitiativeActorOverride>(System.StringComparer.OrdinalIgnoreCase);
-            var overridesByLegacyName = new Dictionary<string, InitiativeActorOverride>(System.StringComparer.OrdinalIgnoreCase);
             for (int i = 0; i < actorInitiativeOverrides.Count; i++)
             {
                 var entry = actorInitiativeOverrides[i];
                 string actorId = NormalizeKey(entry.actorId);
-                string actorName = NormalizeKey(entry.actorName);
 
                 if (!string.IsNullOrEmpty(actorId))
                 {
@@ -310,56 +308,28 @@ namespace PF2e.Presentation
                     continue;
                 }
 
-                if (!string.IsNullOrEmpty(actorName))
-                {
-                    Debug.LogWarning($"[EncounterFlow] Initiative override uses legacy actorName '{actorName}'. Prefer actorId.", this);
-                    overridesByLegacyName[actorName] = entry;
-                    continue;
-                }
-
-                Debug.LogWarning("[EncounterFlow] Initiative override entry has no actorId/actorName key and will be ignored.", this);
+                Debug.LogWarning($"[EncounterFlow] Initiative override entry #{i} has empty actorId and was ignored.", this);
             }
 
             foreach (var entity in entityManager.Registry.GetAll())
             {
-                if (entity == null || string.IsNullOrWhiteSpace(entity.Name))
+                if (entity == null)
                     continue;
 
                 string actorId = NormalizeKey(entity.EncounterActorId);
-                string actorName = NormalizeKey(entity.Name);
-
-                if (string.IsNullOrEmpty(actorId) && !string.IsNullOrEmpty(actorName))
-                {
-                    // Migration helper: if actorId is not set on the entity yet, fallback to Name lookup for id-based entries.
-                    actorId = actorName;
-                }
-
-                InitiativeActorOverride entry = default;
-                bool found = false;
-
-                if (!string.IsNullOrEmpty(actorId) && overridesById.TryGetValue(actorId, out entry))
-                {
-                    overridesById.Remove(actorId);
-                    found = true;
-                }
-                else if (!string.IsNullOrEmpty(actorName) && overridesByLegacyName.TryGetValue(actorName, out entry))
-                {
-                    overridesByLegacyName.Remove(actorName);
-                    found = true;
-                }
-
-                if (!found)
+                if (string.IsNullOrEmpty(actorId))
                     continue;
 
+                if (!overridesById.TryGetValue(actorId, out InitiativeActorOverride entry))
+                    continue;
+
+                overridesById.Remove(actorId);
                 entity.UseInitiativeSkillOverride = entry.useSkillOverride;
                 entity.InitiativeSkillOverride = entry.skill;
             }
 
             foreach (var missingId in overridesById.Keys)
                 Debug.LogWarning($"[EncounterFlow] Initiative override actorId not found: '{missingId}'.", this);
-
-            foreach (var missingName in overridesByLegacyName.Keys)
-                Debug.LogWarning($"[EncounterFlow] Initiative override actorName not found: '{missingName}'.", this);
         }
 
         private static string NormalizeKey(string value)

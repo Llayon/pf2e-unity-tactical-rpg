@@ -9,8 +9,6 @@ namespace PF2e.Data
     public struct InitiativeActorOverride
     {
         public string actorId;
-        // Legacy authoring key. Keep temporary fallback to avoid breaking older preset data.
-        public string actorName;
         public bool useSkillOverride;
         public SkillType skill;
     }
