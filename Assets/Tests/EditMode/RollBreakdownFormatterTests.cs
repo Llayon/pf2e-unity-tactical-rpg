@@ -36,5 +36,27 @@ namespace PF2e.Tests
 
             Assert.AreEqual("Intimidation vs Will DC", text);
         }
+
+        [Test]
+        public void FormatStrikeAttackBreakdown_IncludesOptionalTokens()
+        {
+            string text = RollBreakdownFormatter.FormatStrikeAttackBreakdown(
+                attackBonus: 9,
+                mapPenalty: -5,
+                rangePenalty: -2,
+                volleyPenalty: -2);
+
+            Assert.AreEqual("atk(9) + MAP(-5) + RNG(-2) + VOLLEY(-2)", text);
+        }
+
+        [Test]
+        public void FormatDefenseWithCover_HidesCoverWhenZero()
+        {
+            string withoutCover = RollBreakdownFormatter.FormatDefenseWithCover(CheckSource.Custom("AC"), 18, 0);
+            string withCover = RollBreakdownFormatter.FormatDefenseWithCover(CheckSource.Custom("AC"), 18, 2);
+
+            Assert.AreEqual("AC 18", withoutCover);
+            Assert.AreEqual("AC 18 + COVER(+2)", withCover);
+        }
     }
 }

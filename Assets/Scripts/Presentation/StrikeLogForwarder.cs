@@ -55,9 +55,8 @@ namespace PF2e.Presentation
             eventBus.Publish(e.attacker,
                 $"strikes {targetName} with {e.weaponName} — " +
                 $"{RollBreakdownFormatter.FormatRoll(e.attackRoll)} " +
-                $"[{BuildAttackBreakdown(e)}] " +
-                $"vs {e.defenseSource.ToShortLabel()} {e.dc}" +
-                (e.coverAcBonus != 0 ? $" + COVER({e.coverAcBonus:+#;-#;0})" : string.Empty) +
+                $"[{RollBreakdownFormatter.FormatStrikeAttackBreakdown(e.attackBonus, e.mapPenalty, e.rangePenalty, e.volleyPenalty)}] " +
+                $"vs {RollBreakdownFormatter.FormatDefenseWithCover(e.defenseSource, e.dc, e.coverAcBonus)}" +
                 $" → {e.acDegree}",
                 CombatLogCategory.Attack);
 
@@ -148,14 +147,6 @@ namespace PF2e.Presentation
             return acDegree == DegreeOfSuccess.CriticalSuccess
                 ? "would critically hit"
                 : "would hit";
-        }
-
-        private static string BuildAttackBreakdown(in StrikeResolvedEvent e)
-        {
-            return
-                $"atk({e.attackBonus}) + MAP({e.mapPenalty})" +
-                (e.rangePenalty != 0 ? $" + RNG({e.rangePenalty})" : string.Empty) +
-                (e.volleyPenalty != 0 ? $" + VOLLEY({e.volleyPenalty})" : string.Empty);
         }
     }
 }

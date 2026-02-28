@@ -7,6 +7,8 @@ namespace PF2e.Presentation
     /// </summary>
     public static class RollBreakdownFormatter
     {
+        private const string CoverFormat = "+#;-#;0";
+
         public static string FormatRoll(in CheckRoll roll)
         {
             return $"{roll.source.ToShortLabel()} d20({roll.naturalRoll}) {FormatSigned(roll.modifier)} = {roll.total}";
@@ -20,6 +22,25 @@ namespace PF2e.Presentation
         public static string FormatCheckVsDcLabel(in CheckSource offenseSource, in CheckSource defenseSource)
         {
             return $"{FormatUiSource(offenseSource)} vs {FormatUiSource(defenseSource)} DC";
+        }
+
+        public static string FormatStrikeAttackBreakdown(
+            int attackBonus,
+            int mapPenalty,
+            int rangePenalty,
+            int volleyPenalty)
+        {
+            return
+                $"atk({attackBonus}) + MAP({mapPenalty})" +
+                (rangePenalty != 0 ? $" + RNG({rangePenalty})" : string.Empty) +
+                (volleyPenalty != 0 ? $" + VOLLEY({volleyPenalty})" : string.Empty);
+        }
+
+        public static string FormatDefenseWithCover(in CheckSource defenseSource, int dc, int coverAcBonus)
+        {
+            return
+                $"{defenseSource.ToShortLabel()} {dc}" +
+                (coverAcBonus != 0 ? $" + COVER({coverAcBonus.ToString(CoverFormat)})" : string.Empty);
         }
 
         public static string FormatSigned(int value)
