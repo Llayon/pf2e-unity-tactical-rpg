@@ -197,6 +197,46 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void TurnManager_StartCombat_Warns_WhenAliveCombatantHasEmptyEncounterActorId()
+        {
+            var turnManagerGo = new GameObject("TM_Initiative_MissingActorId_TurnManager");
+            var entityManagerGo = new GameObject("TM_Initiative_MissingActorId_EntityManager");
+
+            try
+            {
+                var turnManager = turnManagerGo.AddComponent<TurnManager>();
+                LogAssert.Expect(LogType.Error, "[EntityManager] Missing reference: GridManager. Assign it in Inspector.");
+                var entityManager = entityManagerGo.AddComponent<EntityManager>();
+                var registry = new EntityRegistry();
+
+                SetPrivateField(turnManager, "entityManager", entityManager);
+                SetAutoPropertyBackingField(entityManager, "Registry", registry);
+
+                var player = CreateEntity("Player", Team.Player, wisdom: 10);
+                player.EncounterActorId = "   ";
+                registry.Register(player);
+
+                var enemy = CreateEntity("Enemy", Team.Enemy, wisdom: 10);
+                registry.Register(enemy);
+
+                LogAssert.Expect(
+                    LogType.Warning,
+                    "[TurnManager] Initiative actor 'Player' (Player) has empty EncounterActorId. Encounter actorId overrides cannot target this actor.");
+
+                turnManager.StartCombat();
+
+                Assert.GreaterOrEqual(turnManager.InitiativeOrder.Count, 2);
+            }
+            finally
+            {
+                if (turnManagerGo != null)
+                    Object.DestroyImmediate(turnManagerGo);
+                if (entityManagerGo != null)
+                    Object.DestroyImmediate(entityManagerGo);
+            }
+        }
+
+        [Test]
         public void TurnManager_ConfigureInitiativeChecks_ReturnsFalse_WhenCombatActive()
         {
             var context = CreateCombatContext("TM_Initiative_ConfigActive");
@@ -846,6 +886,7 @@ namespace PF2e.Tests
             return new EntityData
             {
                 Name = name,
+                EncounterActorId = NormalizeActorId(name),
                 Team = team,
                 MaxHP = 30,
                 CurrentHP = 30,
@@ -857,6 +898,14 @@ namespace PF2e.Tests
                 Wisdom = wisdom,
                 Charisma = 10
             };
+        }
+
+        private static string NormalizeActorId(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return string.Empty;
+
+            return name.Trim().ToLowerInvariant().Replace(" ", "_");
         }
 
         private static void SetPrivateField(object target, string fieldName, object value)

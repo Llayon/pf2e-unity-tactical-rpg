@@ -214,6 +214,7 @@ namespace PF2e.TurnSystem
             ResetActionExecutionTracking();
             ResetDelayState();
             ResolveEventBusIfMissing();
+            WarnMissingEncounterActorIdsOnCombatStart();
 
             state = TurnState.RollingInitiative;
             RollInitiative();
@@ -641,6 +642,29 @@ namespace PF2e.TurnSystem
                     $"  {i + 1}. {n} — d20: {e.Roll.naturalRoll}, Mod: {e.Roll.modifier}, Total: {e.Total}, Source: {e.Roll.source.ToShortLabel()}");
             }
             Debug.Log(sb.ToString());
+        }
+
+        private void WarnMissingEncounterActorIdsOnCombatStart()
+        {
+            foreach (var data in entityManager.Registry.GetAll())
+            {
+                if (data == null || !data.IsAlive)
+                    continue;
+
+                if (data.Team != Team.Player && data.Team != Team.Enemy)
+                    continue;
+
+                if (!string.IsNullOrWhiteSpace(data.EncounterActorId))
+                    continue;
+
+                string actorName = string.IsNullOrWhiteSpace(data.Name)
+                    ? $"Entity#{data.Handle.Id}"
+                    : data.Name;
+
+                Debug.LogWarning(
+                    $"[TurnManager] Initiative actor '{actorName}' ({data.Team}) has empty EncounterActorId. " +
+                    "Encounter actorId overrides cannot target this actor.");
+            }
         }
 
         private CheckRoll RollInitiativeForActor(EntityData actor)
