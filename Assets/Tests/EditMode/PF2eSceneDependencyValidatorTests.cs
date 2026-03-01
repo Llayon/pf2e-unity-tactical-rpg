@@ -6,10 +6,12 @@ using System.Text.RegularExpressions;
 using NUnit.Framework;
 using PF2e.Core;
 using PF2e.Presentation;
+using PF2e.TurnSystem;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace PF2e.Tests
 {
@@ -51,6 +53,34 @@ namespace PF2e.Tests
                 "SampleScene must contain TurnUIController.");
             Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<CombatLogController>(),
                 "SampleScene must contain CombatLogController.");
+        }
+
+        [Test]
+        public void SampleScene_AidUiAndExecutor_Wired()
+        {
+            Assert.IsTrue(System.IO.File.Exists(SampleScenePath), $"Missing scene: {SampleScenePath}");
+
+            EditorSceneManager.OpenScene(SampleScenePath, OpenSceneMode.Single);
+
+            var eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
+            var actionBar = UnityEngine.Object.FindFirstObjectByType<ActionBarController>();
+            var executor = UnityEngine.Object.FindFirstObjectByType<PlayerActionExecutor>();
+            var aidAction = UnityEngine.Object.FindFirstObjectByType<AidAction>();
+
+            Assert.IsNotNull(eventBus, "SampleScene must contain CombatEventBus.");
+            Assert.IsNotNull(actionBar, "SampleScene must contain ActionBarController.");
+            Assert.IsNotNull(executor, "SampleScene must contain PlayerActionExecutor.");
+            Assert.IsNotNull(aidAction, "SampleScene must contain AidAction.");
+
+            var aidButton = GetPrivateField<Button>(actionBar, "aidButton");
+            var aidHighlight = GetPrivateField<Image>(actionBar, "aidHighlight");
+            Assert.AreEqual("AidButton", aidButton.gameObject.name, "ActionBarController.aidButton must point to AidButton.");
+            Assert.AreEqual("ActiveHighlight", aidHighlight.gameObject.name, "ActionBarController.aidHighlight must point to ActiveHighlight child.");
+
+            var wiredAidAction = GetPrivateField<AidAction>(executor, "aidAction");
+            var wiredEventBus = GetPrivateField<CombatEventBus>(executor, "eventBus");
+            Assert.AreSame(aidAction, wiredAidAction, "PlayerActionExecutor.aidAction must be wired.");
+            Assert.AreSame(eventBus, wiredEventBus, "PlayerActionExecutor.eventBus must be wired.");
         }
 
         [Test]
