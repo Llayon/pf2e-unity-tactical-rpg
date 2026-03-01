@@ -9,7 +9,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Secondary wiring-validation scene: `Assets/Scenes/EncounterFlowPrefabScene.unity` (prefab-driven encounter flow UI fallback).
 - Player can: start combat, move (Stride), Strike, Trip, Shove, Grapple, Escape, Demoralize, Reposition, Delay, Stand, Raise Shield, end turn.
 - Enemy side takes turns via simple melee AI (stand if prone, stride toward nearest player, strike in range; if no same-floor targets exist, target selection now falls back to any elevation).
-- Combat presents: turn HUD, initiative bar, combat log (pooled TMP lines, wrap-aware row heights, retention cap `maxLines=80` with notice), floating damage, modal Shield Block reaction prompt, and end-of-encounter panel.
+- Combat presents: turn HUD, initiative bar, combat log (pooled TMP lines, wrap-aware row heights, default retention cap `maxLines=80` with notice, optional unlimited mode via `maxLines <= 0`), floating damage, modal Shield Block reaction prompt, and end-of-encounter panel.
 - Basic PF2e rules included: 3-action economy, MAP, weapon-aware strike check (melee/ranged, ranged LoS/cover/concealment MVP), damage roll, simple conditions.
 
 ## Architecture Snapshot
@@ -164,7 +164,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Reposition contract (MVP): `RepositionAction` uses a two-step flow (target select -> check -> destination cell only on success/crit success); `Esc` in destination phase means "no move, action spent" and forced movement can be 0 ft.
 - Targeting preview contract: `TargetingController.PreviewEntityDetailed(...)` is the canonical source for target feedback/tints/hint text; UI layers must not duplicate action validation.
 - Targeting feedback contract: `GridInteraction` publishes hovered entity transitions through `GridManager` hover events; `TargetingFeedbackController`/`TargetingHintController` are event-driven (no per-frame full validation scan).
-- Combat log retention contract: `CombatLogController` keeps only last `maxLines` entries (currently 80) by recycling oldest pooled rows; older entries are intentionally dropped and communicated via retention notice label text.
+- Combat log retention contract: `CombatLogController` keeps only last `maxLines` entries when `maxLines > 0` (default 80) by recycling oldest pooled rows and showing retention notice text; when `maxLines <= 0`, retention is unlimited and cap notice is hidden.
 - Combat log layout contract: each line row height must track TMP preferred wrapped height; pooled rows must be re-parented as last sibling on reuse to preserve scroll order.
 - Input/UI gate contract: when pointer is over UI, `GridInteraction` must ignore hover/click world interaction and `TacticalCameraController` must ignore wheel zoom input.
 - Generic damage UX contract: non-strike damage uses `DamageAppliedEvent`; `FloatingDamageUI`/`DamageLogForwarder` subscribe to this path. Strike damage still uses `OnStrikeResolved` path until an explicit strike migration is done (avoid duplicate UI/log lines).
@@ -209,7 +209,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 ## Next 3 Recommended Tasks (Small, High Value)
 1. Add dedicated scene/autofix regression coverage to assert `DelayUiOrchestrator` auto-create path and field wiring details (not only component presence).
 2. Add explicit UI path for non-planned Delay (manual-delay click flow) so expiry tests can be fully pointer-driven end-to-end without API setup.
-3. Decide whether combat log should remain hard-capped (`maxLines=80`) or gain optional extended history (virtualized scrollback/export) before content scale increases.
+3. Evaluate virtualization/export strategy for very long combat logs in unlimited mode (`maxLines <= 0`) to avoid unbounded UI memory growth in content-heavy encounters.
 
 ## LLM-First Delivery Workflow (Multi-Agent)
 ### Operating Model (for non-programmer project owner)
