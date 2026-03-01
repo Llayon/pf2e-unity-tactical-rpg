@@ -145,6 +145,48 @@ namespace PF2e.Tests
             }
         }
 
+        [Test]
+        public void SkillCheckResolved_WithAidBonus_AppendsAidToken()
+        {
+            using var ctx = new SkillCheckLogContext();
+
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            var target = ctx.RegisterEntity("Goblin_1", Team.Enemy);
+
+            var ev = new SkillCheckResolvedEvent(
+                actor,
+                target,
+                SkillType.Athletics,
+                roll: new CheckRoll(11, 8, CheckSource.Skill(SkillType.Athletics)),
+                defenseSource: CheckSource.Save(SaveType.Fortitude),
+                dc: 17,
+                degree: DegreeOfSuccess.Success,
+                actionName: "Trip",
+                aidCircumstanceBonus: 2);
+
+            int count = 0;
+            CombatLogEntry last = default;
+            ctx.EventBus.OnLogEntry += HandleLog;
+
+            try
+            {
+                ctx.EventBus.PublishSkillCheckResolved(in ev);
+
+                Assert.AreEqual(1, count);
+                StringAssert.Contains("AID(+2)", last.Message);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry)
+            {
+                count++;
+                last = entry;
+            }
+        }
+
         private sealed class SkillCheckLogContext : System.IDisposable
         {
             private readonly bool oldIgnoreLogs;

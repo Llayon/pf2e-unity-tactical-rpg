@@ -57,7 +57,7 @@ namespace PF2e.TurnSystem
             return GetDemoralizeTargetFailure(actor, target) == TargetingFailureReason.None;
         }
 
-        public DegreeOfSuccess? TryDemoralize(EntityHandle actor, EntityHandle target, IRng rng = null)
+        public DegreeOfSuccess? TryDemoralize(EntityHandle actor, EntityHandle target, IRng rng = null, int aidCircumstanceBonus = 0)
         {
             if (!CanDemoralize(actor, target)) return null;
             if (entityManager == null || entityManager.Registry == null) return null;
@@ -68,7 +68,7 @@ namespace PF2e.TurnSystem
 
             rng ??= UnityRng.Shared;
 
-            int modifier = actorData.GetSkillModifier(SkillType.Intimidation);
+            int modifier = actorData.GetSkillModifier(SkillType.Intimidation) + aidCircumstanceBonus;
             int dc = targetData.GetSaveDC(SaveType.Will);
             var result = CheckResolver.RollCheck(modifier, dc, CheckSource.Skill(SkillType.Intimidation), rng);
 
@@ -102,7 +102,8 @@ namespace PF2e.TurnSystem
                     result.dc,
                     result.degree,
                     ActionName,
-                    opposedProjection);
+                    opposedProjection,
+                    aidCircumstanceBonus);
                 eventBus.PublishSkillCheckResolved(in ev);
             }
 

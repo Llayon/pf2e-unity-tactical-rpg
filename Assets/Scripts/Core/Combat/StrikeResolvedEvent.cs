@@ -21,6 +21,7 @@ namespace PF2e.Core
         public readonly int mapPenalty;
         public readonly int rangePenalty;
         public readonly int volleyPenalty;
+        public readonly int aidCircumstanceBonus;
         public readonly int coverAcBonus;
         public readonly int total;
         public readonly int dc;
@@ -54,6 +55,7 @@ namespace PF2e.Core
             bool targetDefeated,
             int rangePenalty = 0,
             int volleyPenalty = 0,
+            int aidCircumstanceBonus = 0,
             int coverAcBonus = 0,
             int fatalBonusDamage = 0,
             int deadlyBonusDamage = 0,
@@ -69,7 +71,7 @@ namespace PF2e.Core
             this.attacker = attacker;
             this.target = target;
             this.weaponName = weaponName;
-            int attackModifier = attackBonus + mapPenalty + rangePenalty + volleyPenalty;
+            int attackModifier = attackBonus + mapPenalty + rangePenalty + volleyPenalty + aidCircumstanceBonus;
             this.attackRoll = new CheckRoll(naturalRoll, attackModifier, AttackSource);
             this.defenseSource = DefenseSource;
             this.concealmentRoll = concealmentCheckRequired
@@ -80,6 +82,7 @@ namespace PF2e.Core
             this.mapPenalty = mapPenalty;
             this.rangePenalty = rangePenalty;
             this.volleyPenalty = volleyPenalty;
+            this.aidCircumstanceBonus = aidCircumstanceBonus;
             this.coverAcBonus = coverAcBonus;
             this.total = total;
             this.dc = dc;
@@ -130,6 +133,7 @@ namespace PF2e.Core
                 targetDefeated,
                 rangePenalty: 0,
                 volleyPenalty: 0,
+                aidCircumstanceBonus: 0,
                 coverAcBonus: 0,
                 fatalBonusDamage: 0,
                 deadlyBonusDamage: 0,

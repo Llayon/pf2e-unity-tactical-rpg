@@ -23,14 +23,18 @@ namespace PF2e.TurnSystem
 
         public bool TryStrike(EntityHandle attacker, EntityHandle target)
         {
-            var phase = ResolveAttackRoll(attacker, target, UnityRng.Shared);
+            var phase = ResolveAttackRoll(attacker, target, UnityRng.Shared, aidCircumstanceBonus: 0);
             if (!phase.HasValue) return false;
 
             var resolved = DetermineHitAndDamage(phase.Value, target, UnityRng.Shared);
             return ApplyStrikeDamage(resolved, damageReduction: 0);
         }
 
-        public StrikePhaseResult? ResolveAttackRoll(EntityHandle attacker, EntityHandle target, IRng rng)
+        public StrikePhaseResult? ResolveAttackRoll(
+            EntityHandle attacker,
+            EntityHandle target,
+            IRng rng,
+            int aidCircumstanceBonus = 0)
         {
             if (!attacker.IsValid || !target.IsValid) return null;
             if (!TryGetParticipants(attacker, target, out var attackerData, out var targetData))
@@ -46,7 +50,7 @@ namespace PF2e.TurnSystem
             int mapPenalty = attackerData.GetMAPPenalty(attackerData.EquippedWeapon);
             int rangePenalty = ComputeRangedStrikePenalty(attackerData, targetData);
             int volleyPenalty = ComputeVolleyPenalty(attackerData, targetData);
-            int total = naturalRoll + attackBonus + mapPenalty + rangePenalty + volleyPenalty;
+            int total = naturalRoll + attackBonus + mapPenalty + rangePenalty + volleyPenalty + aidCircumstanceBonus;
 
             // Contract: MAP increments once per strike attempt at phase 1.
             attackerData.MAPCount++;
@@ -60,7 +64,8 @@ namespace PF2e.TurnSystem
                 mapPenalty,
                 total,
                 rangePenalty,
-                volleyPenalty);
+                volleyPenalty,
+                aidCircumstanceBonus);
         }
 
         public StrikePhaseResult DetermineHitAndDamage(StrikePhaseResult phase, EntityHandle target, IRng rng)
@@ -221,6 +226,7 @@ namespace PF2e.TurnSystem
                 mapPenalty: phase.mapPenalty,
                 rangePenalty: phase.rangePenalty,
                 volleyPenalty: phase.volleyPenalty,
+                aidCircumstanceBonus: phase.aidCircumstanceBonus,
                 coverAcBonus: phase.coverAcBonus,
                 total: phase.total,
                 dc: phase.dc,

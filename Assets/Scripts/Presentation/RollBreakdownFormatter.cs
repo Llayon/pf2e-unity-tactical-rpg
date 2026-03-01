@@ -28,12 +28,14 @@ namespace PF2e.Presentation
             int attackBonus,
             int mapPenalty,
             int rangePenalty,
-            int volleyPenalty)
+            int volleyPenalty,
+            int aidCircumstanceBonus = 0)
         {
             return
                 $"atk({attackBonus}) + MAP({mapPenalty})" +
                 (rangePenalty != 0 ? $" + RNG({rangePenalty})" : string.Empty) +
-                (volleyPenalty != 0 ? $" + VOLLEY({volleyPenalty})" : string.Empty);
+                (volleyPenalty != 0 ? $" + VOLLEY({volleyPenalty})" : string.Empty) +
+                (aidCircumstanceBonus != 0 ? $" + AID({FormatSigned(aidCircumstanceBonus)})" : string.Empty);
         }
 
         public static string FormatDefenseWithCover(in CheckSource defenseSource, int dc, int coverAcBonus)

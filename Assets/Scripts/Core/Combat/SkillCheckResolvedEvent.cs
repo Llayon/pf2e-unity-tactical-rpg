@@ -14,6 +14,7 @@ namespace PF2e.Core
         public readonly int dc;
         public readonly DegreeOfSuccess degree;
         public readonly string actionName;
+        public readonly int aidCircumstanceBonus;
         public readonly bool hasOpposedProjection;
         public readonly OpposedCheckResult opposedProjection;
 
@@ -30,7 +31,8 @@ namespace PF2e.Core
             in CheckSource defenseSource,
             int dc,
             DegreeOfSuccess degree,
-            string actionName)
+            string actionName,
+            int aidCircumstanceBonus = 0)
         {
             this.actor = actor;
             this.target = target;
@@ -40,6 +42,7 @@ namespace PF2e.Core
             this.dc = dc;
             this.degree = degree;
             this.actionName = actionName;
+            this.aidCircumstanceBonus = aidCircumstanceBonus;
             hasOpposedProjection = false;
             opposedProjection = default;
         }
@@ -53,7 +56,8 @@ namespace PF2e.Core
             int dc,
             DegreeOfSuccess degree,
             string actionName,
-            in OpposedCheckResult opposedProjection)
+            in OpposedCheckResult opposedProjection,
+            int aidCircumstanceBonus = 0)
         {
             this.actor = actor;
             this.target = target;
@@ -63,6 +67,7 @@ namespace PF2e.Core
             this.dc = dc;
             this.degree = degree;
             this.actionName = actionName;
+            this.aidCircumstanceBonus = aidCircumstanceBonus;
             hasOpposedProjection = true;
             this.opposedProjection = opposedProjection;
         }

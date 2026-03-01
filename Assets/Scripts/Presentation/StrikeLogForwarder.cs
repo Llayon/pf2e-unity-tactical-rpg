@@ -55,7 +55,7 @@ namespace PF2e.Presentation
             eventBus.Publish(e.attacker,
                 $"strikes {targetName} with {e.weaponName} — " +
                 $"{RollBreakdownFormatter.FormatRoll(e.attackRoll)} " +
-                $"[{RollBreakdownFormatter.FormatStrikeAttackBreakdown(e.attackBonus, e.mapPenalty, e.rangePenalty, e.volleyPenalty)}] " +
+                $"[{RollBreakdownFormatter.FormatStrikeAttackBreakdown(e.attackBonus, e.mapPenalty, e.rangePenalty, e.volleyPenalty, e.aidCircumstanceBonus)}] " +
                 $"vs {RollBreakdownFormatter.FormatDefenseWithCover(e.defenseSource, e.dc, e.coverAcBonus)}" +
                 $" → {e.acDegree}",
                 CombatLogCategory.Attack);

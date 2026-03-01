@@ -54,6 +54,24 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void StrikePhaseResult_FromAttackRoll_WithAidBonus_IncludesAidInAttackRollModifier()
+        {
+            var result = StrikePhaseResult.FromAttackRoll(
+                new EntityHandle(1),
+                new EntityHandle(2),
+                "Sword",
+                naturalRoll: 10,
+                attackBonus: 6,
+                mapPenalty: -5,
+                total: 12,
+                aidCircumstanceBonus: 1);
+
+            Assert.AreEqual(1, result.aidCircumstanceBonus);
+            Assert.AreEqual(2, result.attackRoll.modifier, "Attack roll modifier should include aid circumstance bonus.");
+            Assert.AreEqual(12, result.attackRoll.total);
+        }
+
+        [Test]
         public void StrikePhaseResult_WithHitAndDamage_PreservesPreHitFields()
         {
             var baseResult = StrikePhaseResult.FromAttackRoll(
@@ -134,6 +152,28 @@ namespace PF2e.Tests
             Assert.AreEqual(1, attackerData.MAPCount);
             Assert.AreEqual(0, result.dc);
             Assert.IsFalse(result.damageDealt);
+        }
+
+        [Test]
+        public void ResolveAttackRoll_WithAidBonus_AddsToTotalAndPayload()
+        {
+            using var ctx = new StrikeContext();
+            var weapon = ctx.CreateWeaponDef();
+
+            var attacker = ctx.RegisterEntity(Team.Player, new Vector3Int(0, 0, 0), weaponDef: weapon, level: 1, strength: 10);
+            var target = ctx.RegisterEntity(Team.Enemy, new Vector3Int(1, 0, 0), weaponDef: weapon, level: 1, strength: 10);
+
+            var attackerData = ctx.Registry.Get(attacker);
+            int expectedAttackBonus = attackerData.GetAttackBonus(attackerData.EquippedWeapon);
+            int expectedMap = attackerData.GetMAPPenalty(attackerData.EquippedWeapon);
+
+            var phase = ctx.StrikeAction.ResolveAttackRoll(attacker, target, new FixedRng(new[] { 12 }), aidCircumstanceBonus: 2);
+            Assert.IsTrue(phase.HasValue);
+
+            var result = phase.Value;
+            Assert.AreEqual(2, result.aidCircumstanceBonus);
+            Assert.AreEqual(12 + expectedAttackBonus + expectedMap + 2, result.total);
+            Assert.AreEqual(expectedAttackBonus + expectedMap + 2, result.attackRoll.modifier);
         }
 
         [Test]

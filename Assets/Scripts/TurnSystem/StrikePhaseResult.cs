@@ -22,6 +22,7 @@ namespace PF2e.TurnSystem
         public readonly int mapPenalty;
         public readonly int rangePenalty;
         public readonly int volleyPenalty;
+        public readonly int aidCircumstanceBonus;
         public readonly int coverAcBonus;
         public readonly int total;
         public readonly int dc;
@@ -45,6 +46,7 @@ namespace PF2e.TurnSystem
             int mapPenalty,
             int rangePenalty,
             int volleyPenalty,
+            int aidCircumstanceBonus,
             int coverAcBonus,
             int total,
             int dc,
@@ -62,7 +64,7 @@ namespace PF2e.TurnSystem
             this.attacker = attacker;
             this.target = target;
             this.weaponName = weaponName;
-            int attackModifier = attackBonus + mapPenalty + rangePenalty + volleyPenalty;
+            int attackModifier = attackBonus + mapPenalty + rangePenalty + volleyPenalty + aidCircumstanceBonus;
             this.attackRoll = new CheckRoll(naturalRoll, attackModifier, AttackSource);
             this.defenseSource = DefenseSource;
             this.concealmentRoll = concealmentCheckRequired
@@ -73,6 +75,7 @@ namespace PF2e.TurnSystem
             this.mapPenalty = mapPenalty;
             this.rangePenalty = rangePenalty;
             this.volleyPenalty = volleyPenalty;
+            this.aidCircumstanceBonus = aidCircumstanceBonus;
             this.coverAcBonus = coverAcBonus;
             this.total = total;
             this.dc = dc;
@@ -97,7 +100,8 @@ namespace PF2e.TurnSystem
             int mapPenalty,
             int total,
             int rangePenalty = 0,
-            int volleyPenalty = 0)
+            int volleyPenalty = 0,
+            int aidCircumstanceBonus = 0)
         {
             return new StrikePhaseResult(
                 attacker,
@@ -108,6 +112,7 @@ namespace PF2e.TurnSystem
                 mapPenalty,
                 rangePenalty,
                 volleyPenalty,
+                aidCircumstanceBonus,
                 coverAcBonus: 0,
                 total,
                 dc: 0,
@@ -150,6 +155,7 @@ namespace PF2e.TurnSystem
                 mapPenalty,
                 rangePenalty,
                 volleyPenalty,
+                aidCircumstanceBonus,
                 coverAcBonus,
                 total,
                 dc,

@@ -69,7 +69,7 @@ namespace PF2e.TurnSystem
             return GetShoveTargetFailure(actor, target) == TargetingFailureReason.None;
         }
 
-        public DegreeOfSuccess? TryShove(EntityHandle actor, EntityHandle target, IRng rng = null)
+        public DegreeOfSuccess? TryShove(EntityHandle actor, EntityHandle target, IRng rng = null, int aidCircumstanceBonus = 0)
         {
             if (!CanShove(actor, target)) return null;
             if (entityManager == null || entityManager.Registry == null) return null;
@@ -82,7 +82,7 @@ namespace PF2e.TurnSystem
 
             int skillModifier = actorData.GetSkillModifier(SkillType.Athletics);
             int mapPenalty = actorData.GetMAPPenalty(actorData.EquippedWeapon);
-            int effectiveModifier = skillModifier + mapPenalty;
+            int effectiveModifier = skillModifier + mapPenalty + aidCircumstanceBonus;
 
             // Shove has the Attack trait and increases MAP after the attempt is declared.
             actorData.MAPCount++;
@@ -125,7 +125,8 @@ namespace PF2e.TurnSystem
                     result.dc,
                     result.degree,
                     ActionName,
-                    opposedProjection);
+                    opposedProjection,
+                    aidCircumstanceBonus);
                 eventBus.PublishSkillCheckResolved(in ev);
             }
 

@@ -60,7 +60,7 @@ namespace PF2e.TurnSystem
             return GetTripTargetFailure(actor, target) == TargetingFailureReason.None;
         }
 
-        public DegreeOfSuccess? TryTrip(EntityHandle actor, EntityHandle target, IRng rng = null)
+        public DegreeOfSuccess? TryTrip(EntityHandle actor, EntityHandle target, IRng rng = null, int aidCircumstanceBonus = 0)
         {
             if (!CanTrip(actor, target)) return null;
             if (entityManager == null || entityManager.Registry == null) return null;
@@ -73,7 +73,7 @@ namespace PF2e.TurnSystem
 
             int skillModifier = actorData.GetSkillModifier(SkillType.Athletics);
             int mapPenalty = actorData.GetMAPPenalty(actorData.EquippedWeapon);
-            int effectiveModifier = skillModifier + mapPenalty;
+            int effectiveModifier = skillModifier + mapPenalty + aidCircumstanceBonus;
 
             // Trip has the Attack trait and increases MAP after the attempt is declared.
             actorData.MAPCount++;
@@ -117,7 +117,8 @@ namespace PF2e.TurnSystem
                     result.dc,
                     result.degree,
                     ActionName,
-                    opposedProjection);
+                    opposedProjection,
+                    aidCircumstanceBonus);
                 eventBus.PublishSkillCheckResolved(in ev);
             }
 

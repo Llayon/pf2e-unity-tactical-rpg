@@ -18,6 +18,7 @@ namespace PF2e.TurnSystem
         [Header("Dependencies (Inspector-only)")]
         [SerializeField] private TurnManager turnManager;
         [SerializeField] private EntityManager entityManager;
+        [SerializeField] private CombatEventBus eventBus;
         [SerializeField] private StrideAction strideAction;
         [SerializeField] private StrikeAction strikeAction;
         [SerializeField] private StandAction standAction;
@@ -49,6 +50,7 @@ namespace PF2e.TurnSystem
         {
             if (turnManager == null) Debug.LogError("[Executor] Missing TurnManager", this);
             if (entityManager == null) Debug.LogError("[Executor] Missing EntityManager", this);
+            if (eventBus == null) Debug.LogWarning("[Executor] Missing CombatEventBus", this);
             if (strideAction == null) Debug.LogError("[Executor] Missing StrideAction", this);
             if (strikeAction == null) Debug.LogError("[Executor] Missing StrikeAction", this);
             if (tripAction == null) Debug.LogWarning("[Executor] Missing TripAction", this);
@@ -219,6 +221,9 @@ namespace PF2e.TurnSystem
 
             var actor = turnManager.CurrentEntity;
             if (!actor.IsValid) return false;
+            if (strikeAction.GetStrikeTargetFailure(actor, target) != TargetingFailureReason.None) return false;
+
+            int aidCircumstanceBonus = ResolveAidBonusForStrike(actor);
 
             executingActor = actor;
             turnManager.BeginActionExecution(actor, "Player.Strike");
@@ -226,7 +231,7 @@ namespace PF2e.TurnSystem
             executionStartTime = Time.time;
 #endif
 
-            var phase = strikeAction.ResolveAttackRoll(actor, target, UnityRng.Shared);
+            var phase = strikeAction.ResolveAttackRoll(actor, target, UnityRng.Shared, aidCircumstanceBonus);
             if (!phase.HasValue)
             {
                 executingActor = EntityHandle.None;
@@ -341,13 +346,17 @@ namespace PF2e.TurnSystem
             if (!CanActNow()) return false;
 
             var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid) return false;
+            if (tripAction.GetTripTargetFailure(actor, target) != TargetingFailureReason.None) return false;
+            int aidCircumstanceBonus = ResolveAidBonusForSkillCheck(actor, SkillType.Athletics, "Trip");
+
             executingActor = actor;
             turnManager.BeginActionExecution(actor, "Player.Trip");
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             executionStartTime = Time.time;
 #endif
 
-            var degree = tripAction.TryTrip(actor, target, UnityRng.Shared);
+            var degree = tripAction.TryTrip(actor, target, UnityRng.Shared, aidCircumstanceBonus);
             if (!degree.HasValue)
             {
                 executingActor = EntityHandle.None;
@@ -372,13 +381,17 @@ namespace PF2e.TurnSystem
             if (!CanActNow()) return false;
 
             var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid) return false;
+            if (demoralizeAction.GetDemoralizeTargetFailure(actor, target) != TargetingFailureReason.None) return false;
+            int aidCircumstanceBonus = ResolveAidBonusForSkillCheck(actor, SkillType.Intimidation, "Demoralize");
+
             executingActor = actor;
             turnManager.BeginActionExecution(actor, "Player.Demoralize");
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             executionStartTime = Time.time;
 #endif
 
-            var degree = demoralizeAction.TryDemoralize(actor, target, UnityRng.Shared);
+            var degree = demoralizeAction.TryDemoralize(actor, target, UnityRng.Shared, aidCircumstanceBonus);
             if (!degree.HasValue)
             {
                 executingActor = EntityHandle.None;
@@ -459,13 +472,17 @@ namespace PF2e.TurnSystem
             if (!CanActNow()) return false;
 
             var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid) return false;
+            if (shoveAction.GetShoveTargetFailure(actor, target) != TargetingFailureReason.None) return false;
+            int aidCircumstanceBonus = ResolveAidBonusForSkillCheck(actor, SkillType.Athletics, "Shove");
+
             executingActor = actor;
             turnManager.BeginActionExecution(actor, "Player.Shove");
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             executionStartTime = Time.time;
 #endif
 
-            var degree = shoveAction.TryShove(actor, target, UnityRng.Shared);
+            var degree = shoveAction.TryShove(actor, target, UnityRng.Shared, aidCircumstanceBonus);
             if (!degree.HasValue)
             {
                 executingActor = EntityHandle.None;
@@ -490,13 +507,17 @@ namespace PF2e.TurnSystem
             if (!CanActNow()) return false;
 
             var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid) return false;
+            if (grappleAction.GetGrappleTargetFailure(actor, target) != TargetingFailureReason.None) return false;
+            int aidCircumstanceBonus = ResolveAidBonusForSkillCheck(actor, SkillType.Athletics, "Grapple");
+
             executingActor = actor;
             turnManager.BeginActionExecution(actor, "Player.Grapple");
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             executionStartTime = Time.time;
 #endif
 
-            var degree = grappleAction.TryGrapple(actor, target, UnityRng.Shared);
+            var degree = grappleAction.TryGrapple(actor, target, UnityRng.Shared, aidCircumstanceBonus);
             if (!degree.HasValue)
             {
                 executingActor = EntityHandle.None;
@@ -527,6 +548,10 @@ namespace PF2e.TurnSystem
             var actor = turnManager.CurrentEntity;
             if (!actor.IsValid)
                 return RepositionTargetSelectionResult.Rejected;
+            if (repositionAction.GetRepositionTargetFailure(actor, target) != TargetingFailureReason.None)
+                return RepositionTargetSelectionResult.Rejected;
+
+            int aidCircumstanceBonus = ResolveAidBonusForSkillCheck(actor, SkillType.Athletics, "Reposition");
 
             executingActor = actor;
             turnManager.BeginActionExecution(actor, "Player.Reposition");
@@ -534,7 +559,12 @@ namespace PF2e.TurnSystem
             executionStartTime = Time.time;
 #endif
 
-            var degree = repositionAction.ResolveRepositionCheck(actor, target, out pendingRepositionContext, UnityRng.Shared);
+            var degree = repositionAction.ResolveRepositionCheck(
+                actor,
+                target,
+                out pendingRepositionContext,
+                UnityRng.Shared,
+                aidCircumstanceBonus);
             if (!degree.HasValue)
             {
                 ResetPendingRepositionState(rollbackActionLock: true);
@@ -610,13 +640,18 @@ namespace PF2e.TurnSystem
             if (!CanActNow()) return false;
 
             var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid) return false;
+            if (escapeAction.GetEscapeTargetFailure(actor, grappler) != TargetingFailureReason.None) return false;
+            SkillType escapeSkill = escapeAction.ResolveEscapeSkill(actor);
+            int aidCircumstanceBonus = ResolveAidBonusForSkillCheck(actor, escapeSkill, "Escape");
+
             executingActor = actor;
             turnManager.BeginActionExecution(actor, "Player.Escape");
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             executionStartTime = Time.time;
 #endif
 
-            var degree = escapeAction.TryEscape(actor, grappler, UnityRng.Shared);
+            var degree = escapeAction.TryEscape(actor, grappler, UnityRng.Shared, aidCircumstanceBonus);
             if (!degree.HasValue)
             {
                 executingActor = EntityHandle.None;
@@ -706,6 +741,51 @@ namespace PF2e.TurnSystem
 
             if (rollbackActionLock && turnManager != null)
                 turnManager.ActionCompleted();
+        }
+
+        private int ResolveAidBonusForSkillCheck(EntityHandle actor, SkillType skill, string actionName)
+        {
+            var context = AidCheckContext.ForSkill(actor, skill, actionName);
+            return ResolveAidBonusForCheck(in context);
+        }
+
+        private int ResolveAidBonusForStrike(EntityHandle actor)
+        {
+            var context = AidCheckContext.ForStrike(actor, "Strike");
+            return ResolveAidBonusForCheck(in context);
+        }
+
+        private int ResolveAidBonusForCheck(in AidCheckContext context)
+        {
+            if (!context.ally.IsValid) return 0;
+            if (turnManager == null || entityManager == null || entityManager.Registry == null) return 0;
+
+            var aidService = turnManager.AidService;
+            if (aidService == null) return 0;
+
+            if (!aidService.TryConsumeAidForCheck(
+                    context,
+                    getEntity: handle => entityManager.Registry.Get(handle),
+                    canUseReaction: handle => turnManager.CanUseReaction(handle),
+                    rng: UnityRng.Shared,
+                    out var outcome))
+            {
+                return 0;
+            }
+
+            eventBus?.PublishAidResolved(new AidResolvedEvent(
+                outcome.helper,
+                outcome.ally,
+                outcome.checkType,
+                outcome.skill,
+                outcome.triggeringActionName,
+                outcome.roll,
+                outcome.dc,
+                outcome.degree,
+                outcome.appliedModifier,
+                outcome.reactionConsumed));
+
+            return outcome.appliedModifier;
         }
     }
 }

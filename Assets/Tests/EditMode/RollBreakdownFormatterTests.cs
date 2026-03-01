@@ -38,15 +38,16 @@ namespace PF2e.Tests
         }
 
         [Test]
-        public void FormatStrikeAttackBreakdown_IncludesOptionalTokens()
+        public void FormatStrikeAttackBreakdown_IncludesOptionalTokensIncludingAid()
         {
             string text = RollBreakdownFormatter.FormatStrikeAttackBreakdown(
                 attackBonus: 9,
                 mapPenalty: -5,
                 rangePenalty: -2,
-                volleyPenalty: -2);
+                volleyPenalty: -2,
+                aidCircumstanceBonus: 1);
 
-            Assert.AreEqual("atk(9) + MAP(-5) + RNG(-2) + VOLLEY(-2)", text);
+            Assert.AreEqual("atk(9) + MAP(-5) + RNG(-2) + VOLLEY(-2) + AID(+1)", text);
         }
 
         [Test]

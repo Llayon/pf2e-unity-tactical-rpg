@@ -56,7 +56,21 @@ namespace PF2e.TurnSystem
             return GetEscapeTargetFailure(actor, grappler) == TargetingFailureReason.None;
         }
 
-        public DegreeOfSuccess? TryEscape(EntityHandle actor, EntityHandle grappler, IRng rng = null)
+        public SkillType ResolveEscapeSkill(EntityHandle actor)
+        {
+            if (!actor.IsValid || entityManager == null || entityManager.Registry == null)
+                return SkillType.Athletics;
+
+            var actorData = entityManager.Registry.Get(actor);
+            if (actorData == null)
+                return SkillType.Athletics;
+
+            int athleticsModifier = actorData.GetSkillModifier(SkillType.Athletics);
+            int acrobaticsModifier = actorData.GetSkillModifier(SkillType.Acrobatics);
+            return acrobaticsModifier > athleticsModifier ? SkillType.Acrobatics : SkillType.Athletics;
+        }
+
+        public DegreeOfSuccess? TryEscape(EntityHandle actor, EntityHandle grappler, IRng rng = null, int aidCircumstanceBonus = 0)
         {
             if (!CanEscape(actor, grappler)) return null;
             if (entityManager == null || entityManager.Registry == null) return null;
@@ -68,13 +82,11 @@ namespace PF2e.TurnSystem
 
             rng ??= UnityRng.Shared;
 
-            int athleticsModifier = actorData.GetSkillModifier(SkillType.Athletics);
-            int acrobaticsModifier = actorData.GetSkillModifier(SkillType.Acrobatics);
-            SkillType usedSkill = acrobaticsModifier > athleticsModifier ? SkillType.Acrobatics : SkillType.Athletics;
-            int baseModifier = usedSkill == SkillType.Acrobatics ? acrobaticsModifier : athleticsModifier;
+            SkillType usedSkill = ResolveEscapeSkill(actor);
+            int baseModifier = actorData.GetSkillModifier(usedSkill);
 
             int mapPenalty = actorData.GetMAPPenalty(actorData.EquippedWeapon);
-            int effectiveModifier = baseModifier + mapPenalty;
+            int effectiveModifier = baseModifier + mapPenalty + aidCircumstanceBonus;
 
             // Escape has the Attack trait and increases MAP after the attempt is declared.
             actorData.MAPCount++;
@@ -105,7 +117,8 @@ namespace PF2e.TurnSystem
                     result.dc,
                     result.degree,
                     ActionName,
-                    opposedProjection);
+                    opposedProjection,
+                    aidCircumstanceBonus);
                 eventBus.PublishSkillCheckResolved(in ev);
             }
 

@@ -46,10 +46,13 @@ namespace PF2e.Presentation
             string projectionToken = e.hasOpposedProjection
                 ? $" (cmp {RollBreakdownFormatter.FormatSigned(e.opposedProjection.margin)})"
                 : string.Empty;
+            string aidToken = e.aidCircumstanceBonus != 0
+                ? $" + AID({RollBreakdownFormatter.FormatSigned(e.aidCircumstanceBonus)})"
+                : string.Empty;
 
             eventBus.Publish(
                 e.actor,
-                $"uses {actionLabel} on {targetName} — {RollBreakdownFormatter.FormatVsDc(e.roll, e.defenseSource, e.dc)} → {e.degree}{projectionToken}",
+                $"uses {actionLabel} on {targetName} — {RollBreakdownFormatter.FormatVsDc(e.roll, e.defenseSource, e.dc)}{aidToken} → {e.degree}{projectionToken}",
                 CombatLogCategory.Attack);
         }
     }

@@ -140,6 +140,37 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void StrikeLog_WithAidBonus_IncludesAidToken()
+        {
+            using var ctx = new StrikeLogContext();
+            var attacker = ctx.RegisterEntity("Archer", Team.Player);
+            var target = ctx.RegisterEntity("Goblin_1", Team.Enemy);
+
+            var ev = CreateStrikeEvent(attacker, target, aidCircumstanceBonus: 2);
+
+            CombatLogEntry first = default;
+            int count = 0;
+            ctx.EventBus.OnLogEntry += HandleLog;
+            try
+            {
+                ctx.EventBus.PublishStrikeResolved(in ev);
+
+                Assert.GreaterOrEqual(count, 1);
+                StringAssert.Contains("AID(+2)", first.Message);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry)
+            {
+                count++;
+                if (count == 1) first = entry;
+            }
+        }
+
+        [Test]
         public void StrikeLog_WithoutVolleyPenalty_DoesNotShowVolleyToken()
         {
             using var ctx = new StrikeLogContext();
@@ -430,6 +461,7 @@ namespace PF2e.Tests
             EntityHandle target,
             int rangePenalty = 0,
             int volleyPenalty = 0,
+            int aidCircumstanceBonus = 0,
             int coverAcBonus = 0,
             DegreeOfSuccess degree = DegreeOfSuccess.Failure,
             DegreeOfSuccess? acDegree = null,
@@ -459,6 +491,7 @@ namespace PF2e.Tests
                 targetDefeated: false,
                 rangePenalty: rangePenalty,
                 volleyPenalty: volleyPenalty,
+                aidCircumstanceBonus: aidCircumstanceBonus,
                 coverAcBonus: coverAcBonus,
                 fatalBonusDamage: fatalBonusDamage,
                 deadlyBonusDamage: deadlyBonusDamage,
