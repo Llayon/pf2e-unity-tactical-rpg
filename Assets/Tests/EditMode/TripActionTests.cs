@@ -297,6 +297,10 @@ namespace PF2e.Tests
                 Assert.AreEqual(SkillType.Athletics, last.skill);
                 Assert.AreEqual("Trip", last.actionName);
                 Assert.AreEqual(DegreeOfSuccess.Success, last.degree);
+                Assert.IsTrue(last.hasOpposedProjection);
+                Assert.AreEqual(last.total - last.dc, last.opposedProjection.margin);
+                Assert.AreEqual(CheckSourceType.Save, last.opposedProjection.defenderRoll.source.type);
+                Assert.AreEqual(SaveType.Reflex, last.opposedProjection.defenderRoll.source.save);
             }
             finally
             {

@@ -80,6 +80,10 @@ namespace PF2e.Tests
                 Assert.IsTrue(degree.HasValue);
                 Assert.AreEqual(1, count);
                 Assert.AreEqual(10 + ctx.Registry.Get(ctx.Grappler).GetSkillModifier(SkillType.Athletics), last.dc);
+                Assert.IsTrue(last.hasOpposedProjection);
+                Assert.AreEqual(last.total - last.dc, last.opposedProjection.margin);
+                Assert.AreEqual(CheckSourceType.Skill, last.opposedProjection.defenderRoll.source.type);
+                Assert.AreEqual(SkillType.Athletics, last.opposedProjection.defenderRoll.source.skill);
             }
             finally
             {

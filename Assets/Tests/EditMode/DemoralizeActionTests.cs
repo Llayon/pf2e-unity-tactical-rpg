@@ -196,6 +196,10 @@ namespace PF2e.Tests
                 Assert.AreEqual(target, last.target);
                 Assert.AreEqual(SkillType.Intimidation, last.skill);
                 Assert.AreEqual("Demoralize", last.actionName);
+                Assert.IsTrue(last.hasOpposedProjection);
+                Assert.AreEqual(last.total - last.dc, last.opposedProjection.margin);
+                Assert.AreEqual(CheckSourceType.Save, last.opposedProjection.defenderRoll.source.type);
+                Assert.AreEqual(SaveType.Will, last.opposedProjection.defenderRoll.source.save);
             }
             finally
             {

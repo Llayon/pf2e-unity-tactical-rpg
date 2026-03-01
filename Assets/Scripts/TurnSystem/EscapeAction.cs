@@ -90,15 +90,22 @@ namespace PF2e.TurnSystem
 
             if (eventBus != null)
             {
+                var defenseSource = CheckSource.Skill(SkillType.Athletics);
+                var opposedProjection = OpposedCheckResult.FromRollVsDc(
+                    result.roll,
+                    result.dc,
+                    defenseSource);
+
                 var ev = new SkillCheckResolvedEvent(
                     actor,
                     grappler,
                     usedSkill,
                     result.roll,
-                    CheckSource.Skill(SkillType.Athletics),
+                    defenseSource,
                     result.dc,
                     result.degree,
-                    ActionName);
+                    ActionName,
+                    opposedProjection);
                 eventBus.PublishSkillCheckResolved(in ev);
             }
 

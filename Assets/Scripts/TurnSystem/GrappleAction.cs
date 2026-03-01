@@ -129,6 +129,11 @@ namespace PF2e.TurnSystem
 
             if (eventBus != null)
             {
+                var opposedProjection = OpposedCheckResult.FromRollVsDc(
+                    result.roll,
+                    result.dc,
+                    CheckSource.Save(SaveType.Fortitude));
+
                 var ev = new SkillCheckResolvedEvent(
                     actor,
                     target,
@@ -137,7 +142,8 @@ namespace PF2e.TurnSystem
                     CheckSource.Save(SaveType.Fortitude),
                     result.dc,
                     result.degree,
-                    ActionName);
+                    ActionName,
+                    opposedProjection);
                 eventBus.PublishSkillCheckResolved(in ev);
             }
 
