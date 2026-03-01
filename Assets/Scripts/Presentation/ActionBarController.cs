@@ -77,6 +77,7 @@ namespace PF2e.Presentation
 
         private void Awake()
         {
+            ResolveOptionalAidUiReferences();
             EnsureButtonListenersBound();
 
             SetCombatVisible(false);
@@ -85,6 +86,23 @@ namespace PF2e.Presentation
             SetDelayControlInteractable(false);
             SetDelayReturnControlsInteractable(false, false);
             ClearAllHighlights();
+        }
+
+        private void ResolveOptionalAidUiReferences()
+        {
+            if (aidButton == null)
+            {
+                var aidTransform = transform.Find("AidButton");
+                if (aidTransform != null)
+                    aidButton = aidTransform.GetComponent<Button>();
+            }
+
+            if (aidHighlight == null && aidButton != null)
+            {
+                var highlightTransform = aidButton.transform.Find("ActiveHighlight");
+                if (highlightTransform != null)
+                    aidHighlight = highlightTransform.GetComponent<Image>();
+            }
         }
 
         private void OnEnable()
@@ -354,7 +372,9 @@ namespace PF2e.Presentation
             SetInteractable(repositionButton, true);
             SetInteractable(demoralizeButton, true);
             SetInteractable(escapeButton, IsGrabbedOrRestrained(data));
-            SetInteractable(aidButton, actionExecutor.CanPrepareAid());
+            // Keep Aid selectable even when no ally is currently in reach, so player can enter
+            // targeting mode and receive contextual failure feedback instead of a dead button.
+            SetInteractable(aidButton, true);
             SetInteractable(raiseShieldButton, CanRaiseShield(data));
             SetInteractable(standButton, HasCondition(data, ConditionType.Prone));
             SetDelayControlInteractable(turnManager.CanDelayCurrentTurn());

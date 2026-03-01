@@ -66,6 +66,11 @@ namespace PF2e.TurnSystem
         }
 #endif
 
+        private void Awake()
+        {
+            ResolveOptionalReferences();
+        }
+
         public bool IsBusy
         {
             get
@@ -75,6 +80,15 @@ namespace PF2e.TurnSystem
                 if (hasPendingRepositionSelection) return true;
                 return false;
             }
+        }
+
+        private void ResolveOptionalReferences()
+        {
+            if (aidAction == null)
+                aidAction = GetComponent<AidAction>();
+
+            if (eventBus == null)
+                eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
         }
 
         public bool HasPendingRepositionSelection => hasPendingRepositionSelection;
