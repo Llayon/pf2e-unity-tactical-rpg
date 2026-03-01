@@ -110,7 +110,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-104 | P1 | done | Builder | Add runtime initiative-start warning for missing combatant `EncounterActorId` | `TurnManager.StartCombat` now warns when alive `Player/Enemy` has empty `EncounterActorId` before initiative roll; `TurnManagerDelayTests` includes explicit warning contract case |
 | T-105 | P1 | done | Builder | Phase 30b pilot: carry `OpposedCheckResult` through Reposition action payload | `SkillCheckResolvedEvent` gained optional opposed-projection payload; `RepositionAction` now publishes projection built from check-vs-DC; `SkillCheckLogForwarder` appends comparison token from action payload; EditMode/PlayMode suites green |
 | T-106 | P1 | done | Builder | Extend phase 30b opposed-projection payload to all skill actions | `Trip/Shove/Grapple/Escape/Demoralize` now publish `SkillCheckResolvedEvent` with opposed projection; action tests assert projection payload contract (`hasOpposedProjection`, margin, defense source) |
-| T-107 | P1 | done | Builder | Add unlimited combat-log history mode (`maxLines <= 0`) | `CombatLogController` now treats non-positive `maxLines` as unlimited retention (no recycling), hides retention-cap notice in unlimited mode, and uses shared `CombatLogRetentionPolicy` with EditMode tests |
+| T-107 | P1 | done | Builder | Keep combat-log retention capped (remove unlimited mode) | `CombatLogController` remains capped by `maxLines` (default 80), retention notice stays aligned to capped history, and unlimited-mode policy/test scaffolding was removed |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

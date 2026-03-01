@@ -134,11 +134,8 @@ namespace PF2e.Presentation
         {
             if (string.IsNullOrEmpty(text)) return;
 
-            if (CombatLogRetentionPolicy.IsCapped(maxLines))
-            {
-                while (activeLines.Count >= maxLines)
-                    RecycleOldestLine();
-            }
+            while (activeLines.Count >= Mathf.Max(1, maxLines))
+                RecycleOldestLine();
 
             var line = GetLineInstance();
             EnsureLineIsLastChild(line);
@@ -320,7 +317,7 @@ namespace PF2e.Presentation
             if (retentionNoticeLabel == null)
                 return;
 
-            retentionNoticeLabel.SetText(CombatLogRetentionPolicy.BuildNoticeText(maxLines));
+            retentionNoticeLabel.SetText("Showing last {0} lines", Mathf.Max(1, maxLines));
         }
 
         private void RefreshRetentionNoticeVisibility()
@@ -328,10 +325,7 @@ namespace PF2e.Presentation
             if (retentionNoticeLabel == null)
                 return;
 
-            retentionNoticeLabel.gameObject.SetActive(
-                showRetentionNotice &&
-                inCombat &&
-                CombatLogRetentionPolicy.IsCapped(maxLines));
+            retentionNoticeLabel.gameObject.SetActive(showRetentionNotice && inCombat && Mathf.Max(1, maxLines) > 0);
         }
 
         private string ResolveName(EntityHandle handle)
