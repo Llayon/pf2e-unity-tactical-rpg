@@ -17,7 +17,8 @@ namespace PF2e.TurnSystem
         Reposition = 7, // two-step: target enemy, then destination cell
         SpellSingle = 8, // future: single target
         SpellAoE = 9,    // future: cell + template
-        HealSingle = 10  // future: ally
+        HealSingle = 10, // future: ally
+        Aid = 11         // explicit mode: choose ally in reach
     }
 
     public enum TargetingResult
@@ -225,6 +226,7 @@ namespace PF2e.TurnSystem
                 case TargetingMode.Escape:
                 case TargetingMode.Demoralize:
                 case TargetingMode.Reposition:
+                case TargetingMode.Aid:
                     if (ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectCell)
                         return TargetingEvaluationResult.FromFailure(TargetingFailureReason.ModeNotSupported);
 
@@ -279,7 +281,9 @@ namespace PF2e.TurnSystem
             }
 
             // Fallback for isolated tests that construct TargetingController without PlayerActionExecutor.
-            var result = ValidateEnemy(handle);
+            var result = ActiveMode == TargetingMode.Aid
+                ? ValidateAlly(handle)
+                : ValidateEnemy(handle);
             return result == TargetingResult.Success
                 ? TargetingEvaluationResult.Success()
                 : TargetingEvaluationResult.FromFailure(MapBasicResultToFailure(result));
@@ -394,6 +398,19 @@ namespace PF2e.TurnSystem
             if (!targetData.IsAlive)                     return TargetingResult.NotAlive;
             if (handle == actor)                         return TargetingResult.SelfTarget;
             if (targetData.Team == actorData.Team)       return TargetingResult.WrongTeam;
+            return TargetingResult.Success;
+        }
+
+        private TargetingResult ValidateAlly(EntityHandle handle)
+        {
+            var actor      = turnManager.CurrentEntity;
+            var actorData  = entityManager.Registry?.Get(actor);
+            var targetData = entityManager.Registry?.Get(handle);
+
+            if (targetData == null || actorData == null) return TargetingResult.InvalidTarget;
+            if (!targetData.IsAlive)                     return TargetingResult.NotAlive;
+            if (handle == actor)                         return TargetingResult.SelfTarget;
+            if (targetData.Team != actorData.Team)       return TargetingResult.WrongTeam;
             return TargetingResult.Success;
         }
 

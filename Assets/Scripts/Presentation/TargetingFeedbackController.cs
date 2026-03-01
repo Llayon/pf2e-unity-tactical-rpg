@@ -181,6 +181,10 @@ namespace PF2e.Presentation
             if (entityManager == null || entityManager.Registry == null)
                 return;
 
+            var eligibleTint = targetingController.ActiveMode == TargetingMode.Aid
+                ? TargetingTintState.HoverValid
+                : TargetingTintState.Eligible;
+
             foreach (var data in entityManager.Registry.GetAll())
             {
                 if (data == null || !data.IsAlive || !data.Handle.IsValid)
@@ -190,7 +194,7 @@ namespace PF2e.Presentation
                     continue;
 
                 eligibleHandles.Add(data.Handle);
-                SetTintState(data.Handle, TargetingTintState.Eligible);
+                SetTintState(data.Handle, eligibleTint);
             }
 
             ApplyHoverState();

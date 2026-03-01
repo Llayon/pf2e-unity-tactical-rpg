@@ -108,6 +108,44 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void AidMode_AllyClick_InvokesCallback_AndClearsMode()
+        {
+            using var ctx = new TargetingSkillModeContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            var ally = ctx.RegisterEntity("Wizard", Team.Player);
+            ctx.SetCurrentActor(actor);
+
+            int calls = 0;
+            EntityHandle confirmed = EntityHandle.None;
+            ctx.Controller.BeginTargeting(TargetingMode.Aid, h => { calls++; confirmed = h; });
+
+            var result = ctx.Controller.TryConfirmEntity(ally);
+
+            Assert.AreEqual(TargetingResult.Success, result);
+            Assert.AreEqual(1, calls);
+            Assert.AreEqual(ally, confirmed);
+            Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
+        }
+
+        [Test]
+        public void AidMode_EnemyClick_ReturnsWrongTeam_DoesNotInvokeCallback_AndKeepsMode()
+        {
+            using var ctx = new TargetingSkillModeContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(actor);
+
+            int calls = 0;
+            ctx.Controller.BeginTargeting(TargetingMode.Aid, _ => calls++);
+
+            var result = ctx.Controller.TryConfirmEntity(enemy);
+
+            Assert.AreEqual(TargetingResult.WrongTeam, result);
+            Assert.AreEqual(0, calls);
+            Assert.AreEqual(TargetingMode.Aid, ctx.Controller.ActiveMode);
+        }
+
+        [Test]
         public void PreviewEntity_TripMode_MatchesConfirmValidation_ForAllyAndEnemy()
         {
             using var ctx = new TargetingSkillModeContext();

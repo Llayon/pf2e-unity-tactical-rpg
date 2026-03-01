@@ -29,6 +29,7 @@ namespace PF2e.Presentation
         [SerializeField] private Button repositionButton;
         [SerializeField] private Button demoralizeButton;
         [SerializeField] private Button escapeButton;
+        [SerializeField] private Button aidButton;
         [SerializeField] private Button raiseShieldButton;
         [SerializeField] private Button standButton;
         [SerializeField] private Button delayButton;
@@ -43,6 +44,7 @@ namespace PF2e.Presentation
         [SerializeField] private Image repositionHighlight;
         [SerializeField] private Image demoralizeHighlight;
         [SerializeField] private Image escapeHighlight;
+        [SerializeField] private Image aidHighlight;
         [SerializeField] private Image raiseShieldHighlight;
         [SerializeField] private Image standHighlight;
 
@@ -66,6 +68,7 @@ namespace PF2e.Presentation
             if (repositionButton == null) Debug.LogWarning("[ActionBar] repositionButton not assigned", this);
             if (demoralizeButton == null) Debug.LogWarning("[ActionBar] demoralizeButton not assigned", this);
             if (escapeButton == null) Debug.LogWarning("[ActionBar] escapeButton not assigned", this);
+            // aid button is optional in older scenes; no warning spam.
             if (raiseShieldButton == null) Debug.LogWarning("[ActionBar] raiseShieldButton not assigned", this);
             if (standButton == null) Debug.LogWarning("[ActionBar] standButton not assigned", this);
             // delay/return/skip buttons are optional in older scenes; no warning spam.
@@ -165,6 +168,7 @@ namespace PF2e.Presentation
             boundCount += BindButton(repositionButton, OnRepositionClicked);
             boundCount += BindButton(demoralizeButton, OnDemoralizeClicked);
             boundCount += BindButton(escapeButton, OnEscapeClicked);
+            boundCount += BindButton(aidButton, OnAidClicked);
             boundCount += BindButton(raiseShieldButton, OnRaiseShieldClicked);
             boundCount += BindButton(standButton, OnStandClicked);
             boundCount += BindButton(delayButton, OnDelayClicked);
@@ -281,6 +285,7 @@ namespace PF2e.Presentation
             SetHighlight(repositionHighlight, mode == TargetingMode.Reposition);
             SetHighlight(demoralizeHighlight, mode == TargetingMode.Demoralize);
             SetHighlight(escapeHighlight, mode == TargetingMode.Escape);
+            SetHighlight(aidHighlight, mode == TargetingMode.Aid);
             SetHighlight(raiseShieldHighlight, false);
             SetHighlight(standHighlight, false);
 
@@ -349,6 +354,7 @@ namespace PF2e.Presentation
             SetInteractable(repositionButton, true);
             SetInteractable(demoralizeButton, true);
             SetInteractable(escapeButton, IsGrabbedOrRestrained(data));
+            SetInteractable(aidButton, actionExecutor.CanPrepareAid());
             SetInteractable(raiseShieldButton, CanRaiseShield(data));
             SetInteractable(standButton, HasCondition(data, ConditionType.Prone));
             SetDelayControlInteractable(turnManager.CanDelayCurrentTurn());
@@ -399,6 +405,7 @@ namespace PF2e.Presentation
             SetInteractable(repositionButton, enabled);
             SetInteractable(demoralizeButton, enabled);
             SetInteractable(escapeButton, enabled);
+            SetInteractable(aidButton, enabled);
             SetInteractable(raiseShieldButton, enabled);
             SetInteractable(standButton, enabled);
         }
@@ -441,6 +448,7 @@ namespace PF2e.Presentation
             SetHighlight(repositionHighlight, false);
             SetHighlight(demoralizeHighlight, false);
             SetHighlight(escapeHighlight, false);
+            SetHighlight(aidHighlight, false);
             SetHighlight(raiseShieldHighlight, false);
             SetHighlight(standHighlight, false);
         }
@@ -491,6 +499,11 @@ namespace PF2e.Presentation
         private void OnEscapeClicked()
         {
             ToggleOrBeginTargeting(TargetingMode.Escape, h => actionExecutor.TryExecuteEscape(h));
+        }
+
+        private void OnAidClicked()
+        {
+            ToggleOrBeginTargeting(TargetingMode.Aid, h => actionExecutor.TryExecuteAid(h));
         }
 
         private void OnRaiseShieldClicked()

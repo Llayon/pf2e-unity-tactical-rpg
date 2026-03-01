@@ -45,6 +45,7 @@ namespace PF2e.Presentation
                 TargetingMode.Reposition => "Reposition: choose an enemy in reach",
                 TargetingMode.Demoralize => "Demoralize: choose an enemy within 30 ft",
                 TargetingMode.Escape => "Escape: choose the creature grappling you",
+                TargetingMode.Aid => "Aid: choose an ally in reach",
                 _ => "Choose a target"
             };
         }
@@ -60,6 +61,7 @@ namespace PF2e.Presentation
                 TargetingMode.Demoralize => $"Demoralize: valid target ({RollBreakdownFormatter.FormatCheckVsDcLabel(CheckSource.Skill(SkillType.Intimidation), CheckSource.Save(SaveType.Will))})",
                 TargetingMode.Escape => "Escape: valid target (best of Athletics/Acrobatics)",
                 TargetingMode.Strike => "Strike: valid target",
+                TargetingMode.Aid => "Aid: valid ally target",
                 _ => "Valid target"
             };
         }
@@ -111,6 +113,8 @@ namespace PF2e.Presentation
             {
                 TargetingFailureReason.WrongTeam => mode == TargetingMode.Escape
                     ? "Escape: choose the creature grappling you"
+                    : mode == TargetingMode.Aid
+                        ? "Aid: choose an ally"
                     : $"{action}: choose an enemy",
 
                 TargetingFailureReason.NoGrappleRelation => "Escape: choose the creature grappling you",
@@ -118,6 +122,8 @@ namespace PF2e.Presentation
                 TargetingFailureReason.NotAlive => $"{action}: target is not alive",
                 TargetingFailureReason.OutOfRange => mode == TargetingMode.Demoralize
                     ? "Demoralize: target is out of range (30 ft)"
+                    : mode == TargetingMode.Aid
+                        ? "Aid: ally is out of reach"
                     : mode == TargetingMode.Strike
                         ? (strikeIsRanged ? "Strike: target is out of range" : "Strike: target is out of reach")
                         : $"{action}: target is out of reach",
@@ -147,6 +153,7 @@ namespace PF2e.Presentation
                 TargetingMode.Reposition => "Reposition",
                 TargetingMode.Escape => "Escape",
                 TargetingMode.Demoralize => "Demoralize",
+                TargetingMode.Aid => "Aid",
                 _ => "Action"
             };
         }

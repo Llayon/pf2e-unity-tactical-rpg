@@ -159,6 +159,35 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void Aid_NoHover_ReturnsAllyPrompt()
+        {
+            var msg = TargetingReasonFormatter.ForModeNoHover(TargetingMode.Aid);
+
+            Assert.AreEqual(TargetingHintTone.Info, msg.Tone);
+            Assert.AreEqual("Aid: choose an ally in reach", msg.Text);
+        }
+
+        [Test]
+        public void Aid_Success_ReturnsValidAllyMessage()
+        {
+            var msg = TargetingReasonFormatter.ForPreview(TargetingMode.Aid, TargetingEvaluationResult.Success());
+
+            Assert.AreEqual(TargetingHintTone.Valid, msg.Tone);
+            Assert.AreEqual("Aid: valid ally target", msg.Text);
+        }
+
+        [Test]
+        public void Aid_WrongTeam_ReturnsChooseAllyMessage()
+        {
+            var msg = TargetingReasonFormatter.ForPreview(
+                TargetingMode.Aid,
+                TargetingEvaluationResult.FromFailure(TargetingFailureReason.WrongTeam));
+
+            Assert.AreEqual(TargetingHintTone.Invalid, msg.Tone);
+            Assert.AreEqual("Aid: choose an ally", msg.Text);
+        }
+
+        [Test]
         public void ModeNone_NoHover_ReturnsHidden()
         {
             var msg = TargetingReasonFormatter.ForModeNoHover(TargetingMode.None);

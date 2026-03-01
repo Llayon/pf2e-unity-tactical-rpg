@@ -21,12 +21,13 @@ namespace PF2e.TurnSystem
         [SerializeField] private StrideAction strideAction;
         [SerializeField] private StrikeAction strikeAction;
         [SerializeField] private StandAction standAction;
-                [SerializeField] private TripAction tripAction;
+        [SerializeField] private TripAction tripAction;
         [SerializeField] private ShoveAction shoveAction;
         [SerializeField] private GrappleAction grappleAction;
         [SerializeField] private RepositionAction repositionAction;
         [SerializeField] private EscapeAction escapeAction;
         [SerializeField] private DemoralizeAction demoralizeAction;
+        [SerializeField] private AidAction aidAction;
         [SerializeField] private RaiseShieldAction raiseShieldAction;
         [SerializeField] private ShieldBlockAction shieldBlockAction;
         [SerializeField] private ReactionPromptController reactionPromptController;
@@ -56,6 +57,7 @@ namespace PF2e.TurnSystem
             if (repositionAction == null) Debug.LogWarning("[Executor] Missing RepositionAction", this);
             if (escapeAction == null) Debug.LogWarning("[Executor] Missing EscapeAction", this);
             if (demoralizeAction == null) Debug.LogWarning("[Executor] Missing DemoralizeAction", this);
+            if (aidAction == null) Debug.LogWarning("[Executor] Missing AidAction", this);
             if (raiseShieldAction == null) Debug.LogWarning("[Executor] Missing RaiseShieldAction", this);
             if (shieldBlockAction == null) Debug.LogWarning("[Executor] Missing ShieldBlockAction", this);
             if (reactionPromptController == null) Debug.LogWarning("[Executor] Missing ReactionPromptController", this);
@@ -140,6 +142,10 @@ namespace PF2e.TurnSystem
                 TargetingMode.Demoralize => demoralizeAction == null
                     ? TargetingFailureReason.InvalidState
                     : demoralizeAction.GetDemoralizeTargetFailure(actor, target),
+
+                TargetingMode.Aid => aidAction == null
+                    ? TargetingFailureReason.InvalidState
+                    : aidAction.GetAidTargetFailure(actor, target),
 
                 _ => TargetingFailureReason.ModeNotSupported
             };
@@ -391,6 +397,62 @@ namespace PF2e.TurnSystem
             return true;
         }
 
+        public bool CanPrepareAid()
+        {
+            if (!CanActNow()) return false;
+            if (entityManager == null || entityManager.Registry == null || aidAction == null) return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid) return false;
+
+            var actorData = entityManager.Registry.Get(actor);
+            if (actorData == null || !actorData.IsAlive) return false;
+
+            foreach (var targetData in entityManager.Registry.GetAll())
+            {
+                if (targetData == null || !targetData.IsAlive || !targetData.Handle.IsValid) continue;
+                if (targetData.Handle == actor) continue;
+
+                if (aidAction.GetAidTargetFailure(actor, targetData.Handle) == TargetingFailureReason.None)
+                    return true;
+            }
+
+            return false;
+        }
+
+        public bool TryExecuteAid(EntityHandle ally)
+        {
+            if (turnManager == null || entityManager == null || aidAction == null) return false;
+            if (!CanActNow()) return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid) return false;
+
+            executingActor = actor;
+            turnManager.BeginActionExecution(actor, "Player.Aid");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = Time.time;
+#endif
+
+            bool prepared = aidAction.TryPrepareAid(actor, ally, turnManager.RoundNumber, turnManager.AidService);
+            if (!prepared)
+            {
+                executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                executionStartTime = -1f;
+#endif
+                turnManager.ActionCompleted(); // rollback (invalid attempt)
+                return false;
+            }
+
+            executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = -1f;
+#endif
+            turnManager.CompleteActionWithCost(AidAction.ActionCost);
+            return true;
+        }
+
         public bool TryExecuteShove(EntityHandle target)
         {
             if (turnManager == null || entityManager == null || shoveAction == null) return false;
@@ -422,7 +484,7 @@ namespace PF2e.TurnSystem
             return true;
         }
 
-public bool TryExecuteGrapple(EntityHandle target)
+        public bool TryExecuteGrapple(EntityHandle target)
         {
             if (turnManager == null || entityManager == null || grappleAction == null) return false;
             if (!CanActNow()) return false;

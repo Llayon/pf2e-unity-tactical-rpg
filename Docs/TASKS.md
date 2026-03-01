@@ -112,6 +112,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-106 | P1 | done | Builder | Extend phase 30b opposed-projection payload to all skill actions | `Trip/Shove/Grapple/Escape/Demoralize` now publish `SkillCheckResolvedEvent` with opposed projection; action tests assert projection payload contract (`hasOpposedProjection`, margin, defense source) |
 | T-107 | P1 | done | Builder | Keep combat-log retention capped (remove unlimited mode) | `CombatLogController` remains capped by `maxLines` (default 300), retention notice stays aligned to capped history, and unlimited-mode policy/test scaffolding was removed |
 | T-108 | P1 | done | Builder | Phase 32a: add Aid domain foundation (`AidService` + contracts + lifecycle) | Added `AidService` with prepare/consume/expire/clear behavior, DC 15 Aid outcome table with Master/Legendary crit scaling, typed `AidResolvedEvent` channel, `ReactionType.Aid`, TurnManager lifecycle hooks (turn-start expire + combat-end clear), and EditMode service/lifecycle tests |
+| T-109 | P1 | done | Builder | Phase 32b: ship playable Aid prepare flow (ally targeting + action bar/hotkey wiring) | Added `AidAction` (ally-in-reach validation + prepare log), integrated Aid targeting mode in `TargetingController`/hints/feedback, wired `ActionBarController` Aid button path and `TurnInputController` hotkey (`B`), added executor hooks (`CanPrepareAid`, `TryExecuteAid`), and expanded EditMode coverage (AidAction + targeting formatter/controller) |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

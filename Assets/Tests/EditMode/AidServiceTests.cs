@@ -185,7 +185,6 @@ namespace PF2e.Tests
             var helper = CreateEntity("Helper", Team.Player, level: 1, strength: 14);
             helper.SimpleWeaponProf = ProficiencyRank.Master;
             helper.ReactionAvailable = true;
-            helper.EquippedWeapon = new WeaponInstance { Category = WeaponCategory.Simple };
             helper.Handle = new EntityHandle(1);
 
             var ally = CreateEntity("Ally", Team.Player, level: 1, strength: 10);
