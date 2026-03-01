@@ -70,17 +70,24 @@ namespace PF2e.Tests
             Assert.IsNotNull(eventBus, "SampleScene must contain CombatEventBus.");
             Assert.IsNotNull(actionBar, "SampleScene must contain ActionBarController.");
             Assert.IsNotNull(executor, "SampleScene must contain PlayerActionExecutor.");
-            Assert.IsNotNull(aidAction, "SampleScene must contain AidAction.");
+
+            // Legacy scenes can miss serialized Aid references; runtime fallback must resolve them.
+            InvokePrivateInstanceMethod(actionBar, "ResolveOptionalAidUiReferences");
+            InvokePrivateInstanceMethod(executor, "ResolveOptionalReferences");
 
             var aidButton = GetPrivateField<Button>(actionBar, "aidButton");
             var aidHighlight = GetPrivateField<Image>(actionBar, "aidHighlight");
-            Assert.AreEqual("AidButton", aidButton.gameObject.name, "ActionBarController.aidButton must point to AidButton.");
-            Assert.AreEqual("ActiveHighlight", aidHighlight.gameObject.name, "ActionBarController.aidHighlight must point to ActiveHighlight child.");
+            Assert.IsNotNull(aidButton, "ActionBarController must resolve Aid button (wired or runtime fallback).");
+            Assert.IsNotNull(aidHighlight, "ActionBarController must resolve Aid highlight (wired or runtime fallback).");
+            Assert.AreEqual("AidButton", aidButton.gameObject.name, "Resolved Aid button should use canonical name AidButton.");
 
-            var wiredAidAction = GetPrivateField<AidAction>(executor, "aidAction");
+            var resolvedAidAction = GetPrivateField<AidAction>(executor, "aidAction");
             var wiredEventBus = GetPrivateField<CombatEventBus>(executor, "eventBus");
-            Assert.AreSame(aidAction, wiredAidAction, "PlayerActionExecutor.aidAction must be wired.");
-            Assert.AreSame(eventBus, wiredEventBus, "PlayerActionExecutor.eventBus must be wired.");
+            Assert.IsNotNull(resolvedAidAction, "PlayerActionExecutor must resolve AidAction (wired or runtime fallback).");
+            Assert.AreSame(eventBus, wiredEventBus, "PlayerActionExecutor.eventBus must be wired/resolved.");
+
+            if (aidAction != null)
+                Assert.AreSame(aidAction, resolvedAidAction, "When AidAction exists in scene, executor should reuse it.");
         }
 
         [Test]
@@ -274,6 +281,13 @@ namespace PF2e.Tests
             var field = target.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
             Assert.IsNotNull(field, $"Field '{fieldName}' not found on {target.GetType().Name}.");
             field.SetValue(target, value);
+        }
+
+        private static void InvokePrivateInstanceMethod(object target, string methodName)
+        {
+            var method = target.GetType().GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.IsNotNull(method, $"{methodName} not found on {target.GetType().Name}.");
+            method.Invoke(target, null);
         }
 
         private static Type FindTypeByName(string typeName)

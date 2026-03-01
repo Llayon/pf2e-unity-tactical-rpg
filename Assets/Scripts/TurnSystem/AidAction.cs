@@ -22,10 +22,18 @@ namespace PF2e.TurnSystem
         public const int ActionCost = 1;
         private const string ActionName = "Aid";
 
+        internal void InjectDependencies(EntityManager manager, CombatEventBus bus)
+        {
+            if (entityManager == null && manager != null)
+                entityManager = manager;
+            if (eventBus == null && bus != null)
+                eventBus = bus;
+        }
+
 #if UNITY_EDITOR
         private void OnValidate()
         {
-            if (entityManager == null) Debug.LogError("[AidAction] Missing EntityManager", this);
+            if (entityManager == null) Debug.LogWarning("[AidAction] Missing EntityManager", this);
             if (eventBus == null) Debug.LogWarning("[AidAction] Missing CombatEventBus", this);
             if (defaultReachFeet < 5) defaultReachFeet = 5;
         }

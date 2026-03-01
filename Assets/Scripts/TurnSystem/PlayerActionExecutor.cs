@@ -85,10 +85,16 @@ namespace PF2e.TurnSystem
         private void ResolveOptionalReferences()
         {
             if (aidAction == null)
+            {
                 aidAction = GetComponent<AidAction>();
+                if (aidAction == null && entityManager != null)
+                    aidAction = gameObject.AddComponent<AidAction>();
+            }
 
             if (eventBus == null)
                 eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
+
+            aidAction?.InjectDependencies(entityManager, eventBus);
         }
 
         public bool HasPendingRepositionSelection => hasPendingRepositionSelection;
