@@ -25,6 +25,7 @@ namespace PF2e.Tests
         private CombatEventBus eventBus;
         private ActionBarController actionBar;
         private TargetingController targetingController;
+        private PlayerActionExecutor actionExecutor;
         private EventSystem eventSystem;
         private GameObject createdEventSystem;
 
@@ -77,6 +78,70 @@ namespace PF2e.Tests
             PointerClick(aidButton.gameObject);
             yield return null;
             Assert.AreEqual(TargetingMode.None, targetingController.ActiveMode, "Second Aid pointer click should cancel Aid targeting mode.");
+        }
+
+        [UnityTest]
+        public IEnumerator GT_P32_PM_424_AidThenStrike_ConsumesReaction_AndAddsStrikeAidBonus()
+        {
+            ConfigureDeterministicDelayInitiative();
+
+            var helperData = GetEntityByName("Fighter");
+            var strikerData = GetEntityByName("Wizard");
+            var targetData = GetEntityByName("Goblin_1");
+
+            helperData.Strength = 5000;
+            helperData.ReactionAvailable = true;
+
+            Assert.IsTrue(entityManager.TryMoveEntityImmediate(helperData.Handle, new Vector3Int(1, 0, 1)), "Failed to place Aid helper.");
+            Assert.IsTrue(entityManager.TryMoveEntityImmediate(strikerData.Handle, new Vector3Int(1, 0, 2)), "Failed to place Aid ally.");
+            Assert.IsTrue(entityManager.TryMoveEntityImmediate(targetData.Handle, new Vector3Int(2, 0, 2)), "Failed to place strike target.");
+
+            turnManager.StartCombat();
+            yield return WaitUntilOrTimeout(
+                () => turnManager.State == TurnState.PlayerTurn && turnManager.CurrentEntity == helperData.Handle,
+                DefaultTimeoutSeconds,
+                "Did not reach helper player turn.");
+
+            var aidButton = GetActionBarButton("aidButton");
+            Assert.IsNotNull(aidButton, "Aid button is not wired in ActionBarController.");
+            Assert.IsTrue(aidButton.interactable, "Aid button should be interactable for helper turn.");
+
+            PointerClick(aidButton.gameObject);
+            yield return null;
+            Assert.AreEqual(TargetingMode.Aid, targetingController.ActiveMode, "Aid click should enter Aid targeting mode.");
+
+            var aidConfirm = targetingController.TryConfirmEntity(strikerData.Handle);
+            Assert.AreEqual(TargetingResult.Success, aidConfirm, "Aid targeting should accept adjacent ally.");
+            Assert.IsTrue(turnManager.AidService.HasPreparedAidForAlly(strikerData.Handle), "Aid record must be prepared for striker.");
+
+            turnManager.EndTurn();
+            yield return WaitUntilOrTimeout(
+                () => turnManager.State == TurnState.PlayerTurn && turnManager.CurrentEntity == strikerData.Handle,
+                DefaultTimeoutSeconds,
+                "Did not reach striker player turn.");
+
+            int strikeEvents = 0;
+            StrikeResolvedEvent lastStrike = default;
+            void OnStrikeResolved(in StrikeResolvedEvent e)
+            {
+                strikeEvents++;
+                lastStrike = e;
+            }
+
+            eventBus.OnStrikeResolved += OnStrikeResolved;
+            try
+            {
+                bool executed = actionExecutor.TryExecuteStrike(targetData.Handle);
+                Assert.IsTrue(executed, "Strike execution failed for striker in Aid E2E test.");
+                Assert.AreEqual(1, strikeEvents, "Expected exactly one StrikeResolved event.");
+                Assert.Greater(lastStrike.aidCircumstanceBonus, 0, "Prepared Aid should add a positive strike circumstance bonus.");
+                Assert.IsFalse(helperData.ReactionAvailable, "Aid helper reaction should be consumed on ally strike check.");
+                Assert.IsFalse(turnManager.AidService.HasPreparedAidForAlly(strikerData.Handle), "Prepared Aid should be consumed after strike check.");
+            }
+            finally
+            {
+                eventBus.OnStrikeResolved -= OnStrikeResolved;
+            }
         }
 
         [UnityTest]
@@ -319,12 +384,14 @@ namespace PF2e.Tests
             eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
             actionBar = UnityEngine.Object.FindFirstObjectByType<ActionBarController>();
             targetingController = UnityEngine.Object.FindFirstObjectByType<TargetingController>();
+            actionExecutor = UnityEngine.Object.FindFirstObjectByType<PlayerActionExecutor>();
 
             Assert.IsNotNull(turnManager, "TurnManager not found.");
             Assert.IsNotNull(entityManager, "EntityManager not found.");
             Assert.IsNotNull(eventBus, "CombatEventBus not found.");
             Assert.IsNotNull(actionBar, "ActionBarController not found.");
             Assert.IsNotNull(targetingController, "TargetingController not found.");
+            Assert.IsNotNull(actionExecutor, "PlayerActionExecutor not found.");
         }
 
         private EventSystem EnsureEventSystem()
