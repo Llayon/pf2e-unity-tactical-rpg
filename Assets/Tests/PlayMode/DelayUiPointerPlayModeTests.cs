@@ -24,6 +24,7 @@ namespace PF2e.Tests
         private EntityManager entityManager;
         private CombatEventBus eventBus;
         private ActionBarController actionBar;
+        private TargetingController targetingController;
         private EventSystem eventSystem;
         private GameObject createdEventSystem;
 
@@ -54,6 +55,28 @@ namespace PF2e.Tests
                 UnityEngine.Object.Destroy(createdEventSystem);
 
             yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator GT_P32_PM_423_AidButton_PointerClick_EntersAidTargetingMode()
+        {
+            ConfigureDeterministicDelayInitiative();
+            turnManager.StartCombat();
+            yield return AdvanceToNextPlayerTurn(DefaultTimeoutSeconds, "Did not reach player turn for Aid toggle test.");
+
+            var aidButton = GetActionBarButton("aidButton");
+            Assert.IsNotNull(aidButton, "Aid button is not wired in ActionBarController.");
+            Assert.IsTrue(aidButton.gameObject.activeInHierarchy, "Aid button should be visible during player turn.");
+            Assert.IsTrue(aidButton.interactable, "Aid button should be interactable during player turn.");
+            Assert.AreEqual(TargetingMode.None, targetingController.ActiveMode, "Precondition failed: targeting mode must start as None.");
+
+            PointerClick(aidButton.gameObject);
+            yield return null;
+            Assert.AreEqual(TargetingMode.Aid, targetingController.ActiveMode, "Aid pointer click should enter Aid targeting mode.");
+
+            PointerClick(aidButton.gameObject);
+            yield return null;
+            Assert.AreEqual(TargetingMode.None, targetingController.ActiveMode, "Second Aid pointer click should cancel Aid targeting mode.");
         }
 
         [UnityTest]
@@ -295,11 +318,13 @@ namespace PF2e.Tests
             entityManager = UnityEngine.Object.FindFirstObjectByType<EntityManager>();
             eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
             actionBar = UnityEngine.Object.FindFirstObjectByType<ActionBarController>();
+            targetingController = UnityEngine.Object.FindFirstObjectByType<TargetingController>();
 
             Assert.IsNotNull(turnManager, "TurnManager not found.");
             Assert.IsNotNull(entityManager, "EntityManager not found.");
             Assert.IsNotNull(eventBus, "CombatEventBus not found.");
             Assert.IsNotNull(actionBar, "ActionBarController not found.");
+            Assert.IsNotNull(targetingController, "TargetingController not found.");
         }
 
         private EventSystem EnsureEventSystem()
