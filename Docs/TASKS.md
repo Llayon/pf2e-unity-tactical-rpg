@@ -111,6 +111,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-105 | P1 | done | Builder | Phase 30b pilot: carry `OpposedCheckResult` through Reposition action payload | `SkillCheckResolvedEvent` gained optional opposed-projection payload; `RepositionAction` now publishes projection built from check-vs-DC; `SkillCheckLogForwarder` appends comparison token from action payload; EditMode/PlayMode suites green |
 | T-106 | P1 | done | Builder | Extend phase 30b opposed-projection payload to all skill actions | `Trip/Shove/Grapple/Escape/Demoralize` now publish `SkillCheckResolvedEvent` with opposed projection; action tests assert projection payload contract (`hasOpposedProjection`, margin, defense source) |
 | T-107 | P1 | done | Builder | Keep combat-log retention capped (remove unlimited mode) | `CombatLogController` remains capped by `maxLines` (default 300), retention notice stays aligned to capped history, and unlimited-mode policy/test scaffolding was removed |
+| T-108 | P1 | done | Builder | Phase 32a: add Aid domain foundation (`AidService` + contracts + lifecycle) | Added `AidService` with prepare/consume/expire/clear behavior, DC 15 Aid outcome table with Master/Legendary crit scaling, typed `AidResolvedEvent` channel, `ReactionType.Aid`, TurnManager lifecycle hooks (turn-start expire + combat-end clear), and EditMode service/lifecycle tests |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

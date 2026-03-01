@@ -36,6 +36,7 @@ namespace PF2e.TurnSystem
         private float executingActionStartTime = -1f;
         private readonly List<ConditionDelta> conditionDeltaBuffer = new();
         private readonly ConditionService conditionService = new();
+        private readonly AidService aidService = new();
         private readonly Dictionary<EntityHandle, DelayedTurnRecord> delayedTurns = new();
         private readonly HashSet<EntityHandle> delayReactionSuppressed = new();
         private IRng initiativeRng = UnityRng.Shared;
@@ -99,6 +100,7 @@ namespace PF2e.TurnSystem
         public SkillType InitiativeSkill => initiativeSkill;
 
         public bool IsDelayReturnWindowOpen => state == TurnState.DelayReturnWindow;
+        public AidService AidService => aidService;
 
         public EntityHandle DelayReturnWindowAfterActor => delayReturnWindowAfterActor;
 
@@ -213,6 +215,7 @@ namespace PF2e.TurnSystem
 
             ResetActionExecutionTracking();
             ResetDelayState();
+            aidService.ClearAll();
             ResolveEventBusIfMissing();
             WarnMissingEncounterActorIdsOnCombatStart();
 
@@ -545,6 +548,7 @@ namespace PF2e.TurnSystem
         {
             ResetActionExecutionTracking();
             ResetDelayState();
+            aidService.ClearAll();
             state = TurnState.CombatOver;
 
             if (entityManager != null)
@@ -779,6 +783,7 @@ namespace PF2e.TurnSystem
             if (!actor.IsValid || data == null)
                 return;
 
+            aidService.NotifyTurnStarted(actor);
             conditionDeltaBuffer.Clear();
             conditionService.TickStartTurn(data, conditionDeltaBuffer);
 
