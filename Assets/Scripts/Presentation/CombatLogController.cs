@@ -29,7 +29,7 @@ namespace PF2e.Presentation
         [SerializeField] private bool hideWhenNotInCombat = true;
         [SerializeField] private CanvasGroup canvasGroup;
         [SerializeField] private bool autoScrollToBottom = true;
-        [SerializeField] private int maxLines = 80;
+        [SerializeField] private int maxLines = 300;
         [SerializeField] private bool showRetentionNotice = true;
         [SerializeField] private TextMeshProUGUI retentionNoticeLabel;
 
@@ -46,6 +46,8 @@ namespace PF2e.Presentation
         private bool scrollPending;
         private bool inCombat;
         private float cachedMinLineHeight = 0f;
+        private const int LegacyDefaultMaxLines = 80;
+        private const int CurrentDefaultMaxLines = 300;
 
 #if UNITY_EDITOR
         private void OnValidate()
@@ -77,6 +79,7 @@ namespace PF2e.Presentation
             if (lineTemplate.gameObject.activeSelf)
                 lineTemplate.gameObject.SetActive(false);
 
+            MigrateLegacyMaxLinesDefault();
             CacheTemplateLineHeight();
             EnsureRetentionNoticeLabel();
             UpdateRetentionNoticeLabelText();
@@ -212,6 +215,16 @@ namespace PF2e.Presentation
 
             if (cachedMinLineHeight <= 0f)
                 cachedMinLineHeight = 24f;
+        }
+
+        private void MigrateLegacyMaxLinesDefault()
+        {
+            // Scene instances serialized with the previous default (80) are upgraded
+            // to the current baseline (300) unless authoring explicitly changed the value.
+            if (maxLines == LegacyDefaultMaxLines)
+            {
+                maxLines = CurrentDefaultMaxLines;
+            }
         }
 
         private void RefreshLinePreferredHeight(TextMeshProUGUI line)
