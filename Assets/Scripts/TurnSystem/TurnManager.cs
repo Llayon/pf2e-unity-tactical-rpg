@@ -1299,7 +1299,7 @@ namespace PF2e.TurnSystem
 
             readiedTriggerBuffer.Sort(CompareReadiedTriggerOrder);
             for (int i = 0; i < readiedTriggerBuffer.Count; i++)
-                ResolveReadiedStrikeTrigger(in readiedTriggerBuffer[i]);
+                ResolveReadiedStrikeTrigger(readiedTriggerBuffer[i]);
 
             readiedTriggerBuffer.Clear();
         }
@@ -1314,7 +1314,7 @@ namespace PF2e.TurnSystem
             return left.actor.Id.CompareTo(right.actor.Id);
         }
 
-        private void ResolveReadiedStrikeTrigger(in ReadiedStrikeRecord record)
+        private void ResolveReadiedStrikeTrigger(ReadiedStrikeRecord record)
         {
             if (!record.actor.IsValid || !record.target.IsValid)
                 return;
