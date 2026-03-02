@@ -60,6 +60,7 @@ namespace PF2e.Presentation
         private bool buttonListenersBound;
         private bool delayEventsSubscribedInternally;
         private readonly AidPreparedIndicatorPresenter aidPreparedIndicatorPresenter = new();
+        private readonly DelayActionBarStatePresenter delayActionBarStatePresenter = new();
 #if UNITY_EDITOR
         private void OnValidate()
         {
@@ -92,9 +93,7 @@ namespace PF2e.Presentation
 
             SetCombatVisible(false);
             SetAllInteractable(false);
-            SetDelayWindowControlsVisible(false);
-            SetDelayControlInteractable(false);
-            SetDelayReturnControlsInteractable(false, false);
+            ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
             ClearAllHighlights();
         }
 
@@ -366,9 +365,7 @@ namespace PF2e.Presentation
 
             SetCombatVisible(false);
             SetAllInteractable(false);
-            SetDelayControlInteractable(false);
-            SetDelayWindowControlsVisible(false);
-            SetDelayReturnControlsInteractable(false, false);
+            ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
             ClearAllHighlights();
             aidPreparedIndicatorPresenter.Clear();
             RefreshAidPreparedIndicator();
@@ -385,7 +382,7 @@ namespace PF2e.Presentation
                 targetingController.CancelTargeting();
 
             SetAllInteractable(false);
-            SetDelayControlInteractable(false);
+            ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
             ClearAllHighlights();
         }
 
@@ -477,9 +474,7 @@ namespace PF2e.Presentation
             if (turnManager == null || entityManager == null || entityManager.Registry == null || actionExecutor == null)
             {
                 SetAllInteractable(false);
-                SetDelayControlInteractable(false);
-                SetDelayWindowControlsVisible(false);
-                SetDelayReturnControlsInteractable(false, false);
+                ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
                 aidPreparedIndicatorPresenter.Clear();
                 RefreshAidPreparedIndicator();
                 return;
@@ -488,23 +483,17 @@ namespace PF2e.Presentation
             if (turnManager.IsDelayReturnWindowOpen)
             {
                 SetAllInteractable(false);
-                SetDelayControlInteractable(false);
-                SetDelayWindowControlsVisible(true);
 
                 bool canReturnNow = turnManager.TryGetFirstDelayedPlayerActor(out _);
-                SetDelayReturnControlsInteractable(canReturnNow, true);
+                ApplyDelayControls(delayActionBarStatePresenter.BuildReturnWindowState(canReturnNow));
                 RefreshAidPreparedIndicator();
                 return;
             }
 
-            SetDelayWindowControlsVisible(false);
-            SetDelayReturnControlsInteractable(false, false);
-
             if (turnManager.IsDelayPlacementSelectionOpen)
             {
                 SetAllInteractable(false);
-                // Keep Delay enabled as a cancel toggle while choosing initiative slot.
-                SetDelayControlInteractable(true);
+                ApplyDelayControls(delayActionBarStatePresenter.BuildPlacementSelectionState());
                 RefreshAidPreparedIndicator();
                 return;
             }
@@ -516,7 +505,7 @@ namespace PF2e.Presentation
             if (!canAct)
             {
                 SetAllInteractable(false);
-                SetDelayControlInteractable(false);
+                ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
                 RefreshAidPreparedIndicator();
                 return;
             }
@@ -526,7 +515,7 @@ namespace PF2e.Presentation
             if (data == null || !data.IsAlive)
             {
                 SetAllInteractable(false);
-                SetDelayControlInteractable(false);
+                ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
                 RefreshAidPreparedIndicator();
                 return;
             }
@@ -545,7 +534,7 @@ namespace PF2e.Presentation
             SetInteractable(aidButton, true);
             SetInteractable(raiseShieldButton, CanRaiseShield(data));
             SetInteractable(standButton, HasCondition(data, ConditionType.Prone));
-            SetDelayControlInteractable(turnManager.CanDelayCurrentTurn());
+            ApplyDelayControls(delayActionBarStatePresenter.BuildNormalState(turnManager.CanDelayCurrentTurn()));
             RefreshAidPreparedIndicator();
         }
 
@@ -599,33 +588,14 @@ namespace PF2e.Presentation
             SetInteractable(standButton, enabled);
         }
 
-        private void SetDelayControlInteractable(bool enabled)
+        private void ApplyDelayControls(in DelayActionBarState state)
         {
-            SetInteractable(delayButton, enabled);
-        }
-
-        private void SetDelayReturnControlsInteractable(bool canReturnNow, bool canSkip)
-        {
-            SetInteractable(returnNowButton, canReturnNow);
-            SetInteractable(skipDelayWindowButton, canSkip);
-        }
-
-        private void SetDelayWindowControlsVisible(bool visible)
-        {
-            SetButtonVisible(returnNowButton, visible);
-            SetButtonVisible(skipDelayWindowButton, visible);
+            delayActionBarStatePresenter.Apply(in state, delayButton, returnNowButton, skipDelayWindowButton);
         }
 
         private static void SetInteractable(Button button, bool enabled)
         {
             if (button != null) button.interactable = enabled;
-        }
-
-        private static void SetButtonVisible(Button button, bool visible)
-        {
-            if (button == null) return;
-            if (button.gameObject.activeSelf != visible)
-                button.gameObject.SetActive(visible);
         }
 
         private void ClearAllHighlights()
