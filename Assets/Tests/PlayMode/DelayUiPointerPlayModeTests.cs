@@ -121,26 +121,43 @@ namespace PF2e.Tests
                 "Did not reach striker player turn.");
 
             int strikeEvents = 0;
+            int aidResolvedEvents = 0;
             StrikeResolvedEvent lastStrike = default;
+            AidResolvedEvent lastAidResolved = default;
             void OnStrikeResolved(in StrikeResolvedEvent e)
             {
                 strikeEvents++;
                 lastStrike = e;
             }
+            void OnAidResolved(in AidResolvedEvent e)
+            {
+                aidResolvedEvents++;
+                lastAidResolved = e;
+            }
 
             eventBus.OnStrikeResolved += OnStrikeResolved;
+            eventBus.OnAidResolvedTyped += OnAidResolved;
             try
             {
                 bool executed = actionExecutor.TryExecuteStrike(targetData.Handle);
                 Assert.IsTrue(executed, "Strike execution failed for striker in Aid E2E test.");
                 Assert.AreEqual(1, strikeEvents, "Expected exactly one StrikeResolved event.");
+                Assert.AreEqual(1, aidResolvedEvents, "Expected exactly one AidResolved event.");
                 Assert.Greater(lastStrike.aidCircumstanceBonus, 0, "Prepared Aid should add a positive strike circumstance bonus.");
+                Assert.AreEqual(helperData.Handle, lastAidResolved.helper);
+                Assert.AreEqual(strikerData.Handle, lastAidResolved.ally);
+                Assert.AreEqual(AidCheckType.Strike, lastAidResolved.checkType);
+                Assert.IsFalse(lastAidResolved.skill.HasValue, "Strike Aid should not carry a skill source.");
+                Assert.AreEqual("Strike", lastAidResolved.triggeringActionName);
+                Assert.AreEqual(15, lastAidResolved.dc);
+                Assert.IsTrue(lastAidResolved.reactionConsumed, "Aid resolution should consume helper reaction.");
                 Assert.IsFalse(helperData.ReactionAvailable, "Aid helper reaction should be consumed on ally strike check.");
                 Assert.IsFalse(turnManager.AidService.HasPreparedAidForAlly(strikerData.Handle), "Prepared Aid should be consumed after strike check.");
             }
             finally
             {
                 eventBus.OnStrikeResolved -= OnStrikeResolved;
+                eventBus.OnAidResolvedTyped -= OnAidResolved;
             }
         }
 
