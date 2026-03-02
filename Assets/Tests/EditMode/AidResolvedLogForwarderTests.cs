@@ -189,6 +189,132 @@ namespace PF2e.Tests
             }
         }
 
+        [Test]
+        public void AidPrepared_PublishesTurnLogLine()
+        {
+            using var ctx = new AidResolvedLogContext();
+
+            var helper = ctx.RegisterEntity("Helper", Team.Player);
+            var ally = ctx.RegisterEntity("Fighter", Team.Player);
+
+            int count = 0;
+            CombatLogEntry last = default;
+            ctx.EventBus.OnLogEntry += HandleLog;
+
+            try
+            {
+                ctx.EventBus.PublishAidPrepared(helper, ally, preparedRound: 2);
+
+                Assert.AreEqual(1, count);
+                Assert.AreEqual(helper, last.Actor);
+                Assert.AreEqual(CombatLogCategory.Turn, last.Category);
+                Assert.AreEqual("prepares Aid for Fighter", last.Message);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry)
+            {
+                count++;
+                last = entry;
+            }
+        }
+
+        [Test]
+        public void AidCleared_Expired_PublishesTurnLogLine()
+        {
+            using var ctx = new AidResolvedLogContext();
+
+            var helper = ctx.RegisterEntity("Helper", Team.Player);
+            var ally = ctx.RegisterEntity("Fighter", Team.Player);
+
+            int count = 0;
+            CombatLogEntry last = default;
+            ctx.EventBus.OnLogEntry += HandleLog;
+
+            try
+            {
+                ctx.EventBus.PublishAidCleared(helper, ally, AidClearReason.ExpiredOnHelperTurnStart);
+
+                Assert.AreEqual(1, count);
+                Assert.AreEqual(helper, last.Actor);
+                Assert.AreEqual(CombatLogCategory.Turn, last.Category);
+                Assert.AreEqual("Aid for Fighter expires.", last.Message);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry)
+            {
+                count++;
+                last = entry;
+            }
+        }
+
+        [Test]
+        public void AidCleared_Overwritten_PublishesTurnLogLine()
+        {
+            using var ctx = new AidResolvedLogContext();
+
+            var helper = ctx.RegisterEntity("Helper", Team.Player);
+            var ally = ctx.RegisterEntity("Fighter", Team.Player);
+
+            int count = 0;
+            CombatLogEntry last = default;
+            ctx.EventBus.OnLogEntry += HandleLog;
+
+            try
+            {
+                ctx.EventBus.PublishAidCleared(helper, ally, AidClearReason.OverwrittenByNewPreparation);
+
+                Assert.AreEqual(1, count);
+                Assert.AreEqual(helper, last.Actor);
+                Assert.AreEqual(CombatLogCategory.Turn, last.Category);
+                Assert.AreEqual("Aid for Fighter is replaced by a new preparation.", last.Message);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry)
+            {
+                count++;
+                last = entry;
+            }
+        }
+
+        [Test]
+        public void AidCleared_Consumed_DoesNotPublishLifecycleTurnLog()
+        {
+            using var ctx = new AidResolvedLogContext();
+
+            var helper = ctx.RegisterEntity("Helper", Team.Player);
+            var ally = ctx.RegisterEntity("Fighter", Team.Player);
+
+            int count = 0;
+            ctx.EventBus.OnLogEntry += HandleLog;
+
+            try
+            {
+                ctx.EventBus.PublishAidCleared(helper, ally, AidClearReason.Consumed);
+                Assert.AreEqual(0, count);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry)
+            {
+                count++;
+            }
+        }
+
         private sealed class AidResolvedLogContext : System.IDisposable
         {
             private readonly bool oldIgnoreLogs;

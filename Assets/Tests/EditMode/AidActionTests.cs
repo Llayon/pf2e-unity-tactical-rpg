@@ -63,22 +63,15 @@ namespace PF2e.Tests
         }
 
         [Test]
-        public void TryPrepareAid_StoresRecord_AndPublishesLog()
+        public void TryPrepareAid_StoresRecord_AndPublishesPreparedEvent()
         {
             using var ctx = new AidActionContext();
             var helper = ctx.Register("Helper", Team.Player, new Vector3Int(0, 0, 0), isRanged: false, reachFeet: 5);
             var ally = ctx.Register("Ally", Team.Player, new Vector3Int(1, 0, 0), isRanged: false, reachFeet: 5);
 
             var aidService = new AidService();
-            int logs = 0;
             int preparedEvents = 0;
-            CombatLogEntry lastEntry = default;
             AidPreparedEvent preparedEvent = default;
-            ctx.EventBus.OnLogEntry += entry =>
-            {
-                logs++;
-                lastEntry = entry;
-            };
             ctx.EventBus.OnAidPreparedTyped += (in AidPreparedEvent e) =>
             {
                 preparedEvents++;
@@ -89,14 +82,10 @@ namespace PF2e.Tests
 
             Assert.IsTrue(prepared);
             Assert.IsTrue(aidService.HasPreparedAidForAlly(ally));
-            Assert.AreEqual(1, logs);
             Assert.AreEqual(1, preparedEvents);
             Assert.AreEqual(helper, preparedEvent.helper);
             Assert.AreEqual(ally, preparedEvent.ally);
             Assert.AreEqual(1, preparedEvent.preparedRound);
-            Assert.AreEqual(helper, lastEntry.Actor);
-            Assert.AreEqual("prepares Aid for Ally", lastEntry.Message);
-            Assert.AreEqual(CombatLogCategory.Turn, lastEntry.Category);
         }
 
         [Test]

@@ -82,9 +82,6 @@ namespace PF2e.TurnSystem
 
             eventBus?.PublishAidPrepared(helper, ally, roundNumber);
 
-            var allyData = entityManager.Registry.Get(ally);
-            string allyName = allyData != null ? allyData.Name : $"Entity#{ally.Id}";
-            eventBus?.Publish(helper, $"prepares Aid for {allyName}", CombatLogCategory.Turn);
             return true;
         }
 
