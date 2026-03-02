@@ -1280,6 +1280,8 @@ namespace PF2e.TurnSystem
                 }
                 if (actorData.Team == movedData.Team)
                     continue;
+                if (!DidEnterStrikeRange(actorData, movedData, e.from, e.to))
+                    continue;
                 if (strikeAction.GetStrikeTargetFailure(record.actor, e.entity) != TargetingFailureReason.None)
                     continue;
 
@@ -1308,6 +1310,46 @@ namespace PF2e.TurnSystem
                 return leftIndex.CompareTo(rightIndex);
 
             return left.Id.CompareTo(right.Id);
+        }
+
+        private static bool DidEnterStrikeRange(
+            EntityData actorData,
+            EntityData movedTargetData,
+            Vector3Int from,
+            Vector3Int to)
+        {
+            if (actorData == null || movedTargetData == null)
+                return false;
+
+            int distanceBefore = GridDistancePF2e.DistanceFeetXZ(actorData.GridPosition, from);
+            int distanceAfter = GridDistancePF2e.DistanceFeetXZ(actorData.GridPosition, to);
+            var weapon = actorData.EquippedWeapon;
+
+            if (weapon.IsRanged)
+            {
+                if (!TryGetRangedMaxDistanceFeet(weapon, out int maxRange))
+                    return false;
+
+                return distanceBefore > maxRange && distanceAfter <= maxRange;
+            }
+
+            int reach = weapon.ReachFeet;
+            return distanceBefore > reach && distanceAfter <= reach;
+        }
+
+        private static bool TryGetRangedMaxDistanceFeet(WeaponInstance weapon, out int maxRangeFeet)
+        {
+            maxRangeFeet = 0;
+            if (!weapon.IsRanged)
+                return false;
+
+            int incrementFeet = weapon.def != null ? weapon.def.rangeIncrementFeet : 0;
+            int maxIncrements = weapon.def != null ? weapon.def.maxRangeIncrements : 0;
+            if (incrementFeet <= 0 || maxIncrements <= 0)
+                return false;
+
+            maxRangeFeet = incrementFeet * maxIncrements;
+            return maxRangeFeet > 0;
         }
 
         private void ResolveReadiedStrikeTrigger(EntityHandle actor, EntityHandle target)
