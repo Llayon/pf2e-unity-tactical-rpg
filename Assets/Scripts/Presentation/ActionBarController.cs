@@ -49,8 +49,14 @@ namespace PF2e.Presentation
         [SerializeField] private Image raiseShieldHighlight;
         [SerializeField] private Image standHighlight;
 
+        [Header("Aid Prepared Indicator (optional)")]
+        [SerializeField] private GameObject aidPreparedIndicatorRoot;
+        [SerializeField] private TMP_Text aidPreparedIndicatorLabel;
+
         private bool buttonListenersBound;
         private bool delayEventsSubscribedInternally;
+        private readonly System.Collections.Generic.Dictionary<EntityHandle, int> aidPreparedCountsByHelper = new();
+        private readonly System.Collections.Generic.List<AidPreparedRecord> aidPreparedSnapshotBuffer = new();
 #if UNITY_EDITOR
         private void OnValidate()
         {
@@ -105,6 +111,9 @@ namespace PF2e.Presentation
             {
                 aidHighlight = FindAidHighlight(aidButton);
             }
+
+            ResolveAidPreparedIndicatorReferences();
+            SetAidPreparedIndicatorCount(0);
         }
 
         private Button FindAidButtonInHierarchy()
@@ -173,6 +182,54 @@ namespace PF2e.Presentation
             return null;
         }
 
+        private void ResolveAidPreparedIndicatorReferences()
+        {
+            if (aidButton == null)
+                return;
+
+            if (aidPreparedIndicatorRoot == null)
+            {
+                var existing = aidButton.transform.Find("AidPreparedBadge");
+                if (existing != null)
+                    aidPreparedIndicatorRoot = existing.gameObject;
+            }
+
+            if (aidPreparedIndicatorRoot == null)
+                aidPreparedIndicatorRoot = TryCreateAidPreparedIndicator(aidButton);
+
+            if (aidPreparedIndicatorLabel == null && aidPreparedIndicatorRoot != null)
+                aidPreparedIndicatorLabel = aidPreparedIndicatorRoot.GetComponentInChildren<TMP_Text>(true);
+        }
+
+        private static GameObject TryCreateAidPreparedIndicator(Button aidButton)
+        {
+            if (aidButton == null)
+                return null;
+
+            var badgeGo = new GameObject("AidPreparedBadge", typeof(RectTransform), typeof(Image));
+            badgeGo.transform.SetParent(aidButton.transform, false);
+
+            var rect = badgeGo.GetComponent<RectTransform>();
+            if (rect != null)
+            {
+                rect.anchorMin = new Vector2(1f, 1f);
+                rect.anchorMax = new Vector2(1f, 1f);
+                rect.pivot = new Vector2(1f, 1f);
+                rect.anchoredPosition = new Vector2(-4f, -4f);
+                rect.sizeDelta = new Vector2(10f, 10f);
+            }
+
+            var image = badgeGo.GetComponent<Image>();
+            if (image != null)
+            {
+                image.color = new Color(0.98f, 0.82f, 0.22f, 0.95f);
+                image.raycastTarget = false;
+            }
+
+            badgeGo.SetActive(false);
+            return badgeGo;
+        }
+
         private void OnEnable()
         {
             EnsureButtonListenersBound();
@@ -191,6 +248,8 @@ namespace PF2e.Presentation
             eventBus.OnActionsChangedTyped += HandleActionsChanged;
             eventBus.OnConditionChangedTyped += HandleConditionChanged;
             eventBus.OnShieldRaisedTyped += HandleShieldRaised;
+            eventBus.OnAidPreparedTyped += HandleAidPrepared;
+            eventBus.OnAidClearedTyped += HandleAidCleared;
 
             if (!IsExternalDelayOrchestratorPresent())
             {
@@ -211,6 +270,7 @@ namespace PF2e.Presentation
             targetingController.OnModeChanged += HandleModeChanged;
 
             HandleModeChanged(targetingController.ActiveMode);
+            RebuildAidPreparedCountsFromService();
             RefreshAvailability();
         }
 
@@ -225,6 +285,8 @@ namespace PF2e.Presentation
                 eventBus.OnActionsChangedTyped -= HandleActionsChanged;
                 eventBus.OnConditionChangedTyped -= HandleConditionChanged;
                 eventBus.OnShieldRaisedTyped -= HandleShieldRaised;
+                eventBus.OnAidPreparedTyped -= HandleAidPrepared;
+                eventBus.OnAidClearedTyped -= HandleAidCleared;
                 if (delayEventsSubscribedInternally)
                 {
                     eventBus.OnDelayTurnBeginTriggerChangedTyped -= HandleDelayTurnBeginTriggerChanged;
@@ -290,6 +352,8 @@ namespace PF2e.Presentation
             SetDelayWindowControlsVisible(false);
             SetDelayReturnControlsInteractable(false, false);
             ClearAllHighlights();
+            aidPreparedCountsByHelper.Clear();
+            SetAidPreparedIndicatorCount(0);
         }
 
         private void HandleTurnStarted(in TurnStartedEvent e)
@@ -319,6 +383,36 @@ namespace PF2e.Presentation
 
         private void HandleShieldRaised(in ShieldRaisedEvent e)
         {
+            RefreshAvailability();
+        }
+
+        private void HandleAidPrepared(in AidPreparedEvent e)
+        {
+            if (!e.helper.IsValid)
+                return;
+
+            aidPreparedCountsByHelper.TryGetValue(e.helper, out var currentCount);
+            aidPreparedCountsByHelper[e.helper] = Mathf.Max(0, currentCount) + 1;
+            RefreshAvailability();
+        }
+
+        private void HandleAidCleared(in AidClearedEvent e)
+        {
+            if (!e.helper.IsValid)
+                return;
+
+            if (!aidPreparedCountsByHelper.TryGetValue(e.helper, out var currentCount))
+            {
+                RefreshAvailability();
+                return;
+            }
+
+            currentCount = Mathf.Max(0, currentCount - 1);
+            if (currentCount <= 0)
+                aidPreparedCountsByHelper.Remove(e.helper);
+            else
+                aidPreparedCountsByHelper[e.helper] = currentCount;
+
             RefreshAvailability();
         }
 
@@ -386,6 +480,7 @@ namespace PF2e.Presentation
                 SetDelayControlInteractable(false);
                 SetDelayWindowControlsVisible(false);
                 SetDelayReturnControlsInteractable(false, false);
+                SetAidPreparedIndicatorCount(0);
                 return;
             }
 
@@ -397,6 +492,7 @@ namespace PF2e.Presentation
 
                 bool canReturnNow = turnManager.TryGetFirstDelayedPlayerActor(out _);
                 SetDelayReturnControlsInteractable(canReturnNow, true);
+                RefreshAidPreparedIndicator();
                 return;
             }
 
@@ -408,6 +504,7 @@ namespace PF2e.Presentation
                 SetAllInteractable(false);
                 // Keep Delay enabled as a cancel toggle while choosing initiative slot.
                 SetDelayControlInteractable(true);
+                RefreshAidPreparedIndicator();
                 return;
             }
 
@@ -419,6 +516,7 @@ namespace PF2e.Presentation
             {
                 SetAllInteractable(false);
                 SetDelayControlInteractable(false);
+                RefreshAidPreparedIndicator();
                 return;
             }
 
@@ -428,6 +526,7 @@ namespace PF2e.Presentation
             {
                 SetAllInteractable(false);
                 SetDelayControlInteractable(false);
+                RefreshAidPreparedIndicator();
                 return;
             }
 
@@ -446,6 +545,7 @@ namespace PF2e.Presentation
             SetInteractable(raiseShieldButton, CanRaiseShield(data));
             SetInteractable(standButton, HasCondition(data, ConditionType.Prone));
             SetDelayControlInteractable(turnManager.CanDelayCurrentTurn());
+            RefreshAidPreparedIndicator();
         }
 
         private static bool HasWeaponTrait(EntityData data, WeaponTraitFlags trait)
@@ -546,6 +646,59 @@ namespace PF2e.Presentation
             if (image == null) return;
             if (image.gameObject.activeSelf != active)
                 image.gameObject.SetActive(active);
+        }
+
+        private void RebuildAidPreparedCountsFromService()
+        {
+            aidPreparedCountsByHelper.Clear();
+
+            if (turnManager == null || turnManager.AidService == null)
+                return;
+
+            aidPreparedSnapshotBuffer.Clear();
+            turnManager.AidService.GetPreparedAidSnapshot(aidPreparedSnapshotBuffer);
+            for (int i = 0; i < aidPreparedSnapshotBuffer.Count; i++)
+            {
+                var record = aidPreparedSnapshotBuffer[i];
+                if (!record.helper.IsValid)
+                    continue;
+
+                aidPreparedCountsByHelper.TryGetValue(record.helper, out var currentCount);
+                aidPreparedCountsByHelper[record.helper] = Mathf.Max(0, currentCount) + 1;
+            }
+
+            aidPreparedSnapshotBuffer.Clear();
+        }
+
+        private void RefreshAidPreparedIndicator()
+        {
+            if (turnManager == null)
+            {
+                SetAidPreparedIndicatorCount(0);
+                return;
+            }
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+            {
+                SetAidPreparedIndicatorCount(0);
+                return;
+            }
+
+            aidPreparedCountsByHelper.TryGetValue(actor, out var preparedCount);
+            SetAidPreparedIndicatorCount(preparedCount);
+        }
+
+        private void SetAidPreparedIndicatorCount(int count)
+        {
+            int normalized = Mathf.Max(0, count);
+            bool show = normalized > 0;
+
+            if (aidPreparedIndicatorRoot != null && aidPreparedIndicatorRoot.activeSelf != show)
+                aidPreparedIndicatorRoot.SetActive(show);
+
+            if (aidPreparedIndicatorLabel != null)
+                aidPreparedIndicatorLabel.text = normalized > 1 ? normalized.ToString() : string.Empty;
         }
 
         private static bool IsExternalDelayOrchestratorPresent()

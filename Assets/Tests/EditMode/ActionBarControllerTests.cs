@@ -29,6 +29,7 @@ namespace PF2e.Tests
 
             Assert.IsTrue(ctx.StrikeButton.interactable);
             Assert.IsTrue(ctx.DemoralizeButton.interactable);
+            Assert.IsTrue(ctx.AidButton.interactable);
             Assert.IsTrue(ctx.DelayButton.interactable);
             Assert.IsFalse(ctx.TripButton.interactable);
             Assert.IsFalse(ctx.ShoveButton.interactable);
@@ -214,6 +215,60 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void AidPrepared_ForCurrentActor_ShowsAidPreparedIndicator()
+        {
+            using var ctx = new ActionBarTestContext();
+            var helper = ctx.RegisterEntity("Helper", Team.Player);
+            var ally = ctx.RegisterEntity("Ally", Team.Player);
+            var enemy = ctx.RegisterEntity("Enemy", Team.Enemy);
+            ctx.SetCurrentActorWithOrder(helper, TurnState.PlayerTurn, actionsRemaining: 3, enemy);
+
+            ctx.RefreshAvailability();
+            Assert.IsFalse(ctx.AidPreparedIndicatorRoot.activeSelf);
+
+            ctx.EventBus.PublishAidPrepared(helper, ally, preparedRound: 1);
+
+            Assert.IsTrue(ctx.AidPreparedIndicatorRoot.activeSelf);
+        }
+
+        [Test]
+        public void AidCleared_ForCurrentActor_HidesAidPreparedIndicator()
+        {
+            using var ctx = new ActionBarTestContext();
+            var helper = ctx.RegisterEntity("Helper", Team.Player);
+            var ally = ctx.RegisterEntity("Ally", Team.Player);
+            var enemy = ctx.RegisterEntity("Enemy", Team.Enemy);
+            ctx.SetCurrentActorWithOrder(helper, TurnState.PlayerTurn, actionsRemaining: 3, enemy);
+
+            ctx.EventBus.PublishAidPrepared(helper, ally, preparedRound: 1);
+            Assert.IsTrue(ctx.AidPreparedIndicatorRoot.activeSelf);
+
+            ctx.EventBus.PublishAidCleared(helper, ally, AidClearReason.Consumed);
+
+            Assert.IsFalse(ctx.AidPreparedIndicatorRoot.activeSelf);
+        }
+
+        [Test]
+        public void RebuildAidPreparedCountsFromService_SnapshotShowsAidPreparedIndicator()
+        {
+            using var ctx = new ActionBarTestContext();
+            var helper = ctx.RegisterEntity("Helper", Team.Player);
+            var ally = ctx.RegisterEntity("Ally", Team.Player);
+            var enemy = ctx.RegisterEntity("Enemy", Team.Enemy);
+            ctx.SetCurrentActorWithOrder(helper, TurnState.PlayerTurn, actionsRemaining: 3, enemy);
+
+            // Prepare state directly in service to validate OnEnable snapshot rebuild.
+            Assert.IsTrue(ctx.TurnManager.AidService.PrepareAid(helper, ally, preparedRound: 1));
+            Assert.AreEqual(1, ctx.TurnManager.AidService.PreparedAidCount);
+            Assert.IsFalse(ctx.AidPreparedIndicatorRoot.activeSelf);
+
+            InvokePrivate(ctx.ActionBar, "RebuildAidPreparedCountsFromService");
+            ctx.RefreshAvailability();
+
+            Assert.IsTrue(ctx.AidPreparedIndicatorRoot.activeSelf);
+        }
+
+        [Test]
         public void HandleModeChanged_HighlightsCorrectButton()
         {
             using var ctx = new ActionBarTestContext();
@@ -358,6 +413,7 @@ namespace PF2e.Tests
             public Button GrappleButton { get; }
             public Button DemoralizeButton { get; }
             public Button EscapeButton { get; }
+            public Button AidButton { get; }
             public Button RaiseShieldButton { get; }
             public Button StandButton { get; }
             public Button DelayButton { get; }
@@ -370,8 +426,10 @@ namespace PF2e.Tests
             public Image GrappleHighlight { get; }
             public Image DemoralizeHighlight { get; }
             public Image EscapeHighlight { get; }
+            public Image AidHighlight { get; }
             public Image RaiseShieldHighlight { get; }
             public Image StandHighlight { get; }
+            public GameObject AidPreparedIndicatorRoot { get; }
 
             public ActionBarTestContext()
             {
@@ -427,6 +485,7 @@ namespace PF2e.Tests
                 GrappleButton = CreateButton("GrappleButton", ActionBarGameObject.transform, out var grappleHl);
                 DemoralizeButton = CreateButton("DemoralizeButton", ActionBarGameObject.transform, out var demoralizeHl);
                 EscapeButton = CreateButton("EscapeButton", ActionBarGameObject.transform, out var escapeHl);
+                AidButton = CreateButton("AidButton", ActionBarGameObject.transform, out var aidHl);
                 RaiseShieldButton = CreateButton("RaiseShieldButton", ActionBarGameObject.transform, out var raiseShieldHl);
                 StandButton = CreateButton("StandButton", ActionBarGameObject.transform, out var standHl);
                 DelayButton = CreateButton("DelayButton", ActionBarGameObject.transform, out _);
@@ -439,8 +498,12 @@ namespace PF2e.Tests
                 GrappleHighlight = grappleHl;
                 DemoralizeHighlight = demoralizeHl;
                 EscapeHighlight = escapeHl;
+                AidHighlight = aidHl;
                 RaiseShieldHighlight = raiseShieldHl;
                 StandHighlight = standHl;
+                AidPreparedIndicatorRoot = new GameObject("AidPreparedBadge", typeof(RectTransform), typeof(Image));
+                AidPreparedIndicatorRoot.transform.SetParent(AidButton.transform, false);
+                AidPreparedIndicatorRoot.SetActive(false);
 
                 SetPrivateField(ActionBar, "eventBus", EventBus);
                 SetPrivateField(ActionBar, "entityManager", EntityManager);
@@ -454,6 +517,7 @@ namespace PF2e.Tests
                 SetPrivateField(ActionBar, "grappleButton", GrappleButton);
                 SetPrivateField(ActionBar, "demoralizeButton", DemoralizeButton);
                 SetPrivateField(ActionBar, "escapeButton", EscapeButton);
+                SetPrivateField(ActionBar, "aidButton", AidButton);
                 SetPrivateField(ActionBar, "raiseShieldButton", RaiseShieldButton);
                 SetPrivateField(ActionBar, "standButton", StandButton);
                 SetPrivateField(ActionBar, "delayButton", DelayButton);
@@ -465,8 +529,10 @@ namespace PF2e.Tests
                 SetPrivateField(ActionBar, "grappleHighlight", GrappleHighlight);
                 SetPrivateField(ActionBar, "demoralizeHighlight", DemoralizeHighlight);
                 SetPrivateField(ActionBar, "escapeHighlight", EscapeHighlight);
+                SetPrivateField(ActionBar, "aidHighlight", AidHighlight);
                 SetPrivateField(ActionBar, "raiseShieldHighlight", RaiseShieldHighlight);
                 SetPrivateField(ActionBar, "standHighlight", StandHighlight);
+                SetPrivateField(ActionBar, "aidPreparedIndicatorRoot", AidPreparedIndicatorRoot);
 
                 Root.SetActive(true);
                 targetingGo.SetActive(true);
@@ -635,6 +701,7 @@ namespace PF2e.Tests
                 Assert.IsFalse(GrappleButton.interactable);
                 Assert.IsFalse(DemoralizeButton.interactable);
                 Assert.IsFalse(EscapeButton.interactable);
+                Assert.IsFalse(AidButton.interactable);
                 Assert.IsFalse(RaiseShieldButton.interactable);
                 Assert.IsFalse(StandButton.interactable);
                 Assert.IsFalse(DelayButton.interactable);
@@ -650,6 +717,7 @@ namespace PF2e.Tests
                 Assert.IsFalse(GrappleHighlight.gameObject.activeSelf);
                 Assert.IsFalse(DemoralizeHighlight.gameObject.activeSelf);
                 Assert.IsFalse(EscapeHighlight.gameObject.activeSelf);
+                Assert.IsFalse(AidHighlight.gameObject.activeSelf);
                 Assert.IsFalse(RaiseShieldHighlight.gameObject.activeSelf);
                 Assert.IsFalse(StandHighlight.gameObject.activeSelf);
             }
