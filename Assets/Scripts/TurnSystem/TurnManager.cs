@@ -44,6 +44,9 @@ namespace PF2e.TurnSystem
         private readonly HashSet<EntityHandle> delayReactionSuppressed = new();
         private readonly List<EntityHandle> readiedTriggerBuffer = new();
         private readonly List<EntityHandle> staleReadiedActorsBuffer = new();
+        private readonly HashSet<EntityHandle> readyReactionsConsumedInScope = new();
+        private int readyTriggerScopeDepth;
+        private bool isResolvingReadiedStrikeTrigger;
         private IRng initiativeRng = UnityRng.Shared;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -1268,48 +1271,58 @@ namespace PF2e.TurnSystem
             if (strikeAction == null)
                 return;
 
-            readiedTriggerBuffer.Clear();
-            staleReadiedActorsBuffer.Clear();
-            var movedData = entityManager.Registry.Get(e.entity);
-            if (movedData == null || !movedData.IsAlive)
-                return;
-
-            foreach (var kvp in readiedStrikes)
+            BeginReadyTriggerScope();
+            try
             {
-                var record = kvp.Value;
+                readiedTriggerBuffer.Clear();
+                staleReadiedActorsBuffer.Clear();
+                var movedData = entityManager.Registry.Get(e.entity);
+                if (movedData == null || !movedData.IsAlive)
+                    return;
 
-                var actorData = entityManager.Registry.Get(record.actor);
-                if (actorData == null || !actorData.IsAlive)
+                foreach (var kvp in readiedStrikes)
                 {
-                    staleReadiedActorsBuffer.Add(record.actor);
-                    continue;
+                    var record = kvp.Value;
+
+                    var actorData = entityManager.Registry.Get(record.actor);
+                    if (actorData == null || !actorData.IsAlive)
+                    {
+                        staleReadiedActorsBuffer.Add(record.actor);
+                        continue;
+                    }
+                    if (actorData.Team == movedData.Team)
+                        continue;
+                    if (!DidEnterStrikeRange(actorData, movedData, e.from, e.to))
+                        continue;
+                    if (strikeAction.GetStrikeTargetFailure(record.actor, e.entity) != TargetingFailureReason.None)
+                        continue;
+
+                    readiedTriggerBuffer.Add(record.actor);
                 }
-                if (actorData.Team == movedData.Team)
-                    continue;
-                if (!DidEnterStrikeRange(actorData, movedData, e.from, e.to))
-                    continue;
-                if (strikeAction.GetStrikeTargetFailure(record.actor, e.entity) != TargetingFailureReason.None)
-                    continue;
 
-                readiedTriggerBuffer.Add(record.actor);
+                for (int i = 0; i < staleReadiedActorsBuffer.Count; i++)
+                    readiedStrikes.Remove(staleReadiedActorsBuffer[i]);
+                staleReadiedActorsBuffer.Clear();
+
+                if (readiedTriggerBuffer.Count <= 0)
+                    return;
+
+                readiedTriggerBuffer.Sort(CompareReadiedTriggerOrder);
+                for (int i = 0; i < readiedTriggerBuffer.Count; i++)
+                    ResolveReadiedStrikeTrigger(readiedTriggerBuffer[i], e.entity, triggerReason: "movement");
+
+                readiedTriggerBuffer.Clear();
             }
-
-            for (int i = 0; i < staleReadiedActorsBuffer.Count; i++)
-                readiedStrikes.Remove(staleReadiedActorsBuffer[i]);
-            staleReadiedActorsBuffer.Clear();
-
-            if (readiedTriggerBuffer.Count <= 0)
-                return;
-
-            readiedTriggerBuffer.Sort(CompareReadiedTriggerOrder);
-            for (int i = 0; i < readiedTriggerBuffer.Count; i++)
-                ResolveReadiedStrikeTrigger(readiedTriggerBuffer[i], e.entity, triggerReason: "movement");
-
-            readiedTriggerBuffer.Clear();
+            finally
+            {
+                EndReadyTriggerScope();
+            }
         }
 
         private void HandleStrikePreDamage(in StrikePreDamageEvent e)
         {
+            if (isResolvingReadiedStrikeTrigger)
+                return;
             if (!e.attacker.IsValid || !e.target.IsValid)
                 return;
             if (state == TurnState.Inactive || state == TurnState.RollingInitiative || state == TurnState.CombatOver)
@@ -1321,48 +1334,56 @@ namespace PF2e.TurnSystem
             if (strikeAction == null)
                 return;
 
-            var attackSourceData = entityManager.Registry.Get(e.attacker);
-            var attackTargetData = entityManager.Registry.Get(e.target);
-            if (attackSourceData == null || attackTargetData == null)
-                return;
-            if (!attackSourceData.IsAlive || !attackTargetData.IsAlive)
-                return;
-
-            readiedTriggerBuffer.Clear();
-            staleReadiedActorsBuffer.Clear();
-
-            foreach (var kvp in readiedStrikes)
+            BeginReadyTriggerScope();
+            try
             {
-                var record = kvp.Value;
-                var actorData = entityManager.Registry.Get(record.actor);
-                if (actorData == null || !actorData.IsAlive)
+                var attackSourceData = entityManager.Registry.Get(e.attacker);
+                var attackTargetData = entityManager.Registry.Get(e.target);
+                if (attackSourceData == null || attackTargetData == null)
+                    return;
+                if (!attackSourceData.IsAlive || !attackTargetData.IsAlive)
+                    return;
+
+                readiedTriggerBuffer.Clear();
+                staleReadiedActorsBuffer.Clear();
+
+                foreach (var kvp in readiedStrikes)
                 {
-                    staleReadiedActorsBuffer.Add(record.actor);
-                    continue;
+                    var record = kvp.Value;
+                    var actorData = entityManager.Registry.Get(record.actor);
+                    if (actorData == null || !actorData.IsAlive)
+                    {
+                        staleReadiedActorsBuffer.Add(record.actor);
+                        continue;
+                    }
+
+                    if (actorData.Team == attackSourceData.Team)
+                        continue;
+                    if (!IsWithinReadyStrikeTriggerRange(actorData, attackSourceData))
+                        continue;
+                    if (strikeAction.GetStrikeTargetFailure(record.actor, e.attacker) != TargetingFailureReason.None)
+                        continue;
+
+                    readiedTriggerBuffer.Add(record.actor);
                 }
 
-                if (actorData.Team == attackSourceData.Team)
-                    continue;
-                if (!IsWithinReadyStrikeTriggerRange(actorData, attackSourceData))
-                    continue;
-                if (strikeAction.GetStrikeTargetFailure(record.actor, e.attacker) != TargetingFailureReason.None)
-                    continue;
+                for (int i = 0; i < staleReadiedActorsBuffer.Count; i++)
+                    readiedStrikes.Remove(staleReadiedActorsBuffer[i]);
+                staleReadiedActorsBuffer.Clear();
 
-                readiedTriggerBuffer.Add(record.actor);
+                if (readiedTriggerBuffer.Count <= 0)
+                    return;
+
+                readiedTriggerBuffer.Sort(CompareReadiedTriggerOrder);
+                for (int i = 0; i < readiedTriggerBuffer.Count; i++)
+                    ResolveReadiedStrikeTrigger(readiedTriggerBuffer[i], e.attacker, triggerReason: "attack");
+
+                readiedTriggerBuffer.Clear();
             }
-
-            for (int i = 0; i < staleReadiedActorsBuffer.Count; i++)
-                readiedStrikes.Remove(staleReadiedActorsBuffer[i]);
-            staleReadiedActorsBuffer.Clear();
-
-            if (readiedTriggerBuffer.Count <= 0)
-                return;
-
-            readiedTriggerBuffer.Sort(CompareReadiedTriggerOrder);
-            for (int i = 0; i < readiedTriggerBuffer.Count; i++)
-                ResolveReadiedStrikeTrigger(readiedTriggerBuffer[i], e.attacker, triggerReason: "attack");
-
-            readiedTriggerBuffer.Clear();
+            finally
+            {
+                EndReadyTriggerScope();
+            }
         }
 
         private int CompareReadiedTriggerOrder(EntityHandle left, EntityHandle right)
@@ -1444,8 +1465,6 @@ namespace PF2e.TurnSystem
                 return;
             if (!readiedStrikes.ContainsKey(actor))
                 return;
-            if (!CanUseReaction(actor))
-                return;
             if (entityManager == null || entityManager.Registry == null)
                 return;
 
@@ -1456,8 +1475,9 @@ namespace PF2e.TurnSystem
                 return;
             }
 
+            if (!TryConsumeReadyReactionInScope(actor, actorData))
+                return;
             readiedStrikes.Remove(actor);
-            actorData.ReactionAvailable = false;
 
             var targetData = entityManager.Registry.Get(target);
             string targetName = targetData != null && !string.IsNullOrWhiteSpace(targetData.Name)
@@ -1468,15 +1488,56 @@ namespace PF2e.TurnSystem
                 triggerReason = "trigger";
             eventBus?.Publish(actor, $"readied Strike triggers on {targetName} {triggerReason}.", CombatLogCategory.Turn);
 
-            var phase = strikeAction.ResolveAttackRoll(actor, target, UnityRng.Shared, aidCircumstanceBonus: 0);
-            if (!phase.HasValue)
+            bool wasResolvingReadiedStrike = isResolvingReadiedStrikeTrigger;
+            isResolvingReadiedStrikeTrigger = true;
+            try
             {
-                eventBus?.Publish(actor, "readied Strike trigger resolves, but attack is no longer valid.", CombatLogCategory.Turn);
-                return;
-            }
+                var phase = strikeAction.ResolveAttackRoll(actor, target, UnityRng.Shared, aidCircumstanceBonus: 0);
+                if (!phase.HasValue)
+                {
+                    eventBus?.Publish(actor, "readied Strike trigger resolves, but attack is no longer valid.", CombatLogCategory.Turn);
+                    return;
+                }
 
-            var resolved = strikeAction.DetermineHitAndDamage(phase.Value, target, UnityRng.Shared);
-            strikeAction.ApplyStrikeDamage(resolved, damageReduction: 0);
+                var resolved = strikeAction.DetermineHitAndDamage(phase.Value, target, UnityRng.Shared);
+                strikeAction.ApplyStrikeDamage(resolved, damageReduction: 0);
+            }
+            finally
+            {
+                isResolvingReadiedStrikeTrigger = wasResolvingReadiedStrike;
+            }
+        }
+
+        private void BeginReadyTriggerScope()
+        {
+            if (readyTriggerScopeDepth == 0)
+                readyReactionsConsumedInScope.Clear();
+
+            readyTriggerScopeDepth++;
+        }
+
+        private void EndReadyTriggerScope()
+        {
+            if (readyTriggerScopeDepth <= 0)
+                return;
+
+            readyTriggerScopeDepth--;
+            if (readyTriggerScopeDepth == 0)
+                readyReactionsConsumedInScope.Clear();
+        }
+
+        private bool TryConsumeReadyReactionInScope(EntityHandle actor, EntityData actorData)
+        {
+            if (!actor.IsValid || actorData == null || !actorData.IsAlive)
+                return false;
+            if (!CanUseReaction(actor))
+                return false;
+            if (readyReactionsConsumedInScope.Contains(actor))
+                return false;
+
+            readyReactionsConsumedInScope.Add(actor);
+            actorData.ReactionAvailable = false;
+            return true;
         }
 
         private void PublishCombatStarted()

@@ -280,6 +280,48 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void StrikePreDamage_ReadyResolution_DoesNotCascadeIntoCounterReadyInSameTriggerScope()
+        {
+            using var ctx = new ReadyStrikeContext();
+
+            var fighter = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(0, 0, 0), strength: 22);
+            var wizard = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(0, 0, 1), strength: 10);
+            var goblin = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(1, 0, 0), strength: 10);
+
+            var fighterData = ctx.Registry.Get(fighter);
+            var goblinData = ctx.Registry.Get(goblin);
+            Assert.IsNotNull(fighterData);
+            Assert.IsNotNull(goblinData);
+
+            fighterData.ReactionAvailable = true;
+            goblinData.ReactionAvailable = true;
+
+            Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(fighter, preparedRound: 1));
+            Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(goblin, preparedRound: 1));
+            Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(fighter));
+            Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(goblin));
+
+            // Root trigger: enemy starts attack on fighter's ally.
+            ctx.EventBus.PublishStrikePreDamage(
+                attacker: goblin,
+                target: wizard,
+                naturalRoll: 15,
+                total: 20,
+                dc: 18,
+                degree: DegreeOfSuccess.Success,
+                damageRolled: 5,
+                damageType: DamageType.Slashing);
+
+            // Fighter should react and consume own ready.
+            Assert.IsFalse(ctx.TurnManager.HasReadiedStrike(fighter), "Fighter ready should be consumed by root attack-start trigger.");
+            Assert.IsFalse(fighterData.ReactionAvailable, "Fighter reaction should be spent by ready strike.");
+
+            // Goblin should NOT counter-react to fighter's ready strike pre-damage in the same root trigger scope.
+            Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(goblin), "Goblin ready should remain; counter-ready chain in same trigger scope must be suppressed.");
+            Assert.IsTrue(goblinData.ReactionAvailable, "Goblin reaction should remain available when counter-ready is suppressed.");
+        }
+
+        [Test]
         public void ApplyStartTurnEffects_ExpiresReadiedStrikeForActor()
         {
             using var ctx = new ReadyStrikeContext();
