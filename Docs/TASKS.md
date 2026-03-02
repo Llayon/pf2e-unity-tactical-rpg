@@ -119,6 +119,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-113 | P1 | done | Builder | Phase 32f.2: route Aid prepare/clear logging via typed lifecycle events | `AidResolvedLogForwarder` now handles `AidPrepared`/`AidCleared` lifecycle logs (with noise suppression for `Consumed`/`CombatEnded`), and direct prepare log emission was removed from `AidAction` |
 | T-114 | P1 | done | Builder | Phase 32f.3: add event-driven Aid prepared indicator on Action Bar | `ActionBarController` now tracks prepared Aid per helper from typed events, rebuilds from `AidService` snapshot on enable, and shows/hides `AidPreparedBadge` without polling |
 | T-115 | P1 | done | Builder | Phase 32f.4: polish Aid badge style and scene smoke coverage | Aid badge style/text is now serialized (`fill/label/single/count format`), tests cover label formatting, and `SampleScene` validator smoke confirms `AidPreparedBadge` wiring under `AidButton` |
+| T-116 | P1 | done | Builder | Phase 32g.1: extract Aid badge state presenter from `ActionBarController` | Added `AidPreparedIndicatorPresenter` for Aid prepared state/rebuild/format logic; `ActionBarController` now delegates Aid badge updates to presenter and no longer owns per-helper Aid dictionaries; new EditMode tests cover presenter contracts |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

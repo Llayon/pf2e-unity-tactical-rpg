@@ -59,8 +59,7 @@ namespace PF2e.Presentation
 
         private bool buttonListenersBound;
         private bool delayEventsSubscribedInternally;
-        private readonly System.Collections.Generic.Dictionary<EntityHandle, int> aidPreparedCountsByHelper = new();
-        private readonly System.Collections.Generic.List<AidPreparedRecord> aidPreparedSnapshotBuffer = new();
+        private readonly AidPreparedIndicatorPresenter aidPreparedIndicatorPresenter = new();
 #if UNITY_EDITOR
         private void OnValidate()
         {
@@ -117,7 +116,8 @@ namespace PF2e.Presentation
             }
 
             ResolveAidPreparedIndicatorReferences();
-            SetAidPreparedIndicatorCount(0);
+            aidPreparedIndicatorPresenter.Clear();
+            RefreshAidPreparedIndicator();
         }
 
         private Button FindAidButtonInHierarchy()
@@ -370,8 +370,8 @@ namespace PF2e.Presentation
             SetDelayWindowControlsVisible(false);
             SetDelayReturnControlsInteractable(false, false);
             ClearAllHighlights();
-            aidPreparedCountsByHelper.Clear();
-            SetAidPreparedIndicatorCount(0);
+            aidPreparedIndicatorPresenter.Clear();
+            RefreshAidPreparedIndicator();
         }
 
         private void HandleTurnStarted(in TurnStartedEvent e)
@@ -406,31 +406,13 @@ namespace PF2e.Presentation
 
         private void HandleAidPrepared(in AidPreparedEvent e)
         {
-            if (!e.helper.IsValid)
-                return;
-
-            aidPreparedCountsByHelper.TryGetValue(e.helper, out var currentCount);
-            aidPreparedCountsByHelper[e.helper] = Mathf.Max(0, currentCount) + 1;
+            aidPreparedIndicatorPresenter.HandleAidPrepared(in e);
             RefreshAvailability();
         }
 
         private void HandleAidCleared(in AidClearedEvent e)
         {
-            if (!e.helper.IsValid)
-                return;
-
-            if (!aidPreparedCountsByHelper.TryGetValue(e.helper, out var currentCount))
-            {
-                RefreshAvailability();
-                return;
-            }
-
-            currentCount = Mathf.Max(0, currentCount - 1);
-            if (currentCount <= 0)
-                aidPreparedCountsByHelper.Remove(e.helper);
-            else
-                aidPreparedCountsByHelper[e.helper] = currentCount;
-
+            aidPreparedIndicatorPresenter.HandleAidCleared(in e);
             RefreshAvailability();
         }
 
@@ -498,7 +480,8 @@ namespace PF2e.Presentation
                 SetDelayControlInteractable(false);
                 SetDelayWindowControlsVisible(false);
                 SetDelayReturnControlsInteractable(false, false);
-                SetAidPreparedIndicatorCount(0);
+                aidPreparedIndicatorPresenter.Clear();
+                RefreshAidPreparedIndicator();
                 return;
             }
 
@@ -668,76 +651,18 @@ namespace PF2e.Presentation
 
         private void RebuildAidPreparedCountsFromService()
         {
-            aidPreparedCountsByHelper.Clear();
-
-            if (turnManager == null || turnManager.AidService == null)
-                return;
-
-            aidPreparedSnapshotBuffer.Clear();
-            turnManager.AidService.GetPreparedAidSnapshot(aidPreparedSnapshotBuffer);
-            for (int i = 0; i < aidPreparedSnapshotBuffer.Count; i++)
-            {
-                var record = aidPreparedSnapshotBuffer[i];
-                if (!record.helper.IsValid)
-                    continue;
-
-                aidPreparedCountsByHelper.TryGetValue(record.helper, out var currentCount);
-                aidPreparedCountsByHelper[record.helper] = Mathf.Max(0, currentCount) + 1;
-            }
-
-            aidPreparedSnapshotBuffer.Clear();
+            aidPreparedIndicatorPresenter.RebuildFromService(turnManager != null ? turnManager.AidService : null);
         }
 
         private void RefreshAidPreparedIndicator()
         {
-            if (turnManager == null)
-            {
-                SetAidPreparedIndicatorCount(0);
-                return;
-            }
-
-            var actor = turnManager.CurrentEntity;
-            if (!actor.IsValid)
-            {
-                SetAidPreparedIndicatorCount(0);
-                return;
-            }
-
-            aidPreparedCountsByHelper.TryGetValue(actor, out var preparedCount);
-            SetAidPreparedIndicatorCount(preparedCount);
-        }
-
-        private void SetAidPreparedIndicatorCount(int count)
-        {
-            int normalized = Mathf.Max(0, count);
-            bool show = normalized > 0;
-
-            if (aidPreparedIndicatorRoot != null && aidPreparedIndicatorRoot.activeSelf != show)
-                aidPreparedIndicatorRoot.SetActive(show);
-
-            if (aidPreparedIndicatorLabel != null)
-                aidPreparedIndicatorLabel.text = BuildAidPreparedIndicatorText(normalized);
-        }
-
-        private string BuildAidPreparedIndicatorText(int count)
-        {
-            if (count <= 0)
-                return string.Empty;
-
-            if (count == 1)
-                return aidPreparedSingleText ?? string.Empty;
-
-            if (string.IsNullOrEmpty(aidPreparedCountFormat))
-                return count.ToString();
-
-            try
-            {
-                return string.Format(aidPreparedCountFormat, count);
-            }
-            catch (System.FormatException)
-            {
-                return count.ToString();
-            }
+            var actor = turnManager != null ? turnManager.CurrentEntity : default;
+            aidPreparedIndicatorPresenter.RefreshForActor(
+                actor,
+                aidPreparedIndicatorRoot,
+                aidPreparedIndicatorLabel,
+                aidPreparedSingleText,
+                aidPreparedCountFormat);
         }
 
         private static bool IsExternalDelayOrchestratorPresent()
