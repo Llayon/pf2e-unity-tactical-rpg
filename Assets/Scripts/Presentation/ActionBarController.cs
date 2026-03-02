@@ -62,6 +62,7 @@ namespace PF2e.Presentation
         private readonly ActionBarAvailabilityPolicy actionBarAvailabilityPolicy = new();
         private readonly AidPreparedIndicatorPresenter aidPreparedIndicatorPresenter = new();
         private readonly DelayActionBarStatePresenter delayActionBarStatePresenter = new();
+        private readonly ActionBarCommandCoordinator actionBarCommandCoordinator = new();
 #if UNITY_EDITOR
         private void OnValidate()
         {
@@ -258,6 +259,8 @@ namespace PF2e.Presentation
                 enabled = false;
                 return;
             }
+
+            actionBarCommandCoordinator.Bind(turnManager, targetingController, actionExecutor, RefreshAvailability);
 
             eventBus.OnCombatStartedTyped += HandleCombatStarted;
             eventBus.OnCombatEndedTyped += HandleCombatEnded;
@@ -608,122 +611,67 @@ namespace PF2e.Presentation
 
         private void OnStrikeClicked()
         {
-            ToggleOrBeginTargeting(TargetingMode.Strike, h => actionExecutor.TryExecuteStrike(h));
+            actionBarCommandCoordinator.OnStrikeClicked();
         }
 
         private void OnTripClicked()
         {
-            ToggleOrBeginTargeting(TargetingMode.Trip, h => actionExecutor.TryExecuteTrip(h));
+            actionBarCommandCoordinator.OnTripClicked();
         }
 
         private void OnShoveClicked()
         {
-            ToggleOrBeginTargeting(TargetingMode.Shove, h => actionExecutor.TryExecuteShove(h));
+            actionBarCommandCoordinator.OnShoveClicked();
         }
 
         private void OnGrappleClicked()
         {
-            ToggleOrBeginTargeting(TargetingMode.Grapple, h => actionExecutor.TryExecuteGrapple(h));
+            actionBarCommandCoordinator.OnGrappleClicked();
         }
 
         private void OnDemoralizeClicked()
         {
-            ToggleOrBeginTargeting(TargetingMode.Demoralize, h => actionExecutor.TryExecuteDemoralize(h));
+            actionBarCommandCoordinator.OnDemoralizeClicked();
         }
 
         private void OnRepositionClicked()
         {
-            ToggleOrBeginRepositionTargeting();
+            actionBarCommandCoordinator.OnRepositionClicked();
         }
 
         private void OnEscapeClicked()
         {
-            ToggleOrBeginTargeting(TargetingMode.Escape, h => actionExecutor.TryExecuteEscape(h));
+            actionBarCommandCoordinator.OnEscapeClicked();
         }
 
         private void OnAidClicked()
         {
-            ToggleOrBeginTargeting(TargetingMode.Aid, h => actionExecutor.TryExecuteAid(h));
+            actionBarCommandCoordinator.OnAidClicked();
         }
 
         private void OnRaiseShieldClicked()
         {
-            if (actionExecutor == null) return;
-            actionExecutor.TryExecuteRaiseShield();
+            actionBarCommandCoordinator.OnRaiseShieldClicked();
         }
 
         private void OnStandClicked()
         {
-            if (actionExecutor == null) return;
-            actionExecutor.TryExecuteStand();
+            actionBarCommandCoordinator.OnStandClicked();
         }
 
         private void OnDelayClicked()
         {
-            if (turnManager == null) return;
-
-            if (targetingController != null && targetingController.ActiveMode != TargetingMode.None)
-                targetingController.CancelTargeting();
-
-            if (turnManager.IsDelayPlacementSelectionOpen)
-            {
-                turnManager.CancelDelayPlacementSelection();
-                RefreshAvailability();
-                return;
-            }
-
-            if (turnManager.TryBeginDelayPlacementSelection())
-                RefreshAvailability();
+            actionBarCommandCoordinator.OnDelayClicked();
         }
 
         private void OnReturnNowClicked()
         {
-            if (turnManager == null) return;
-            if (!turnManager.TryGetFirstDelayedPlayerActor(out var actor)) return;
-
-            if (turnManager.TryReturnDelayedActor(actor))
-                RefreshAvailability();
+            actionBarCommandCoordinator.OnReturnNowClicked();
         }
 
         private void OnSkipDelayWindowClicked()
         {
-            if (turnManager == null) return;
-
-            if (turnManager.IsDelayReturnWindowOpen)
-            {
-                turnManager.SkipDelayReturnWindow();
-                RefreshAvailability();
-            }
-        }
-
-        private void ToggleOrBeginTargeting(TargetingMode mode, System.Action<EntityHandle> onConfirm)
-        {
-            if (targetingController == null || actionExecutor == null) return;
-
-            if (targetingController.ActiveMode == mode)
-            {
-                targetingController.CancelTargeting();
-                return;
-            }
-
-            targetingController.BeginTargeting(mode, onConfirm);
-        }
-
-        private void ToggleOrBeginRepositionTargeting()
-        {
-            if (targetingController == null || actionExecutor == null) return;
-
-            if (targetingController.ActiveMode == TargetingMode.Reposition)
-            {
-                targetingController.CancelTargeting();
-                return;
-            }
-
-            targetingController.BeginRepositionTargeting(
-                actionExecutor.TryBeginRepositionTargetSelection,
-                actionExecutor.TryConfirmRepositionDestination,
-                onCancelled: null,
-                onCellPhaseCancelled: actionExecutor.CancelPendingRepositionSelection);
+            actionBarCommandCoordinator.OnSkipDelayWindowClicked();
         }
     }
 }

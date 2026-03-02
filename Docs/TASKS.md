@@ -122,6 +122,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-116 | P1 | done | Builder | Phase 32g.1: extract Aid badge state presenter from `ActionBarController` | Added `AidPreparedIndicatorPresenter` for Aid prepared state/rebuild/format logic; `ActionBarController` now delegates Aid badge updates to presenter and no longer owns per-helper Aid dictionaries; new EditMode tests cover presenter contracts |
 | T-117 | P1 | done | Builder | Phase 32g.2: extract Delay control state presenter from `ActionBarController` | Added `DelayActionBarStatePresenter` (`DelayActionBarState`) to map/apply `Delay/Return/Skip` control states; `ActionBarController` now delegates delay-state UI application and removed local delay button-state plumbing |
 | T-118 | P1 | done | Builder | Phase 32g.3: extract Action Bar action-availability rules policy | Added `ActionBarAvailabilityPolicy` + `ActionBarAvailabilityState` for action enablement rules (`Trip/Shove/Grapple/Escape/Stand/RaiseShield` etc.); `ActionBarController` now delegates gameplay availability decisions to policy and keeps UI application logic |
+| T-119 | P1 | done | Builder | Phase 32g.4: extract Action Bar command coordinator | Added `ActionBarCommandCoordinator` to own button command routing and targeting toggles (`Strike/Trip/.../Delay/Return/Skip`); `ActionBarController` now delegates click handlers and remains focused on UI state/render flow |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal
