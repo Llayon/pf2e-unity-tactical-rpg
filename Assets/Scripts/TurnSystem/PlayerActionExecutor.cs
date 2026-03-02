@@ -333,57 +333,17 @@ namespace PF2e.TurnSystem
 
         private int ResolvePostHitReactionReduction(StrikePhaseResult resolved)
         {
-            if (!resolved.damageDealt || resolved.damageRolled <= 0)
-                return 0;
             if (turnManager == null || entityManager == null || entityManager.Registry == null)
                 return 0;
-
-            reactionBuffer.Clear();
-            ReactionService.CollectEligibleReactions(
-                ReactionTriggerPhase.PostHit,
-                resolved.attacker,
-                resolved.target,
+            return ReactionBroker.ResolvePostHitReductionSync(
+                resolved,
                 turnManager.InitiativeOrder,
                 handle => entityManager.Registry.Get(handle),
-                reactionBuffer);
-
-            if (reactionBuffer.Count <= 0)
-                return 0;
-
-            // MVP invariant: at most one option (self-only shield block).
-            var option = reactionBuffer[0];
-            var reactorData = entityManager.Registry.Get(option.entity);
-            if (reactorData == null || !reactorData.IsAlive)
-                return 0;
-            if (!turnManager.CanUseReaction(option.entity))
-                return 0;
-
-            bool? decided = null;
-            reactionPolicy.DecideReaction(
-                option,
-                reactorData,
-                resolved.damageRolled,
-                result => decided = result);
-
-            if (!decided.HasValue)
-            {
-                Debug.LogWarning("[Reaction] DecideReaction did not invoke callback synchronously. Treating as decline.");
-                return 0;
-            }
-
-            if (!decided.Value)
-                return 0;
-
-            var blockResult = ShieldBlockRules.Calculate(reactorData.EquippedShield, resolved.damageRolled);
-            if (shieldBlockAction == null)
-            {
-                Debug.LogWarning("[Executor] ShieldBlockAction is missing. Skipping Shield Block reaction.", this);
-                return 0;
-            }
-
-            return shieldBlockAction.Execute(option.entity, resolved.damageRolled, in blockResult)
-                ? blockResult.targetDamageReduction
-                : 0;
+                handle => turnManager.CanUseReaction(handle),
+                reactionPolicy,
+                shieldBlockAction,
+                reactionBuffer,
+                "Executor");
         }
 
         private bool EnsureReactionPolicy()

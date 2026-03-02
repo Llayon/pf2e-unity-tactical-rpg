@@ -359,102 +359,29 @@ namespace PF2e.TurnSystem
         private IEnumerator ResolvePostHitReactionReductionCoroutine(
             StrikePhaseResult resolved, int token, System.Action<int> setResult)
         {
-            if (!resolved.damageDealt || resolved.damageRolled <= 0)
+            if (entityManager == null || entityManager.Registry == null || turnManager == null)
             {
                 setResult?.Invoke(0);
                 yield break;
             }
 
-            if (reactionPolicy == null || entityManager == null || entityManager.Registry == null || turnManager == null)
-            {
-                setResult?.Invoke(0);
-                yield break;
-            }
-
-            reactionBuffer.Clear();
-            ReactionService.CollectEligibleReactions(
-                ReactionTriggerPhase.PostHit,
-                resolved.attacker,
-                resolved.target,
+            yield return ReactionBroker.ResolvePostHitReductionAsync(
+                resolved,
                 turnManager.InitiativeOrder,
                 handle => entityManager.Registry.Get(handle),
-                reactionBuffer);
-
-            if (reactionBuffer.Count <= 0)
-            {
-                setResult?.Invoke(0);
-                yield break;
-            }
-
-            // MVP invariant: max 1 eligible option (target self-only Shield Block).
-            var option = reactionBuffer[0];
-            var reactorData = entityManager.Registry.Get(option.entity);
-            if (reactorData == null || !reactorData.IsAlive)
-            {
-                setResult?.Invoke(0);
-                yield break;
-            }
-            if (!turnManager.CanUseReaction(option.entity))
-            {
-                setResult?.Invoke(0);
-                yield break;
-            }
-
-            bool? decided = null;
-            reactionPolicy.DecideReaction(
-                option,
-                reactorData,
-                resolved.damageRolled,
-                result => decided = result);
-
-            // If policy resolved synchronously (AI auto-block, Player AutoBlock/Never), skip yield.
-            if (!decided.HasValue)
-            {
-                // Async path: wait for callback (modal prompt).
-                float reactionStart = Time.time;
-                while (!decided.HasValue)
+                handle => turnManager.CanUseReaction(handle),
+                reactionPolicy,
+                shieldBlockAction,
+                reactionBuffer,
+                shouldAbortWaiting: () => !IsCurrentRun(token),
+                timeoutSeconds: ReactionTimeoutSeconds,
+                forceClosePrompt: () =>
                 {
-                    if (!IsCurrentRun(token))
-                    {
-                        // Abort: force-close any open prompt.
-                        if (reactionPromptController != null)
-                            reactionPromptController.ForceCloseAsDecline();
-                        setResult?.Invoke(0);
-                        yield break;
-                    }
-
-                    if (Time.time - reactionStart > ReactionTimeoutSeconds)
-                    {
-                        Debug.LogWarning("[AITurnController] Reaction decision timeout. Auto-declining.", this);
-                        if (reactionPromptController != null)
-                            reactionPromptController.ForceCloseAsDecline();
-                        decided = false;
-                        break;
-                    }
-
-                    yield return null;
-                }
-            }
-
-            if (decided != true)
-            {
-                setResult?.Invoke(0);
-                yield break;
-            }
-
-            var blockResult = ShieldBlockRules.Calculate(reactorData.EquippedShield, resolved.damageRolled);
-            if (shieldBlockAction == null)
-            {
-                Debug.LogWarning("[AITurnController] ShieldBlockAction is missing. Skipping Shield Block reaction.", this);
-                setResult?.Invoke(0);
-                yield break;
-            }
-
-            int reduction = shieldBlockAction.Execute(option.entity, resolved.damageRolled, in blockResult)
-                ? blockResult.targetDamageReduction
-                : 0;
-
-            setResult?.Invoke(reduction);
+                    if (reactionPromptController != null)
+                        reactionPromptController.ForceCloseAsDecline();
+                },
+                setResult: setResult,
+                ownerTag: "AITurnController");
         }
 
         private bool TryExecuteStand(EntityHandle actor)
