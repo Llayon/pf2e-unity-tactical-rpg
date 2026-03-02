@@ -60,7 +60,7 @@ namespace PF2e.Tests
         }
 
         [Test]
-        public void EntityMoved_Normal_WithinReachToWithinReach_DoesNotTriggerReadiedStrike()
+        public void EntityMoved_Normal_WithinReachToWithinReach_ConsumesReadiedStrikeAndReaction()
         {
             using var ctx = new ReadyStrikeContext();
 
@@ -78,7 +78,204 @@ namespace PF2e.Tests
             targetData.GridPosition = new Vector3Int(1, 0, 1); // still in melee reach
             ctx.EventBus.PublishEntityMoved(target, new Vector3Int(1, 0, 0), targetData.GridPosition, forced: false);
 
-            Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(actor), "Moving inside reach should not trigger entry-based ready.");
+            Assert.IsFalse(ctx.TurnManager.HasReadiedStrike(actor), "Movement started within reach should trigger melee ready.");
+            Assert.IsFalse(actorData.ReactionAvailable, "Triggered melee ready should consume reaction.");
+        }
+
+        [Test]
+        public void EntityMoved_Normal_Ranged_EnteringFirstIncrement_ConsumesReadiedStrikeAndReaction()
+        {
+            using var ctx = new ReadyStrikeContext();
+            var rangedDef = CreateRangedWeaponDefinition(60, 6);
+
+            try
+            {
+                var actor = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(0, 0, 0), strength: 10);
+                var target = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(13, 0, 0), strength: 10); // 65 ft
+                var actorData = ctx.Registry.Get(actor);
+                Assert.IsNotNull(actorData);
+                actorData.EquippedWeapon = new WeaponInstance
+                {
+                    def = rangedDef,
+                    potencyBonus = 0,
+                    strikingRank = StrikingRuneRank.None
+                };
+                actorData.ReactionAvailable = true;
+
+                Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(actor, preparedRound: 1));
+                Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(actor));
+
+                var targetData = ctx.Registry.Get(target);
+                Assert.IsNotNull(targetData);
+                targetData.GridPosition = new Vector3Int(12, 0, 0); // 60 ft (first increment edge)
+                ctx.EventBus.PublishEntityMoved(target, new Vector3Int(13, 0, 0), targetData.GridPosition, forced: false);
+
+                Assert.IsFalse(ctx.TurnManager.HasReadiedStrike(actor), "Entering first increment should trigger ranged ready.");
+                Assert.IsFalse(actorData.ReactionAvailable, "Triggered ranged ready should consume reaction.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(rangedDef);
+            }
+        }
+
+        [Test]
+        public void EntityMoved_Normal_Ranged_WithinMaxRangeButOutsideFirstIncrement_DoesNotTriggerReadiedStrike()
+        {
+            using var ctx = new ReadyStrikeContext();
+            var rangedDef = CreateRangedWeaponDefinition(60, 6);
+
+            try
+            {
+                var actor = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(0, 0, 0), strength: 10);
+                var target = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(20, 0, 0), strength: 10); // 100 ft
+                var actorData = ctx.Registry.Get(actor);
+                Assert.IsNotNull(actorData);
+                actorData.EquippedWeapon = new WeaponInstance
+                {
+                    def = rangedDef,
+                    potencyBonus = 0,
+                    strikingRank = StrikingRuneRank.None
+                };
+                actorData.ReactionAvailable = true;
+
+                Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(actor, preparedRound: 1));
+                Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(actor));
+
+                var targetData = ctx.Registry.Get(target);
+                Assert.IsNotNull(targetData);
+                targetData.GridPosition = new Vector3Int(16, 0, 0); // 80 ft (still outside first increment)
+                ctx.EventBus.PublishEntityMoved(target, new Vector3Int(20, 0, 0), targetData.GridPosition, forced: false);
+
+                Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(actor), "Movement outside first increment should not trigger ranged ready.");
+                Assert.IsTrue(actorData.ReactionAvailable, "No ranged trigger => reaction remains available.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(rangedDef);
+            }
+        }
+
+        [Test]
+        public void EntityMoved_Normal_Ranged_WithinFirstIncrement_ConsumesReadiedStrikeAndReaction()
+        {
+            using var ctx = new ReadyStrikeContext();
+            var rangedDef = CreateRangedWeaponDefinition(60, 6);
+
+            try
+            {
+                var actor = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(0, 0, 0), strength: 10);
+                var target = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(12, 0, 0), strength: 10); // 60 ft
+                var actorData = ctx.Registry.Get(actor);
+                Assert.IsNotNull(actorData);
+                actorData.EquippedWeapon = new WeaponInstance
+                {
+                    def = rangedDef,
+                    potencyBonus = 0,
+                    strikingRank = StrikingRuneRank.None
+                };
+                actorData.ReactionAvailable = true;
+
+                Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(actor, preparedRound: 1));
+                Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(actor));
+
+                var targetData = ctx.Registry.Get(target);
+                Assert.IsNotNull(targetData);
+                targetData.GridPosition = new Vector3Int(12, 0, 1); // still 60 ft, but movement started inside first increment
+                ctx.EventBus.PublishEntityMoved(target, new Vector3Int(12, 0, 0), targetData.GridPosition, forced: false);
+
+                Assert.IsFalse(ctx.TurnManager.HasReadiedStrike(actor), "Movement started within first increment should trigger ranged ready.");
+                Assert.IsFalse(actorData.ReactionAvailable, "Triggered ranged ready should consume reaction.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(rangedDef);
+            }
+        }
+
+        [Test]
+        public void StrikePreDamage_EnemyAttackingReadiedActorWithinReach_ConsumesReadiedStrikeAndReaction()
+        {
+            using var ctx = new ReadyStrikeContext();
+
+            var actor = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(0, 0, 0), strength: 22);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(1, 0, 0), strength: 10);
+            var actorData = ctx.Registry.Get(actor);
+            Assert.IsNotNull(actorData);
+            actorData.ReactionAvailable = true;
+
+            Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(actor, preparedRound: 1));
+            Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(actor));
+
+            ctx.EventBus.PublishStrikePreDamage(
+                attacker: enemy,
+                target: actor,
+                naturalRoll: 15,
+                total: 20,
+                dc: 18,
+                degree: DegreeOfSuccess.Success,
+                damageRolled: 5,
+                damageType: DamageType.Slashing);
+
+            Assert.IsFalse(ctx.TurnManager.HasReadiedStrike(actor), "Enemy attack start should trigger readied strike.");
+            Assert.IsFalse(actorData.ReactionAvailable, "Triggered readied strike should consume reaction.");
+        }
+
+        [Test]
+        public void StrikePreDamage_EnemyAttackingOtherTargetWithinReach_ConsumesReadiedStrikeAndReaction()
+        {
+            using var ctx = new ReadyStrikeContext();
+
+            var actor = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(0, 0, 0), strength: 22);
+            var ally = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(1, 0, 0), strength: 10);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(1, 0, 1), strength: 10);
+            var actorData = ctx.Registry.Get(actor);
+            Assert.IsNotNull(actorData);
+            actorData.ReactionAvailable = true;
+
+            Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(actor, preparedRound: 1));
+            Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(actor));
+
+            ctx.EventBus.PublishStrikePreDamage(
+                attacker: enemy,
+                target: ally,
+                naturalRoll: 15,
+                total: 20,
+                dc: 18,
+                degree: DegreeOfSuccess.Success,
+                damageRolled: 5,
+                damageType: DamageType.Slashing);
+
+            Assert.IsFalse(ctx.TurnManager.HasReadiedStrike(actor), "Enemy attack start within reach should trigger readied strike even when target is ally.");
+            Assert.IsFalse(actorData.ReactionAvailable, "Triggered readied strike should consume reaction.");
+        }
+
+        [Test]
+        public void StrikePreDamage_EnemyAttackingOtherTargetOutOfReach_DoesNotTriggerReadiedStrike()
+        {
+            using var ctx = new ReadyStrikeContext();
+
+            var actor = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(0, 0, 0), strength: 22);
+            var ally = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(1, 0, 0), strength: 10);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(2, 0, 0), strength: 10); // 10 ft from actor
+            var actorData = ctx.Registry.Get(actor);
+            Assert.IsNotNull(actorData);
+            actorData.ReactionAvailable = true;
+
+            Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(actor, preparedRound: 1));
+            Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(actor));
+
+            ctx.EventBus.PublishStrikePreDamage(
+                attacker: enemy,
+                target: ally,
+                naturalRoll: 15,
+                total: 20,
+                dc: 18,
+                degree: DegreeOfSuccess.Success,
+                damageRolled: 5,
+                damageType: DamageType.Slashing);
+
+            Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(actor), "Enemy attack start out of reach should not trigger readied strike.");
             Assert.IsTrue(actorData.ReactionAvailable, "No trigger => reaction remains available.");
         }
 
@@ -102,6 +299,19 @@ namespace PF2e.Tests
                 new object[] { actor, actorData });
 
             Assert.IsFalse(ctx.TurnManager.HasReadiedStrike(actor));
+        }
+
+        private static WeaponDefinition CreateRangedWeaponDefinition(int incrementFeet, int maxIncrements)
+        {
+            var def = ScriptableObject.CreateInstance<WeaponDefinition>();
+            def.itemName = "TestRangedWeapon";
+            def.isRanged = true;
+            def.rangeIncrementFeet = incrementFeet;
+            def.maxRangeIncrements = maxIncrements;
+            def.diceCount = 1;
+            def.dieSides = 6;
+            def.reachFeet = 5;
+            return def;
         }
 
         private sealed class ReadyStrikeContext : System.IDisposable

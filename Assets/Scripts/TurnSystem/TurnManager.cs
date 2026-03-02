@@ -226,13 +226,19 @@ namespace PF2e.TurnSystem
             ResolveStrikeActionIfMissing();
 
             if (eventBus != null)
+            {
                 eventBus.OnEntityMovedTyped += HandleEntityMoved;
+                eventBus.OnStrikePreDamageTyped += HandleStrikePreDamage;
+            }
         }
 
         private void OnDisable()
         {
             if (eventBus != null)
+            {
                 eventBus.OnEntityMovedTyped -= HandleEntityMoved;
+                eventBus.OnStrikePreDamageTyped -= HandleStrikePreDamage;
+            }
         }
 
         /// <summary>
@@ -1297,7 +1303,64 @@ namespace PF2e.TurnSystem
 
             readiedTriggerBuffer.Sort(CompareReadiedTriggerOrder);
             for (int i = 0; i < readiedTriggerBuffer.Count; i++)
-                ResolveReadiedStrikeTrigger(readiedTriggerBuffer[i], e.entity);
+                ResolveReadiedStrikeTrigger(readiedTriggerBuffer[i], e.entity, triggerReason: "movement");
+
+            readiedTriggerBuffer.Clear();
+        }
+
+        private void HandleStrikePreDamage(in StrikePreDamageEvent e)
+        {
+            if (!e.attacker.IsValid || !e.target.IsValid)
+                return;
+            if (state == TurnState.Inactive || state == TurnState.RollingInitiative || state == TurnState.CombatOver)
+                return;
+            if (entityManager == null || entityManager.Registry == null)
+                return;
+            if (readiedStrikes.Count <= 0)
+                return;
+            if (strikeAction == null)
+                return;
+
+            var attackSourceData = entityManager.Registry.Get(e.attacker);
+            var attackTargetData = entityManager.Registry.Get(e.target);
+            if (attackSourceData == null || attackTargetData == null)
+                return;
+            if (!attackSourceData.IsAlive || !attackTargetData.IsAlive)
+                return;
+
+            readiedTriggerBuffer.Clear();
+            staleReadiedActorsBuffer.Clear();
+
+            foreach (var kvp in readiedStrikes)
+            {
+                var record = kvp.Value;
+                var actorData = entityManager.Registry.Get(record.actor);
+                if (actorData == null || !actorData.IsAlive)
+                {
+                    staleReadiedActorsBuffer.Add(record.actor);
+                    continue;
+                }
+
+                if (actorData.Team == attackSourceData.Team)
+                    continue;
+                if (!IsWithinReadyStrikeTriggerRange(actorData, attackSourceData))
+                    continue;
+                if (strikeAction.GetStrikeTargetFailure(record.actor, e.attacker) != TargetingFailureReason.None)
+                    continue;
+
+                readiedTriggerBuffer.Add(record.actor);
+            }
+
+            for (int i = 0; i < staleReadiedActorsBuffer.Count; i++)
+                readiedStrikes.Remove(staleReadiedActorsBuffer[i]);
+            staleReadiedActorsBuffer.Clear();
+
+            if (readiedTriggerBuffer.Count <= 0)
+                return;
+
+            readiedTriggerBuffer.Sort(CompareReadiedTriggerOrder);
+            for (int i = 0; i < readiedTriggerBuffer.Count; i++)
+                ResolveReadiedStrikeTrigger(readiedTriggerBuffer[i], e.attacker, triggerReason: "attack");
 
             readiedTriggerBuffer.Clear();
         }
@@ -1327,32 +1390,55 @@ namespace PF2e.TurnSystem
 
             if (weapon.IsRanged)
             {
-                if (!TryGetRangedMaxDistanceFeet(weapon, out int maxRange))
+                // Ready Strike trigger for ranged uses entry into the first increment,
+                // not entry into absolute max range.
+                if (!TryGetRangedReadyTriggerDistanceFeet(weapon, out int triggerRange))
                     return false;
 
-                return distanceBefore > maxRange && distanceAfter <= maxRange;
+                bool enteredTriggerRange = distanceBefore > triggerRange && distanceAfter <= triggerRange;
+                bool startedMovingInsideTriggerRange = distanceBefore <= triggerRange && from != to;
+                return enteredTriggerRange || startedMovingInsideTriggerRange;
             }
 
             int reach = weapon.ReachFeet;
-            return distanceBefore > reach && distanceAfter <= reach;
+            bool enteredReach = distanceBefore > reach && distanceAfter <= reach;
+            bool startedMovingInsideReach = distanceBefore <= reach && from != to;
+            return enteredReach || startedMovingInsideReach;
         }
 
-        private static bool TryGetRangedMaxDistanceFeet(WeaponInstance weapon, out int maxRangeFeet)
+        private static bool IsWithinReadyStrikeTriggerRange(EntityData actorData, EntityData targetData)
         {
-            maxRangeFeet = 0;
+            if (actorData == null || targetData == null)
+                return false;
+
+            int distance = GridDistancePF2e.DistanceFeetXZ(actorData.GridPosition, targetData.GridPosition);
+            var weapon = actorData.EquippedWeapon;
+
+            if (weapon.IsRanged)
+            {
+                if (!TryGetRangedReadyTriggerDistanceFeet(weapon, out int triggerRange))
+                    return false;
+                return distance <= triggerRange;
+            }
+
+            return distance <= weapon.ReachFeet;
+        }
+
+        private static bool TryGetRangedReadyTriggerDistanceFeet(WeaponInstance weapon, out int triggerRangeFeet)
+        {
+            triggerRangeFeet = 0;
             if (!weapon.IsRanged)
                 return false;
 
             int incrementFeet = weapon.def != null ? weapon.def.rangeIncrementFeet : 0;
-            int maxIncrements = weapon.def != null ? weapon.def.maxRangeIncrements : 0;
-            if (incrementFeet <= 0 || maxIncrements <= 0)
+            if (incrementFeet <= 0)
                 return false;
 
-            maxRangeFeet = incrementFeet * maxIncrements;
-            return maxRangeFeet > 0;
+            triggerRangeFeet = incrementFeet;
+            return triggerRangeFeet > 0;
         }
 
-        private void ResolveReadiedStrikeTrigger(EntityHandle actor, EntityHandle target)
+        private void ResolveReadiedStrikeTrigger(EntityHandle actor, EntityHandle target, string triggerReason)
         {
             if (!actor.IsValid || !target.IsValid)
                 return;
@@ -1378,7 +1464,9 @@ namespace PF2e.TurnSystem
                 ? targetData.Name
                 : $"Entity#{target.Id}";
 
-            eventBus?.Publish(actor, $"readied Strike triggers on {targetName} movement.", CombatLogCategory.Turn);
+            if (string.IsNullOrWhiteSpace(triggerReason))
+                triggerReason = "trigger";
+            eventBus?.Publish(actor, $"readied Strike triggers on {targetName} {triggerReason}.", CombatLogCategory.Turn);
 
             var phase = strikeAction.ResolveAttackRoll(actor, target, UnityRng.Shared, aidCircumstanceBonus: 0);
             if (!phase.HasValue)
