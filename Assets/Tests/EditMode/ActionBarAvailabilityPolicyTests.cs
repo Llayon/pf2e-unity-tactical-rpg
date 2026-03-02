@@ -45,6 +45,7 @@ namespace PF2e.Tests
                 Assert.IsTrue(state.demoralizeInteractable);
                 Assert.IsTrue(state.escapeInteractable);
                 Assert.IsTrue(state.aidInteractable);
+                Assert.IsTrue(state.readyInteractable);
                 Assert.IsTrue(state.raiseShieldInteractable);
                 Assert.IsTrue(state.standInteractable);
             }

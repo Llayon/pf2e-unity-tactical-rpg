@@ -43,6 +43,7 @@ public static class ActionBarUIBuilder
             CreateButtonSlot(root.transform, controller, "RepositionButton", "Reposition", "—", "repositionButton", "repositionHighlight");
             CreateButtonSlot(root.transform, controller, "DemoralizeButton", "Demoralize", "Y", "demoralizeButton", "demoralizeHighlight");
             CreateButtonSlot(root.transform, controller, "EscapeButton", "Escape", "K", "escapeButton", "escapeHighlight");
+            CreateButtonSlot(root.transform, controller, "ReadyButton", "Ready", "N", "readyButton", "readyHighlight");
             CreateButtonSlot(root.transform, controller, "RaiseShieldButton", "Shield", "R", "raiseShieldButton", "raiseShieldHighlight");
             CreateButtonSlot(root.transform, controller, "StandButton", "Stand", "—", "standButton", "standHighlight");
             CreateButtonSlot(root.transform, controller, "DelayButton", "Delay", "—", "delayButton", string.Empty);
@@ -56,6 +57,7 @@ public static class ActionBarUIBuilder
         }
 
         EnsureRepositionButtonSlot(root.transform, controller);
+        EnsureReadyButtonSlot(root.transform, controller);
         EnsureDelayButtons(root.transform, controller);
 
         // Wire dependencies if found.
@@ -207,6 +209,23 @@ public static class ActionBarUIBuilder
         }
 
         CreateButtonSlot(parent, controller, "RepositionButton", "Reposition", "—", "repositionButton", "repositionHighlight");
+    }
+
+    private static void EnsureReadyButtonSlot(Transform parent, ActionBarController controller)
+    {
+        if (parent == null || controller == null) return;
+
+        var existing = parent.Find("ReadyButton");
+        if (existing != null)
+        {
+            AssignIfFieldExists(controller, "readyButton", existing.GetComponent<Button>());
+            var existingHighlight = existing.Find("ActiveHighlight");
+            if (existingHighlight != null)
+                AssignIfFieldExists(controller, "readyHighlight", existingHighlight.GetComponent<Image>());
+            return;
+        }
+
+        CreateButtonSlot(parent, controller, "ReadyButton", "Ready", "N", "readyButton", "readyHighlight");
     }
 
     private static void EnsureDelayButtons(Transform parent, ActionBarController controller)

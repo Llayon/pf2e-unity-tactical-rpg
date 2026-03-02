@@ -16,6 +16,7 @@ namespace PF2e.TurnSystem
         [Header("Dependencies")]
         [SerializeField] private EntityManager entityManager;
         [SerializeField] private CombatEventBus eventBus;
+        [SerializeField] private StrikeAction strikeAction;
 
         [Header("Initiative")]
         [SerializeField] private InitiativeCheckMode initiativeCheckMode = InitiativeCheckMode.Perception;
@@ -38,14 +39,26 @@ namespace PF2e.TurnSystem
         private readonly List<AidPreparedRecord> aidLifecycleBuffer = new();
         private readonly ConditionService conditionService = new();
         private readonly AidService aidService = new();
+        private readonly Dictionary<EntityHandle, ReadiedStrikeRecord> readiedStrikes = new();
         private readonly Dictionary<EntityHandle, DelayedTurnRecord> delayedTurns = new();
         private readonly HashSet<EntityHandle> delayReactionSuppressed = new();
+        private readonly List<ReadiedStrikeRecord> readiedTriggerBuffer = new();
+        private readonly List<EntityHandle> staleReadiedActorsBuffer = new();
         private IRng initiativeRng = UnityRng.Shared;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         private const float ActionLockWarnSeconds = 4f;
         private const float ActionLockForceReleaseSeconds = 30f;
         private bool actionLockWarned;
+#endif
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            if (entityManager == null) Debug.LogWarning("[TurnManager] Missing EntityManager", this);
+            if (eventBus == null) Debug.LogWarning("[TurnManager] Missing CombatEventBus", this);
+            if (strikeAction == null) Debug.LogWarning("[TurnManager] Missing StrikeAction (required for Ready Strike trigger resolution).", this);
+        }
 #endif
 
         // ─── Public Properties ────────────────────────────────────────────────
@@ -102,6 +115,7 @@ namespace PF2e.TurnSystem
 
         public bool IsDelayReturnWindowOpen => state == TurnState.DelayReturnWindow;
         public AidService AidService => aidService;
+        public int ReadiedStrikeCount => readiedStrikes.Count;
 
         public EntityHandle DelayReturnWindowAfterActor => delayReturnWindowAfterActor;
 
@@ -186,11 +200,41 @@ namespace PF2e.TurnSystem
             }
         }
 
+        private readonly struct ReadiedStrikeRecord
+        {
+            public readonly EntityHandle actor;
+            public readonly EntityHandle target;
+            public readonly int preparedRound;
+
+            public ReadiedStrikeRecord(EntityHandle actor, EntityHandle target, int preparedRound)
+            {
+                this.actor = actor;
+                this.target = target;
+                this.preparedRound = preparedRound;
+            }
+        }
+
         // ─── Public Methods ───────────────────────────────────────────────────
 
         private void Awake()
         {
             ResolveEventBusIfMissing();
+            ResolveStrikeActionIfMissing();
+        }
+
+        private void OnEnable()
+        {
+            ResolveEventBusIfMissing();
+            ResolveStrikeActionIfMissing();
+
+            if (eventBus != null)
+                eventBus.OnEntityMovedTyped += HandleEntityMoved;
+        }
+
+        private void OnDisable()
+        {
+            if (eventBus != null)
+                eventBus.OnEntityMovedTyped -= HandleEntityMoved;
         }
 
         /// <summary>
@@ -217,7 +261,9 @@ namespace PF2e.TurnSystem
             ResetActionExecutionTracking();
             ResetDelayState();
             aidService.ClearAll();
+            ClearReadiedStrikes();
             ResolveEventBusIfMissing();
+            ResolveStrikeActionIfMissing();
             WarnMissingEncounterActorIdsOnCombatStart();
 
             state = TurnState.RollingInitiative;
@@ -281,6 +327,35 @@ namespace PF2e.TurnSystem
             return CurrentEntity == handle
                 && ActionsRemaining > 0
                 && (state == TurnState.PlayerTurn || state == TurnState.EnemyTurn);
+        }
+
+        public bool HasReadiedStrike(EntityHandle actor)
+        {
+            return actor.IsValid && readiedStrikes.ContainsKey(actor);
+        }
+
+        public bool TryPrepareReadiedStrike(EntityHandle actor, EntityHandle target, int preparedRound)
+        {
+            if (!actor.IsValid || !target.IsValid)
+                return false;
+            if (actor == target)
+                return false;
+            if (entityManager == null || entityManager.Registry == null)
+                return false;
+
+            var actorData = entityManager.Registry.Get(actor);
+            var targetData = entityManager.Registry.Get(target);
+            if (actorData == null || targetData == null)
+                return false;
+            if (!actorData.IsAlive || !targetData.IsAlive)
+                return false;
+            if (actorData.Team == targetData.Team)
+                return false;
+            if (!CanUseReaction(actor))
+                return false;
+
+            readiedStrikes[actor] = new ReadiedStrikeRecord(actor, target, preparedRound);
+            return true;
         }
 
         public bool IsDelayed(EntityHandle actor)
@@ -549,6 +624,7 @@ namespace PF2e.TurnSystem
         {
             ResetActionExecutionTracking();
             ResetDelayState();
+            ClearReadiedStrikes();
 
             aidLifecycleBuffer.Clear();
             aidService.GetPreparedAidSnapshot(aidLifecycleBuffer);
@@ -793,6 +869,8 @@ namespace PF2e.TurnSystem
         {
             if (!actor.IsValid || data == null)
                 return;
+
+            ExpireReadiedStrikeForActor(actor);
 
             aidLifecycleBuffer.Clear();
             aidService.NotifyTurnStarted(actor, aidLifecycleBuffer);
@@ -1141,6 +1219,16 @@ namespace PF2e.TurnSystem
 #endif
         }
 
+        private void ResolveStrikeActionIfMissing()
+        {
+            if (strikeAction != null)
+                return;
+
+            strikeAction = UnityEngine.Object.FindFirstObjectByType<StrikeAction>();
+            if (strikeAction == null)
+                Debug.LogWarning("[TurnManager] StrikeAction not found. Readied Strike trigger resolution is disabled.", this);
+        }
+
         private void ResolveEventBusIfMissing()
         {
             if (eventBus != null) return;
@@ -1148,6 +1236,121 @@ namespace PF2e.TurnSystem
             eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
             if (eventBus == null)
                 Debug.LogWarning("[TurnManager] CombatEventBus not found. Typed bus publish is disabled.", this);
+        }
+
+        private void ClearReadiedStrikes()
+        {
+            readiedStrikes.Clear();
+            readiedTriggerBuffer.Clear();
+            staleReadiedActorsBuffer.Clear();
+        }
+
+        private void ExpireReadiedStrikeForActor(EntityHandle actor)
+        {
+            if (!actor.IsValid)
+                return;
+
+            if (!readiedStrikes.Remove(actor))
+                return;
+
+            eventBus?.Publish(actor, "readied Strike expires at turn start.", CombatLogCategory.Turn);
+        }
+
+        private void HandleEntityMoved(in EntityMovedEvent e)
+        {
+            if (e.forced)
+                return;
+            if (!e.entity.IsValid)
+                return;
+            if (state == TurnState.Inactive || state == TurnState.RollingInitiative || state == TurnState.CombatOver)
+                return;
+            if (entityManager == null || entityManager.Registry == null)
+                return;
+            if (readiedStrikes.Count <= 0)
+                return;
+            if (strikeAction == null)
+                return;
+
+            readiedTriggerBuffer.Clear();
+            staleReadiedActorsBuffer.Clear();
+
+            foreach (var kvp in readiedStrikes)
+            {
+                var record = kvp.Value;
+                if (record.target != e.entity)
+                    continue;
+
+                var actorData = entityManager.Registry.Get(record.actor);
+                if (actorData == null || !actorData.IsAlive)
+                {
+                    staleReadiedActorsBuffer.Add(record.actor);
+                    continue;
+                }
+
+                readiedTriggerBuffer.Add(record);
+            }
+
+            for (int i = 0; i < staleReadiedActorsBuffer.Count; i++)
+                readiedStrikes.Remove(staleReadiedActorsBuffer[i]);
+            staleReadiedActorsBuffer.Clear();
+
+            if (readiedTriggerBuffer.Count <= 0)
+                return;
+
+            readiedTriggerBuffer.Sort(CompareReadiedTriggerOrder);
+            for (int i = 0; i < readiedTriggerBuffer.Count; i++)
+                ResolveReadiedStrikeTrigger(in readiedTriggerBuffer[i]);
+
+            readiedTriggerBuffer.Clear();
+        }
+
+        private int CompareReadiedTriggerOrder(ReadiedStrikeRecord left, ReadiedStrikeRecord right)
+        {
+            int leftIndex = FindInitiativeIndex(left.actor);
+            int rightIndex = FindInitiativeIndex(right.actor);
+            if (leftIndex >= 0 && rightIndex >= 0 && leftIndex != rightIndex)
+                return leftIndex.CompareTo(rightIndex);
+
+            return left.actor.Id.CompareTo(right.actor.Id);
+        }
+
+        private void ResolveReadiedStrikeTrigger(in ReadiedStrikeRecord record)
+        {
+            if (!record.actor.IsValid || !record.target.IsValid)
+                return;
+            if (!readiedStrikes.ContainsKey(record.actor))
+                return;
+            if (!CanUseReaction(record.actor))
+                return;
+            if (entityManager == null || entityManager.Registry == null)
+                return;
+
+            var actorData = entityManager.Registry.Get(record.actor);
+            if (actorData == null || !actorData.IsAlive)
+            {
+                readiedStrikes.Remove(record.actor);
+                return;
+            }
+
+            readiedStrikes.Remove(record.actor);
+            actorData.ReactionAvailable = false;
+
+            var targetData = entityManager.Registry.Get(record.target);
+            string targetName = targetData != null && !string.IsNullOrWhiteSpace(targetData.Name)
+                ? targetData.Name
+                : $"Entity#{record.target.Id}";
+
+            eventBus?.Publish(record.actor, $"readied Strike triggers on {targetName} movement.", CombatLogCategory.Turn);
+
+            var phase = strikeAction.ResolveAttackRoll(record.actor, record.target, UnityRng.Shared, aidCircumstanceBonus: 0);
+            if (!phase.HasValue)
+            {
+                eventBus?.Publish(record.actor, "readied Strike trigger resolves, but attack is no longer valid.", CombatLogCategory.Turn);
+                return;
+            }
+
+            var resolved = strikeAction.DetermineHitAndDamage(phase.Value, record.target, UnityRng.Shared);
+            strikeAction.ApplyStrikeDamage(resolved, damageReduction: 0);
         }
 
         private void PublishCombatStarted()

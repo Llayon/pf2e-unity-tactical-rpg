@@ -30,10 +30,25 @@ namespace PF2e.Tests
             Assert.IsTrue(ctx.StrikeButton.interactable);
             Assert.IsTrue(ctx.DemoralizeButton.interactable);
             Assert.IsTrue(ctx.AidButton.interactable);
+            Assert.IsTrue(ctx.ReadyButton.interactable);
             Assert.IsTrue(ctx.DelayButton.interactable);
             Assert.IsFalse(ctx.TripButton.interactable);
             Assert.IsFalse(ctx.ShoveButton.interactable);
             Assert.IsFalse(ctx.GrappleButton.interactable);
+        }
+
+        [Test]
+        public void RefreshAvailability_OneActionRemaining_DisablesReady()
+        {
+            using var ctx = new ActionBarTestContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 1);
+            ctx.AddActorToInitiativeOrder(ctx.RegisterEntity("Goblin", Team.Enemy));
+            ctx.SetDelayTurnBeginTriggerOpen(true);
+
+            ctx.RefreshAvailability();
+
+            Assert.IsFalse(ctx.ReadyButton.interactable);
         }
 
         [Test]
@@ -433,6 +448,7 @@ namespace PF2e.Tests
             public Button DemoralizeButton { get; }
             public Button EscapeButton { get; }
             public Button AidButton { get; }
+            public Button ReadyButton { get; }
             public Button RaiseShieldButton { get; }
             public Button StandButton { get; }
             public Button DelayButton { get; }
@@ -446,6 +462,7 @@ namespace PF2e.Tests
             public Image DemoralizeHighlight { get; }
             public Image EscapeHighlight { get; }
             public Image AidHighlight { get; }
+            public Image ReadyHighlight { get; }
             public Image RaiseShieldHighlight { get; }
             public Image StandHighlight { get; }
             public GameObject AidPreparedIndicatorRoot { get; }
@@ -506,6 +523,7 @@ namespace PF2e.Tests
                 DemoralizeButton = CreateButton("DemoralizeButton", ActionBarGameObject.transform, out var demoralizeHl);
                 EscapeButton = CreateButton("EscapeButton", ActionBarGameObject.transform, out var escapeHl);
                 AidButton = CreateButton("AidButton", ActionBarGameObject.transform, out var aidHl);
+                ReadyButton = CreateButton("ReadyButton", ActionBarGameObject.transform, out var readyHl);
                 RaiseShieldButton = CreateButton("RaiseShieldButton", ActionBarGameObject.transform, out var raiseShieldHl);
                 StandButton = CreateButton("StandButton", ActionBarGameObject.transform, out var standHl);
                 DelayButton = CreateButton("DelayButton", ActionBarGameObject.transform, out _);
@@ -519,6 +537,7 @@ namespace PF2e.Tests
                 DemoralizeHighlight = demoralizeHl;
                 EscapeHighlight = escapeHl;
                 AidHighlight = aidHl;
+                ReadyHighlight = readyHl;
                 RaiseShieldHighlight = raiseShieldHl;
                 StandHighlight = standHl;
                 AidPreparedIndicatorRoot = new GameObject("AidPreparedBadge", typeof(RectTransform), typeof(Image));
@@ -538,6 +557,7 @@ namespace PF2e.Tests
                 SetPrivateField(ActionBar, "demoralizeButton", DemoralizeButton);
                 SetPrivateField(ActionBar, "escapeButton", EscapeButton);
                 SetPrivateField(ActionBar, "aidButton", AidButton);
+                SetPrivateField(ActionBar, "readyButton", ReadyButton);
                 SetPrivateField(ActionBar, "raiseShieldButton", RaiseShieldButton);
                 SetPrivateField(ActionBar, "standButton", StandButton);
                 SetPrivateField(ActionBar, "delayButton", DelayButton);
@@ -550,6 +570,7 @@ namespace PF2e.Tests
                 SetPrivateField(ActionBar, "demoralizeHighlight", DemoralizeHighlight);
                 SetPrivateField(ActionBar, "escapeHighlight", EscapeHighlight);
                 SetPrivateField(ActionBar, "aidHighlight", AidHighlight);
+                SetPrivateField(ActionBar, "readyHighlight", ReadyHighlight);
                 SetPrivateField(ActionBar, "raiseShieldHighlight", RaiseShieldHighlight);
                 SetPrivateField(ActionBar, "standHighlight", StandHighlight);
                 SetPrivateField(ActionBar, "aidPreparedIndicatorRoot", AidPreparedIndicatorRoot);
@@ -754,6 +775,7 @@ namespace PF2e.Tests
                 Assert.IsFalse(DemoralizeButton.interactable);
                 Assert.IsFalse(EscapeButton.interactable);
                 Assert.IsFalse(AidButton.interactable);
+                Assert.IsFalse(ReadyButton.interactable);
                 Assert.IsFalse(RaiseShieldButton.interactable);
                 Assert.IsFalse(StandButton.interactable);
                 Assert.IsFalse(DelayButton.interactable);
@@ -770,6 +792,7 @@ namespace PF2e.Tests
                 Assert.IsFalse(DemoralizeHighlight.gameObject.activeSelf);
                 Assert.IsFalse(EscapeHighlight.gameObject.activeSelf);
                 Assert.IsFalse(AidHighlight.gameObject.activeSelf);
+                Assert.IsFalse(ReadyHighlight.gameObject.activeSelf);
                 Assert.IsFalse(RaiseShieldHighlight.gameObject.activeSelf);
                 Assert.IsFalse(StandHighlight.gameObject.activeSelf);
             }

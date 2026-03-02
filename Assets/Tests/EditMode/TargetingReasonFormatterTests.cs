@@ -188,6 +188,26 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void ReadyStrike_NoHover_ReturnsEnemyPrompt()
+        {
+            var msg = TargetingReasonFormatter.ForModeNoHover(TargetingMode.ReadyStrike);
+
+            Assert.AreEqual(TargetingHintTone.Info, msg.Tone);
+            Assert.AreEqual("Ready Strike: choose an enemy in reach", msg.Text);
+        }
+
+        [Test]
+        public void ReadyStrike_WrongTeam_ReturnsChooseEnemyMessage()
+        {
+            var msg = TargetingReasonFormatter.ForPreview(
+                TargetingMode.ReadyStrike,
+                TargetingEvaluationResult.FromFailure(TargetingFailureReason.WrongTeam));
+
+            Assert.AreEqual(TargetingHintTone.Invalid, msg.Tone);
+            Assert.AreEqual("Ready Strike: choose an enemy", msg.Text);
+        }
+
+        [Test]
         public void ModeNone_NoHover_ReturnsHidden()
         {
             var msg = TargetingReasonFormatter.ForModeNoHover(TargetingMode.None);

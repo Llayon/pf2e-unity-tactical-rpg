@@ -67,6 +67,11 @@ namespace PF2e.Presentation
             ToggleOrBeginTargeting(TargetingMode.Aid, h => actionExecutor.TryExecuteAid(h));
         }
 
+        public void OnReadyClicked()
+        {
+            ToggleOrBeginTargeting(TargetingMode.ReadyStrike, h => actionExecutor.TryExecuteReadyStrike(h));
+        }
+
         public void OnRaiseShieldClicked()
         {
             if (actionExecutor == null)

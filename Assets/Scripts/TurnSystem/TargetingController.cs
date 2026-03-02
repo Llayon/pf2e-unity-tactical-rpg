@@ -18,7 +18,8 @@ namespace PF2e.TurnSystem
         SpellSingle = 8, // future: single target
         SpellAoE = 9,    // future: cell + template
         HealSingle = 10, // future: ally
-        Aid = 11         // explicit mode: choose ally in reach
+        Aid = 11,        // explicit mode: choose ally in reach
+        ReadyStrike = 12 // explicit mode: choose enemy for readied strike trigger
     }
 
     public enum TargetingResult
@@ -218,6 +219,7 @@ namespace PF2e.TurnSystem
                         : TargetingEvaluationResult.FromFailure(MapBasicResultToFailure(contextual));
 
                 case TargetingMode.Strike:
+                case TargetingMode.ReadyStrike:
                     // Used when player explicitly selects Strike from action bar (Phase 15+).
                     // Currently not triggered via UI; contextual mode handles Strike via None.
                 case TargetingMode.Trip:

@@ -39,6 +39,7 @@ namespace PF2e.Presentation
                 TargetingMode.Strike => strikeIsRanged
                     ? "Strike: choose an enemy in range"
                     : "Strike: choose an enemy in reach",
+                TargetingMode.ReadyStrike => "Ready Strike: choose an enemy in reach",
                 TargetingMode.Trip => "Trip: choose an enemy in reach",
                 TargetingMode.Shove => "Shove: choose an enemy in reach",
                 TargetingMode.Grapple => "Grapple: choose an enemy in reach",
@@ -62,6 +63,7 @@ namespace PF2e.Presentation
                 TargetingMode.Escape => "Escape: valid target (best of Athletics/Acrobatics)",
                 TargetingMode.Strike => "Strike: valid target",
                 TargetingMode.Aid => "Aid: valid ally target",
+                TargetingMode.ReadyStrike => "Ready Strike: valid target",
                 _ => "Valid target"
             };
         }
@@ -147,6 +149,7 @@ namespace PF2e.Presentation
             return mode switch
             {
                 TargetingMode.Strike => "Strike",
+                TargetingMode.ReadyStrike => "Ready Strike",
                 TargetingMode.Trip => "Trip",
                 TargetingMode.Shove => "Shove",
                 TargetingMode.Grapple => "Grapple",

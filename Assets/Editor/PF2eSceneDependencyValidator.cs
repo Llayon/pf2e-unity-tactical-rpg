@@ -199,6 +199,7 @@ public static class PF2eSceneDependencyValidator
     {
         errors += RequireRef(tm, "entityManager", "EntityManager");
         errors += RequireRef(tm, "eventBus", "CombatEventBus");
+        warnings += WarnRef(tm, "strikeAction", "StrikeAction");
     }
 
     private static void ValidateCombatEventBus(CombatEventBus bus, ref int errors, ref int warnings)
@@ -212,6 +213,7 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(ex, "entityManager", "EntityManager");
         errors += RequireRef(ex, "strideAction", "StrideAction");
         errors += RequireRef(ex, "strikeAction", "StrikeAction");
+        warnings += WarnRef(ex, "readyStrikeAction", "ReadyStrikeAction");
         errors += RequireRef(ex, "shieldBlockAction", "ShieldBlockAction");
                 warnings += WarnRef(ex, "tripAction", "TripAction");
         warnings += WarnRef(ex, "shoveAction", "ShoveAction");
@@ -376,6 +378,7 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnRef(c, "repositionButton", "Button");
         warnings += WarnRef(c, "demoralizeButton", "Button");
         warnings += WarnRef(c, "escapeButton", "Button");
+        warnings += WarnRef(c, "readyButton", "Button");
         warnings += WarnRef(c, "raiseShieldButton", "Button");
         warnings += WarnRef(c, "standButton", "Button");
         warnings += WarnRef(c, "delayButton", "Button");
@@ -389,6 +392,7 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnRef(c, "repositionHighlight", "Image");
         warnings += WarnRef(c, "demoralizeHighlight", "Image");
         warnings += WarnRef(c, "escapeHighlight", "Image");
+        warnings += WarnRef(c, "readyHighlight", "Image");
         warnings += WarnRef(c, "raiseShieldHighlight", "Image");
         warnings += WarnRef(c, "standHighlight", "Image");
     }
@@ -707,6 +711,7 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         TryGetSingleton(out PlayerActionExecutor actionExecutor, logIfMissing: false);
         TryGetSingleton(out StrideAction strideAction, logIfMissing: false);
         TryGetSingleton(out StrikeAction strikeActionSingleton, logIfMissing: false);
+        TryGetSingleton(out ReadyStrikeAction readyStrikeActionSingleton, logIfMissing: false);
         TryGetSingleton(out TripAction tripActionSingleton, logIfMissing: false);
         TryGetSingleton(out ShoveAction shoveActionSingleton, logIfMissing: false);
         TryGetSingleton(out GrappleAction grappleActionSingleton, logIfMissing: false);
@@ -750,6 +755,8 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         fixedCount += FixAll<TurnManager>("entityManager", entityManager);
         if (eventBus != null)
             fixedCount += FixAll<TurnManager>("eventBus", eventBus);
+        if (strikeActionSingleton != null)
+            fixedCount += FixAll<TurnManager>("strikeAction", strikeActionSingleton);
 
         fixedCount += FixAll<GridInteraction>("entityManager", entityManager);
         fixedCount += FixAll<GridInteraction>("turnManager", turnManager);
@@ -775,6 +782,8 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
             fixedCount += FixAll<PlayerActionExecutor>("demoralizeAction", demoralizeActionSingleton);
         if (raiseShieldActionSingleton != null)
             fixedCount += FixAll<PlayerActionExecutor>("raiseShieldAction", raiseShieldActionSingleton);
+        if (readyStrikeActionSingleton != null)
+            fixedCount += FixAll<PlayerActionExecutor>("readyStrikeAction", readyStrikeActionSingleton);
         if (shieldBlockActionSingleton != null)
             fixedCount += FixAll<PlayerActionExecutor>("shieldBlockAction", shieldBlockActionSingleton);
         if (reactionPromptControllerSingleton != null)
@@ -1142,6 +1151,7 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "RepositionButton", "repositionButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "DemoralizeButton", "demoralizeButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "EscapeButton", "escapeButton");
+        fixedCount += TryAssignActionBarChild<Button>(bar, root, "ReadyButton", "readyButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "RaiseShieldButton", "raiseShieldButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "StandButton", "standButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "DelayButton", "delayButton");
@@ -1155,9 +1165,31 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "RepositionButton/ActiveHighlight", "repositionHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "DemoralizeButton/ActiveHighlight", "demoralizeHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "EscapeButton/ActiveHighlight", "escapeHighlight");
+        fixedCount += TryAssignActionBarChild<Image>(bar, root, "ReadyButton/ActiveHighlight", "readyHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "RaiseShieldButton/ActiveHighlight", "raiseShieldHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "StandButton/ActiveHighlight", "standHighlight");
+        fixedCount += EnsureReadyActionBarUi(bar, root);
         fixedCount += EnsureAidActionBarUi(bar, root);
+
+        return fixedCount;
+    }
+
+    private static int EnsureReadyActionBarUi(ActionBarController bar, Transform root)
+    {
+        if (bar == null || root == null) return 0;
+
+        int fixedCount = 0;
+
+        var readyButton = FindActionBarButton(root, "ReadyButton");
+        if (readyButton == null)
+            readyButton = TryCreateReadyButtonFromTemplate(root);
+
+        if (readyButton != null)
+            fixedCount += TryAssignIfNull(bar, "readyButton", readyButton);
+
+        var readyHighlight = readyButton != null ? EnsureAidButtonHighlight(readyButton) : null;
+        if (readyHighlight != null)
+            fixedCount += TryAssignIfNull(bar, "readyHighlight", readyHighlight);
 
         return fixedCount;
     }
@@ -1248,6 +1280,53 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         }
 
         Debug.Log($"[PF2eAutoFix] Created AidButton under {GetPath(template.transform.parent)}.", clone);
+        return button;
+    }
+
+    private static Button TryCreateReadyButtonFromTemplate(Transform root)
+    {
+        if (root == null)
+            return null;
+
+        var template = FindActionBarButton(root, "AidButton")
+            ?? FindActionBarButton(root, "EscapeButton")
+            ?? FindActionBarButton(root, "DemoralizeButton")
+            ?? FindActionBarButton(root, "StrikeButton");
+        if (template == null || template.transform.parent == null)
+            return null;
+
+        var clone = UnityEngine.Object.Instantiate(template.gameObject, template.transform.parent, false);
+        clone.name = "ReadyButton";
+        clone.SetActive(true);
+        clone.transform.SetSiblingIndex(template.transform.GetSiblingIndex() + 1);
+        Undo.RegisterCreatedObjectUndo(clone, "Create ReadyButton");
+        EditorUtility.SetDirty(clone);
+
+        var button = clone.GetComponent<Button>();
+        if (button != null)
+            button.onClick.RemoveAllListeners();
+
+        var labels = clone.GetComponentsInChildren<TMPro.TMP_Text>(true);
+        for (int i = 0; i < labels.Length; i++)
+        {
+            var label = labels[i];
+            if (label == null) continue;
+
+            if (string.Equals(label.text, "A", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(label.text, "ESC", StringComparison.OrdinalIgnoreCase))
+            {
+                label.text = "N";
+            }
+            else if (string.Equals(label.text, "Aid", StringComparison.OrdinalIgnoreCase)
+                  || string.Equals(label.text, "Escape", StringComparison.OrdinalIgnoreCase))
+            {
+                label.text = "Ready";
+            }
+
+            EditorUtility.SetDirty(label);
+        }
+
+        Debug.Log($"[PF2eAutoFix] Created ReadyButton under {GetPath(template.transform.parent)}.", clone);
         return button;
     }
 

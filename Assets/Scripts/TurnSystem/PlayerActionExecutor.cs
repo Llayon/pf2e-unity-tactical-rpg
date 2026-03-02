@@ -21,6 +21,7 @@ namespace PF2e.TurnSystem
         [SerializeField] private CombatEventBus eventBus;
         [SerializeField] private StrideAction strideAction;
         [SerializeField] private StrikeAction strikeAction;
+        [SerializeField] private ReadyStrikeAction readyStrikeAction;
         [SerializeField] private StandAction standAction;
         [SerializeField] private TripAction tripAction;
         [SerializeField] private ShoveAction shoveAction;
@@ -53,6 +54,7 @@ namespace PF2e.TurnSystem
             if (eventBus == null) Debug.LogWarning("[Executor] Missing CombatEventBus", this);
             if (strideAction == null) Debug.LogError("[Executor] Missing StrideAction", this);
             if (strikeAction == null) Debug.LogError("[Executor] Missing StrikeAction", this);
+            if (readyStrikeAction == null) Debug.LogWarning("[Executor] Missing ReadyStrikeAction", this);
             if (tripAction == null) Debug.LogWarning("[Executor] Missing TripAction", this);
             if (shoveAction == null) Debug.LogWarning("[Executor] Missing ShoveAction", this);
             if (grappleAction == null) Debug.LogWarning("[Executor] Missing GrappleAction", this);
@@ -91,10 +93,18 @@ namespace PF2e.TurnSystem
                     aidAction = gameObject.AddComponent<AidAction>();
             }
 
+            if (readyStrikeAction == null)
+            {
+                readyStrikeAction = GetComponent<ReadyStrikeAction>();
+                if (readyStrikeAction == null && entityManager != null)
+                    readyStrikeAction = gameObject.AddComponent<ReadyStrikeAction>();
+            }
+
             if (eventBus == null)
                 eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
 
             aidAction?.InjectDependencies(entityManager, eventBus);
+            readyStrikeAction?.InjectDependencies(turnManager, entityManager, strikeAction, eventBus);
         }
 
         public bool HasPendingRepositionSelection => hasPendingRepositionSelection;
@@ -140,6 +150,10 @@ namespace PF2e.TurnSystem
                 TargetingMode.Strike => strikeAction == null
                     ? TargetingFailureReason.InvalidState
                     : strikeAction.GetStrikeTargetFailure(actor, target),
+
+                TargetingMode.ReadyStrike => readyStrikeAction == null
+                    ? TargetingFailureReason.InvalidState
+                    : readyStrikeAction.GetReadyStrikeTargetFailure(actor, target),
 
                 TargetingMode.Trip => tripAction == null
                     ? TargetingFailureReason.InvalidState
@@ -282,6 +296,41 @@ namespace PF2e.TurnSystem
             executionStartTime = -1f;
 #endif
             turnManager.CompleteActionWithCost(1); // miss still spends
+            return true;
+        }
+
+        public bool TryExecuteReadyStrike(EntityHandle target)
+        {
+            if (turnManager == null || entityManager == null || readyStrikeAction == null) return false;
+            if (!CanActNow()) return false;
+            if (turnManager.ActionsRemaining < ReadyStrikeAction.ActionCost) return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid) return false;
+            if (readyStrikeAction.GetReadyStrikeTargetFailure(actor, target) != TargetingFailureReason.None) return false;
+
+            executingActor = actor;
+            turnManager.BeginActionExecution(actor, "Player.ReadyStrike");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = Time.time;
+#endif
+
+            bool prepared = readyStrikeAction.TryPrepareReadiedStrike(actor, target, turnManager.RoundNumber);
+            if (!prepared)
+            {
+                executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                executionStartTime = -1f;
+#endif
+                turnManager.ActionCompleted();
+                return false;
+            }
+
+            executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = -1f;
+#endif
+            turnManager.CompleteActionWithCost(ReadyStrikeAction.ActionCost);
             return true;
         }
 

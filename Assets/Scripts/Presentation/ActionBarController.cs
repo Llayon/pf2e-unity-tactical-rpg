@@ -31,6 +31,7 @@ namespace PF2e.Presentation
         [SerializeField] private Button demoralizeButton;
         [SerializeField] private Button escapeButton;
         [SerializeField] private Button aidButton;
+        [SerializeField] private Button readyButton;
         [SerializeField] private Button raiseShieldButton;
         [SerializeField] private Button standButton;
         [SerializeField] private Button delayButton;
@@ -46,6 +47,7 @@ namespace PF2e.Presentation
         [SerializeField] private Image demoralizeHighlight;
         [SerializeField] private Image escapeHighlight;
         [SerializeField] private Image aidHighlight;
+        [SerializeField] private Image readyHighlight;
         [SerializeField] private Image raiseShieldHighlight;
         [SerializeField] private Image standHighlight;
 
@@ -113,6 +115,35 @@ namespace PF2e.Presentation
                 ref aidPreparedIndicatorLabel,
                 aidPreparedIndicatorFillColor,
                 aidPreparedIndicatorLabelColor);
+
+            if (readyButton == null)
+            {
+                var ready = transform.Find("ReadyButton");
+                if (ready != null)
+                    readyButton = ready.GetComponent<Button>();
+
+                if (readyButton == null)
+                {
+                    var readyButtons = GetComponentsInChildren<Button>(true);
+                    for (int i = 0; i < readyButtons.Length; i++)
+                    {
+                        var button = readyButtons[i];
+                        if (button != null && string.Equals(button.name, "ReadyButton", System.StringComparison.Ordinal))
+                        {
+                            readyButton = button;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (readyHighlight == null && readyButton != null)
+            {
+                var highlight = readyButton.transform.Find("ActiveHighlight");
+                if (highlight != null)
+                    readyHighlight = highlight.GetComponent<Image>();
+            }
+
             aidPreparedIndicatorPresenter.Clear();
             RefreshAidPreparedIndicator();
         }
@@ -174,6 +205,7 @@ namespace PF2e.Presentation
             boundCount += BindButton(demoralizeButton, actionBarCommandCoordinator.OnDemoralizeClicked);
             boundCount += BindButton(escapeButton, actionBarCommandCoordinator.OnEscapeClicked);
             boundCount += BindButton(aidButton, actionBarCommandCoordinator.OnAidClicked);
+            boundCount += BindButton(readyButton, actionBarCommandCoordinator.OnReadyClicked);
             boundCount += BindButton(raiseShieldButton, actionBarCommandCoordinator.OnRaiseShieldClicked);
             boundCount += BindButton(standButton, actionBarCommandCoordinator.OnStandClicked);
             boundCount += BindButton(delayButton, actionBarCommandCoordinator.OnDelayClicked);
@@ -362,6 +394,7 @@ namespace PF2e.Presentation
             SetHighlight(demoralizeHighlight, mode == TargetingMode.Demoralize);
             SetHighlight(escapeHighlight, mode == TargetingMode.Escape);
             SetHighlight(aidHighlight, mode == TargetingMode.Aid);
+            SetHighlight(readyHighlight, mode == TargetingMode.ReadyStrike);
             SetHighlight(raiseShieldHighlight, false);
             SetHighlight(standHighlight, false);
 
@@ -433,6 +466,7 @@ namespace PF2e.Presentation
             SetInteractable(demoralizeButton, enabled);
             SetInteractable(escapeButton, enabled);
             SetInteractable(aidButton, enabled);
+            SetInteractable(readyButton, enabled);
             SetInteractable(raiseShieldButton, enabled);
             SetInteractable(standButton, enabled);
         }
@@ -447,6 +481,7 @@ namespace PF2e.Presentation
             SetInteractable(demoralizeButton, availability.demoralizeInteractable);
             SetInteractable(escapeButton, availability.escapeInteractable);
             SetInteractable(aidButton, availability.aidInteractable);
+            SetInteractable(readyButton, availability.readyInteractable);
             SetInteractable(raiseShieldButton, availability.raiseShieldInteractable);
             SetInteractable(standButton, availability.standInteractable);
         }
@@ -471,6 +506,7 @@ namespace PF2e.Presentation
             SetHighlight(demoralizeHighlight, false);
             SetHighlight(escapeHighlight, false);
             SetHighlight(aidHighlight, false);
+            SetHighlight(readyHighlight, false);
             SetHighlight(raiseShieldHighlight, false);
             SetHighlight(standHighlight, false);
         }
