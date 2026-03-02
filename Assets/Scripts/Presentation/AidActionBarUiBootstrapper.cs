@@ -16,6 +16,9 @@ namespace PF2e.Presentation
 
         public void ResolveOptionalReferences(
             MonoBehaviour owner,
+            Button escapeButton,
+            Button demoralizeButton,
+            Button strikeButton,
             ref Button aidButton,
             ref Image aidHighlight,
             ref GameObject aidPreparedIndicatorRoot,
@@ -28,6 +31,9 @@ namespace PF2e.Presentation
 
             if (aidButton == null)
                 aidButton = FindAidButtonInHierarchy(owner.transform);
+
+            if (aidButton == null)
+                aidButton = TryCreateAidButtonFromTemplate(escapeButton, demoralizeButton, strikeButton);
 
             if (aidHighlight == null && aidButton != null)
                 aidHighlight = FindAidHighlight(aidButton);
@@ -56,6 +62,9 @@ namespace PF2e.Presentation
                 if (existing != null)
                     aidPreparedIndicatorRoot = existing.gameObject;
             }
+
+            if (aidPreparedIndicatorRoot == null)
+                aidPreparedIndicatorRoot = TryCreateAidPreparedIndicator(aidButton);
 
             if (aidPreparedIndicatorLabel == null && aidPreparedIndicatorRoot != null)
                 aidPreparedIndicatorLabel = aidPreparedIndicatorRoot.GetComponentInChildren<TMP_Text>(true);
@@ -86,6 +95,37 @@ namespace PF2e.Presentation
             return null;
         }
 
+        private static Button TryCreateAidButtonFromTemplate(Button escapeButton, Button demoralizeButton, Button strikeButton)
+        {
+            var template = escapeButton != null ? escapeButton : (demoralizeButton != null ? demoralizeButton : strikeButton);
+            if (template == null || template.transform.parent == null)
+                return null;
+
+            var clone = UnityEngine.Object.Instantiate(template.gameObject, template.transform.parent, false);
+            clone.name = AidButtonName;
+            clone.SetActive(true);
+            clone.transform.SetSiblingIndex(template.transform.GetSiblingIndex() + 1);
+
+            var button = clone.GetComponent<Button>();
+            if (button != null)
+                button.onClick.RemoveAllListeners();
+
+            var labels = clone.GetComponentsInChildren<TMP_Text>(true);
+            for (int i = 0; i < labels.Length; i++)
+            {
+                var label = labels[i];
+                if (label == null)
+                    continue;
+
+                if (string.Equals(label.text, "ESC", StringComparison.OrdinalIgnoreCase))
+                    label.text = "A";
+                else if (string.Equals(label.text, "Escape", StringComparison.OrdinalIgnoreCase))
+                    label.text = "Aid";
+            }
+
+            return button;
+        }
+
         private static Image FindAidHighlight(Button button)
         {
             if (button == null)
@@ -107,6 +147,32 @@ namespace PF2e.Presentation
             }
 
             return null;
+        }
+
+        private static GameObject TryCreateAidPreparedIndicator(Button aidButton)
+        {
+            if (aidButton == null)
+                return null;
+
+            var badgeGo = new GameObject(AidPreparedBadgeName, typeof(RectTransform), typeof(Image));
+            badgeGo.transform.SetParent(aidButton.transform, false);
+
+            var rect = badgeGo.GetComponent<RectTransform>();
+            if (rect != null)
+            {
+                rect.anchorMin = new Vector2(1f, 1f);
+                rect.anchorMax = new Vector2(1f, 1f);
+                rect.pivot = new Vector2(1f, 1f);
+                rect.anchoredPosition = new Vector2(-4f, -4f);
+                rect.sizeDelta = new Vector2(10f, 10f);
+            }
+
+            var image = badgeGo.GetComponent<Image>();
+            if (image != null)
+                image.raycastTarget = false;
+
+            badgeGo.SetActive(false);
+            return badgeGo;
         }
 
         private static void ApplyAidPreparedIndicatorStyle(

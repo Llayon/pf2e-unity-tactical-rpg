@@ -104,6 +104,9 @@ namespace PF2e.Presentation
         {
             aidActionBarUiBootstrapper.ResolveOptionalReferences(
                 this,
+                escapeButton,
+                demoralizeButton,
+                strikeButton,
                 ref aidButton,
                 ref aidHighlight,
                 ref aidPreparedIndicatorRoot,
