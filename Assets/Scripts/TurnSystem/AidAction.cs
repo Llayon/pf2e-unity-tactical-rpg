@@ -68,8 +68,19 @@ namespace PF2e.TurnSystem
             if (aidService == null) return false;
             if (entityManager == null || entityManager.Registry == null) return false;
 
+            bool hadPreviousPreparedAid = aidService.TryGetPreparedAidForAlly(ally, out var previousPreparedAid);
             bool prepared = aidService.PrepareAid(helper, ally, roundNumber);
             if (!prepared) return false;
+
+            if (hadPreviousPreparedAid)
+            {
+                eventBus?.PublishAidCleared(
+                    previousPreparedAid.helper,
+                    previousPreparedAid.ally,
+                    AidClearReason.OverwrittenByNewPreparation);
+            }
+
+            eventBus?.PublishAidPrepared(helper, ally, roundNumber);
 
             var allyData = entityManager.Registry.Get(ally);
             string allyName = allyData != null ? allyData.Name : $"Entity#{ally.Id}";

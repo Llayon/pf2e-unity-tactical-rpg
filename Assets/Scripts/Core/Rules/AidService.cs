@@ -55,14 +55,14 @@ namespace PF2e.Core
         /// Should be called at start of each actor turn.
         /// Expires aids prepared by this actor on their previous turn.
         /// </summary>
-        public int NotifyTurnStarted(EntityHandle actor)
+        public int NotifyTurnStarted(EntityHandle actor, List<AidPreparedRecord> expiredRecords = null)
         {
             if (!actor.IsValid)
                 return 0;
 
             int nextTurnStartCount = GetHelperTurnStartCount(actor) + 1;
             helperTurnStartCounts[actor] = nextTurnStartCount;
-            return ExpirePreparedAidForHelper(actor, nextTurnStartCount);
+            return ExpirePreparedAidForHelper(actor, nextTurnStartCount, expiredRecords);
         }
 
         public bool TryConsumeAidForCheck(
@@ -121,6 +121,19 @@ namespace PF2e.Core
             removeBuffer.Clear();
         }
 
+        public void GetPreparedAidSnapshot(List<AidPreparedRecord> outRecords)
+        {
+            if (outRecords == null)
+                return;
+
+            outRecords.Clear();
+            if (preparedAidByAlly.Count <= 0)
+                return;
+
+            foreach (var kvp in preparedAidByAlly)
+                outRecords.Add(kvp.Value);
+        }
+
         private int GetHelperTurnStartCount(EntityHandle helper)
         {
             if (!helper.IsValid)
@@ -131,7 +144,7 @@ namespace PF2e.Core
                 : 0;
         }
 
-        private int ExpirePreparedAidForHelper(EntityHandle helper, int helperTurnStartCount)
+        private int ExpirePreparedAidForHelper(EntityHandle helper, int helperTurnStartCount, List<AidPreparedRecord> expiredRecords)
         {
             if (!helper.IsValid || preparedAidByAlly.Count <= 0)
                 return 0;
@@ -146,6 +159,7 @@ namespace PF2e.Core
                     continue;
 
                 removeBuffer.Add(kvp.Key);
+                expiredRecords?.Add(record);
             }
 
             int expiredCount = removeBuffer.Count;

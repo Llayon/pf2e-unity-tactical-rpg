@@ -71,11 +71,18 @@ namespace PF2e.Tests
 
             var aidService = new AidService();
             int logs = 0;
+            int preparedEvents = 0;
             CombatLogEntry lastEntry = default;
+            AidPreparedEvent preparedEvent = default;
             ctx.EventBus.OnLogEntry += entry =>
             {
                 logs++;
                 lastEntry = entry;
+            };
+            ctx.EventBus.OnAidPreparedTyped += (in AidPreparedEvent e) =>
+            {
+                preparedEvents++;
+                preparedEvent = e;
             };
 
             bool prepared = ctx.Action.TryPrepareAid(helper, ally, roundNumber: 1, aidService);
@@ -83,9 +90,50 @@ namespace PF2e.Tests
             Assert.IsTrue(prepared);
             Assert.IsTrue(aidService.HasPreparedAidForAlly(ally));
             Assert.AreEqual(1, logs);
+            Assert.AreEqual(1, preparedEvents);
+            Assert.AreEqual(helper, preparedEvent.helper);
+            Assert.AreEqual(ally, preparedEvent.ally);
+            Assert.AreEqual(1, preparedEvent.preparedRound);
             Assert.AreEqual(helper, lastEntry.Actor);
             Assert.AreEqual("prepares Aid for Ally", lastEntry.Message);
             Assert.AreEqual(CombatLogCategory.Turn, lastEntry.Category);
+        }
+
+        [Test]
+        public void TryPrepareAid_WhenOverwritingExistingRecord_PublishesClearedThenPreparedEvents()
+        {
+            using var ctx = new AidActionContext();
+            var helperA = ctx.Register("HelperA", Team.Player, new Vector3Int(0, 0, 0), isRanged: false, reachFeet: 5);
+            var helperB = ctx.Register("HelperB", Team.Player, new Vector3Int(0, 0, 1), isRanged: false, reachFeet: 5);
+            var ally = ctx.Register("Ally", Team.Player, new Vector3Int(1, 0, 0), isRanged: false, reachFeet: 5);
+
+            var aidService = new AidService();
+            Assert.IsTrue(ctx.Action.TryPrepareAid(helperA, ally, roundNumber: 1, aidService));
+
+            int clearedEvents = 0;
+            int preparedEvents = 0;
+            AidClearedEvent clearedEvent = default;
+            AidPreparedEvent preparedEvent = default;
+            ctx.EventBus.OnAidClearedTyped += (in AidClearedEvent e) =>
+            {
+                clearedEvents++;
+                clearedEvent = e;
+            };
+            ctx.EventBus.OnAidPreparedTyped += (in AidPreparedEvent e) =>
+            {
+                preparedEvents++;
+                preparedEvent = e;
+            };
+
+            Assert.IsTrue(ctx.Action.TryPrepareAid(helperB, ally, roundNumber: 2, aidService));
+            Assert.AreEqual(1, clearedEvents);
+            Assert.AreEqual(1, preparedEvents);
+            Assert.AreEqual(helperA, clearedEvent.helper);
+            Assert.AreEqual(ally, clearedEvent.ally);
+            Assert.AreEqual(AidClearReason.OverwrittenByNewPreparation, clearedEvent.reason);
+            Assert.AreEqual(helperB, preparedEvent.helper);
+            Assert.AreEqual(ally, preparedEvent.ally);
+            Assert.AreEqual(2, preparedEvent.preparedRound);
         }
 
         private sealed class AidActionContext : System.IDisposable

@@ -804,6 +804,7 @@ namespace PF2e.TurnSystem
                 outcome.degree,
                 outcome.appliedModifier,
                 outcome.reactionConsumed));
+            eventBus?.PublishAidCleared(outcome.helper, outcome.ally, AidClearReason.Consumed);
 
             return outcome.appliedModifier;
         }

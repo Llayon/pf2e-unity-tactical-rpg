@@ -42,6 +42,8 @@ namespace PF2e.Core
         public delegate void DamageAppliedHandler(in DamageAppliedEvent e);
         public delegate void SkillCheckResolvedHandler(in SkillCheckResolvedEvent e);
         public delegate void OpposedCheckResolvedHandler(in OpposedCheckResolvedEvent e);
+        public delegate void AidPreparedHandler(in AidPreparedEvent e);
+        public delegate void AidClearedHandler(in AidClearedEvent e);
         public delegate void AidResolvedHandler(in AidResolvedEvent e);
         public delegate void ShieldRaisedHandler(in ShieldRaisedEvent e);
         public delegate void ShieldBlockResolvedHandler(in ShieldBlockResolvedEvent e);
@@ -59,6 +61,8 @@ namespace PF2e.Core
         public event DamageAppliedHandler OnDamageAppliedTyped;
         public event SkillCheckResolvedHandler OnSkillCheckResolvedTyped;
         public event OpposedCheckResolvedHandler OnOpposedCheckResolvedTyped;
+        public event AidPreparedHandler OnAidPreparedTyped;
+        public event AidClearedHandler OnAidClearedTyped;
         public event AidResolvedHandler OnAidResolvedTyped;
         public event ShieldRaisedHandler OnShieldRaisedTyped;
         public event ShieldBlockResolvedHandler OnShieldBlockResolvedTyped;
@@ -130,6 +134,18 @@ namespace PF2e.Core
         public void PublishOpposedCheckResolved(in OpposedCheckResolvedEvent ev)
         {
             OnOpposedCheckResolvedTyped?.Invoke(in ev);
+        }
+
+        public void PublishAidPrepared(EntityHandle helper, EntityHandle ally, int preparedRound)
+        {
+            var e = new AidPreparedEvent(helper, ally, preparedRound);
+            OnAidPreparedTyped?.Invoke(in e);
+        }
+
+        public void PublishAidCleared(EntityHandle helper, EntityHandle ally, AidClearReason reason)
+        {
+            var e = new AidClearedEvent(helper, ally, reason);
+            OnAidClearedTyped?.Invoke(in e);
         }
 
         public void PublishAidResolved(in AidResolvedEvent ev)

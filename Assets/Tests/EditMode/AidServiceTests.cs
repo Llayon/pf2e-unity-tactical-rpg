@@ -250,15 +250,18 @@ namespace PF2e.Tests
         {
             var turnManagerGo = new GameObject("TM_Aid_Expire_TurnManager");
             var entityManagerGo = new GameObject("TM_Aid_Expire_EntityManager");
+            var eventBusGo = new GameObject("TM_Aid_Expire_EventBus");
 
             try
             {
                 var turnManager = turnManagerGo.AddComponent<TurnManager>();
                 LogAssert.Expect(LogType.Error, "[EntityManager] Missing reference: GridManager. Assign it in Inspector.");
                 var entityManager = entityManagerGo.AddComponent<EntityManager>();
+                var eventBus = eventBusGo.AddComponent<CombatEventBus>();
                 var registry = new EntityRegistry();
 
                 SetPrivateField(turnManager, "entityManager", entityManager);
+                SetPrivateField(turnManager, "eventBus", eventBus);
                 SetAutoPropertyBackingField(entityManager, "Registry", registry);
 
                 var helper = CreateEntity("Helper", Team.Player, level: 1, strength: 12, wisdom: 5000);
@@ -268,6 +271,14 @@ namespace PF2e.Tests
                 var enemy = CreateEntity("Enemy", Team.Enemy, level: 1, strength: 10, wisdom: 10);
                 enemy.EncounterActorId = "enemy";
                 registry.Register(enemy);
+
+                int aidClearedEvents = 0;
+                AidClearedEvent lastClearedEvent = default;
+                eventBus.OnAidClearedTyped += (in AidClearedEvent e) =>
+                {
+                    aidClearedEvents++;
+                    lastClearedEvent = e;
+                };
 
                 turnManager.StartCombat();
                 Assert.AreEqual(helper.Handle, turnManager.CurrentEntity);
@@ -279,6 +290,10 @@ namespace PF2e.Tests
                 turnManager.EndTurn(); // next round helper turn start => expire
 
                 Assert.IsFalse(turnManager.AidService.HasPreparedAidForAlly(enemy.Handle));
+                Assert.AreEqual(1, aidClearedEvents);
+                Assert.AreEqual(AidClearReason.ExpiredOnHelperTurnStart, lastClearedEvent.reason);
+                Assert.AreEqual(helper.Handle, lastClearedEvent.helper);
+                Assert.AreEqual(enemy.Handle, lastClearedEvent.ally);
             }
             finally
             {
@@ -286,6 +301,8 @@ namespace PF2e.Tests
                     Object.DestroyImmediate(turnManagerGo);
                 if (entityManagerGo != null)
                     Object.DestroyImmediate(entityManagerGo);
+                if (eventBusGo != null)
+                    Object.DestroyImmediate(eventBusGo);
             }
         }
 
@@ -294,15 +311,18 @@ namespace PF2e.Tests
         {
             var turnManagerGo = new GameObject("TM_Aid_Clear_TurnManager");
             var entityManagerGo = new GameObject("TM_Aid_Clear_EntityManager");
+            var eventBusGo = new GameObject("TM_Aid_Clear_EventBus");
 
             try
             {
                 var turnManager = turnManagerGo.AddComponent<TurnManager>();
                 LogAssert.Expect(LogType.Error, "[EntityManager] Missing reference: GridManager. Assign it in Inspector.");
                 var entityManager = entityManagerGo.AddComponent<EntityManager>();
+                var eventBus = eventBusGo.AddComponent<CombatEventBus>();
                 var registry = new EntityRegistry();
 
                 SetPrivateField(turnManager, "entityManager", entityManager);
+                SetPrivateField(turnManager, "eventBus", eventBus);
                 SetAutoPropertyBackingField(entityManager, "Registry", registry);
 
                 var helper = CreateEntity("Helper", Team.Player, level: 1, strength: 12, wisdom: 5000);
@@ -313,6 +333,14 @@ namespace PF2e.Tests
                 enemy.EncounterActorId = "enemy";
                 registry.Register(enemy);
 
+                int aidClearedEvents = 0;
+                AidClearedEvent lastClearedEvent = default;
+                eventBus.OnAidClearedTyped += (in AidClearedEvent e) =>
+                {
+                    aidClearedEvents++;
+                    lastClearedEvent = e;
+                };
+
                 turnManager.StartCombat();
                 Assert.IsTrue(turnManager.AidService.PrepareAid(helper.Handle, enemy.Handle, turnManager.RoundNumber));
                 Assert.AreEqual(1, turnManager.AidService.PreparedAidCount);
@@ -320,6 +348,10 @@ namespace PF2e.Tests
                 turnManager.EndCombat();
 
                 Assert.AreEqual(0, turnManager.AidService.PreparedAidCount);
+                Assert.AreEqual(1, aidClearedEvents);
+                Assert.AreEqual(AidClearReason.CombatEnded, lastClearedEvent.reason);
+                Assert.AreEqual(helper.Handle, lastClearedEvent.helper);
+                Assert.AreEqual(enemy.Handle, lastClearedEvent.ally);
             }
             finally
             {
@@ -327,6 +359,8 @@ namespace PF2e.Tests
                     Object.DestroyImmediate(turnManagerGo);
                 if (entityManagerGo != null)
                     Object.DestroyImmediate(entityManagerGo);
+                if (eventBusGo != null)
+                    Object.DestroyImmediate(eventBusGo);
             }
         }
 

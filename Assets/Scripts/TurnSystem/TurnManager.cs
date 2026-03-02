@@ -35,6 +35,7 @@ namespace PF2e.TurnSystem
         private string executingActionSource = string.Empty;
         private float executingActionStartTime = -1f;
         private readonly List<ConditionDelta> conditionDeltaBuffer = new();
+        private readonly List<AidPreparedRecord> aidLifecycleBuffer = new();
         private readonly ConditionService conditionService = new();
         private readonly AidService aidService = new();
         private readonly Dictionary<EntityHandle, DelayedTurnRecord> delayedTurns = new();
@@ -548,7 +549,17 @@ namespace PF2e.TurnSystem
         {
             ResetActionExecutionTracking();
             ResetDelayState();
+
+            aidLifecycleBuffer.Clear();
+            aidService.GetPreparedAidSnapshot(aidLifecycleBuffer);
             aidService.ClearAll();
+            for (int i = 0; i < aidLifecycleBuffer.Count; i++)
+            {
+                var cleared = aidLifecycleBuffer[i];
+                PublishAidCleared(cleared.helper, cleared.ally, AidClearReason.CombatEnded);
+            }
+            aidLifecycleBuffer.Clear();
+
             state = TurnState.CombatOver;
 
             if (entityManager != null)
@@ -783,7 +794,15 @@ namespace PF2e.TurnSystem
             if (!actor.IsValid || data == null)
                 return;
 
-            aidService.NotifyTurnStarted(actor);
+            aidLifecycleBuffer.Clear();
+            aidService.NotifyTurnStarted(actor, aidLifecycleBuffer);
+            for (int i = 0; i < aidLifecycleBuffer.Count; i++)
+            {
+                var expired = aidLifecycleBuffer[i];
+                PublishAidCleared(expired.helper, expired.ally, AidClearReason.ExpiredOnHelperTurnStart);
+            }
+            aidLifecycleBuffer.Clear();
+
             conditionDeltaBuffer.Clear();
             conditionService.TickStartTurn(data, conditionDeltaBuffer);
 
@@ -1190,6 +1209,11 @@ namespace PF2e.TurnSystem
         {
             OnInitiativeRolled?.Invoke(e);
             eventBus?.PublishInitiativeRolled(e.order);
+        }
+
+        private void PublishAidCleared(EntityHandle helper, EntityHandle ally, AidClearReason reason)
+        {
+            eventBus?.PublishAidCleared(helper, ally, reason);
         }
 
         private void PublishDelayTurnBeginTriggerChanged(EntityHandle actor, bool isOpen)

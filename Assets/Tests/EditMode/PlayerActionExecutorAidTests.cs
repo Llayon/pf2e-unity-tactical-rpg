@@ -34,27 +34,41 @@ namespace PF2e.Tests
             Assert.IsTrue(ctx.TurnManager.AidService.HasPreparedAidForAlly(striker));
 
             int strikeEvents = 0;
+            int aidClearedEvents = 0;
             StrikeResolvedEvent lastStrike = default;
+            AidClearedEvent lastAidCleared = default;
             ctx.EventBus.OnStrikeResolved += HandleStrikeResolved;
+            ctx.EventBus.OnAidClearedTyped += HandleAidCleared;
             try
             {
                 bool executed = ctx.Executor.TryExecuteStrike(target);
 
                 Assert.IsTrue(executed);
                 Assert.AreEqual(1, strikeEvents);
+                Assert.AreEqual(1, aidClearedEvents);
                 Assert.Greater(lastStrike.aidCircumstanceBonus, 0, "Prepared Aid should contribute positive strike modifier in this setup.");
+                Assert.AreEqual(AidClearReason.Consumed, lastAidCleared.reason);
+                Assert.AreEqual(helper, lastAidCleared.helper);
+                Assert.AreEqual(striker, lastAidCleared.ally);
                 Assert.IsFalse(helperData.ReactionAvailable, "Aid reaction should be consumed.");
                 Assert.IsFalse(ctx.TurnManager.AidService.HasPreparedAidForAlly(striker), "Prepared Aid should be consumed on strike check.");
             }
             finally
             {
                 ctx.EventBus.OnStrikeResolved -= HandleStrikeResolved;
+                ctx.EventBus.OnAidClearedTyped -= HandleAidCleared;
             }
 
             void HandleStrikeResolved(in StrikeResolvedEvent e)
             {
                 strikeEvents++;
                 lastStrike = e;
+            }
+
+            void HandleAidCleared(in AidClearedEvent e)
+            {
+                aidClearedEvents++;
+                lastAidCleared = e;
             }
         }
 
