@@ -2,12 +2,15 @@ using NUnit.Framework;
 using UnityEngine;
 using PF2e.Core;
 using PF2e.Presentation;
+using System.Reflection;
 
 namespace PF2e.Tests
 {
     [TestFixture]
     public class AidPreparedIndicatorPresenterTests
     {
+        private const BindingFlags InstancePublic = BindingFlags.Instance | BindingFlags.Public;
+
         [Test]
         public void FormatLabelText_NoPreparedAid_ReturnsEmpty()
         {
@@ -57,16 +60,16 @@ namespace PF2e.Tests
                 presenter.HandleAidPrepared(new AidPreparedEvent(helper, allyA, preparedRound: 1));
                 presenter.HandleAidPrepared(new AidPreparedEvent(helper, allyB, preparedRound: 1));
 
-                presenter.RefreshForActor(helper, root, indicatorLabel: null, singleText: "!", countFormat: "x{0}");
+                InvokeRefreshForActor(presenter, helper, root);
                 Assert.IsTrue(root.activeSelf);
 
                 presenter.HandleAidCleared(new AidClearedEvent(helper, allyA, AidClearReason.Consumed));
                 presenter.HandleAidCleared(new AidClearedEvent(helper, allyB, AidClearReason.Consumed));
 
-                presenter.RefreshForActor(helper, root, indicatorLabel: null, singleText: "!", countFormat: "x{0}");
+                InvokeRefreshForActor(presenter, helper, root);
                 Assert.IsFalse(root.activeSelf);
 
-                presenter.RefreshForActor(enemy, root, indicatorLabel: null, singleText: "!", countFormat: "x{0}");
+                InvokeRefreshForActor(presenter, enemy, root);
                 Assert.IsFalse(root.activeSelf);
             }
             finally
@@ -93,17 +96,25 @@ namespace PF2e.Tests
             try
             {
                 presenter.RebuildFromService(aidService);
-                presenter.RefreshForActor(helper, root, indicatorLabel: null, singleText: "!", countFormat: "x{0}");
+                InvokeRefreshForActor(presenter, helper, root);
                 Assert.IsTrue(root.activeSelf);
 
                 presenter.Clear();
-                presenter.RefreshForActor(helper, root, indicatorLabel: null, singleText: "!", countFormat: "x{0}");
+                InvokeRefreshForActor(presenter, helper, root);
                 Assert.IsFalse(root.activeSelf);
             }
             finally
             {
                 Object.DestroyImmediate(root);
             }
+        }
+
+        private static void InvokeRefreshForActor(AidPreparedIndicatorPresenter presenter, EntityHandle actor, GameObject indicatorRoot)
+        {
+            var method = typeof(AidPreparedIndicatorPresenter).GetMethod("RefreshForActor", InstancePublic);
+            Assert.IsNotNull(method, "Missing RefreshForActor method.");
+
+            method.Invoke(presenter, new object[] { actor, indicatorRoot, null, "!", "x{0}" });
         }
     }
 }
