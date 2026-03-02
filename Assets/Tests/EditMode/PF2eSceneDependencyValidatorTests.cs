@@ -71,16 +71,27 @@ namespace PF2e.Tests
             Assert.IsNotNull(actionBar, "SampleScene must contain ActionBarController.");
             Assert.IsNotNull(executor, "SampleScene must contain PlayerActionExecutor.");
 
-            // Legacy scenes can miss serialized Aid references; runtime fallback must resolve them.
-            InvokePrivateInstanceMethod(actionBar, "ResolveOptionalAidUiReferences");
+            SetPrivateField(actionBar, "aidButton", null);
+            SetPrivateField(actionBar, "aidHighlight", null);
+            SetPrivateField(actionBar, "aidPreparedIndicatorRoot", null);
+            SetPrivateField(actionBar, "aidPreparedIndicatorLabel", null);
+
+            var staleAidButton = actionBar.transform.Find("AidButton");
+            if (staleAidButton != null)
+            {
+                UnityEngine.Object.DestroyImmediate(staleAidButton.gameObject);
+            }
+
+            // Scene/tooling policy: validator autofix is responsible for Aid UI creation/wiring in legacy scenes.
+            InvokePrivateValidatorMethodWithBoolArg("RunAutoFix", false);
             InvokePrivateInstanceMethod(executor, "ResolveOptionalReferences");
 
             var aidButton = GetPrivateField<Button>(actionBar, "aidButton");
             var aidHighlight = GetPrivateField<Image>(actionBar, "aidHighlight");
             var aidPreparedBadgeRoot = GetPrivateField<GameObject>(actionBar, "aidPreparedIndicatorRoot");
-            Assert.IsNotNull(aidButton, "ActionBarController must resolve Aid button (wired or runtime fallback).");
-            Assert.IsNotNull(aidHighlight, "ActionBarController must resolve Aid highlight (wired or runtime fallback).");
-            Assert.IsNotNull(aidPreparedBadgeRoot, "ActionBarController must resolve Aid prepared badge root (wired or runtime fallback).");
+            Assert.IsNotNull(aidButton, "ActionBarController must have Aid button wired by scene/autofix.");
+            Assert.IsNotNull(aidHighlight, "ActionBarController must have Aid highlight wired by scene/autofix.");
+            Assert.IsNotNull(aidPreparedBadgeRoot, "ActionBarController must have Aid prepared badge wired by scene/autofix.");
             Assert.AreEqual("AidButton", aidButton.gameObject.name, "Resolved Aid button should use canonical name AidButton.");
             Assert.AreEqual("AidPreparedBadge", aidPreparedBadgeRoot.name, "Aid prepared badge should use canonical name AidPreparedBadge.");
             Assert.AreSame(aidButton.transform, aidPreparedBadgeRoot.transform.parent, "Aid prepared badge must be attached to Aid button.");

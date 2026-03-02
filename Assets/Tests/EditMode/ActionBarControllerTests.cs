@@ -288,6 +288,25 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void ResolveOptionalAidUiReferences_WhenAidUiMissing_DoesNotAutoCreateAidUi()
+        {
+            using var ctx = new ActionBarTestContext();
+
+            UnityEngine.Object.DestroyImmediate(ctx.AidPreparedIndicatorRoot);
+            UnityEngine.Object.DestroyImmediate(ctx.AidButton.gameObject);
+            SetPrivateField(ctx.ActionBar, "aidButton", null);
+            SetPrivateField(ctx.ActionBar, "aidHighlight", null);
+            SetPrivateField(ctx.ActionBar, "aidPreparedIndicatorRoot", null);
+            SetPrivateField(ctx.ActionBar, "aidPreparedIndicatorLabel", null);
+
+            InvokePrivate(ctx.ActionBar, "ResolveOptionalAidUiReferences");
+
+            Assert.IsNull(GetPrivateFieldAllowNull<Button>(ctx.ActionBar, "aidButton"));
+            Assert.IsNull(GetPrivateFieldAllowNull<Image>(ctx.ActionBar, "aidHighlight"));
+            Assert.IsNull(GetPrivateFieldAllowNull<GameObject>(ctx.ActionBar, "aidPreparedIndicatorRoot"));
+        }
+
+        [Test]
         public void HandleModeChanged_HighlightsCorrectButton()
         {
             using var ctx = new ActionBarTestContext();
@@ -857,6 +876,13 @@ namespace PF2e.Tests
         }
 
         private static T GetPrivateField<T>(object target, string fieldName)
+        {
+            var field = target.GetType().GetField(fieldName, InstanceNonPublic);
+            Assert.IsNotNull(field, $"Missing field '{fieldName}' on {target.GetType().Name}");
+            return (T)field.GetValue(target);
+        }
+
+        private static T GetPrivateFieldAllowNull<T>(object target, string fieldName)
         {
             var field = target.GetType().GetField(fieldName, InstanceNonPublic);
             Assert.IsNotNull(field, $"Missing field '{fieldName}' on {target.GetType().Name}");

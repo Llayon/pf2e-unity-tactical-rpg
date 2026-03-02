@@ -1157,8 +1157,160 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "EscapeButton/ActiveHighlight", "escapeHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "RaiseShieldButton/ActiveHighlight", "raiseShieldHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "StandButton/ActiveHighlight", "standHighlight");
+        fixedCount += EnsureAidActionBarUi(bar, root);
 
         return fixedCount;
+    }
+
+    private static int EnsureAidActionBarUi(ActionBarController bar, Transform root)
+    {
+        if (bar == null || root == null) return 0;
+
+        int fixedCount = 0;
+
+        var aidButton = FindActionBarButton(root, "AidButton");
+        if (aidButton == null)
+            aidButton = TryCreateAidButtonFromTemplate(root);
+
+        if (aidButton != null)
+            fixedCount += TryAssignIfNull(bar, "aidButton", aidButton);
+
+        var aidHighlight = aidButton != null ? EnsureAidButtonHighlight(aidButton) : null;
+        if (aidHighlight != null)
+            fixedCount += TryAssignIfNull(bar, "aidHighlight", aidHighlight);
+
+        var aidBadge = aidButton != null ? EnsureAidPreparedBadge(aidButton) : null;
+        if (aidBadge != null)
+        {
+            fixedCount += TryAssignIfNull(bar, "aidPreparedIndicatorRoot", aidBadge);
+
+            var label = aidBadge.GetComponentInChildren<TMPro.TMP_Text>(true);
+            if (label != null)
+                fixedCount += TryAssignIfNull(bar, "aidPreparedIndicatorLabel", label);
+        }
+
+        return fixedCount;
+    }
+
+    private static Button FindActionBarButton(Transform root, string buttonName)
+    {
+        if (root == null || string.IsNullOrWhiteSpace(buttonName))
+            return null;
+
+        var direct = root.Find(buttonName);
+        if (direct != null)
+            return direct.GetComponent<Button>();
+
+        var buttons = root.GetComponentsInChildren<Button>(true);
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            var button = buttons[i];
+            if (button == null) continue;
+            if (string.Equals(button.gameObject.name, buttonName, StringComparison.Ordinal))
+                return button;
+        }
+
+        return null;
+    }
+
+    private static Button TryCreateAidButtonFromTemplate(Transform root)
+    {
+        if (root == null)
+            return null;
+
+        var template = FindActionBarButton(root, "EscapeButton")
+            ?? FindActionBarButton(root, "DemoralizeButton")
+            ?? FindActionBarButton(root, "StrikeButton");
+        if (template == null || template.transform.parent == null)
+            return null;
+
+        var clone = UnityEngine.Object.Instantiate(template.gameObject, template.transform.parent, false);
+        clone.name = "AidButton";
+        clone.SetActive(true);
+        clone.transform.SetSiblingIndex(template.transform.GetSiblingIndex() + 1);
+        Undo.RegisterCreatedObjectUndo(clone, "Create AidButton");
+        EditorUtility.SetDirty(clone);
+
+        var button = clone.GetComponent<Button>();
+        if (button != null)
+            button.onClick.RemoveAllListeners();
+
+        var labels = clone.GetComponentsInChildren<TMPro.TMP_Text>(true);
+        for (int i = 0; i < labels.Length; i++)
+        {
+            var label = labels[i];
+            if (label == null) continue;
+            if (string.Equals(label.text, "ESC", StringComparison.OrdinalIgnoreCase))
+                label.text = "A";
+            else if (string.Equals(label.text, "Escape", StringComparison.OrdinalIgnoreCase))
+                label.text = "Aid";
+            EditorUtility.SetDirty(label);
+        }
+
+        Debug.Log($"[PF2eAutoFix] Created AidButton under {GetPath(template.transform.parent)}.", clone);
+        return button;
+    }
+
+    private static Image EnsureAidButtonHighlight(Button aidButton)
+    {
+        if (aidButton == null)
+            return null;
+
+        var highlightTransform = aidButton.transform.Find("ActiveHighlight");
+        if (highlightTransform != null)
+            return highlightTransform.GetComponent<Image>();
+
+        var highlightGo = new GameObject("ActiveHighlight", typeof(RectTransform), typeof(Image));
+        highlightGo.transform.SetParent(aidButton.transform, false);
+        var rect = highlightGo.GetComponent<RectTransform>();
+        if (rect != null)
+        {
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+        }
+
+        var image = highlightGo.GetComponent<Image>();
+        if (image != null)
+            image.raycastTarget = false;
+        highlightGo.SetActive(false);
+
+        Undo.RegisterCreatedObjectUndo(highlightGo, "Create AidButton ActiveHighlight");
+        EditorUtility.SetDirty(highlightGo);
+        return image;
+    }
+
+    private static GameObject EnsureAidPreparedBadge(Button aidButton)
+    {
+        if (aidButton == null)
+            return null;
+
+        var badge = aidButton.transform.Find("AidPreparedBadge");
+        if (badge != null)
+            return badge.gameObject;
+
+        var badgeGo = new GameObject("AidPreparedBadge", typeof(RectTransform), typeof(Image));
+        badgeGo.transform.SetParent(aidButton.transform, false);
+
+        var rect = badgeGo.GetComponent<RectTransform>();
+        if (rect != null)
+        {
+            rect.anchorMin = new Vector2(1f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(1f, 1f);
+            rect.anchoredPosition = new Vector2(-4f, -4f);
+            rect.sizeDelta = new Vector2(10f, 10f);
+        }
+
+        var image = badgeGo.GetComponent<Image>();
+        if (image != null)
+            image.raycastTarget = false;
+        badgeGo.SetActive(false);
+
+        Undo.RegisterCreatedObjectUndo(badgeGo, "Create AidPreparedBadge");
+        EditorUtility.SetDirty(badgeGo);
+        return badgeGo;
     }
 
     private static int TryAssignActionBarChild<T>(ActionBarController bar, Transform root, string childPath, string fieldName)
