@@ -59,6 +59,7 @@ namespace PF2e.Presentation
 
         private bool buttonListenersBound;
         private bool delayEventsSubscribedInternally;
+        private readonly ActionBarAvailabilityPolicy actionBarAvailabilityPolicy = new();
         private readonly AidPreparedIndicatorPresenter aidPreparedIndicatorPresenter = new();
         private readonly DelayActionBarStatePresenter delayActionBarStatePresenter = new();
 #if UNITY_EDITOR
@@ -498,11 +499,11 @@ namespace PF2e.Presentation
                 return;
             }
 
-            bool canAct = turnManager.IsPlayerTurn
-                       && !actionExecutor.IsBusy
-                       && turnManager.ActionsRemaining > 0;
-
-            if (!canAct)
+            if (!actionBarAvailabilityPolicy.TryEvaluate(
+                turnManager,
+                actionExecutor,
+                entityManager.Registry,
+                out var availability))
             {
                 SetAllInteractable(false);
                 ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
@@ -510,59 +511,9 @@ namespace PF2e.Presentation
                 return;
             }
 
-            var actor = turnManager.CurrentEntity;
-            var data = actor.IsValid ? entityManager.Registry.Get(actor) : null;
-            if (data == null || !data.IsAlive)
-            {
-                SetAllInteractable(false);
-                ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
-                RefreshAidPreparedIndicator();
-                return;
-            }
-
-            SetInteractable(strikeButton, true);
-            SetInteractable(tripButton, HasWeaponTrait(data, WeaponTraitFlags.Trip));
-            SetInteractable(shoveButton, HasWeaponTrait(data, WeaponTraitFlags.Shove));
-            SetInteractable(grappleButton, HasWeaponTrait(data, WeaponTraitFlags.Grapple));
-            // Reposition can also be enabled via active grapple relation (RAW) which is not cheaply visible from EntityData.
-            // Use broad pre-target gate; action/preview will enforce exact legality.
-            SetInteractable(repositionButton, true);
-            SetInteractable(demoralizeButton, true);
-            SetInteractable(escapeButton, IsGrabbedOrRestrained(data));
-            // Keep Aid selectable even when no ally is currently in reach, so player can enter
-            // targeting mode and receive contextual failure feedback instead of a dead button.
-            SetInteractable(aidButton, true);
-            SetInteractable(raiseShieldButton, CanRaiseShield(data));
-            SetInteractable(standButton, HasCondition(data, ConditionType.Prone));
+            ApplyActionAvailability(in availability);
             ApplyDelayControls(delayActionBarStatePresenter.BuildNormalState(turnManager.CanDelayCurrentTurn()));
             RefreshAidPreparedIndicator();
-        }
-
-        private static bool HasWeaponTrait(EntityData data, WeaponTraitFlags trait)
-        {
-            if (data == null) return false;
-            return (data.EquippedWeapon.Traits & trait) != 0;
-        }
-
-        private static bool IsGrabbedOrRestrained(EntityData data)
-        {
-            if (data == null) return false;
-            return data.HasCondition(ConditionType.Grabbed) || data.HasCondition(ConditionType.Restrained);
-        }
-
-        private static bool CanRaiseShield(EntityData data)
-        {
-            if (data == null) return false;
-            var shield = data.EquippedShield;
-            if (!shield.IsEquipped) return false;
-            if (shield.IsBroken) return false;
-            if (shield.isRaised) return false;
-            return true;
-        }
-
-        private static bool HasCondition(EntityData data, ConditionType type)
-        {
-            return data != null && data.HasCondition(type);
         }
 
         private void SetCombatVisible(bool visible)
@@ -586,6 +537,20 @@ namespace PF2e.Presentation
             SetInteractable(aidButton, enabled);
             SetInteractable(raiseShieldButton, enabled);
             SetInteractable(standButton, enabled);
+        }
+
+        private void ApplyActionAvailability(in ActionBarAvailabilityState availability)
+        {
+            SetInteractable(strikeButton, availability.strikeInteractable);
+            SetInteractable(tripButton, availability.tripInteractable);
+            SetInteractable(shoveButton, availability.shoveInteractable);
+            SetInteractable(grappleButton, availability.grappleInteractable);
+            SetInteractable(repositionButton, availability.repositionInteractable);
+            SetInteractable(demoralizeButton, availability.demoralizeInteractable);
+            SetInteractable(escapeButton, availability.escapeInteractable);
+            SetInteractable(aidButton, availability.aidInteractable);
+            SetInteractable(raiseShieldButton, availability.raiseShieldInteractable);
+            SetInteractable(standButton, availability.standInteractable);
         }
 
         private void ApplyDelayControls(in DelayActionBarState state)
