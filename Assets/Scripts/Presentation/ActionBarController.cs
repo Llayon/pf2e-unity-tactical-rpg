@@ -261,32 +261,8 @@ namespace PF2e.Presentation
             }
 
             actionBarCommandCoordinator.Bind(turnManager, targetingController, actionExecutor, RefreshAvailability);
-
-            eventBus.OnCombatStartedTyped += HandleCombatStarted;
-            eventBus.OnCombatEndedTyped += HandleCombatEnded;
-            eventBus.OnTurnStartedTyped += HandleTurnStarted;
-            eventBus.OnTurnEndedTyped += HandleTurnEnded;
-            eventBus.OnActionsChangedTyped += HandleActionsChanged;
-            eventBus.OnConditionChangedTyped += HandleConditionChanged;
-            eventBus.OnShieldRaisedTyped += HandleShieldRaised;
-            eventBus.OnAidPreparedTyped += HandleAidPrepared;
-            eventBus.OnAidClearedTyped += HandleAidCleared;
-
-            if (!IsExternalDelayOrchestratorPresent())
-            {
-                eventBus.OnDelayTurnBeginTriggerChangedTyped += HandleDelayTurnBeginTriggerChanged;
-                eventBus.OnDelayPlacementSelectionChangedTyped += HandleDelayPlacementSelectionChanged;
-                eventBus.OnDelayReturnWindowOpenedTyped += HandleDelayReturnWindowOpened;
-                eventBus.OnDelayReturnWindowClosedTyped += HandleDelayReturnWindowClosed;
-                eventBus.OnDelayedTurnEnteredTyped += HandleDelayedTurnEntered;
-                eventBus.OnDelayedTurnResumedTyped += HandleDelayedTurnResumed;
-                eventBus.OnDelayedTurnExpiredTyped += HandleDelayedTurnExpired;
-                delayEventsSubscribedInternally = true;
-            }
-            else
-            {
-                delayEventsSubscribedInternally = false;
-            }
+            SubscribeCoreEvents();
+            SubscribeDelayEventsIfNeeded();
 
             targetingController.OnModeChanged += HandleModeChanged;
 
@@ -299,26 +275,8 @@ namespace PF2e.Presentation
         {
             if (eventBus != null)
             {
-                eventBus.OnCombatStartedTyped -= HandleCombatStarted;
-                eventBus.OnCombatEndedTyped -= HandleCombatEnded;
-                eventBus.OnTurnStartedTyped -= HandleTurnStarted;
-                eventBus.OnTurnEndedTyped -= HandleTurnEnded;
-                eventBus.OnActionsChangedTyped -= HandleActionsChanged;
-                eventBus.OnConditionChangedTyped -= HandleConditionChanged;
-                eventBus.OnShieldRaisedTyped -= HandleShieldRaised;
-                eventBus.OnAidPreparedTyped -= HandleAidPrepared;
-                eventBus.OnAidClearedTyped -= HandleAidCleared;
-                if (delayEventsSubscribedInternally)
-                {
-                    eventBus.OnDelayTurnBeginTriggerChangedTyped -= HandleDelayTurnBeginTriggerChanged;
-                    eventBus.OnDelayPlacementSelectionChangedTyped -= HandleDelayPlacementSelectionChanged;
-                    eventBus.OnDelayReturnWindowOpenedTyped -= HandleDelayReturnWindowOpened;
-                    eventBus.OnDelayReturnWindowClosedTyped -= HandleDelayReturnWindowClosed;
-                    eventBus.OnDelayedTurnEnteredTyped -= HandleDelayedTurnEntered;
-                    eventBus.OnDelayedTurnResumedTyped -= HandleDelayedTurnResumed;
-                    eventBus.OnDelayedTurnExpiredTyped -= HandleDelayedTurnExpired;
-                    delayEventsSubscribedInternally = false;
-                }
+                UnsubscribeCoreEvents();
+                UnsubscribeDelayEvents();
             }
 
             if (targetingController != null)
@@ -330,19 +288,19 @@ namespace PF2e.Presentation
             if (buttonListenersBound) return;
 
             int boundCount = 0;
-            boundCount += BindButton(strikeButton, OnStrikeClicked);
-            boundCount += BindButton(tripButton, OnTripClicked);
-            boundCount += BindButton(shoveButton, OnShoveClicked);
-            boundCount += BindButton(grappleButton, OnGrappleClicked);
-            boundCount += BindButton(repositionButton, OnRepositionClicked);
-            boundCount += BindButton(demoralizeButton, OnDemoralizeClicked);
-            boundCount += BindButton(escapeButton, OnEscapeClicked);
-            boundCount += BindButton(aidButton, OnAidClicked);
-            boundCount += BindButton(raiseShieldButton, OnRaiseShieldClicked);
-            boundCount += BindButton(standButton, OnStandClicked);
-            boundCount += BindButton(delayButton, OnDelayClicked);
-            boundCount += BindButton(returnNowButton, OnReturnNowClicked);
-            boundCount += BindButton(skipDelayWindowButton, OnSkipDelayWindowClicked);
+            boundCount += BindButton(strikeButton, actionBarCommandCoordinator.OnStrikeClicked);
+            boundCount += BindButton(tripButton, actionBarCommandCoordinator.OnTripClicked);
+            boundCount += BindButton(shoveButton, actionBarCommandCoordinator.OnShoveClicked);
+            boundCount += BindButton(grappleButton, actionBarCommandCoordinator.OnGrappleClicked);
+            boundCount += BindButton(repositionButton, actionBarCommandCoordinator.OnRepositionClicked);
+            boundCount += BindButton(demoralizeButton, actionBarCommandCoordinator.OnDemoralizeClicked);
+            boundCount += BindButton(escapeButton, actionBarCommandCoordinator.OnEscapeClicked);
+            boundCount += BindButton(aidButton, actionBarCommandCoordinator.OnAidClicked);
+            boundCount += BindButton(raiseShieldButton, actionBarCommandCoordinator.OnRaiseShieldClicked);
+            boundCount += BindButton(standButton, actionBarCommandCoordinator.OnStandClicked);
+            boundCount += BindButton(delayButton, actionBarCommandCoordinator.OnDelayClicked);
+            boundCount += BindButton(returnNowButton, actionBarCommandCoordinator.OnReturnNowClicked);
+            boundCount += BindButton(skipDelayWindowButton, actionBarCommandCoordinator.OnSkipDelayWindowClicked);
 
             if (boundCount > 0)
                 buttonListenersBound = true;
@@ -353,6 +311,65 @@ namespace PF2e.Presentation
             if (button == null || handler == null) return 0;
             button.onClick.AddListener(handler);
             return 1;
+        }
+
+        private void SubscribeCoreEvents()
+        {
+            eventBus.OnCombatStartedTyped += HandleCombatStarted;
+            eventBus.OnCombatEndedTyped += HandleCombatEnded;
+            eventBus.OnTurnStartedTyped += HandleTurnStarted;
+            eventBus.OnTurnEndedTyped += HandleTurnEnded;
+            eventBus.OnActionsChangedTyped += HandleActionsChanged;
+            eventBus.OnConditionChangedTyped += HandleConditionChanged;
+            eventBus.OnShieldRaisedTyped += HandleShieldRaised;
+            eventBus.OnAidPreparedTyped += HandleAidPrepared;
+            eventBus.OnAidClearedTyped += HandleAidCleared;
+        }
+
+        private void UnsubscribeCoreEvents()
+        {
+            eventBus.OnCombatStartedTyped -= HandleCombatStarted;
+            eventBus.OnCombatEndedTyped -= HandleCombatEnded;
+            eventBus.OnTurnStartedTyped -= HandleTurnStarted;
+            eventBus.OnTurnEndedTyped -= HandleTurnEnded;
+            eventBus.OnActionsChangedTyped -= HandleActionsChanged;
+            eventBus.OnConditionChangedTyped -= HandleConditionChanged;
+            eventBus.OnShieldRaisedTyped -= HandleShieldRaised;
+            eventBus.OnAidPreparedTyped -= HandleAidPrepared;
+            eventBus.OnAidClearedTyped -= HandleAidCleared;
+        }
+
+        private void SubscribeDelayEventsIfNeeded()
+        {
+            if (IsExternalDelayOrchestratorPresent())
+            {
+                delayEventsSubscribedInternally = false;
+                return;
+            }
+
+            eventBus.OnDelayTurnBeginTriggerChangedTyped += HandleDelayTurnBeginTriggerChanged;
+            eventBus.OnDelayPlacementSelectionChangedTyped += HandleDelayPlacementSelectionChanged;
+            eventBus.OnDelayReturnWindowOpenedTyped += HandleDelayReturnWindowOpened;
+            eventBus.OnDelayReturnWindowClosedTyped += HandleDelayReturnWindowClosed;
+            eventBus.OnDelayedTurnEnteredTyped += HandleDelayedTurnEntered;
+            eventBus.OnDelayedTurnResumedTyped += HandleDelayedTurnResumed;
+            eventBus.OnDelayedTurnExpiredTyped += HandleDelayedTurnExpired;
+            delayEventsSubscribedInternally = true;
+        }
+
+        private void UnsubscribeDelayEvents()
+        {
+            if (!delayEventsSubscribedInternally)
+                return;
+
+            eventBus.OnDelayTurnBeginTriggerChangedTyped -= HandleDelayTurnBeginTriggerChanged;
+            eventBus.OnDelayPlacementSelectionChangedTyped -= HandleDelayPlacementSelectionChanged;
+            eventBus.OnDelayReturnWindowOpenedTyped -= HandleDelayReturnWindowOpened;
+            eventBus.OnDelayReturnWindowClosedTyped -= HandleDelayReturnWindowClosed;
+            eventBus.OnDelayedTurnEnteredTyped -= HandleDelayedTurnEntered;
+            eventBus.OnDelayedTurnResumedTyped -= HandleDelayedTurnResumed;
+            eventBus.OnDelayedTurnExpiredTyped -= HandleDelayedTurnExpired;
+            delayEventsSubscribedInternally = false;
         }
 
         private void HandleCombatStarted(in CombatStartedEvent e)
@@ -607,71 +624,6 @@ namespace PF2e.Presentation
         {
             var orchestrator = UnityEngine.Object.FindFirstObjectByType<DelayUiOrchestrator>();
             return orchestrator != null && orchestrator.isActiveAndEnabled;
-        }
-
-        private void OnStrikeClicked()
-        {
-            actionBarCommandCoordinator.OnStrikeClicked();
-        }
-
-        private void OnTripClicked()
-        {
-            actionBarCommandCoordinator.OnTripClicked();
-        }
-
-        private void OnShoveClicked()
-        {
-            actionBarCommandCoordinator.OnShoveClicked();
-        }
-
-        private void OnGrappleClicked()
-        {
-            actionBarCommandCoordinator.OnGrappleClicked();
-        }
-
-        private void OnDemoralizeClicked()
-        {
-            actionBarCommandCoordinator.OnDemoralizeClicked();
-        }
-
-        private void OnRepositionClicked()
-        {
-            actionBarCommandCoordinator.OnRepositionClicked();
-        }
-
-        private void OnEscapeClicked()
-        {
-            actionBarCommandCoordinator.OnEscapeClicked();
-        }
-
-        private void OnAidClicked()
-        {
-            actionBarCommandCoordinator.OnAidClicked();
-        }
-
-        private void OnRaiseShieldClicked()
-        {
-            actionBarCommandCoordinator.OnRaiseShieldClicked();
-        }
-
-        private void OnStandClicked()
-        {
-            actionBarCommandCoordinator.OnStandClicked();
-        }
-
-        private void OnDelayClicked()
-        {
-            actionBarCommandCoordinator.OnDelayClicked();
-        }
-
-        private void OnReturnNowClicked()
-        {
-            actionBarCommandCoordinator.OnReturnNowClicked();
-        }
-
-        private void OnSkipDelayWindowClicked()
-        {
-            actionBarCommandCoordinator.OnSkipDelayWindowClicked();
         }
     }
 }
