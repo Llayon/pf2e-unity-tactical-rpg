@@ -151,9 +151,7 @@ namespace PF2e.TurnSystem
                     ? TargetingFailureReason.InvalidState
                     : strikeAction.GetStrikeTargetFailure(actor, target),
 
-                TargetingMode.ReadyStrike => readyStrikeAction == null
-                    ? TargetingFailureReason.InvalidState
-                    : readyStrikeAction.GetReadyStrikeTargetFailure(actor, target),
+                TargetingMode.ReadyStrike => TargetingFailureReason.ModeNotSupported,
 
                 TargetingMode.Trip => tripAction == null
                     ? TargetingFailureReason.InvalidState
@@ -299,7 +297,7 @@ namespace PF2e.TurnSystem
             return true;
         }
 
-        public bool TryExecuteReadyStrike(EntityHandle target)
+        public bool TryExecuteReadyStrike()
         {
             if (turnManager == null || entityManager == null || readyStrikeAction == null) return false;
             if (!CanActNow()) return false;
@@ -307,7 +305,6 @@ namespace PF2e.TurnSystem
 
             var actor = turnManager.CurrentEntity;
             if (!actor.IsValid) return false;
-            if (readyStrikeAction.GetReadyStrikeTargetFailure(actor, target) != TargetingFailureReason.None) return false;
 
             executingActor = actor;
             turnManager.BeginActionExecution(actor, "Player.ReadyStrike");
@@ -315,7 +312,7 @@ namespace PF2e.TurnSystem
             executionStartTime = Time.time;
 #endif
 
-            bool prepared = readyStrikeAction.TryPrepareReadiedStrike(actor, target, turnManager.RoundNumber);
+            bool prepared = readyStrikeAction.TryPrepareReadiedStrike(actor, turnManager.RoundNumber);
             if (!prepared)
             {
                 executingActor = EntityHandle.None;

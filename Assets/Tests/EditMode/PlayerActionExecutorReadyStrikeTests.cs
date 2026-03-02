@@ -20,10 +20,9 @@ namespace PF2e.Tests
             using var ctx = new ReadyExecutorContext();
 
             var actor = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(0, 0, 0));
-            var target = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(1, 0, 0));
             ctx.SetCurrentActor(actor, actionsRemaining: 3);
 
-            bool executed = ctx.Executor.TryExecuteReadyStrike(target);
+            bool executed = ctx.Executor.TryExecuteReadyStrike();
 
             Assert.IsTrue(executed);
             Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(actor));

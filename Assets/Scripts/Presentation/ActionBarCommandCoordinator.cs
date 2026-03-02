@@ -69,7 +69,10 @@ namespace PF2e.Presentation
 
         public void OnReadyClicked()
         {
-            ToggleOrBeginTargeting(TargetingMode.ReadyStrike, h => actionExecutor.TryExecuteReadyStrike(h));
+            if (actionExecutor == null)
+                return;
+
+            actionExecutor.TryExecuteReadyStrike();
         }
 
         public void OnRaiseShieldClicked()

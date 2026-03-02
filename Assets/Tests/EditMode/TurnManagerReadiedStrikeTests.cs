@@ -24,7 +24,7 @@ namespace PF2e.Tests
             Assert.IsNotNull(actorData);
             actorData.ReactionAvailable = true;
 
-            Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(actor, target, preparedRound: 1));
+            Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(actor, preparedRound: 1));
             Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(actor));
 
             var targetData = ctx.Registry.Get(target);
@@ -47,7 +47,7 @@ namespace PF2e.Tests
             Assert.IsNotNull(actorData);
             actorData.ReactionAvailable = true;
 
-            Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(actor, target, preparedRound: 1));
+            Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(actor, preparedRound: 1));
             Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(actor));
 
             var targetData = ctx.Registry.Get(target);
@@ -70,7 +70,7 @@ namespace PF2e.Tests
             Assert.IsNotNull(actorData);
             actorData.ReactionAvailable = true;
 
-            Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(actor, target, preparedRound: 1));
+            Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(actor, preparedRound: 1));
             Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(actor));
 
             InvokePrivate(
@@ -122,6 +122,7 @@ namespace PF2e.Tests
                 SetPrivateField(TurnManager, "eventBus", EventBus);
                 SetPrivateField(TurnManager, "strikeAction", StrikeAction);
                 SetPrivateField(TurnManager, "state", TurnState.PlayerTurn);
+                InvokePrivate(TurnManager, "OnEnable", System.Array.Empty<object>());
             }
 
             public EntityHandle RegisterEntity(string name, Team team, Vector3Int position, int strength = 16)

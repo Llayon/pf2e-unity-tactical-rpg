@@ -33,11 +33,17 @@ namespace PF2e.Presentation
             if (actorData == null || !actorData.IsAlive)
                 return false;
 
-            state = BuildForActor(actorData, turnManager.ActionsRemaining);
+            state = BuildForActor(
+                actorData,
+                turnManager.ActionsRemaining,
+                !turnManager.HasReadiedStrike(actor));
             return true;
         }
 
-        public ActionBarAvailabilityState BuildForActor(EntityData actorData, int actionsRemaining = 3)
+        public ActionBarAvailabilityState BuildForActor(
+            EntityData actorData,
+            int actionsRemaining = 3,
+            bool canPrepareReadyStrike = true)
         {
             if (actorData == null || !actorData.IsAlive)
                 return default;
@@ -54,7 +60,7 @@ namespace PF2e.Presentation
                 escapeInteractable: IsGrabbedOrRestrained(actorData),
                 // Aid remains selectable so player can receive contextual targeting feedback.
                 aidInteractable: true,
-                readyInteractable: actionsRemaining >= ReadyStrikeAction.ActionCost,
+                readyInteractable: canPrepareReadyStrike && actionsRemaining >= ReadyStrikeAction.ActionCost,
                 raiseShieldInteractable: CanRaiseShield(actorData),
                 standInteractable: HasCondition(actorData, ConditionType.Prone));
         }

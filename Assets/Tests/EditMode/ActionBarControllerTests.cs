@@ -52,6 +52,25 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void RefreshAvailability_ReadiedStrikeAlreadyPrepared_DisablesReady()
+        {
+            using var ctx = new ActionBarTestContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
+            ctx.AddActorToInitiativeOrder(ctx.RegisterEntity("Goblin", Team.Enemy));
+            ctx.SetDelayTurnBeginTriggerOpen(true);
+
+            var actorData = ctx.Registry.Get(actor);
+            Assert.IsNotNull(actorData);
+            actorData.ReactionAvailable = true;
+            Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(actor, preparedRound: 1));
+
+            ctx.RefreshAvailability();
+
+            Assert.IsFalse(ctx.ReadyButton.interactable);
+        }
+
+        [Test]
         public void RefreshAvailability_NotPlayerTurn_DisablesAll()
         {
             using var ctx = new ActionBarTestContext();
