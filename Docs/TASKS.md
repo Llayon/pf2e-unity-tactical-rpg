@@ -126,6 +126,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-120 | P1 | done | Builder | Phase 32g.5: finalize Action Bar wiring cleanup | `ActionBarController` now binds buttons directly to `ActionBarCommandCoordinator` (no one-line wrappers), and typed event subscribe/unsubscribe paths are consolidated into dedicated methods to reduce controller boilerplate and improve maintainability |
 | T-121 | P1 | done | Builder | Phase 32g.6: extract Aid Action Bar runtime UI bootstrap helper | Added `AidActionBarUiBootstrapper` to own optional Aid UI fallback wiring (`AidButton` discovery/clone, highlight lookup, `AidPreparedBadge` resolve/create/style); `ActionBarController` now delegates bootstrap logic while preserving compatibility private entrypoints used by tests/validator |
 | T-122 | P1 | done | Builder | Phase 32g.7: move Aid Action Bar UI creation toward scene tooling policy | `PF2eSceneDependencyValidator` auto-fix now creates/wires `AidButton`, `ActiveHighlight`, and `AidPreparedBadge` when missing; runtime bootstrap keeps compatibility auto-create fallback for legacy scenes/PlayMode coverage until all scenes are explicitly wired |
+| T-123 | P1 | done | Builder | Phase 32h: remove runtime Aid UI auto-create fallback | `AidActionBarUiBootstrapper` now resolves authored/autofixed Aid refs only (no runtime create of `AidButton`/`AidPreparedBadge`), validator remains the single Aid UI creation/wiring authority, and new EditMode regression asserts no runtime creation path |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal
