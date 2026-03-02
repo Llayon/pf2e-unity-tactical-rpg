@@ -63,6 +63,7 @@ namespace PF2e.Presentation
         private readonly AidPreparedIndicatorPresenter aidPreparedIndicatorPresenter = new();
         private readonly DelayActionBarStatePresenter delayActionBarStatePresenter = new();
         private readonly ActionBarCommandCoordinator actionBarCommandCoordinator = new();
+        private readonly AidActionBarUiBootstrapper aidActionBarUiBootstrapper = new();
 #if UNITY_EDITOR
         private void OnValidate()
         {
@@ -101,152 +102,29 @@ namespace PF2e.Presentation
 
         private void ResolveOptionalAidUiReferences()
         {
-            if (aidButton == null)
-            {
-                aidButton = FindAidButtonInHierarchy();
-            }
-
-            if (aidButton == null)
-            {
-                aidButton = TryCreateAidButtonFromTemplate();
-            }
-
-            if (aidHighlight == null && aidButton != null)
-            {
-                aidHighlight = FindAidHighlight(aidButton);
-            }
-
-            ResolveAidPreparedIndicatorReferences();
+            aidActionBarUiBootstrapper.ResolveOptionalReferences(
+                this,
+                escapeButton,
+                demoralizeButton,
+                strikeButton,
+                ref aidButton,
+                ref aidHighlight,
+                ref aidPreparedIndicatorRoot,
+                ref aidPreparedIndicatorLabel,
+                aidPreparedIndicatorFillColor,
+                aidPreparedIndicatorLabelColor);
             aidPreparedIndicatorPresenter.Clear();
             RefreshAidPreparedIndicator();
         }
 
-        private Button FindAidButtonInHierarchy()
-        {
-            var buttons = GetComponentsInChildren<Button>(true);
-            for (int i = 0; i < buttons.Length; i++)
-            {
-                var button = buttons[i];
-                if (button == null) continue;
-
-                if (string.Equals(button.gameObject.name, "AidButton", System.StringComparison.Ordinal))
-                    return button;
-            }
-
-            return null;
-        }
-
-        private Button TryCreateAidButtonFromTemplate()
-        {
-            var template = escapeButton != null ? escapeButton : (demoralizeButton != null ? demoralizeButton : strikeButton);
-            if (template == null || template.transform.parent == null)
-                return null;
-
-            var clone = Instantiate(template.gameObject, template.transform.parent, false);
-            clone.name = "AidButton";
-            clone.SetActive(true);
-            clone.transform.SetSiblingIndex(template.transform.GetSiblingIndex() + 1);
-
-            var button = clone.GetComponent<Button>();
-            if (button != null)
-                button.onClick.RemoveAllListeners();
-
-            var labels = clone.GetComponentsInChildren<TMP_Text>(true);
-            for (int i = 0; i < labels.Length; i++)
-            {
-                var label = labels[i];
-                if (label == null) continue;
-
-                if (string.Equals(label.text, "ESC", System.StringComparison.OrdinalIgnoreCase))
-                    label.text = "A";
-                else if (string.Equals(label.text, "Escape", System.StringComparison.OrdinalIgnoreCase))
-                    label.text = "Aid";
-            }
-
-            return button;
-        }
-
-        private static Image FindAidHighlight(Button button)
-        {
-            if (button == null)
-                return null;
-
-            var direct = button.transform.Find("ActiveHighlight");
-            if (direct != null)
-                return direct.GetComponent<Image>();
-
-            var images = button.GetComponentsInChildren<Image>(true);
-            for (int i = 0; i < images.Length; i++)
-            {
-                var image = images[i];
-                if (image == null) continue;
-                if (string.Equals(image.gameObject.name, "ActiveHighlight", System.StringComparison.Ordinal))
-                    return image;
-            }
-
-            return null;
-        }
-
         private void ResolveAidPreparedIndicatorReferences()
         {
-            if (aidButton == null)
-                return;
-
-            if (aidPreparedIndicatorRoot == null)
-            {
-                var existing = aidButton.transform.Find("AidPreparedBadge");
-                if (existing != null)
-                    aidPreparedIndicatorRoot = existing.gameObject;
-            }
-
-            if (aidPreparedIndicatorRoot == null)
-                aidPreparedIndicatorRoot = TryCreateAidPreparedIndicator(aidButton);
-
-            if (aidPreparedIndicatorLabel == null && aidPreparedIndicatorRoot != null)
-                aidPreparedIndicatorLabel = aidPreparedIndicatorRoot.GetComponentInChildren<TMP_Text>(true);
-
-            ApplyAidPreparedIndicatorStyle();
-        }
-
-        private static GameObject TryCreateAidPreparedIndicator(Button aidButton)
-        {
-            if (aidButton == null)
-                return null;
-
-            var badgeGo = new GameObject("AidPreparedBadge", typeof(RectTransform), typeof(Image));
-            badgeGo.transform.SetParent(aidButton.transform, false);
-
-            var rect = badgeGo.GetComponent<RectTransform>();
-            if (rect != null)
-            {
-                rect.anchorMin = new Vector2(1f, 1f);
-                rect.anchorMax = new Vector2(1f, 1f);
-                rect.pivot = new Vector2(1f, 1f);
-                rect.anchoredPosition = new Vector2(-4f, -4f);
-                rect.sizeDelta = new Vector2(10f, 10f);
-            }
-
-            var image = badgeGo.GetComponent<Image>();
-            if (image != null)
-            {
-                image.raycastTarget = false;
-            }
-
-            badgeGo.SetActive(false);
-            return badgeGo;
-        }
-
-        private void ApplyAidPreparedIndicatorStyle()
-        {
-            if (aidPreparedIndicatorRoot == null)
-                return;
-
-            var image = aidPreparedIndicatorRoot.GetComponent<Image>();
-            if (image != null)
-                image.color = aidPreparedIndicatorFillColor;
-
-            if (aidPreparedIndicatorLabel != null)
-                aidPreparedIndicatorLabel.color = aidPreparedIndicatorLabelColor;
+            aidActionBarUiBootstrapper.ResolveAidPreparedIndicatorReferences(
+                aidButton,
+                ref aidPreparedIndicatorRoot,
+                ref aidPreparedIndicatorLabel,
+                aidPreparedIndicatorFillColor,
+                aidPreparedIndicatorLabelColor);
         }
 
         private void OnEnable()
