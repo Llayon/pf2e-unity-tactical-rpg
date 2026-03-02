@@ -72,6 +72,54 @@ namespace PF2e.Tests
             }
         }
 
+        [Test]
+        public void TryExecuteStrike_PreparedAid_PublishesAidResolvedStrikeContext()
+        {
+            using var ctx = new ExecutorAidContext();
+
+            var helper = ctx.RegisterEntity("Helper", Team.Player, new Vector3Int(0, 0, 1), strength: 5000);
+            var striker = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(0, 0, 0), strength: 16);
+            var target = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(1, 0, 0), strength: 10);
+            ctx.SetCurrentActor(striker, actionsRemaining: 3);
+
+            var helperData = ctx.Registry.Get(helper);
+            Assert.IsNotNull(helperData);
+            helperData.ReactionAvailable = true;
+            helperData.SimpleWeaponProf = ProficiencyRank.Legendary;
+
+            ctx.TurnManager.AidService.NotifyTurnStarted(helper);
+            Assert.IsTrue(ctx.TurnManager.AidService.PrepareAid(helper, striker, preparedRound: 1));
+
+            int aidResolvedCount = 0;
+            AidResolvedEvent lastAidResolved = default;
+            ctx.EventBus.OnAidResolvedTyped += HandleAidResolved;
+            try
+            {
+                bool executed = ctx.Executor.TryExecuteStrike(target);
+
+                Assert.IsTrue(executed);
+                Assert.AreEqual(1, aidResolvedCount, "Strike pre-check should resolve prepared Aid exactly once.");
+                Assert.AreEqual(helper, lastAidResolved.helper);
+                Assert.AreEqual(striker, lastAidResolved.ally);
+                Assert.AreEqual(AidCheckType.Strike, lastAidResolved.checkType);
+                Assert.IsFalse(lastAidResolved.skill.HasValue, "Strike Aid should not carry a skill source.");
+                Assert.AreEqual("Strike", lastAidResolved.triggeringActionName);
+                Assert.AreEqual(15, lastAidResolved.dc);
+                Assert.IsTrue(lastAidResolved.reactionConsumed);
+                Assert.IsFalse(helperData.ReactionAvailable, "Aid reaction should be consumed.");
+            }
+            finally
+            {
+                ctx.EventBus.OnAidResolvedTyped -= HandleAidResolved;
+            }
+
+            void HandleAidResolved(in AidResolvedEvent e)
+            {
+                aidResolvedCount++;
+                lastAidResolved = e;
+            }
+        }
+
         private sealed class ExecutorAidContext : System.IDisposable
         {
             private readonly bool oldIgnoreLogs;
