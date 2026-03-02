@@ -77,9 +77,14 @@ namespace PF2e.Tests
 
             var aidButton = GetPrivateField<Button>(actionBar, "aidButton");
             var aidHighlight = GetPrivateField<Image>(actionBar, "aidHighlight");
+            var aidPreparedBadgeRoot = GetPrivateField<GameObject>(actionBar, "aidPreparedIndicatorRoot");
             Assert.IsNotNull(aidButton, "ActionBarController must resolve Aid button (wired or runtime fallback).");
             Assert.IsNotNull(aidHighlight, "ActionBarController must resolve Aid highlight (wired or runtime fallback).");
+            Assert.IsNotNull(aidPreparedBadgeRoot, "ActionBarController must resolve Aid prepared badge root (wired or runtime fallback).");
             Assert.AreEqual("AidButton", aidButton.gameObject.name, "Resolved Aid button should use canonical name AidButton.");
+            Assert.AreEqual("AidPreparedBadge", aidPreparedBadgeRoot.name, "Aid prepared badge should use canonical name AidPreparedBadge.");
+            Assert.AreSame(aidButton.transform, aidPreparedBadgeRoot.transform.parent, "Aid prepared badge must be attached to Aid button.");
+            Assert.IsNotNull(aidButton.transform.Find("AidPreparedBadge"), "Aid button hierarchy must contain AidPreparedBadge child.");
 
             var resolvedAidAction = GetPrivateField<AidAction>(executor, "aidAction");
             var wiredEventBus = GetPrivateField<CombatEventBus>(executor, "eventBus");

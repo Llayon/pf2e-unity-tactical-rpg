@@ -269,6 +269,25 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void AidPreparedIndicator_WithLabel_UsesSerializedSingleAndCountText()
+        {
+            using var ctx = new ActionBarTestContext();
+            var helper = ctx.RegisterEntity("Helper", Team.Player);
+            var allyA = ctx.RegisterEntity("AllyA", Team.Player);
+            var allyB = ctx.RegisterEntity("AllyB", Team.Player);
+            var enemy = ctx.RegisterEntity("Enemy", Team.Enemy);
+            ctx.SetCurrentActorWithOrder(helper, TurnState.PlayerTurn, actionsRemaining: 3, enemy);
+            ctx.EnableAidPreparedLabel();
+            ctx.SetAidPreparedTextStyle(singleText: "!", countFormat: "x{0}");
+
+            ctx.EventBus.PublishAidPrepared(helper, allyA, preparedRound: 1);
+            Assert.AreEqual("!", ctx.GetAidPreparedIndicatorLabelText());
+
+            ctx.EventBus.PublishAidPrepared(helper, allyB, preparedRound: 1);
+            Assert.AreEqual("x2", ctx.GetAidPreparedIndicatorLabelText());
+        }
+
+        [Test]
         public void HandleModeChanged_HighlightsCorrectButton()
         {
             using var ctx = new ActionBarTestContext();
@@ -430,6 +449,7 @@ namespace PF2e.Tests
             public Image RaiseShieldHighlight { get; }
             public Image StandHighlight { get; }
             public GameObject AidPreparedIndicatorRoot { get; }
+            public Component AidPreparedIndicatorLabel { get; private set; }
 
             public ActionBarTestContext()
             {
@@ -693,6 +713,38 @@ namespace PF2e.Tests
                 InvokePrivate(ActionBar, "RefreshAvailability");
             }
 
+            public void EnableAidPreparedLabel()
+            {
+                if (AidPreparedIndicatorLabel != null)
+                    return;
+
+                var labelType = System.Type.GetType("TMPro.TextMeshProUGUI, Unity.TextMeshPro");
+                Assert.IsNotNull(labelType, "TMPro.TextMeshProUGUI type must be available.");
+
+                var labelGo = new GameObject("Label", typeof(RectTransform));
+                labelGo.transform.SetParent(AidPreparedIndicatorRoot.transform, false);
+                AidPreparedIndicatorLabel = labelGo.AddComponent(labelType);
+                SetMemberValue(AidPreparedIndicatorLabel, "text", string.Empty);
+
+                SetPrivateField(ActionBar, "aidPreparedIndicatorLabel", AidPreparedIndicatorLabel);
+                InvokePrivate(ActionBar, "ResolveAidPreparedIndicatorReferences");
+            }
+
+            public void SetAidPreparedTextStyle(string singleText, string countFormat)
+            {
+                SetPrivateField(ActionBar, "aidPreparedSingleText", singleText);
+                SetPrivateField(ActionBar, "aidPreparedCountFormat", countFormat);
+            }
+
+            public string GetAidPreparedIndicatorLabelText()
+            {
+                if (AidPreparedIndicatorLabel == null)
+                    return string.Empty;
+
+                var value = GetMemberValue(AidPreparedIndicatorLabel, "text");
+                return value as string ?? string.Empty;
+            }
+
             public void AssertAllButtonsDisabled()
             {
                 Assert.IsFalse(StrikeButton.interactable);
@@ -732,6 +784,41 @@ namespace PF2e.Tests
                 if (Root != null) Object.DestroyImmediate(Root);
                 LogAssert.ignoreFailingMessages = oldIgnoreLogs;
             }
+        }
+
+        private static object GetMemberValue(object target, string memberName)
+        {
+            var type = target.GetType();
+            var property = type.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (property != null)
+                return property.GetValue(target);
+
+            var field = type.GetField(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (field != null)
+                return field.GetValue(target);
+
+            Assert.Fail($"Member '{memberName}' not found on {type.Name}.");
+            return null;
+        }
+
+        private static void SetMemberValue(object target, string memberName, object value)
+        {
+            var type = target.GetType();
+            var property = type.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (property != null)
+            {
+                property.SetValue(target, value);
+                return;
+            }
+
+            var field = type.GetField(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (field != null)
+            {
+                field.SetValue(target, value);
+                return;
+            }
+
+            Assert.Fail($"Member '{memberName}' not found on {type.Name}.");
         }
 
         private static Button CreateButton(string name, Transform parent, out Image highlight)

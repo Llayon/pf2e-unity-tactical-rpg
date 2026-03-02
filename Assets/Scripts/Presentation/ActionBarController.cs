@@ -52,6 +52,10 @@ namespace PF2e.Presentation
         [Header("Aid Prepared Indicator (optional)")]
         [SerializeField] private GameObject aidPreparedIndicatorRoot;
         [SerializeField] private TMP_Text aidPreparedIndicatorLabel;
+        [SerializeField] private Color aidPreparedIndicatorFillColor = new Color(0.98f, 0.82f, 0.22f, 0.95f);
+        [SerializeField] private Color aidPreparedIndicatorLabelColor = Color.black;
+        [SerializeField] private string aidPreparedSingleText = string.Empty;
+        [SerializeField] private string aidPreparedCountFormat = "{0}";
 
         private bool buttonListenersBound;
         private bool delayEventsSubscribedInternally;
@@ -199,6 +203,8 @@ namespace PF2e.Presentation
 
             if (aidPreparedIndicatorLabel == null && aidPreparedIndicatorRoot != null)
                 aidPreparedIndicatorLabel = aidPreparedIndicatorRoot.GetComponentInChildren<TMP_Text>(true);
+
+            ApplyAidPreparedIndicatorStyle();
         }
 
         private static GameObject TryCreateAidPreparedIndicator(Button aidButton)
@@ -222,12 +228,24 @@ namespace PF2e.Presentation
             var image = badgeGo.GetComponent<Image>();
             if (image != null)
             {
-                image.color = new Color(0.98f, 0.82f, 0.22f, 0.95f);
                 image.raycastTarget = false;
             }
 
             badgeGo.SetActive(false);
             return badgeGo;
+        }
+
+        private void ApplyAidPreparedIndicatorStyle()
+        {
+            if (aidPreparedIndicatorRoot == null)
+                return;
+
+            var image = aidPreparedIndicatorRoot.GetComponent<Image>();
+            if (image != null)
+                image.color = aidPreparedIndicatorFillColor;
+
+            if (aidPreparedIndicatorLabel != null)
+                aidPreparedIndicatorLabel.color = aidPreparedIndicatorLabelColor;
         }
 
         private void OnEnable()
@@ -698,7 +716,28 @@ namespace PF2e.Presentation
                 aidPreparedIndicatorRoot.SetActive(show);
 
             if (aidPreparedIndicatorLabel != null)
-                aidPreparedIndicatorLabel.text = normalized > 1 ? normalized.ToString() : string.Empty;
+                aidPreparedIndicatorLabel.text = BuildAidPreparedIndicatorText(normalized);
+        }
+
+        private string BuildAidPreparedIndicatorText(int count)
+        {
+            if (count <= 0)
+                return string.Empty;
+
+            if (count == 1)
+                return aidPreparedSingleText ?? string.Empty;
+
+            if (string.IsNullOrEmpty(aidPreparedCountFormat))
+                return count.ToString();
+
+            try
+            {
+                return string.Format(aidPreparedCountFormat, count);
+            }
+            catch (System.FormatException)
+            {
+                return count.ToString();
+            }
         }
 
         private static bool IsExternalDelayOrchestratorPresent()
