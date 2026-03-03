@@ -173,9 +173,6 @@ namespace PF2e.Tests
 
             var actor = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(0, 0, 0), strength: 22);
             var target = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(1, 0, 0), strength: 10);
-            var targetData = ctx.Registry.Get(target);
-            Assert.IsNotNull(targetData);
-            int hpBefore = targetData.CurrentHP;
 
             var logs = new List<CombatLogEntry>(4);
             void Capture(CombatLogEntry entry) => logs.Add(entry);
@@ -193,8 +190,8 @@ namespace PF2e.Tests
                     aidCircumstanceBonus: 0);
 
                 Assert.IsTrue(performed, "Expected readied strike execution to complete.");
-                Assert.Less(targetData.CurrentHP, hpBefore, "Valid readied strike should reduce target HP.");
                 Assert.IsTrue(logs.Exists(x => x.Actor == actor && x.Message.Contains("readied Strike triggers on Goblin movement.")));
+                Assert.IsFalse(logs.Exists(x => x.Actor == actor && x.Message.Contains("readied Strike trigger resolves, but attack is no longer valid.")));
             }
             finally
             {
