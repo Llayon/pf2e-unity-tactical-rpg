@@ -41,9 +41,9 @@ namespace PF2e.TurnSystem
         private readonly AidService aidService = new();
         private readonly ReadyStrikeService readyStrikeService = new();
         private readonly ReadyStrikeTriggerOrchestrator readyStrikeTriggerOrchestrator = new();
+        private readonly ReadyStrikeTriggerExecutor readyStrikeTriggerExecutor = new();
         private readonly Dictionary<EntityHandle, DelayedTurnRecord> delayedTurns = new();
         private readonly HashSet<EntityHandle> delayReactionSuppressed = new();
-        private bool isResolvingReadiedStrikeTrigger;
         private IRng initiativeRng = UnityRng.Shared;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -1261,7 +1261,7 @@ namespace PF2e.TurnSystem
 
         private void HandleStrikePreDamage(in StrikePreDamageEvent e)
         {
-            if (isResolvingReadiedStrikeTrigger)
+            if (readyStrikeTriggerExecutor.IsResolving)
                 return;
             if (state == TurnState.Inactive || state == TurnState.RollingInitiative || state == TurnState.CombatOver)
                 return;
@@ -1283,42 +1283,15 @@ namespace PF2e.TurnSystem
 
         private void ResolveReadiedStrikeTrigger(EntityHandle actor, EntityHandle target, string triggerReason)
         {
-            if (!actor.IsValid || !target.IsValid)
-                return;
-            if (!readyStrikeService.HasPrepared(actor))
-                return;
-            if (entityManager == null || entityManager.Registry == null)
-                return;
-
-            var actorData = entityManager.Registry.Get(actor);
-            if (actorData == null || !actorData.IsAlive)
-            {
-                readyStrikeService.TryRemovePrepared(actor);
-                return;
-            }
-
-            if (!readyStrikeService.TryConsumeReactionInScope(actor, actorData, CanUseReaction))
-                return;
-            readyStrikeService.TryRemovePrepared(actor);
-
-            bool wasResolvingReadiedStrike = isResolvingReadiedStrikeTrigger;
-            isResolvingReadiedStrikeTrigger = true;
-            try
-            {
-                ReactionBroker.TryExecuteReadiedStrike(
-                    actor,
-                    target,
-                    triggerReason,
-                    strikeAction,
-                    eventBus,
-                    handle => entityManager.Registry.Get(handle),
-                    UnityRng.Shared,
-                    aidCircumstanceBonus: 0);
-            }
-            finally
-            {
-                isResolvingReadiedStrikeTrigger = wasResolvingReadiedStrike;
-            }
+            readyStrikeTriggerExecutor.Resolve(
+                actor,
+                target,
+                triggerReason,
+                readyStrikeService,
+                entityManager,
+                strikeAction,
+                eventBus,
+                CanUseReaction);
         }
 
         private void PublishCombatStarted()
