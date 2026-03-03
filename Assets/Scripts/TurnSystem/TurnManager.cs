@@ -210,21 +210,7 @@ namespace PF2e.TurnSystem
         {
             ResolveEventBusIfMissing();
             ResolveStrikeActionIfMissing();
-
-            if (eventBus != null)
-            {
-                eventBus.OnEntityMovedTyped += HandleEntityMoved;
-                eventBus.OnStrikePreDamageTyped += HandleStrikePreDamage;
-            }
-        }
-
-        private void OnDisable()
-        {
-            if (eventBus != null)
-            {
-                eventBus.OnEntityMovedTyped -= HandleEntityMoved;
-                eventBus.OnStrikePreDamageTyped -= HandleStrikePreDamage;
-            }
+            EnsureReadyStrikeEventBinder();
         }
 
         /// <summary>
@@ -1219,12 +1205,24 @@ namespace PF2e.TurnSystem
                 Debug.LogWarning("[TurnManager] CombatEventBus not found. Typed bus publish is disabled.", this);
         }
 
+        private void EnsureReadyStrikeEventBinder()
+        {
+            if (gameObject == null)
+                return;
+
+            var binder = GetComponent<ReadyStrikeEventBinder>();
+            if (binder == null)
+                binder = gameObject.AddComponent<ReadyStrikeEventBinder>();
+
+            binder.Configure(this, eventBus);
+        }
+
         private void ClearReadiedStrikes()
         {
             readyStrikeCoordinator.ClearAll();
         }
 
-        private void HandleEntityMoved(in EntityMovedEvent e)
+        internal void HandleEntityMoved(in EntityMovedEvent e)
         {
             readyStrikeCoordinator.HandleEntityMoved(
                 in e,
@@ -1236,7 +1234,7 @@ namespace PF2e.TurnSystem
                 eventBus);
         }
 
-        private void HandleStrikePreDamage(in StrikePreDamageEvent e)
+        internal void HandleStrikePreDamage(in StrikePreDamageEvent e)
         {
             readyStrikeCoordinator.HandleStrikePreDamage(
                 in e,

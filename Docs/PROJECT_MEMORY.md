@@ -1,5 +1,5 @@
 # Project Memory
-Last updated: 2026-03-02
+Last updated: 2026-03-04
 
 ## Vision
 Build a small, playable, turn-based tactical PF2e combat slice in Unity where one player-controlled party can move on a grid, spend 3 actions, strike enemies, and finish encounters with clear visual feedback. Prioritize correctness of core turn/action/combat flow, maintainable architecture, and incremental delivery over full PF2e coverage.
@@ -196,6 +196,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Ready runtime wiring contract (phase 33g): `ReadyStrikeRuntimeCoordinator` is now the integration seam that composes Ready service/orchestrator/executor for prepare/expire/movement/attack paths; `TurnManager` should call coordinator APIs instead of touching Ready internals directly.
 - Ready PlayMode seam regressions (phase 33h): E2E tests now pin coordinator-level contracts for forced movement (no trigger), combat end cleanup (`ReadiedStrikeCount` reset), and prepared ready expiry at actor next turn start.
 - Ready anti-recursion PlayMode contract (phase 33i): when both sides have prepared Ready, root attack-start trigger may consume one side's ready, but counter-ready cascade from nested pre-damage events in the same trigger scope must remain suppressed.
+- Ready event-bus ownership contract (phase 33j): subscription lifecycle for movement/pre-damage typed triggers lives in `ReadyStrikeEventBinder`; `TurnManager` remains orchestration owner and should not subscribe/unsubscribe these ready trigger channels directly.
 - Future PF2e modifier-model guardrail: numeric bonuses/penalties should evolve toward `Modifier { value, type, source }` (for stacking + provenance), while feat-granted actions/reactions/capabilities stay a separate subsystem (not modifier buckets).
 - Future PF2e stat-resolution guardrail: avoid introducing a parallel runtime stat source (`CharacterRulesRuntime` companion) while `EntityData` is still mutated directly in gameplay/tests; if modifier caching becomes necessary, prefer `EntityData`-owned derived cache first.
 - AI target selection contract is deterministic: nearest target first, then lower HP, then lower handle id as final tie-break.
