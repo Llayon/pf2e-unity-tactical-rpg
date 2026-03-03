@@ -65,6 +65,42 @@ namespace PF2e.TurnSystem
             return true;
         }
 
+        public static bool TryExecuteReadiedStrike(
+            EntityHandle actor,
+            EntityHandle target,
+            string triggerReason,
+            StrikeAction strikeAction,
+            CombatEventBus eventBus,
+            Func<EntityHandle, EntityData> getEntity,
+            IRng rng,
+            int aidCircumstanceBonus = 0)
+        {
+            if (!actor.IsValid || !target.IsValid || strikeAction == null)
+                return false;
+
+            if (rng == null)
+                rng = UnityRng.Shared;
+
+            var targetData = getEntity != null ? getEntity(target) : null;
+            string targetName = targetData != null && !string.IsNullOrWhiteSpace(targetData.Name)
+                ? targetData.Name
+                : $"Entity#{target.Id}";
+
+            if (string.IsNullOrWhiteSpace(triggerReason))
+                triggerReason = "trigger";
+            eventBus?.Publish(actor, $"readied Strike triggers on {targetName} {triggerReason}.", CombatLogCategory.Turn);
+
+            var phase = strikeAction.ResolveAttackRoll(actor, target, rng, aidCircumstanceBonus);
+            if (!phase.HasValue)
+            {
+                eventBus?.Publish(actor, "readied Strike trigger resolves, but attack is no longer valid.", CombatLogCategory.Turn);
+                return false;
+            }
+
+            var resolved = strikeAction.DetermineHitAndDamage(phase.Value, target, rng);
+            return strikeAction.ApplyStrikeDamage(resolved, damageReduction: 0);
+        }
+
         public static int ResolvePostHitReductionSync(
             StrikePhaseResult resolved,
             IReadOnlyList<InitiativeEntry> initiativeOrder,

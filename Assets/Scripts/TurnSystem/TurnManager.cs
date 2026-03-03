@@ -1471,28 +1471,19 @@ namespace PF2e.TurnSystem
                 return;
             readiedStrikes.Remove(actor);
 
-            var targetData = entityManager.Registry.Get(target);
-            string targetName = targetData != null && !string.IsNullOrWhiteSpace(targetData.Name)
-                ? targetData.Name
-                : $"Entity#{target.Id}";
-
-            if (string.IsNullOrWhiteSpace(triggerReason))
-                triggerReason = "trigger";
-            eventBus?.Publish(actor, $"readied Strike triggers on {targetName} {triggerReason}.", CombatLogCategory.Turn);
-
             bool wasResolvingReadiedStrike = isResolvingReadiedStrikeTrigger;
             isResolvingReadiedStrikeTrigger = true;
             try
             {
-                var phase = strikeAction.ResolveAttackRoll(actor, target, UnityRng.Shared, aidCircumstanceBonus: 0);
-                if (!phase.HasValue)
-                {
-                    eventBus?.Publish(actor, "readied Strike trigger resolves, but attack is no longer valid.", CombatLogCategory.Turn);
-                    return;
-                }
-
-                var resolved = strikeAction.DetermineHitAndDamage(phase.Value, target, UnityRng.Shared);
-                strikeAction.ApplyStrikeDamage(resolved, damageReduction: 0);
+                ReactionBroker.TryExecuteReadiedStrike(
+                    actor,
+                    target,
+                    triggerReason,
+                    strikeAction,
+                    eventBus,
+                    handle => entityManager.Registry.Get(handle),
+                    UnityRng.Shared,
+                    aidCircumstanceBonus: 0);
             }
             finally
             {

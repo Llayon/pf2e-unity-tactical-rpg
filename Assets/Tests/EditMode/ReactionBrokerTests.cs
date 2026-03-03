@@ -1,9 +1,11 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 using PF2e.Core;
+using PF2e.Managers;
 using PF2e.TurnSystem;
 
 namespace PF2e.Tests
@@ -11,6 +13,8 @@ namespace PF2e.Tests
     [TestFixture]
     public class ReactionBrokerTests
     {
+        private const BindingFlags InstanceNonPublic = BindingFlags.Instance | BindingFlags.NonPublic;
+
         [Test]
         public void ResolvePostHitReductionSync_WhenPolicyDoesNotCallback_ReturnsZeroAndWarns()
         {
@@ -163,6 +167,79 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void TryExecuteReadiedStrike_ValidTarget_PublishesTriggerLog_AndResolvesAttack()
+        {
+            using var ctx = new ReadyStrikeExecutionContext();
+
+            var actor = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(0, 0, 0), strength: 22);
+            var target = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(1, 0, 0), strength: 10);
+            var targetData = ctx.Registry.Get(target);
+            Assert.IsNotNull(targetData);
+            int hpBefore = targetData.CurrentHP;
+
+            var logs = new List<CombatLogEntry>(4);
+            void Capture(CombatLogEntry entry) => logs.Add(entry);
+            ctx.EventBus.OnLogEntry += Capture;
+            try
+            {
+                bool performed = ReactionBroker.TryExecuteReadiedStrike(
+                    actor,
+                    target,
+                    triggerReason: "movement",
+                    strikeAction: ctx.StrikeAction,
+                    eventBus: ctx.EventBus,
+                    getEntity: handle => ctx.Registry.Get(handle),
+                    rng: new FixedRng(d20Rolls: new[] { 20 }, dieRolls: new[] { 4 }),
+                    aidCircumstanceBonus: 0);
+
+                Assert.IsTrue(performed, "Expected readied strike execution to complete.");
+                Assert.Less(targetData.CurrentHP, hpBefore, "Valid readied strike should reduce target HP.");
+                Assert.IsTrue(logs.Exists(x => x.Actor == actor && x.Message.Contains("readied Strike triggers on Goblin movement.")));
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= Capture;
+            }
+        }
+
+        [Test]
+        public void TryExecuteReadiedStrike_InvalidTarget_PublishesInvalidLog_AndReturnsFalse()
+        {
+            using var ctx = new ReadyStrikeExecutionContext();
+
+            var actor = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(0, 0, 0), strength: 22);
+            var ally = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(1, 0, 0), strength: 10);
+            var allyData = ctx.Registry.Get(ally);
+            Assert.IsNotNull(allyData);
+            int hpBefore = allyData.CurrentHP;
+
+            var logs = new List<CombatLogEntry>(4);
+            void Capture(CombatLogEntry entry) => logs.Add(entry);
+            ctx.EventBus.OnLogEntry += Capture;
+            try
+            {
+                bool performed = ReactionBroker.TryExecuteReadiedStrike(
+                    actor,
+                    ally,
+                    triggerReason: "movement",
+                    strikeAction: ctx.StrikeAction,
+                    eventBus: ctx.EventBus,
+                    getEntity: handle => ctx.Registry.Get(handle),
+                    rng: new FixedRng(d20Rolls: new[] { 20 }, dieRolls: new[] { 4 }),
+                    aidCircumstanceBonus: 0);
+
+                Assert.IsFalse(performed, "Invalid readied strike target should fail.");
+                Assert.AreEqual(hpBefore, allyData.CurrentHP, "Invalid target must not take damage.");
+                Assert.IsTrue(logs.Exists(x => x.Actor == actor && x.Message.Contains("readied Strike triggers on Wizard movement.")));
+                Assert.IsTrue(logs.Exists(x => x.Actor == actor && x.Message.Contains("readied Strike trigger resolves, but attack is no longer valid.")));
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= Capture;
+            }
+        }
+
+        [Test]
         public void CollectReadyTriggerCandidates_FiltersEligibleAndStaleActors()
         {
             var shieldDef = CreateShieldDef();
@@ -300,6 +377,106 @@ namespace PF2e.Tests
                 _ = incomingDamage;
                 _ = onDecided;
             }
+        }
+
+        private sealed class FixedRng : IRng
+        {
+            private readonly Queue<int> d20Rolls;
+            private readonly Queue<int> dieRolls;
+
+            public FixedRng(IEnumerable<int> d20Rolls = null, IEnumerable<int> dieRolls = null)
+            {
+                this.d20Rolls = new Queue<int>(d20Rolls ?? new[] { 10 });
+                this.dieRolls = new Queue<int>(dieRolls ?? new[] { 1 });
+            }
+
+            public int RollD20()
+            {
+                return d20Rolls.Count > 0 ? d20Rolls.Dequeue() : 10;
+            }
+
+            public int RollDie(int sides)
+            {
+                _ = sides;
+                return dieRolls.Count > 0 ? dieRolls.Dequeue() : 1;
+            }
+        }
+
+        private sealed class ReadyStrikeExecutionContext : System.IDisposable
+        {
+            private readonly bool oldIgnoreLogs;
+            private readonly GameObject root;
+
+            public CombatEventBus EventBus { get; }
+            public EntityManager EntityManager { get; }
+            public StrikeAction StrikeAction { get; }
+            public EntityRegistry Registry { get; }
+
+            public ReadyStrikeExecutionContext()
+            {
+                oldIgnoreLogs = LogAssert.ignoreFailingMessages;
+                LogAssert.ignoreFailingMessages = true;
+
+                root = new GameObject("ReactionBrokerTests_ReadyStrikeExecutionContext");
+
+                var eventBusGo = new GameObject("EventBus");
+                eventBusGo.transform.SetParent(root.transform);
+                EventBus = eventBusGo.AddComponent<CombatEventBus>();
+
+                var entityManagerGo = new GameObject("EntityManager");
+                entityManagerGo.transform.SetParent(root.transform);
+                EntityManager = entityManagerGo.AddComponent<EntityManager>();
+                Registry = new EntityRegistry();
+                SetAutoPropertyBackingField(EntityManager, "Registry", Registry);
+
+                var strikeActionGo = new GameObject("StrikeAction");
+                strikeActionGo.transform.SetParent(root.transform);
+                StrikeAction = strikeActionGo.AddComponent<StrikeAction>();
+                SetPrivateField(StrikeAction, "entityManager", EntityManager);
+                SetPrivateField(StrikeAction, "eventBus", EventBus);
+            }
+
+            public EntityHandle RegisterEntity(string name, Team team, Vector3Int position, int strength)
+            {
+                return Registry.Register(new EntityData
+                {
+                    Name = name,
+                    Team = team,
+                    Level = 1,
+                    Strength = strength,
+                    Dexterity = 14,
+                    Constitution = 12,
+                    Intelligence = 10,
+                    Wisdom = 10,
+                    Charisma = 10,
+                    MaxHP = 30,
+                    CurrentHP = 30,
+                    GridPosition = position,
+                    ActionsRemaining = 3
+                });
+            }
+
+            public void Dispose()
+            {
+                if (root != null)
+                    Object.DestroyImmediate(root);
+                LogAssert.ignoreFailingMessages = oldIgnoreLogs;
+            }
+        }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            var field = target.GetType().GetField(fieldName, InstanceNonPublic);
+            Assert.IsNotNull(field, $"Missing field '{fieldName}' on {target.GetType().Name}");
+            field.SetValue(target, value);
+        }
+
+        private static void SetAutoPropertyBackingField(object target, string propertyName, object value)
+        {
+            string fieldName = $"<{propertyName}>k__BackingField";
+            var field = target.GetType().GetField(fieldName, InstanceNonPublic);
+            Assert.IsNotNull(field, $"Missing auto-property backing field '{fieldName}' on {target.GetType().Name}");
+            field.SetValue(target, value);
         }
     }
 }
