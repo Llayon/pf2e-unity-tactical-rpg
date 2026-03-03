@@ -139,6 +139,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-133 | P1 | done | Builder | Phase 33d: extract Ready trigger range policy from `TurnManager` | Added pure `ReadyStrikeTriggerPolicy` (`DidEnterStrikeRange`, `IsWithinReadyStrikeTriggerRange`, first-increment ranged contract), switched `TurnManager` call sites to policy, and added dedicated EditMode policy tests |
 | T-134 | P1 | done | Builder | Phase 33e: extract Ready trigger orchestration from `TurnManager` | Added `ReadyStrikeTriggerOrchestrator` for movement/attack trigger candidate collection, stale cleanup, initiative ordering, and trigger dispatch; `TurnManager` now only applies state gates and delegates orchestration |
 | T-135 | P1 | done | Builder | Phase 33f: extract Ready trigger execution from `TurnManager` | Added `ReadyStrikeTriggerExecutor` for prepared-state validation, scoped reaction consumption, and `ReactionBroker` execution; `TurnManager` now delegates final trigger execution and reads executor in-flight state for anti-recursion gate |
+| T-136 | P1 | done | Builder | Phase 33g: consolidate Ready runtime wiring under coordinator seam | Added `ReadyStrikeRuntimeCoordinator` as single owner of Ready prepared state + trigger orchestration/execution wiring; `TurnManager` now delegates Ready prepare/expire/movement/attack trigger handling through coordinator APIs |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

@@ -39,9 +39,7 @@ namespace PF2e.TurnSystem
         private readonly List<AidPreparedRecord> aidLifecycleBuffer = new();
         private readonly ConditionService conditionService = new();
         private readonly AidService aidService = new();
-        private readonly ReadyStrikeService readyStrikeService = new();
-        private readonly ReadyStrikeTriggerOrchestrator readyStrikeTriggerOrchestrator = new();
-        private readonly ReadyStrikeTriggerExecutor readyStrikeTriggerExecutor = new();
+        private readonly ReadyStrikeRuntimeCoordinator readyStrikeCoordinator = new();
         private readonly Dictionary<EntityHandle, DelayedTurnRecord> delayedTurns = new();
         private readonly HashSet<EntityHandle> delayReactionSuppressed = new();
         private IRng initiativeRng = UnityRng.Shared;
@@ -115,7 +113,7 @@ namespace PF2e.TurnSystem
 
         public bool IsDelayReturnWindowOpen => state == TurnState.DelayReturnWindow;
         public AidService AidService => aidService;
-        public int ReadiedStrikeCount => readyStrikeService.PreparedCount;
+        public int ReadiedStrikeCount => readyStrikeCoordinator.PreparedCount;
 
         public EntityHandle DelayReturnWindowAfterActor => delayReturnWindowAfterActor;
 
@@ -323,7 +321,7 @@ namespace PF2e.TurnSystem
 
         public bool HasReadiedStrike(EntityHandle actor)
         {
-            return readyStrikeService.HasPrepared(actor);
+            return readyStrikeCoordinator.HasPrepared(actor);
         }
 
         public bool TryPrepareReadiedStrike(EntityHandle actor, int preparedRound)
@@ -334,12 +332,11 @@ namespace PF2e.TurnSystem
                 return false;
 
             var actorData = entityManager.Registry.Get(actor);
-            if (actorData == null || !actorData.IsAlive)
-                return false;
-            if (!CanUseReaction(actor))
-                return false;
-
-            return readyStrikeService.TryPrepare(actor, preparedRound);
+            return readyStrikeCoordinator.TryPrepare(
+                actor,
+                preparedRound,
+                actorData,
+                CanUseReaction);
         }
 
         public bool IsDelayed(EntityHandle actor)
@@ -854,7 +851,7 @@ namespace PF2e.TurnSystem
             if (!actor.IsValid || data == null)
                 return;
 
-            ExpireReadiedStrikeForActor(actor);
+            readyStrikeCoordinator.ExpirePreparedAtTurnStart(actor, eventBus);
 
             aidLifecycleBuffer.Clear();
             aidService.NotifyTurnStarted(actor, aidLifecycleBuffer);
@@ -1224,74 +1221,31 @@ namespace PF2e.TurnSystem
 
         private void ClearReadiedStrikes()
         {
-            readyStrikeService.ClearAll();
-            readyStrikeTriggerOrchestrator.ClearTransientState();
-        }
-
-        private void ExpireReadiedStrikeForActor(EntityHandle actor)
-        {
-            if (!actor.IsValid)
-                return;
-
-            if (!readyStrikeService.TryRemovePrepared(actor))
-                return;
-
-            eventBus?.Publish(actor, "readied Strike expires at turn start.", CombatLogCategory.Turn);
+            readyStrikeCoordinator.ClearAll();
         }
 
         private void HandleEntityMoved(in EntityMovedEvent e)
         {
-            if (state == TurnState.Inactive || state == TurnState.RollingInitiative || state == TurnState.CombatOver)
-                return;
-            if (entityManager == null || entityManager.Registry == null)
-                return;
-            if (readyStrikeService.PreparedCount <= 0)
-                return;
-            if (strikeAction == null)
-                return;
-
-            readyStrikeTriggerOrchestrator.HandleEntityMoved(
+            readyStrikeCoordinator.HandleEntityMoved(
                 in e,
-                readyStrikeService,
+                state,
                 entityManager,
                 strikeAction,
                 FindInitiativeIndex,
-                ResolveReadiedStrikeTrigger);
+                CanUseReaction,
+                eventBus);
         }
 
         private void HandleStrikePreDamage(in StrikePreDamageEvent e)
         {
-            if (readyStrikeTriggerExecutor.IsResolving)
-                return;
-            if (state == TurnState.Inactive || state == TurnState.RollingInitiative || state == TurnState.CombatOver)
-                return;
-            if (entityManager == null || entityManager.Registry == null)
-                return;
-            if (readyStrikeService.PreparedCount <= 0)
-                return;
-            if (strikeAction == null)
-                return;
-
-            readyStrikeTriggerOrchestrator.HandleStrikePreDamage(
+            readyStrikeCoordinator.HandleStrikePreDamage(
                 in e,
-                readyStrikeService,
+                state,
                 entityManager,
                 strikeAction,
                 FindInitiativeIndex,
-                ResolveReadiedStrikeTrigger);
-        }
-
-        private void ResolveReadiedStrikeTrigger(EntityHandle actor, EntityHandle target, string triggerReason)
-        {
-            readyStrikeTriggerExecutor.Resolve(
-                actor,
-                target,
-                triggerReason,
-                readyStrikeService,
-                entityManager,
-                strikeAction,
-                eventBus,
-                CanUseReaction);
+                CanUseReaction,
+                eventBus);
         }
 
         private void PublishCombatStarted()
