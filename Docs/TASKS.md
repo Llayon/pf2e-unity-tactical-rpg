@@ -141,6 +141,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-135 | P1 | done | Builder | Phase 33f: extract Ready trigger execution from `TurnManager` | Added `ReadyStrikeTriggerExecutor` for prepared-state validation, scoped reaction consumption, and `ReactionBroker` execution; `TurnManager` now delegates final trigger execution and reads executor in-flight state for anti-recursion gate |
 | T-136 | P1 | done | Builder | Phase 33g: consolidate Ready runtime wiring under coordinator seam | Added `ReadyStrikeRuntimeCoordinator` as single owner of Ready prepared state + trigger orchestration/execution wiring; `TurnManager` now delegates Ready prepare/expire/movement/attack trigger handling through coordinator APIs |
 | T-137 | P1 | done | Verifier | Phase 33h: add Ready coordinator PlayMode E2E seam regressions | Added PlayMode coverage for forced-move non-trigger contract, combat-end prepared-state cleanup, and next-turn start expiry contract after prepare without trigger |
+| T-138 | P1 | done | Verifier | Phase 33i: add Ready anti-recursion PlayMode regression | Added PlayMode E2E for root attack-start trigger where player ready fires and enemy prepared ready does not counter-cascade in the same trigger scope |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

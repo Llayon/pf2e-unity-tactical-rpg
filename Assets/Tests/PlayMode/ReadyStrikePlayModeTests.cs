@@ -240,6 +240,52 @@ namespace PF2e.Tests
             Assert.IsFalse(turnManager.HasReadiedStrike(fighter.Handle), "Prepared Ready Strike should expire at actor's next turn start.");
         }
 
+        [UnityTest]
+        public IEnumerator GT_P32_PM_436_ReadyStrike_AntiRecursion_EnemyCounterReadyDoesNotCascadeInSameTriggerScope()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+
+            ConfigureDeterministicInitiative(fighter, wizard, goblin1, goblin2);
+
+            MoveEntityToCellSilent(fighter, new Vector3Int(1, 0, 1));
+            MoveEntityToCellSilent(wizard, new Vector3Int(2, 0, 1));
+            MoveEntityToCellSilent(goblin1, new Vector3Int(2, 0, 2)); // in reach for both sides
+
+            // Stabilize scenario: goblin must survive fighter's readied strike to verify counter-ready suppression.
+            goblin1.MaxHP = 200;
+            goblin1.CurrentHP = 200;
+
+            turnManager.StartCombat();
+            yield return AdvanceToActorTurn(fighter.Handle, TimeoutSeconds, "Fighter did not get turn.");
+
+            fighter.ReactionAvailable = true;
+            goblin1.ReactionAvailable = true;
+
+            Assert.IsTrue(playerActionExecutor.TryExecuteReadyStrike(), "Fighter could not prepare Ready Strike.");
+            Assert.IsTrue(turnManager.TryPrepareReadiedStrike(goblin1.Handle, turnManager.RoundNumber), "Goblin_1 could not prepare Ready Strike.");
+            Assert.IsTrue(turnManager.HasReadiedStrike(fighter.Handle), "Ready Strike record missing for fighter.");
+            Assert.IsTrue(turnManager.HasReadiedStrike(goblin1.Handle), "Ready Strike record missing for goblin.");
+
+            eventBus.PublishStrikePreDamage(
+                attacker: goblin1.Handle,
+                target: wizard.Handle,
+                naturalRoll: 15,
+                total: 20,
+                dc: 18,
+                degree: DegreeOfSuccess.Success,
+                damageRolled: 5,
+                damageType: DamageType.Piercing);
+            yield return null;
+
+            Assert.IsFalse(turnManager.HasReadiedStrike(fighter.Handle), "Fighter ready should be consumed by root attack-start trigger.");
+            Assert.IsFalse(fighter.ReactionAvailable, "Fighter reaction should be spent by ready trigger.");
+            Assert.IsTrue(turnManager.HasReadiedStrike(goblin1.Handle), "Goblin ready should remain; counter-ready cascade in same trigger scope must be suppressed.");
+            Assert.IsTrue(goblin1.ReactionAvailable, "Goblin reaction should remain available when counter-ready is suppressed.");
+        }
+
         private static void ConfigureDeterministicInitiative(
             EntityData fighter,
             EntityData wizard,
