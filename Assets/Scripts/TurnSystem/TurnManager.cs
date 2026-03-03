@@ -39,13 +39,11 @@ namespace PF2e.TurnSystem
         private readonly List<AidPreparedRecord> aidLifecycleBuffer = new();
         private readonly ConditionService conditionService = new();
         private readonly AidService aidService = new();
-        private readonly Dictionary<EntityHandle, ReadiedStrikeRecord> readiedStrikes = new();
+        private readonly ReadyStrikeService readyStrikeService = new();
         private readonly Dictionary<EntityHandle, DelayedTurnRecord> delayedTurns = new();
         private readonly HashSet<EntityHandle> delayReactionSuppressed = new();
         private readonly List<EntityHandle> readiedTriggerBuffer = new();
         private readonly List<EntityHandle> staleReadiedActorsBuffer = new();
-        private readonly HashSet<EntityHandle> readyReactionsConsumedInScope = new();
-        private int readyTriggerScopeDepth;
         private bool isResolvingReadiedStrikeTrigger;
         private IRng initiativeRng = UnityRng.Shared;
 
@@ -118,7 +116,7 @@ namespace PF2e.TurnSystem
 
         public bool IsDelayReturnWindowOpen => state == TurnState.DelayReturnWindow;
         public AidService AidService => aidService;
-        public int ReadiedStrikeCount => readiedStrikes.Count;
+        public int ReadiedStrikeCount => readyStrikeService.PreparedCount;
 
         public EntityHandle DelayReturnWindowAfterActor => delayReturnWindowAfterActor;
 
@@ -200,18 +198,6 @@ namespace PF2e.TurnSystem
                 this.originalAnchorActor = originalAnchorActor;
                 this.plannedReturnAfterActor = plannedReturnAfterActor;
                 this.initiativeEntry = initiativeEntry;
-            }
-        }
-
-        private readonly struct ReadiedStrikeRecord
-        {
-            public readonly EntityHandle actor;
-            public readonly int preparedRound;
-
-            public ReadiedStrikeRecord(EntityHandle actor, int preparedRound)
-            {
-                this.actor = actor;
-                this.preparedRound = preparedRound;
             }
         }
 
@@ -338,7 +324,7 @@ namespace PF2e.TurnSystem
 
         public bool HasReadiedStrike(EntityHandle actor)
         {
-            return actor.IsValid && readiedStrikes.ContainsKey(actor);
+            return readyStrikeService.HasPrepared(actor);
         }
 
         public bool TryPrepareReadiedStrike(EntityHandle actor, int preparedRound)
@@ -354,8 +340,7 @@ namespace PF2e.TurnSystem
             if (!CanUseReaction(actor))
                 return false;
 
-            readiedStrikes[actor] = new ReadiedStrikeRecord(actor, preparedRound);
-            return true;
+            return readyStrikeService.TryPrepare(actor, preparedRound);
         }
 
         public bool IsDelayed(EntityHandle actor)
@@ -1240,7 +1225,7 @@ namespace PF2e.TurnSystem
 
         private void ClearReadiedStrikes()
         {
-            readiedStrikes.Clear();
+            readyStrikeService.ClearAll();
             readiedTriggerBuffer.Clear();
             staleReadiedActorsBuffer.Clear();
         }
@@ -1250,7 +1235,7 @@ namespace PF2e.TurnSystem
             if (!actor.IsValid)
                 return;
 
-            if (!readiedStrikes.Remove(actor))
+            if (!readyStrikeService.TryRemovePrepared(actor))
                 return;
 
             eventBus?.Publish(actor, "readied Strike expires at turn start.", CombatLogCategory.Turn);
@@ -1266,7 +1251,7 @@ namespace PF2e.TurnSystem
                 return;
             if (entityManager == null || entityManager.Registry == null)
                 return;
-            if (readiedStrikes.Count <= 0)
+            if (readyStrikeService.PreparedCount <= 0)
                 return;
             if (strikeAction == null)
                 return;
@@ -1283,7 +1268,7 @@ namespace PF2e.TurnSystem
                     return;
 
                 ReactionBroker.CollectReadyTriggerCandidates(
-                    readiedStrikes.Keys,
+                    readyStrikeService.PreparedActors,
                     handle => entityManager.Registry.Get(handle),
                     (actor, actorData) =>
                     {
@@ -1297,7 +1282,7 @@ namespace PF2e.TurnSystem
                     staleReadiedActorsBuffer);
 
                 for (int i = 0; i < staleReadiedActorsBuffer.Count; i++)
-                    readiedStrikes.Remove(staleReadiedActorsBuffer[i]);
+                    readyStrikeService.TryRemovePrepared(staleReadiedActorsBuffer[i]);
                 staleReadiedActorsBuffer.Clear();
 
                 if (readiedTriggerBuffer.Count <= 0)
@@ -1325,7 +1310,7 @@ namespace PF2e.TurnSystem
                 return;
             if (entityManager == null || entityManager.Registry == null)
                 return;
-            if (readiedStrikes.Count <= 0)
+            if (readyStrikeService.PreparedCount <= 0)
                 return;
             if (strikeAction == null)
                 return;
@@ -1342,7 +1327,7 @@ namespace PF2e.TurnSystem
                     return;
 
                 ReactionBroker.CollectReadyTriggerCandidates(
-                    readiedStrikes.Keys,
+                    readyStrikeService.PreparedActors,
                     handle => entityManager.Registry.Get(handle),
                     (actor, actorData) =>
                     {
@@ -1356,7 +1341,7 @@ namespace PF2e.TurnSystem
                     staleReadiedActorsBuffer);
 
                 for (int i = 0; i < staleReadiedActorsBuffer.Count; i++)
-                    readiedStrikes.Remove(staleReadiedActorsBuffer[i]);
+                    readyStrikeService.TryRemovePrepared(staleReadiedActorsBuffer[i]);
                 staleReadiedActorsBuffer.Clear();
 
                 if (readiedTriggerBuffer.Count <= 0)
@@ -1451,7 +1436,7 @@ namespace PF2e.TurnSystem
         {
             if (!actor.IsValid || !target.IsValid)
                 return;
-            if (!readiedStrikes.ContainsKey(actor))
+            if (!readyStrikeService.HasPrepared(actor))
                 return;
             if (entityManager == null || entityManager.Registry == null)
                 return;
@@ -1459,17 +1444,13 @@ namespace PF2e.TurnSystem
             var actorData = entityManager.Registry.Get(actor);
             if (actorData == null || !actorData.IsAlive)
             {
-                readiedStrikes.Remove(actor);
+                readyStrikeService.TryRemovePrepared(actor);
                 return;
             }
 
-            if (!ReactionBroker.TryConsumeReadyReactionInScope(
-                    actor,
-                    actorData,
-                    canUseReaction: CanUseReaction,
-                    consumedInScope: readyReactionsConsumedInScope))
+            if (!readyStrikeService.TryConsumeReactionInScope(actor, actorData, CanUseReaction))
                 return;
-            readiedStrikes.Remove(actor);
+            readyStrikeService.TryRemovePrepared(actor);
 
             bool wasResolvingReadiedStrike = isResolvingReadiedStrikeTrigger;
             isResolvingReadiedStrikeTrigger = true;
@@ -1493,20 +1474,12 @@ namespace PF2e.TurnSystem
 
         private void BeginReadyTriggerScope()
         {
-            if (readyTriggerScopeDepth == 0)
-                readyReactionsConsumedInScope.Clear();
-
-            readyTriggerScopeDepth++;
+            readyStrikeService.BeginTriggerScope();
         }
 
         private void EndReadyTriggerScope()
         {
-            if (readyTriggerScopeDepth <= 0)
-                return;
-
-            readyTriggerScopeDepth--;
-            if (readyTriggerScopeDepth == 0)
-                readyReactionsConsumedInScope.Clear();
+            readyStrikeService.EndTriggerScope();
         }
 
         private void PublishCombatStarted()
