@@ -155,6 +155,91 @@ namespace PF2e.Tests
             Assert.IsFalse(wizard.ReactionAvailable, "Ranged Ready Strike trigger should spend reaction.");
         }
 
+        [UnityTest]
+        public IEnumerator GT_P32_PM_433_ReadyStrike_ForcedMovement_DoesNotTrigger()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+
+            ConfigureDeterministicInitiative(fighter, wizard, goblin1, goblin2);
+
+            MoveEntityToCellSilent(fighter, new Vector3Int(1, 0, 1));
+            MoveEntityToCellSilent(goblin1, new Vector3Int(3, 0, 2)); // outside melee trigger range
+
+            turnManager.StartCombat();
+            yield return AdvanceToActorTurn(fighter.Handle, TimeoutSeconds, "Fighter did not get turn.");
+
+            Assert.IsTrue(playerActionExecutor.TryExecuteReadyStrike(), "Fighter could not prepare Ready Strike.");
+            Assert.IsTrue(turnManager.HasReadiedStrike(fighter.Handle), "Ready Strike record missing for fighter.");
+
+            turnManager.EndTurn();
+            yield return AdvanceToActorTurn(goblin1.Handle, TimeoutSeconds, "Goblin_1 turn did not arrive.");
+
+            var from = goblin1.GridPosition;
+            var to = new Vector3Int(1, 0, 2); // would enter fighter reach, but forced movement must not trigger Ready
+            MoveEntityToCellSilent(goblin1, to);
+            eventBus.PublishEntityMoved(goblin1.Handle, from, to, forced: true);
+            yield return null;
+
+            Assert.IsTrue(turnManager.HasReadiedStrike(fighter.Handle), "Forced movement must not consume Ready Strike.");
+            Assert.IsTrue(fighter.ReactionAvailable, "Forced movement must not consume reaction.");
+        }
+
+        [UnityTest]
+        public IEnumerator GT_P32_PM_434_ReadyStrike_EndCombat_ClearsPreparedState()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+
+            ConfigureDeterministicInitiative(fighter, wizard, goblin1, goblin2);
+
+            turnManager.StartCombat();
+            yield return AdvanceToActorTurn(fighter.Handle, TimeoutSeconds, "Fighter did not get turn.");
+
+            Assert.IsTrue(playerActionExecutor.TryExecuteReadyStrike(), "Fighter could not prepare Ready Strike.");
+            Assert.IsTrue(turnManager.HasReadiedStrike(fighter.Handle), "Ready Strike record missing for fighter.");
+
+            turnManager.EndCombat();
+            yield return null;
+
+            Assert.IsFalse(turnManager.HasReadiedStrike(fighter.Handle), "EndCombat must clear prepared Ready Strike state.");
+            Assert.AreEqual(0, turnManager.ReadiedStrikeCount, "Ready prepared count must reset on combat end.");
+        }
+
+        [UnityTest]
+        public IEnumerator GT_P32_PM_435_ReadyStrike_ExpiresAtNextActorTurnStart_WithoutTrigger()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+
+            ConfigureDeterministicInitiative(fighter, wizard, goblin1, goblin2);
+
+            // Keep enemies far enough to avoid movement/attack triggers before fighter's next turn.
+            MoveEntityToCellSilent(fighter, new Vector3Int(1, 0, 1));
+            MoveEntityToCellSilent(wizard, new Vector3Int(1, 0, 5));
+            MoveEntityToCellSilent(goblin1, new Vector3Int(9, 0, 9));
+            MoveEntityToCellSilent(goblin2, new Vector3Int(9, 0, 8));
+
+            turnManager.StartCombat();
+            yield return AdvanceToActorTurn(fighter.Handle, TimeoutSeconds, "Fighter did not get turn.");
+
+            Assert.IsTrue(playerActionExecutor.TryExecuteReadyStrike(), "Fighter could not prepare Ready Strike.");
+            Assert.IsTrue(turnManager.HasReadiedStrike(fighter.Handle), "Ready Strike record missing for fighter.");
+
+            turnManager.EndTurn();
+
+            // Advance full round back to fighter.
+            yield return AdvanceToActorTurn(fighter.Handle, TimeoutSeconds, "Fighter next turn did not arrive.");
+
+            Assert.IsFalse(turnManager.HasReadiedStrike(fighter.Handle), "Prepared Ready Strike should expire at actor's next turn start.");
+        }
+
         private static void ConfigureDeterministicInitiative(
             EntityData fighter,
             EntityData wizard,
