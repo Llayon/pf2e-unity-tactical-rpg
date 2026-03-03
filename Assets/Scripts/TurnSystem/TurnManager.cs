@@ -40,10 +40,9 @@ namespace PF2e.TurnSystem
         private readonly ConditionService conditionService = new();
         private readonly AidService aidService = new();
         private readonly ReadyStrikeService readyStrikeService = new();
+        private readonly ReadyStrikeTriggerOrchestrator readyStrikeTriggerOrchestrator = new();
         private readonly Dictionary<EntityHandle, DelayedTurnRecord> delayedTurns = new();
         private readonly HashSet<EntityHandle> delayReactionSuppressed = new();
-        private readonly List<EntityHandle> readiedTriggerBuffer = new();
-        private readonly List<EntityHandle> staleReadiedActorsBuffer = new();
         private bool isResolvingReadiedStrikeTrigger;
         private IRng initiativeRng = UnityRng.Shared;
 
@@ -1226,8 +1225,7 @@ namespace PF2e.TurnSystem
         private void ClearReadiedStrikes()
         {
             readyStrikeService.ClearAll();
-            readiedTriggerBuffer.Clear();
-            staleReadiedActorsBuffer.Clear();
+            readyStrikeTriggerOrchestrator.ClearTransientState();
         }
 
         private void ExpireReadiedStrikeForActor(EntityHandle actor)
@@ -1243,10 +1241,6 @@ namespace PF2e.TurnSystem
 
         private void HandleEntityMoved(in EntityMovedEvent e)
         {
-            if (e.forced)
-                return;
-            if (!e.entity.IsValid)
-                return;
             if (state == TurnState.Inactive || state == TurnState.RollingInitiative || state == TurnState.CombatOver)
                 return;
             if (entityManager == null || entityManager.Registry == null)
@@ -1256,56 +1250,19 @@ namespace PF2e.TurnSystem
             if (strikeAction == null)
                 return;
 
-            BeginReadyTriggerScope();
-            try
-            {
-                EntityHandle movedEntity = e.entity;
-                Vector3Int fromCell = e.from;
-                Vector3Int toCell = e.to;
-
-                var movedData = entityManager.Registry.Get(movedEntity);
-                if (movedData == null || !movedData.IsAlive)
-                    return;
-
-                ReactionBroker.CollectReadyTriggerCandidates(
-                    readyStrikeService.PreparedActors,
-                    handle => entityManager.Registry.Get(handle),
-                    (actor, actorData) =>
-                    {
-                        if (actorData.Team == movedData.Team)
-                            return false;
-                        if (!ReadyStrikeTriggerPolicy.DidEnterStrikeRange(actorData, movedData, fromCell, toCell))
-                            return false;
-                        return strikeAction.GetStrikeTargetFailure(actor, movedEntity) == TargetingFailureReason.None;
-                    },
-                    readiedTriggerBuffer,
-                    staleReadiedActorsBuffer);
-
-                for (int i = 0; i < staleReadiedActorsBuffer.Count; i++)
-                    readyStrikeService.TryRemovePrepared(staleReadiedActorsBuffer[i]);
-                staleReadiedActorsBuffer.Clear();
-
-                if (readiedTriggerBuffer.Count <= 0)
-                    return;
-
-                readiedTriggerBuffer.Sort(CompareReadiedTriggerOrder);
-                for (int i = 0; i < readiedTriggerBuffer.Count; i++)
-                    ResolveReadiedStrikeTrigger(readiedTriggerBuffer[i], movedEntity, triggerReason: "movement");
-
-                readiedTriggerBuffer.Clear();
-            }
-            finally
-            {
-                EndReadyTriggerScope();
-            }
+            readyStrikeTriggerOrchestrator.HandleEntityMoved(
+                in e,
+                readyStrikeService,
+                entityManager,
+                strikeAction,
+                FindInitiativeIndex,
+                ResolveReadiedStrikeTrigger);
         }
 
         private void HandleStrikePreDamage(in StrikePreDamageEvent e)
         {
             if (isResolvingReadiedStrikeTrigger)
                 return;
-            if (!e.attacker.IsValid || !e.target.IsValid)
-                return;
             if (state == TurnState.Inactive || state == TurnState.RollingInitiative || state == TurnState.CombatOver)
                 return;
             if (entityManager == null || entityManager.Registry == null)
@@ -1315,58 +1272,13 @@ namespace PF2e.TurnSystem
             if (strikeAction == null)
                 return;
 
-            BeginReadyTriggerScope();
-            try
-            {
-                EntityHandle attacker = e.attacker;
-                var attackSourceData = entityManager.Registry.Get(attacker);
-                var attackTargetData = entityManager.Registry.Get(e.target);
-                if (attackSourceData == null || attackTargetData == null)
-                    return;
-                if (!attackSourceData.IsAlive || !attackTargetData.IsAlive)
-                    return;
-
-                ReactionBroker.CollectReadyTriggerCandidates(
-                    readyStrikeService.PreparedActors,
-                    handle => entityManager.Registry.Get(handle),
-                    (actor, actorData) =>
-                    {
-                        if (actorData.Team == attackSourceData.Team)
-                            return false;
-                        if (!ReadyStrikeTriggerPolicy.IsWithinReadyStrikeTriggerRange(actorData, attackSourceData))
-                            return false;
-                        return strikeAction.GetStrikeTargetFailure(actor, attacker) == TargetingFailureReason.None;
-                    },
-                    readiedTriggerBuffer,
-                    staleReadiedActorsBuffer);
-
-                for (int i = 0; i < staleReadiedActorsBuffer.Count; i++)
-                    readyStrikeService.TryRemovePrepared(staleReadiedActorsBuffer[i]);
-                staleReadiedActorsBuffer.Clear();
-
-                if (readiedTriggerBuffer.Count <= 0)
-                    return;
-
-                readiedTriggerBuffer.Sort(CompareReadiedTriggerOrder);
-                for (int i = 0; i < readiedTriggerBuffer.Count; i++)
-                    ResolveReadiedStrikeTrigger(readiedTriggerBuffer[i], attacker, triggerReason: "attack");
-
-                readiedTriggerBuffer.Clear();
-            }
-            finally
-            {
-                EndReadyTriggerScope();
-            }
-        }
-
-        private int CompareReadiedTriggerOrder(EntityHandle left, EntityHandle right)
-        {
-            int leftIndex = FindInitiativeIndex(left);
-            int rightIndex = FindInitiativeIndex(right);
-            if (leftIndex >= 0 && rightIndex >= 0 && leftIndex != rightIndex)
-                return leftIndex.CompareTo(rightIndex);
-
-            return left.Id.CompareTo(right.Id);
+            readyStrikeTriggerOrchestrator.HandleStrikePreDamage(
+                in e,
+                readyStrikeService,
+                entityManager,
+                strikeAction,
+                FindInitiativeIndex,
+                ResolveReadiedStrikeTrigger);
         }
 
         private void ResolveReadiedStrikeTrigger(EntityHandle actor, EntityHandle target, string triggerReason)
@@ -1407,16 +1319,6 @@ namespace PF2e.TurnSystem
             {
                 isResolvingReadiedStrikeTrigger = wasResolvingReadiedStrike;
             }
-        }
-
-        private void BeginReadyTriggerScope()
-        {
-            readyStrikeService.BeginTriggerScope();
-        }
-
-        private void EndReadyTriggerScope()
-        {
-            readyStrikeService.EndTriggerScope();
         }
 
         private void PublishCombatStarted()
