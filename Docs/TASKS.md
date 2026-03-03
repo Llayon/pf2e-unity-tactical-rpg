@@ -136,6 +136,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-130 | P1 | done | Builder | Refactor Ready trigger candidate arbitration into `ReactionBroker` | Moved Ready trigger candidate collection/filtering/consumption primitives into `ReactionBroker`; fixed lambda capture compile issue (`in` event payload) in trigger handlers |
 | T-131 | P1 | done | Builder | Refactor Ready strike execution into `ReactionBroker` and stabilize CI tests | Added broker-level `TryExecuteReadiedStrike(...)` execution path, simplified `TurnManager.ResolveReadiedStrikeTrigger(...)`, and added EditMode tests for valid/invalid trigger execution logging |
 | T-132 | P1 | done | Builder | Phase 33c: extract Ready prepared/trigger-scope state from `TurnManager` | Added `ReadyStrikeService` as source-of-truth for prepared-ready records and per-trigger-scope reaction consumption; `TurnManager` now delegates ready state mutations/consumption while preserving public API and behavior |
+| T-133 | P1 | done | Builder | Phase 33d: extract Ready trigger range policy from `TurnManager` | Added pure `ReadyStrikeTriggerPolicy` (`DidEnterStrikeRange`, `IsWithinReadyStrikeTriggerRange`, first-increment ranged contract), switched `TurnManager` call sites to policy, and added dedicated EditMode policy tests |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal
