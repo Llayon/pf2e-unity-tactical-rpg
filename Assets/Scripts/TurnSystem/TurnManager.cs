@@ -1274,7 +1274,11 @@ namespace PF2e.TurnSystem
             BeginReadyTriggerScope();
             try
             {
-                var movedData = entityManager.Registry.Get(e.entity);
+                EntityHandle movedEntity = e.entity;
+                Vector3Int fromCell = e.from;
+                Vector3Int toCell = e.to;
+
+                var movedData = entityManager.Registry.Get(movedEntity);
                 if (movedData == null || !movedData.IsAlive)
                     return;
 
@@ -1285,9 +1289,9 @@ namespace PF2e.TurnSystem
                     {
                         if (actorData.Team == movedData.Team)
                             return false;
-                        if (!DidEnterStrikeRange(actorData, movedData, e.from, e.to))
+                        if (!DidEnterStrikeRange(actorData, movedData, fromCell, toCell))
                             return false;
-                        return strikeAction.GetStrikeTargetFailure(actor, e.entity) == TargetingFailureReason.None;
+                        return strikeAction.GetStrikeTargetFailure(actor, movedEntity) == TargetingFailureReason.None;
                     },
                     readiedTriggerBuffer,
                     staleReadiedActorsBuffer);
@@ -1301,7 +1305,7 @@ namespace PF2e.TurnSystem
 
                 readiedTriggerBuffer.Sort(CompareReadiedTriggerOrder);
                 for (int i = 0; i < readiedTriggerBuffer.Count; i++)
-                    ResolveReadiedStrikeTrigger(readiedTriggerBuffer[i], e.entity, triggerReason: "movement");
+                    ResolveReadiedStrikeTrigger(readiedTriggerBuffer[i], movedEntity, triggerReason: "movement");
 
                 readiedTriggerBuffer.Clear();
             }
@@ -1329,7 +1333,8 @@ namespace PF2e.TurnSystem
             BeginReadyTriggerScope();
             try
             {
-                var attackSourceData = entityManager.Registry.Get(e.attacker);
+                EntityHandle attacker = e.attacker;
+                var attackSourceData = entityManager.Registry.Get(attacker);
                 var attackTargetData = entityManager.Registry.Get(e.target);
                 if (attackSourceData == null || attackTargetData == null)
                     return;
@@ -1345,7 +1350,7 @@ namespace PF2e.TurnSystem
                             return false;
                         if (!IsWithinReadyStrikeTriggerRange(actorData, attackSourceData))
                             return false;
-                        return strikeAction.GetStrikeTargetFailure(actor, e.attacker) == TargetingFailureReason.None;
+                        return strikeAction.GetStrikeTargetFailure(actor, attacker) == TargetingFailureReason.None;
                     },
                     readiedTriggerBuffer,
                     staleReadiedActorsBuffer);
@@ -1359,7 +1364,7 @@ namespace PF2e.TurnSystem
 
                 readiedTriggerBuffer.Sort(CompareReadiedTriggerOrder);
                 for (int i = 0; i < readiedTriggerBuffer.Count; i++)
-                    ResolveReadiedStrikeTrigger(readiedTriggerBuffer[i], e.attacker, triggerReason: "attack");
+                    ResolveReadiedStrikeTrigger(readiedTriggerBuffer[i], attacker, triggerReason: "attack");
 
                 readiedTriggerBuffer.Clear();
             }
