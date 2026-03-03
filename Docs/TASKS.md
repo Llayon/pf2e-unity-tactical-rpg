@@ -135,6 +135,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-129 | P1 | done | Builder | Refactor reaction resolution core via `ReactionBroker` (post-hit path) | Introduced `ReactionBroker` to centralize post-hit reduction resolution (`sync`/`async`) and moved `TurnManager`/`AITurnController` call sites to broker API with guardrail tests |
 | T-130 | P1 | done | Builder | Refactor Ready trigger candidate arbitration into `ReactionBroker` | Moved Ready trigger candidate collection/filtering/consumption primitives into `ReactionBroker`; fixed lambda capture compile issue (`in` event payload) in trigger handlers |
 | T-131 | P1 | done | Builder | Refactor Ready strike execution into `ReactionBroker` and stabilize CI tests | Added broker-level `TryExecuteReadiedStrike(...)` execution path, simplified `TurnManager.ResolveReadiedStrikeTrigger(...)`, and added EditMode tests for valid/invalid trigger execution logging |
+| T-132 | P1 | done | Builder | Phase 33c: extract Ready prepared/trigger-scope state from `TurnManager` | Added `ReadyStrikeService` as source-of-truth for prepared-ready records and per-trigger-scope reaction consumption; `TurnManager` now delegates ready state mutations/consumption while preserving public API and behavior |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal
