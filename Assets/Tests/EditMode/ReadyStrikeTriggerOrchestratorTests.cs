@@ -38,6 +38,11 @@ namespace PF2e.Tests
                 to: new Vector3Int(1, 0, 0),
                 forced: false);
 
+            // Runtime contract: EntityData.GridPosition is already updated when EntityMovedEvent is published.
+            var movedData = ctx.Registry.Get(enemy);
+            Assert.IsNotNull(movedData);
+            movedData.GridPosition = evt.to;
+
             ctx.Orchestrator.HandleEntityMoved(
                 in evt,
                 ctx.ReadyService,
