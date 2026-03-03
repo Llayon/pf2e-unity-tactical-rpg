@@ -162,6 +162,76 @@ namespace PF2e.Tests
             }
         }
 
+        [Test]
+        public void CollectReadyTriggerCandidates_FiltersEligibleAndStaleActors()
+        {
+            var shieldDef = CreateShieldDef();
+            try
+            {
+                var a = new EntityHandle(1);
+                var b = new EntityHandle(2);
+                var c = new EntityHandle(3);
+                var d = new EntityHandle(4);
+
+                var entities = new Dictionary<EntityHandle, EntityData>
+                {
+                    [a] = CreateEntityWithShieldState(reactionAvailable: true, shieldDef, shieldRaised: true),
+                    [b] = CreateEntityWithShieldState(reactionAvailable: true, shieldDef, shieldRaised: true),
+                    [c] = new EntityData { CurrentHP = 0, MaxHP = 10, ReactionAvailable = true }
+                };
+
+                var prepared = new List<EntityHandle> { a, b, c, d };
+                var candidates = new List<EntityHandle>(4);
+                var stale = new List<EntityHandle>(4);
+
+                ReactionBroker.CollectReadyTriggerCandidates(
+                    prepared,
+                    handle => entities.TryGetValue(handle, out var data) ? data : null,
+                    (actor, actorData) => actor == a || actor == b,
+                    candidates,
+                    stale);
+
+                CollectionAssert.AreEqual(new[] { a, b }, candidates);
+                CollectionAssert.AreEqual(new[] { c, d }, stale);
+            }
+            finally
+            {
+                Object.DestroyImmediate(shieldDef);
+            }
+        }
+
+        [Test]
+        public void TryConsumeReadyReactionInScope_SpendsOncePerScope()
+        {
+            var shieldDef = CreateShieldDef();
+            try
+            {
+                var actor = new EntityHandle(11);
+                var actorData = CreateEntityWithShieldState(reactionAvailable: true, shieldDef, shieldRaised: true);
+                var consumed = new HashSet<EntityHandle>();
+
+                bool first = ReactionBroker.TryConsumeReadyReactionInScope(
+                    actor,
+                    actorData,
+                    canUseReaction: _ => actorData.ReactionAvailable,
+                    consumedInScope: consumed);
+                bool second = ReactionBroker.TryConsumeReadyReactionInScope(
+                    actor,
+                    actorData,
+                    canUseReaction: _ => actorData.ReactionAvailable,
+                    consumedInScope: consumed);
+
+                Assert.IsTrue(first);
+                Assert.IsFalse(second);
+                Assert.IsFalse(actorData.ReactionAvailable);
+                Assert.IsTrue(consumed.Contains(actor));
+            }
+            finally
+            {
+                Object.DestroyImmediate(shieldDef);
+            }
+        }
+
         private static void DrainEnumerator(IEnumerator routine, int maxSteps = 8)
         {
             Assert.IsNotNull(routine);

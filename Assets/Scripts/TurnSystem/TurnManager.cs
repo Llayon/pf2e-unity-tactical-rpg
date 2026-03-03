@@ -1274,31 +1274,23 @@ namespace PF2e.TurnSystem
             BeginReadyTriggerScope();
             try
             {
-                readiedTriggerBuffer.Clear();
-                staleReadiedActorsBuffer.Clear();
                 var movedData = entityManager.Registry.Get(e.entity);
                 if (movedData == null || !movedData.IsAlive)
                     return;
 
-                foreach (var kvp in readiedStrikes)
-                {
-                    var record = kvp.Value;
-
-                    var actorData = entityManager.Registry.Get(record.actor);
-                    if (actorData == null || !actorData.IsAlive)
+                ReactionBroker.CollectReadyTriggerCandidates(
+                    readiedStrikes.Keys,
+                    handle => entityManager.Registry.Get(handle),
+                    (actor, actorData) =>
                     {
-                        staleReadiedActorsBuffer.Add(record.actor);
-                        continue;
-                    }
-                    if (actorData.Team == movedData.Team)
-                        continue;
-                    if (!DidEnterStrikeRange(actorData, movedData, e.from, e.to))
-                        continue;
-                    if (strikeAction.GetStrikeTargetFailure(record.actor, e.entity) != TargetingFailureReason.None)
-                        continue;
-
-                    readiedTriggerBuffer.Add(record.actor);
-                }
+                        if (actorData.Team == movedData.Team)
+                            return false;
+                        if (!DidEnterStrikeRange(actorData, movedData, e.from, e.to))
+                            return false;
+                        return strikeAction.GetStrikeTargetFailure(actor, e.entity) == TargetingFailureReason.None;
+                    },
+                    readiedTriggerBuffer,
+                    staleReadiedActorsBuffer);
 
                 for (int i = 0; i < staleReadiedActorsBuffer.Count; i++)
                     readiedStrikes.Remove(staleReadiedActorsBuffer[i]);
@@ -1344,28 +1336,19 @@ namespace PF2e.TurnSystem
                 if (!attackSourceData.IsAlive || !attackTargetData.IsAlive)
                     return;
 
-                readiedTriggerBuffer.Clear();
-                staleReadiedActorsBuffer.Clear();
-
-                foreach (var kvp in readiedStrikes)
-                {
-                    var record = kvp.Value;
-                    var actorData = entityManager.Registry.Get(record.actor);
-                    if (actorData == null || !actorData.IsAlive)
+                ReactionBroker.CollectReadyTriggerCandidates(
+                    readiedStrikes.Keys,
+                    handle => entityManager.Registry.Get(handle),
+                    (actor, actorData) =>
                     {
-                        staleReadiedActorsBuffer.Add(record.actor);
-                        continue;
-                    }
-
-                    if (actorData.Team == attackSourceData.Team)
-                        continue;
-                    if (!IsWithinReadyStrikeTriggerRange(actorData, attackSourceData))
-                        continue;
-                    if (strikeAction.GetStrikeTargetFailure(record.actor, e.attacker) != TargetingFailureReason.None)
-                        continue;
-
-                    readiedTriggerBuffer.Add(record.actor);
-                }
+                        if (actorData.Team == attackSourceData.Team)
+                            return false;
+                        if (!IsWithinReadyStrikeTriggerRange(actorData, attackSourceData))
+                            return false;
+                        return strikeAction.GetStrikeTargetFailure(actor, e.attacker) == TargetingFailureReason.None;
+                    },
+                    readiedTriggerBuffer,
+                    staleReadiedActorsBuffer);
 
                 for (int i = 0; i < staleReadiedActorsBuffer.Count; i++)
                     readiedStrikes.Remove(staleReadiedActorsBuffer[i]);
@@ -1475,7 +1458,11 @@ namespace PF2e.TurnSystem
                 return;
             }
 
-            if (!TryConsumeReadyReactionInScope(actor, actorData))
+            if (!ReactionBroker.TryConsumeReadyReactionInScope(
+                    actor,
+                    actorData,
+                    canUseReaction: CanUseReaction,
+                    consumedInScope: readyReactionsConsumedInScope))
                 return;
             readiedStrikes.Remove(actor);
 
@@ -1524,20 +1511,6 @@ namespace PF2e.TurnSystem
             readyTriggerScopeDepth--;
             if (readyTriggerScopeDepth == 0)
                 readyReactionsConsumedInScope.Clear();
-        }
-
-        private bool TryConsumeReadyReactionInScope(EntityHandle actor, EntityData actorData)
-        {
-            if (!actor.IsValid || actorData == null || !actorData.IsAlive)
-                return false;
-            if (!CanUseReaction(actor))
-                return false;
-            if (readyReactionsConsumedInScope.Contains(actor))
-                return false;
-
-            readyReactionsConsumedInScope.Add(actor);
-            actorData.ReactionAvailable = false;
-            return true;
         }
 
         private void PublishCombatStarted()

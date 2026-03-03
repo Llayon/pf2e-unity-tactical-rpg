@@ -12,6 +12,59 @@ namespace PF2e.TurnSystem
     /// </summary>
     public static class ReactionBroker
     {
+        public static void CollectReadyTriggerCandidates(
+            IEnumerable<EntityHandle> preparedActors,
+            Func<EntityHandle, EntityData> getEntity,
+            Func<EntityHandle, EntityData, bool> isTriggerEligible,
+            List<EntityHandle> outCandidates,
+            List<EntityHandle> outStaleActors)
+        {
+            if (outCandidates != null) outCandidates.Clear();
+            if (outStaleActors != null) outStaleActors.Clear();
+
+            if (preparedActors == null || getEntity == null || isTriggerEligible == null || outCandidates == null || outStaleActors == null)
+                return;
+
+            foreach (var actor in preparedActors)
+            {
+                if (!actor.IsValid)
+                {
+                    outStaleActors.Add(actor);
+                    continue;
+                }
+
+                var actorData = getEntity(actor);
+                if (actorData == null || !actorData.IsAlive)
+                {
+                    outStaleActors.Add(actor);
+                    continue;
+                }
+
+                if (isTriggerEligible(actor, actorData))
+                    outCandidates.Add(actor);
+            }
+        }
+
+        public static bool TryConsumeReadyReactionInScope(
+            EntityHandle actor,
+            EntityData actorData,
+            Func<EntityHandle, bool> canUseReaction,
+            HashSet<EntityHandle> consumedInScope)
+        {
+            if (!actor.IsValid || actorData == null || !actorData.IsAlive)
+                return false;
+            if (canUseReaction == null || consumedInScope == null)
+                return false;
+            if (!canUseReaction(actor))
+                return false;
+            if (consumedInScope.Contains(actor))
+                return false;
+
+            consumedInScope.Add(actor);
+            actorData.ReactionAvailable = false;
+            return true;
+        }
+
         public static int ResolvePostHitReductionSync(
             StrikePhaseResult resolved,
             IReadOnlyList<InitiativeEntry> initiativeOrder,
