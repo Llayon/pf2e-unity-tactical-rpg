@@ -136,12 +136,6 @@ namespace PF2e.Presentation
             RefreshAidPreparedIndicator();
         }
 
-        // Backward-compatible hook for EditMode tests that invoke the old method name via reflection.
-        private void ResolveOptionalAidUiReferences()
-        {
-            ValidateAndApplyUiWiring();
-        }
-
         private void ValidateAidUiReferences()
         {
             if (aidButton != null && aidHighlight != null && aidPreparedIndicatorRoot != null && aidPreparedIndicatorLabel != null)
