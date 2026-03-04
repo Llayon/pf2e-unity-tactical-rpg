@@ -51,6 +51,21 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void TryCastGlassShield_LevelFive_UsesHeightenedHardnessAndShardDice()
+        {
+            using var ctx = new GlassShieldContext();
+            var actor = ctx.RegisterActor(knowsCantrip: true, cooldownRounds: 0, level: 5);
+
+            bool cast = ctx.Action.TryCastGlassShield(actor);
+            Assert.IsTrue(cast);
+
+            var data = ctx.Registry.Get(actor);
+            Assert.IsNotNull(data);
+            Assert.AreEqual(4, data.GlassShieldHardness, "Rank 3 cantrip should grant Hardness 4.");
+            Assert.AreEqual(3, GlassShieldAction.ComputeShardDiceForLevel(data.Level), "Rank 3 cantrip should use 3d4 shard damage.");
+        }
+
+        [Test]
         public void TryCastGlassShield_FailsWithoutCantrip()
         {
             using var ctx = new GlassShieldContext();
@@ -121,13 +136,14 @@ namespace PF2e.Tests
                 Action.InjectDependencies(EntityManager, EventBus);
             }
 
-            public EntityHandle RegisterActor(bool knowsCantrip, int cooldownRounds)
+            public EntityHandle RegisterActor(bool knowsCantrip, int cooldownRounds, int level = 1)
             {
                 var data = new EntityData
                 {
                     Name = "Wizard",
                     Team = Team.Player,
                     Size = CreatureSize.Medium,
+                    Level = level,
                     MaxHP = 10,
                     CurrentHP = 10,
                     KnowsGlassShieldCantrip = knowsCantrip,

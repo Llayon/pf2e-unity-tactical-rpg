@@ -109,6 +109,80 @@ namespace PF2e.Tests
             }
         }
 
+        [Test]
+        public void Execute_GlassShieldSource_BreakerInRange_DealsShardDamage()
+        {
+            using var ctx = new ShieldBlockActionContext();
+
+            var reactor = ctx.RegisterEntity("Wizard", Team.Player, shieldDef: null, reactionAvailable: true);
+            var breaker = ctx.RegisterEntity("Goblin", Team.Enemy, shieldDef: null, reactionAvailable: true);
+
+            var reactorData = ctx.Registry.Get(reactor);
+            var breakerData = ctx.Registry.Get(breaker);
+            Assert.IsNotNull(reactorData);
+            Assert.IsNotNull(breakerData);
+
+            reactorData.KnowsGlassShieldCantrip = true;
+            reactorData.Level = 20;
+            reactorData.Intelligence = 30;
+            reactorData.GridPosition = new Vector3Int(0, 0, 0);
+            Assert.IsTrue(reactorData.ActivateGlassShield(acBonus: 1, hardness: 12, maxHP: 1));
+
+            breakerData.MaxHP = 100;
+            breakerData.CurrentHP = 100;
+            breakerData.Dexterity = 1;
+            breakerData.ReflexProf = ProficiencyRank.Untrained;
+            breakerData.GridPosition = new Vector3Int(1, 0, 0); // 5 ft
+
+            int hpBefore = breakerData.CurrentHP;
+
+            bool ok = ctx.Action.Execute(
+                reactor,
+                incomingDamage: 10,
+                result: new ShieldBlockResult(2, 8),
+                source: ShieldBlockSource.GlassShield,
+                triggerSource: breaker);
+
+            Assert.IsTrue(ok);
+            Assert.Less(breakerData.CurrentHP, hpBefore, "In-range breaker should take shard damage.");
+        }
+
+        [Test]
+        public void Execute_GlassShieldSource_BreakerOutOfRange_NoShardDamage()
+        {
+            using var ctx = new ShieldBlockActionContext();
+
+            var reactor = ctx.RegisterEntity("Wizard", Team.Player, shieldDef: null, reactionAvailable: true);
+            var breaker = ctx.RegisterEntity("Goblin", Team.Enemy, shieldDef: null, reactionAvailable: true);
+
+            var reactorData = ctx.Registry.Get(reactor);
+            var breakerData = ctx.Registry.Get(breaker);
+            Assert.IsNotNull(reactorData);
+            Assert.IsNotNull(breakerData);
+
+            reactorData.KnowsGlassShieldCantrip = true;
+            reactorData.Level = 20;
+            reactorData.Intelligence = 30;
+            reactorData.GridPosition = new Vector3Int(0, 0, 0);
+            Assert.IsTrue(reactorData.ActivateGlassShield(acBonus: 1, hardness: 12, maxHP: 1));
+
+            breakerData.MaxHP = 100;
+            breakerData.CurrentHP = 100;
+            breakerData.GridPosition = new Vector3Int(3, 0, 0); // 15 ft
+
+            int hpBefore = breakerData.CurrentHP;
+
+            bool ok = ctx.Action.Execute(
+                reactor,
+                incomingDamage: 10,
+                result: new ShieldBlockResult(2, 8),
+                source: ShieldBlockSource.GlassShield,
+                triggerSource: breaker);
+
+            Assert.IsTrue(ok);
+            Assert.AreEqual(hpBefore, breakerData.CurrentHP, "Out-of-range breaker must not take shard damage.");
+        }
+
         private sealed class ShieldBlockActionContext : System.IDisposable
         {
             private readonly bool oldIgnoreLogs;

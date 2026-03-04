@@ -148,7 +148,13 @@ namespace PF2e.TurnSystem
             if (!decided.Value)
                 return 0;
 
-            return ExecuteShieldBlock(option.entity, reactorData, resolved.damageRolled, shieldBlockAction, ownerTag);
+            return ExecuteShieldBlock(
+                option.entity,
+                resolved.attacker,
+                reactorData,
+                resolved.damageRolled,
+                shieldBlockAction,
+                ownerTag);
         }
 
         public static IEnumerator ResolvePostHitReductionAsync(
@@ -227,7 +233,13 @@ namespace PF2e.TurnSystem
                 yield break;
             }
 
-            int reduction = ExecuteShieldBlock(option.entity, reactorData, resolved.damageRolled, shieldBlockAction, ownerTag);
+            int reduction = ExecuteShieldBlock(
+                option.entity,
+                resolved.attacker,
+                reactorData,
+                resolved.damageRolled,
+                shieldBlockAction,
+                ownerTag);
             setResult?.Invoke(reduction);
         }
 
@@ -270,6 +282,7 @@ namespace PF2e.TurnSystem
 
         private static int ExecuteShieldBlock(
             EntityHandle reactor,
+            EntityHandle triggerSource,
             EntityData reactorData,
             int incomingDamage,
             ShieldBlockAction shieldBlockAction,
@@ -285,7 +298,7 @@ namespace PF2e.TurnSystem
                 return 0;
             }
 
-            return shieldBlockAction.Execute(reactor, incomingDamage, in result, source)
+            return shieldBlockAction.Execute(reactor, incomingDamage, in result, source, triggerSource)
                 ? result.targetDamageReduction
                 : 0;
         }
