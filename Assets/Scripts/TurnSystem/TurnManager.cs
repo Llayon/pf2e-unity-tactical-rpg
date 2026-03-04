@@ -43,7 +43,6 @@ namespace PF2e.TurnSystem
         private readonly Dictionary<EntityHandle, DelayedTurnRecord> delayedTurns = new();
         private readonly HashSet<EntityHandle> delayReactionSuppressed = new();
         private IRng initiativeRng = UnityRng.Shared;
-        private bool readyLegacySubscriptionActive;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         private const float ActionLockWarnSeconds = 4f;
@@ -212,11 +211,6 @@ namespace PF2e.TurnSystem
             ResolveEventBusIfMissing();
             ResolveStrikeActionIfMissing();
             EnsureReadyStrikeEventBinder();
-        }
-
-        private void OnDisable()
-        {
-            UnsubscribeReadyLegacyFallback();
         }
 
         /// <summary>
@@ -1217,37 +1211,15 @@ namespace PF2e.TurnSystem
                 return;
 
             var binder = GetComponent<ReadyStrikeEventBinder>();
-            if (binder != null)
+            if (binder == null)
             {
-                UnsubscribeReadyLegacyFallback();
-                binder.Configure(this, eventBus);
+                Debug.LogError(
+                    "[TurnManager] ReadyStrikeEventBinder is missing. Run scene AutoFix to create/wire binder.",
+                    this);
                 return;
             }
 
-            SubscribeReadyLegacyFallback();
-        }
-
-        private void SubscribeReadyLegacyFallback()
-        {
-            if (readyLegacySubscriptionActive || eventBus == null)
-                return;
-
-            eventBus.OnEntityMovedTyped += HandleEntityMoved;
-            eventBus.OnStrikePreDamageTyped += HandleStrikePreDamage;
-            readyLegacySubscriptionActive = true;
-            Debug.LogWarning(
-                "[TurnManager] ReadyStrikeEventBinder is missing. Using legacy Ready trigger subscription fallback. Run scene AutoFix to author binder wiring.",
-                this);
-        }
-
-        private void UnsubscribeReadyLegacyFallback()
-        {
-            if (!readyLegacySubscriptionActive || eventBus == null)
-                return;
-
-            eventBus.OnEntityMovedTyped -= HandleEntityMoved;
-            eventBus.OnStrikePreDamageTyped -= HandleStrikePreDamage;
-            readyLegacySubscriptionActive = false;
+            binder.Configure(this, eventBus);
         }
 
         private void ClearReadiedStrikes()

@@ -165,7 +165,7 @@ public static class PF2eSceneDependencyValidator
         }
         if (UnityEngine.Object.FindObjectsByType<TurnManager>(FindObjectsSortMode.None).Length > 0)
         {
-            warnings += WarnIfNone<ReadyStrikeEventBinder>();
+            errors += ErrorIfNone<ReadyStrikeEventBinder>();
         }
         warnings += WarnIfNone<TargetingHintController>();
         warnings += WarnIfNone<TargetingFeedbackController>();
@@ -569,6 +569,17 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
                 Debug.LogError($"[PF2eValidator]   {typeof(T).Name} #{i + 1}: {all[i].name}", all[i]);
         }
         return 1;
+    }
+
+    private static int ErrorIfNone<T>() where T : UnityEngine.Object
+    {
+        var all = UnityEngine.Object.FindObjectsByType<T>(FindObjectsSortMode.None);
+        if (all == null || all.Length == 0)
+        {
+            Debug.LogError($"[PF2eValidator] No {typeof(T).Name} found in scene.");
+            return 1;
+        }
+        return 0;
     }
 
     private static int WarnIfNone<T>() where T : UnityEngine.Object

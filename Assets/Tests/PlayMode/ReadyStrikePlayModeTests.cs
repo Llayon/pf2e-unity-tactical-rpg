@@ -41,6 +41,8 @@ namespace PF2e.Tests
             Assert.IsNotNull(eventBus, "CombatEventBus not found.");
             Assert.IsNotNull(playerActionExecutor, "PlayerActionExecutor not found.");
 
+            EnsureReadyStrikeEventBinderPresent();
+
             yield return WaitUntilOrTimeout(
                 () => entityManager.Registry != null && entityManager.Registry.Count >= 4,
                 TimeoutSeconds,
@@ -296,6 +298,16 @@ namespace PF2e.Tests
             wizard.Wisdom = 4000;
             goblin1.Wisdom = -4000;
             goblin2.Wisdom = -5000;
+        }
+
+        private void EnsureReadyStrikeEventBinderPresent()
+        {
+            if (turnManager == null)
+                return;
+
+            var binder = turnManager.GetComponent<ReadyStrikeEventBinder>();
+            if (binder == null)
+                turnManager.gameObject.AddComponent<ReadyStrikeEventBinder>();
         }
 
         private EntityData GetEntityByName(string name)
