@@ -183,6 +183,76 @@ namespace PF2e.Tests
             Assert.AreEqual(hpBefore, breakerData.CurrentHP, "Out-of-range breaker must not take shard damage.");
         }
 
+        [Test]
+        public void Execute_GlassShieldSource_BreakerWithRaisedShield_CanReduceShardDamage()
+        {
+            using var ctx = new ShieldBlockActionContext();
+
+            var breakerShieldDef = ctx.CreateShieldDef(hardness: 20, maxHp: 30);
+            var reactor = ctx.RegisterEntity("Wizard", Team.Player, shieldDef: null, reactionAvailable: true);
+            var breaker = ctx.RegisterEntity("Goblin", Team.Enemy, shieldDef: breakerShieldDef, reactionAvailable: true);
+
+            var reactorData = ctx.Registry.Get(reactor);
+            var breakerData = ctx.Registry.Get(breaker);
+            Assert.IsNotNull(reactorData);
+            Assert.IsNotNull(breakerData);
+
+            reactorData.KnowsGlassShieldCantrip = true;
+            reactorData.Level = 5; // 4d4 shard baseline so post-save damage stays > 0.
+            reactorData.Intelligence = 30;
+            reactorData.GridPosition = new Vector3Int(0, 0, 0);
+            Assert.IsTrue(reactorData.ActivateGlassShield(acBonus: 1, hardness: 7, maxHP: 1));
+
+            breakerData.MaxHP = 100;
+            breakerData.CurrentHP = 100;
+            breakerData.Dexterity = 1;
+            breakerData.ReflexProf = ProficiencyRank.Untrained;
+            breakerData.GridPosition = new Vector3Int(1, 0, 0);
+            breakerData.SetShieldRaised(true);
+            breakerData.ReactionAvailable = true;
+
+            int hpBefore = breakerData.CurrentHP;
+            int shieldHpBefore = breakerData.EquippedShield.currentHP;
+            int shieldEvents = 0;
+            int shardDamageEvents = 0;
+            ctx.EventBus.OnShieldBlockResolvedTyped += OnShieldBlockResolved;
+            ctx.EventBus.OnDamageAppliedTyped += OnDamageApplied;
+
+            try
+            {
+                bool ok = ctx.Action.Execute(
+                    reactor,
+                    incomingDamage: 10,
+                    result: new ShieldBlockResult(2, 8),
+                    source: ShieldBlockSource.GlassShield,
+                    triggerSource: breaker);
+
+                Assert.IsTrue(ok);
+                Assert.AreEqual(2, shieldEvents, "Expected initial Glass Shield block and breaker shield block on shards.");
+                Assert.AreEqual(0, shardDamageEvents, "Breaker shield should fully absorb shard damage with high hardness.");
+                Assert.AreEqual(hpBefore, breakerData.CurrentHP, "Shard damage should be fully reduced.");
+                Assert.Less(breakerData.EquippedShield.currentHP, shieldHpBefore, "Breaker shield must take self-damage from Shield Block.");
+                Assert.IsFalse(breakerData.ReactionAvailable, "Breaker reaction should be consumed by shard Shield Block.");
+            }
+            finally
+            {
+                ctx.EventBus.OnShieldBlockResolvedTyped -= OnShieldBlockResolved;
+                ctx.EventBus.OnDamageAppliedTyped -= OnDamageApplied;
+            }
+
+            void OnShieldBlockResolved(in ShieldBlockResolvedEvent e)
+            {
+                _ = e;
+                shieldEvents++;
+            }
+
+            void OnDamageApplied(in DamageAppliedEvent e)
+            {
+                if (e.sourceActionName == "Glass Shield (Shards)")
+                    shardDamageEvents++;
+            }
+        }
+
         private sealed class ShieldBlockActionContext : System.IDisposable
         {
             private readonly bool oldIgnoreLogs;

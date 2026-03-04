@@ -104,7 +104,7 @@ namespace PF2e.Tests
             {
                 var targetData = ctx.Registry.Get(target);
                 targetData.EquippedShield = ShieldInstance.CreateEquipped(shieldDef);
-                targetData.RaiseShield();
+                targetData.SetShieldRaised(true);
                 targetData.ReactionAvailable = true;
 
                 SetPrivateField(ctx.TurnManager, "initiativeOrder", new List<InitiativeEntry>

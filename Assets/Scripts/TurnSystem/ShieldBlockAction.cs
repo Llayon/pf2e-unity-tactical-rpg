@@ -1,6 +1,7 @@
 using UnityEngine;
 using PF2e.Core;
 using PF2e.Managers;
+using System.Collections.Generic;
 
 namespace PF2e.TurnSystem
 {
@@ -8,6 +9,9 @@ namespace PF2e.TurnSystem
     {
         [SerializeField] private EntityManager entityManager;
         [SerializeField] private CombatEventBus eventBus;
+        private readonly List<InitiativeEntry> secondaryDamageInitiativeBuffer = new(2);
+        private readonly List<ReactionOption> secondaryDamageReactionBuffer = new(2);
+        private readonly IReactionDecisionPolicy secondaryDamageReactionPolicy = new NoPromptReactionPolicy();
 
 #if UNITY_EDITOR
         private void OnValidate()
@@ -101,6 +105,8 @@ namespace PF2e.TurnSystem
             if (finalDamage <= 0)
                 return;
 
+            BuildSecondaryDamageInitiative(reactor, breaker);
+
             DamageApplicationService.ApplyDamage(
                 source: reactor,
                 target: breaker,
@@ -109,7 +115,15 @@ namespace PF2e.TurnSystem
                 sourceActionName: "Glass Shield (Shards)",
                 isCritical: save.degree == DegreeOfSuccess.CriticalFailure,
                 entityManager: entityManager,
-                eventBus: eventBus);
+                eventBus: eventBus,
+                initiativeOrder: secondaryDamageInitiativeBuffer,
+                getEntity: ResolveEntity,
+                canUseReaction: ResolveCanUseReaction,
+                reactionPolicy: secondaryDamageReactionPolicy,
+                shieldBlockAction: this,
+                reactionBuffer: secondaryDamageReactionBuffer,
+                reactionPhase: ReactionTriggerPhase.PostHit,
+                reactionOwnerTag: "ShieldBlockAction.Shards");
         }
 
         private static int ApplyBasicSave(int damage, DegreeOfSuccess degree)
@@ -125,6 +139,79 @@ namespace PF2e.TurnSystem
                 DegreeOfSuccess.CriticalFailure => damage * 2,
                 _ => damage
             };
+        }
+
+        private EntityData ResolveEntity(EntityHandle handle)
+        {
+            return entityManager != null && entityManager.Registry != null
+                ? entityManager.Registry.Get(handle)
+                : null;
+        }
+
+        private bool ResolveCanUseReaction(EntityHandle handle)
+        {
+            var data = ResolveEntity(handle);
+            return data != null && data.IsAlive && data.ReactionAvailable;
+        }
+
+        private void BuildSecondaryDamageInitiative(EntityHandle source, EntityHandle target)
+        {
+            secondaryDamageInitiativeBuffer.Clear();
+
+            if (source.IsValid && source != target)
+            {
+                secondaryDamageInitiativeBuffer.Add(new InitiativeEntry
+                {
+                    Handle = source,
+                    Roll = new CheckRoll(0, 0, CheckSource.Perception()),
+                    IsPlayer = false,
+                });
+            }
+
+            if (target.IsValid)
+            {
+                var targetData = ResolveEntity(target);
+                secondaryDamageInitiativeBuffer.Add(new InitiativeEntry
+                {
+                    Handle = target,
+                    Roll = new CheckRoll(0, 0, CheckSource.Perception()),
+                    IsPlayer = targetData != null && targetData.Team == Team.Player,
+                });
+            }
+        }
+
+        private sealed class NoPromptReactionPolicy : IReactionDecisionPolicy
+        {
+            public void DecideReaction(ReactionOption option, EntityData reactor, int incomingDamage, System.Action<bool> onDecided)
+            {
+                _ = incomingDamage;
+                if (onDecided == null)
+                    return;
+                if (reactor == null || option.type != ReactionType.ShieldBlock)
+                {
+                    onDecided(false);
+                    return;
+                }
+
+                if (reactor.Team != Team.Player)
+                {
+                    onDecided(true);
+                    return;
+                }
+
+                switch (reactor.ShieldBlockPreference)
+                {
+                    case ReactionPreference.AutoBlock:
+                        onDecided(true);
+                        return;
+                    case ReactionPreference.Never:
+                    case ReactionPreference.AlwaysAsk:
+                    default:
+                        // No nested modal prompts in secondary sync damage pipeline.
+                        onDecided(false);
+                        return;
+                }
+            }
         }
     }
 }
