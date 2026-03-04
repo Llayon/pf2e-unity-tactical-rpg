@@ -92,6 +92,21 @@ namespace PF2e.TurnSystem
                 consumedInScope);
         }
 
+        public bool CanConsumeReactionInScope(
+            EntityHandle actor,
+            EntityData actorData,
+            Func<EntityHandle, bool> canUseReaction)
+        {
+            if (!actor.IsValid || actorData == null || !actorData.IsAlive)
+                return false;
+            if (canUseReaction == null || !canUseReaction(actor))
+                return false;
+            if (consumedInScope.Contains(actor))
+                return false;
+
+            return true;
+        }
+
         private readonly struct PreparedReadyStrike
         {
             public readonly int preparedRound;

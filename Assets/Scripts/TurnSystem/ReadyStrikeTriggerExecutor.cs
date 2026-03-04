@@ -43,15 +43,14 @@ namespace PF2e.TurnSystem
                 return;
             }
 
-            if (!readyStrikeService.TryConsumeReactionInScope(actor, actorData, canUseReaction))
+            if (!readyStrikeService.CanConsumeReactionInScope(actor, actorData, canUseReaction))
                 return;
-            readyStrikeService.TryRemovePrepared(actor);
 
             bool wasResolving = isResolving;
             isResolving = true;
             try
             {
-                ReactionBroker.TryExecuteReadiedStrike(
+                bool executed = ReactionBroker.TryExecuteReadiedStrike(
                     actor,
                     target,
                     triggerReason,
@@ -61,6 +60,14 @@ namespace PF2e.TurnSystem
                     UnityRng.Shared,
                     preparedTriggerMode,
                     aidCircumstanceBonus: 0);
+
+                if (!executed)
+                    return;
+
+                if (!readyStrikeService.TryConsumeReactionInScope(actor, actorData, canUseReaction))
+                    return;
+
+                readyStrikeService.TryRemovePrepared(actor);
             }
             finally
             {

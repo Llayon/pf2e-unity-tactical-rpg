@@ -93,6 +93,35 @@ namespace PF2e.Tests
             Assert.IsTrue(actorData.ReactionAvailable, "Dead-actor cleanup should not flip reaction availability.");
         }
 
+        [Test]
+        public void Resolve_TargetDeadAfterTrigger_KeepsPreparedAndReaction()
+        {
+            using var ctx = new ExecutorContext();
+
+            var actor = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(0, 0, 0), strength: 22);
+            var target = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(1, 0, 0), strength: 10);
+            var actorData = ctx.Registry.Get(actor);
+            var targetData = ctx.Registry.Get(target);
+            Assert.IsNotNull(actorData);
+            Assert.IsNotNull(targetData);
+            actorData.ReactionAvailable = true;
+            targetData.CurrentHP = 0; // Simulates first ready striker killing the trigger target.
+            Assert.IsTrue(ctx.ReadyService.TryPrepare(actor, preparedRound: 1));
+
+            ctx.Executor.Resolve(
+                actor,
+                target,
+                "movement",
+                ctx.ReadyService,
+                ctx.EntityManager,
+                ctx.StrikeAction,
+                ctx.EventBus,
+                ctx.CanUseReaction);
+
+            Assert.IsTrue(ctx.ReadyService.HasPrepared(actor), "Prepared ready should remain when trigger target is no longer valid.");
+            Assert.IsTrue(actorData.ReactionAvailable, "Reaction should not be consumed when readied strike does not execute.");
+        }
+
         private sealed class ExecutorContext : System.IDisposable
         {
             private readonly bool oldIgnoreLogs;
