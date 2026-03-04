@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
 using PF2e.Core;
+using PF2e.Managers;
 using PF2e.Presentation;
 using PF2e.TurnSystem;
 using UnityEditor.SceneManagement;
