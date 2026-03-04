@@ -17,7 +17,11 @@ namespace PF2e.TurnSystem
         }
 #endif
 
-        public bool Execute(EntityHandle reactor, int incomingDamage, in ShieldBlockResult result)
+        public bool Execute(
+            EntityHandle reactor,
+            int incomingDamage,
+            in ShieldBlockResult result,
+            ShieldBlockSource source = ShieldBlockSource.PhysicalShield)
         {
             if (!reactor.IsValid || entityManager == null || entityManager.Registry == null)
                 return false;
@@ -26,10 +30,27 @@ namespace PF2e.TurnSystem
             if (data == null || !data.IsAlive)
                 return false;
 
-            int hpBefore = data.EquippedShield.currentHP;
-            data.ApplyShieldDamage(result.shieldSelfDamage);
+            int hpBefore;
+            int hpAfter;
+
+            switch (source)
+            {
+                case ShieldBlockSource.GlassShield:
+                    hpBefore = data.GlassShieldCurrentHP;
+                    data.ApplyGlassShieldSelfDamageAndDispel(result.shieldSelfDamage, GlassShieldAction.BlockCooldownRounds);
+                    hpAfter = data.GlassShieldCurrentHP;
+                    eventBus?.Publish(reactor, "Glass Shield shatters; recast blocked for 10 minutes.", CombatLogCategory.Spell);
+                    break;
+
+                case ShieldBlockSource.PhysicalShield:
+                default:
+                    hpBefore = data.EquippedShield.currentHP;
+                    data.ApplyShieldDamage(result.shieldSelfDamage);
+                    hpAfter = data.EquippedShield.currentHP;
+                    break;
+            }
+
             data.ReactionAvailable = false;
-            int hpAfter = data.EquippedShield.currentHP;
 
             eventBus?.PublishShieldBlockResolved(
                 reactor,

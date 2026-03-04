@@ -87,14 +87,12 @@ namespace PF2e.Presentation
                 return false;
 
             var shield = data.EquippedShield;
-            if (!shield.IsEquipped)
-                return false;
-            if (shield.IsBroken)
-                return false;
-            if (shield.isRaised)
-                return false;
+            bool canRaisePhysicalShield =
+                shield.IsEquipped
+                && !shield.IsBroken
+                && !shield.isRaised;
 
-            return true;
+            return canRaisePhysicalShield || data.CanCastGlassShield;
         }
 
         private static bool HasCondition(EntityData data, ConditionType type)

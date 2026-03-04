@@ -101,6 +101,8 @@ namespace PF2e.Core
             entity.MAPCount = 0;
             entity.ReactionAvailable = true;
             entity.SetShieldRaised(false);
+            entity.ExpireGlassShieldAtTurnStart();
+            entity.TickGlassShieldCooldownAtTurnStart();
 
             int slowed = entity.GetConditionValue(ConditionType.Slowed);
             entity.ActionsRemaining -= slowed;

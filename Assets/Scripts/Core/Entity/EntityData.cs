@@ -89,6 +89,14 @@ namespace PF2e.Core
         public int ActionsRemaining;
         public int MAPCount;           // 0, 1, 2 — how many Strikes made this turn
         public bool ReactionAvailable;
+        public bool KnowsGlassShieldCantrip;
+        public int GlassShieldCooldownRoundsRemaining;
+
+        [SerializeField] private bool glassShieldRaised;
+        [SerializeField] private int glassShieldHardness;
+        [SerializeField] private int glassShieldCurrentHP;
+        [SerializeField] private int glassShieldMaxHP;
+        [SerializeField] private int glassShieldAcBonus;
 
         // ─── Reaction Preferences ───
         public ReactionPreference ShieldBlockPreference = ReactionPreference.AutoBlock;
@@ -110,6 +118,8 @@ namespace PF2e.Core
         private ShieldDefinition snapshotShieldDefinition;
         private bool snapshotShieldIsRaised;
         private int snapshotShieldACBonus;
+        private bool snapshotGlassShieldRaised;
+        private int snapshotGlassShieldACBonus;
         private int snapshotConditionsFingerprint;
 
         // ─── Computed: Multiple Attack Penalty ───
@@ -274,6 +284,27 @@ namespace PF2e.Core
             }
         }
 
+        public bool HasRaisedPhysicalShield =>
+            EquippedShield.IsEquipped && !EquippedShield.IsBroken && EquippedShield.isRaised;
+
+        public bool GlassShieldRaised => glassShieldRaised && glassShieldCurrentHP > 0;
+
+        public int GlassShieldHardness => GlassShieldRaised ? Mathf.Max(0, glassShieldHardness) : 0;
+
+        public int GlassShieldCurrentHP => glassShieldCurrentHP;
+
+        public int GlassShieldMaxHP => glassShieldMaxHP;
+
+        public int GlassShieldAcBonus => GlassShieldRaised ? Mathf.Max(0, glassShieldAcBonus) : 0;
+
+        public bool CanShieldBlock => HasRaisedPhysicalShield || GlassShieldRaised;
+
+        public bool CanCastGlassShield =>
+            KnowsGlassShieldCantrip
+            && GlassShieldCooldownRoundsRemaining <= 0
+            && !GlassShieldRaised
+            && !EquippedShield.IsEquipped;
+
         // ─── State Queries ───
         public bool IsAlive => CurrentHP > 0;
 
@@ -322,6 +353,8 @@ namespace PF2e.Core
             if (snapshotShieldDefinition != EquippedShield.def) return false;
             if (snapshotShieldIsRaised != EquippedShield.isRaised) return false;
             if (snapshotShieldACBonus != EquippedShield.ACBonus) return false;
+            if (snapshotGlassShieldRaised != GlassShieldRaised) return false;
+            if (snapshotGlassShieldACBonus != GlassShieldAcBonus) return false;
             if (snapshotConditionsFingerprint != ComputeConditionsFingerprint()) return false;
             return true;
         }
@@ -338,6 +371,8 @@ namespace PF2e.Core
             snapshotShieldDefinition = EquippedShield.def;
             snapshotShieldIsRaised = EquippedShield.isRaised;
             snapshotShieldACBonus = EquippedShield.ACBonus;
+            snapshotGlassShieldRaised = GlassShieldRaised;
+            snapshotGlassShieldACBonus = GlassShieldAcBonus;
             snapshotConditionsFingerprint = ComputeConditionsFingerprint();
         }
 
@@ -348,7 +383,7 @@ namespace PF2e.Core
                 out cachedConditionPenaltyToAttack,
                 out int acPenalty);
 
-            int shieldCircumstanceBonus = EquippedShield.ACBonus;
+            int shieldCircumstanceBonus = Mathf.Max(EquippedShield.ACBonus, GlassShieldAcBonus);
             cachedEffectiveAC = BaseAC + shieldCircumstanceBonus - acPenalty;
         }
 
@@ -463,6 +498,76 @@ namespace PF2e.Core
             shield.isRaised = raised;
             EquippedShield = shield;
             MarkDerivedStatsDirty();
+        }
+
+        public bool ActivateGlassShield(int acBonus, int hardness, int maxHP = 1)
+        {
+            if (!CanCastGlassShield)
+                return false;
+
+            glassShieldAcBonus = Mathf.Max(0, acBonus);
+            glassShieldHardness = Mathf.Max(0, hardness);
+            glassShieldMaxHP = Mathf.Max(1, maxHP);
+            glassShieldCurrentHP = glassShieldMaxHP;
+            glassShieldRaised = true;
+            MarkDerivedStatsDirty();
+            return true;
+        }
+
+        public void ExpireGlassShieldAtTurnStart()
+        {
+            if (!glassShieldRaised)
+                return;
+
+            glassShieldRaised = false;
+            MarkDerivedStatsDirty();
+        }
+
+        public void TickGlassShieldCooldownAtTurnStart()
+        {
+            if (GlassShieldCooldownRoundsRemaining <= 0)
+                return;
+
+            GlassShieldCooldownRoundsRemaining = Mathf.Max(0, GlassShieldCooldownRoundsRemaining - 1);
+        }
+
+        public void StartGlassShieldCooldown(int rounds)
+        {
+            GlassShieldCooldownRoundsRemaining = Mathf.Max(GlassShieldCooldownRoundsRemaining, Mathf.Max(0, rounds));
+        }
+
+        public ShieldBlockSource ResolveShieldBlockSource()
+        {
+            if (HasRaisedPhysicalShield)
+                return ShieldBlockSource.PhysicalShield;
+            if (GlassShieldRaised)
+                return ShieldBlockSource.GlassShield;
+
+            return ShieldBlockSource.None;
+        }
+
+        public ShieldBlockResult CalculateShieldBlockResult(int incomingDamage, out ShieldBlockSource source)
+        {
+            source = ResolveShieldBlockSource();
+            return source switch
+            {
+                ShieldBlockSource.PhysicalShield => ShieldBlockRules.Calculate(EquippedShield, incomingDamage),
+                ShieldBlockSource.GlassShield => ShieldBlockRules.Calculate(GlassShieldHardness, incomingDamage),
+                _ => new ShieldBlockResult(0, 0)
+            };
+        }
+
+        public int ApplyGlassShieldSelfDamageAndDispel(int selfDamage, int cooldownRounds)
+        {
+            int hpBefore = glassShieldCurrentHP;
+            if (selfDamage > 0 && glassShieldCurrentHP > 0)
+                glassShieldCurrentHP = Mathf.Max(0, glassShieldCurrentHP - selfDamage);
+
+            glassShieldRaised = false; // Spell always ends after Shield Block.
+            glassShieldCurrentHP = 0;
+            StartGlassShieldCooldown(cooldownRounds);
+            MarkDerivedStatsDirty();
+            return hpBefore;
         }
 
         public void ApplyShieldDamage(int damage)

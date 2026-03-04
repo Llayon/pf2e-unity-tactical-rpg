@@ -53,6 +53,46 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void CollectEligibleReactions_PostHit_TargetWithRaisedGlassShield_IsIncluded()
+        {
+            var source = new EntityHandle(1);
+            var target = new EntityHandle(2);
+
+            var targetData = CreateEntity(
+                reactionAvailable: true,
+                shieldEquipped: false,
+                shieldDef: null,
+                shieldRaised: false);
+            targetData.KnowsGlassShieldCantrip = true;
+            Assert.IsTrue(targetData.ActivateGlassShield(acBonus: 1, hardness: 2, maxHP: 1));
+
+            var entities = new Dictionary<EntityHandle, EntityData>
+            {
+                [source] = CreateEntity(reactionAvailable: true, shieldEquipped: false, shieldDef: null),
+                [target] = targetData
+            };
+
+            var initiative = new List<InitiativeEntry>
+            {
+                new InitiativeEntry { Handle = source, Roll = new CheckRoll(14, 2, CheckSource.Perception()), IsPlayer = false },
+                new InitiativeEntry { Handle = target, Roll = new CheckRoll(12, 3, CheckSource.Perception()), IsPlayer = true }
+            };
+
+            var options = new List<ReactionOption>();
+            ReactionService.CollectEligibleReactions(
+                ReactionTriggerPhase.PostHit,
+                source,
+                target,
+                initiative,
+                handle => entities.TryGetValue(handle, out var data) ? data : null,
+                options);
+
+            Assert.AreEqual(1, options.Count);
+            Assert.AreEqual(target, options[0].entity);
+            Assert.AreEqual(ReactionType.ShieldBlock, options[0].type);
+        }
+
+        [Test]
         public void CollectEligibleReactions_PostHit_FiltersOutInvalidShieldBlockCases()
         {
             var shieldDef = CreateShieldDef();

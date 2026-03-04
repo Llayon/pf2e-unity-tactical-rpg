@@ -61,6 +61,54 @@ namespace PF2e.Tests
             Assert.IsFalse(ok);
         }
 
+        [Test]
+        public void Execute_GlassShieldSource_ConsumesSpellAndStartsCooldown()
+        {
+            using var ctx = new ShieldBlockActionContext();
+
+            var actor = ctx.RegisterEntity("Wizard", Team.Player, shieldDef: null, reactionAvailable: true);
+            var data = ctx.Registry.Get(actor);
+            Assert.IsNotNull(data);
+            data.KnowsGlassShieldCantrip = true;
+            Assert.IsTrue(data.ActivateGlassShield(acBonus: 1, hardness: 2, maxHP: 1));
+
+            ShieldBlockResolvedEvent lastEvent = default;
+            int eventCount = 0;
+            ctx.EventBus.OnShieldBlockResolvedTyped += OnResolved;
+            try
+            {
+                bool ok = ctx.Action.Execute(
+                    actor,
+                    incomingDamage: 10,
+                    result: new ShieldBlockResult(2, 8),
+                    source: ShieldBlockSource.GlassShield);
+                Assert.IsTrue(ok);
+
+                Assert.IsFalse(data.ReactionAvailable);
+                Assert.IsFalse(data.GlassShieldRaised);
+                Assert.AreEqual(0, data.GlassShieldCurrentHP);
+                Assert.AreEqual(GlassShieldAction.BlockCooldownRounds, data.GlassShieldCooldownRoundsRemaining);
+
+                Assert.AreEqual(1, eventCount);
+                Assert.AreEqual(actor, lastEvent.reactor);
+                Assert.AreEqual(10, lastEvent.incomingDamage);
+                Assert.AreEqual(2, lastEvent.damageReduction);
+                Assert.AreEqual(8, lastEvent.shieldSelfDamage);
+                Assert.AreEqual(1, lastEvent.shieldHpBefore);
+                Assert.AreEqual(0, lastEvent.shieldHpAfter);
+            }
+            finally
+            {
+                ctx.EventBus.OnShieldBlockResolvedTyped -= OnResolved;
+            }
+
+            void OnResolved(in ShieldBlockResolvedEvent e)
+            {
+                eventCount++;
+                lastEvent = e;
+            }
+        }
+
         private sealed class ShieldBlockActionContext : System.IDisposable
         {
             private readonly bool oldIgnoreLogs;

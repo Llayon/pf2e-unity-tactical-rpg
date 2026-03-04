@@ -18,5 +18,16 @@ namespace PF2e.Core
 
             return new ShieldBlockResult(reduction, shieldSelfDamage);
         }
+
+        public static ShieldBlockResult Calculate(int hardness, int incomingDamage)
+        {
+            if (incomingDamage <= 0)
+                return new ShieldBlockResult(0, 0);
+
+            int safeHardness = Math.Max(0, hardness);
+            int reduction = Math.Min(incomingDamage, safeHardness);
+            int shieldSelfDamage = Math.Max(0, incomingDamage - safeHardness);
+            return new ShieldBlockResult(reduction, shieldSelfDamage);
+        }
     }
 }

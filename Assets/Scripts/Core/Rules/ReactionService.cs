@@ -74,8 +74,7 @@ namespace PF2e.Core
             if (!entity.ReactionAvailable)
                 return false;
 
-            var shield = entity.EquippedShield;
-            if (!shield.IsEquipped || shield.IsBroken || !shield.isRaised)
+            if (!entity.CanShieldBlock)
                 return false;
 
             return true;

@@ -85,6 +85,23 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void BuildForActor_GlassShieldCantripAvailable_EnablesRaiseShieldSlot()
+        {
+            var policy = new ActionBarAvailabilityPolicy();
+            var actor = new EntityData
+            {
+                Team = Team.Player,
+                CurrentHP = 10,
+                MaxHP = 10,
+                KnowsGlassShieldCantrip = true,
+                GlassShieldCooldownRoundsRemaining = 0
+            };
+
+            var state = policy.BuildForActor(actor);
+            Assert.IsTrue(state.raiseShieldInteractable);
+        }
+
+        [Test]
         public void TryEvaluate_NullDependencies_ReturnsFalse()
         {
             var policy = new ActionBarAvailabilityPolicy();

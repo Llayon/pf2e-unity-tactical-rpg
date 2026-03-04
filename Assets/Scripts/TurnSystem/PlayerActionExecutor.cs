@@ -31,6 +31,7 @@ namespace PF2e.TurnSystem
         [SerializeField] private DemoralizeAction demoralizeAction;
         [SerializeField] private AidAction aidAction;
         [SerializeField] private RaiseShieldAction raiseShieldAction;
+        [SerializeField] private GlassShieldAction glassShieldAction;
         [SerializeField] private ShieldBlockAction shieldBlockAction;
         [SerializeField] private ReactionPromptController reactionPromptController;
 
@@ -63,6 +64,7 @@ namespace PF2e.TurnSystem
             if (demoralizeAction == null) Debug.LogWarning("[Executor] Missing DemoralizeAction", this);
             if (aidAction == null) Debug.LogWarning("[Executor] Missing AidAction", this);
             if (raiseShieldAction == null) Debug.LogWarning("[Executor] Missing RaiseShieldAction", this);
+            if (glassShieldAction == null) Debug.LogWarning("[Executor] Missing GlassShieldAction", this);
             if (shieldBlockAction == null) Debug.LogWarning("[Executor] Missing ShieldBlockAction", this);
             if (reactionPromptController == null) Debug.LogWarning("[Executor] Missing ReactionPromptController", this);
         }
@@ -100,11 +102,19 @@ namespace PF2e.TurnSystem
                     readyStrikeAction = gameObject.AddComponent<ReadyStrikeAction>();
             }
 
+            if (glassShieldAction == null)
+            {
+                glassShieldAction = GetComponent<GlassShieldAction>();
+                if (glassShieldAction == null && entityManager != null)
+                    glassShieldAction = gameObject.AddComponent<GlassShieldAction>();
+            }
+
             if (eventBus == null)
                 eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
 
             aidAction?.InjectDependencies(entityManager, eventBus);
             readyStrikeAction?.InjectDependencies(turnManager, entityManager, strikeAction, eventBus);
+            glassShieldAction?.InjectDependencies(entityManager, eventBus);
         }
 
         public bool HasPendingRepositionSelection => hasPendingRepositionSelection;
@@ -702,19 +712,25 @@ namespace PF2e.TurnSystem
 
         public bool TryExecuteRaiseShield()
         {
-            if (turnManager == null || entityManager == null || raiseShieldAction == null) return false;
+            if (turnManager == null || entityManager == null) return false;
             if (!CanActNow()) return false;
 
             var actor = turnManager.CurrentEntity;
-            if (!raiseShieldAction.CanRaiseShield(actor)) return false;
+            bool canRaisePhysicalShield = raiseShieldAction != null && raiseShieldAction.CanRaiseShield(actor);
+            bool canCastGlassShield = glassShieldAction != null && glassShieldAction.CanCastGlassShield(actor);
+            if (!canRaisePhysicalShield && !canCastGlassShield) return false;
 
             executingActor = actor;
-            turnManager.BeginActionExecution(actor, "Player.RaiseShield");
+            turnManager.BeginActionExecution(
+                actor,
+                canRaisePhysicalShield ? "Player.RaiseShield" : "Player.GlassShield");
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             executionStartTime = Time.time;
 #endif
 
-            bool raised = raiseShieldAction.TryRaiseShield(actor);
+            bool raised = canRaisePhysicalShield
+                ? raiseShieldAction.TryRaiseShield(actor)
+                : glassShieldAction.TryCastGlassShield(actor);
             if (!raised)
             {
                 executingActor = EntityHandle.None;

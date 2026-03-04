@@ -275,14 +275,17 @@ namespace PF2e.TurnSystem
             ShieldBlockAction shieldBlockAction,
             string ownerTag)
         {
-            var result = ShieldBlockRules.Calculate(reactorData.EquippedShield, incomingDamage);
+            var result = reactorData.CalculateShieldBlockResult(incomingDamage, out var source);
+            if (source == ShieldBlockSource.None)
+                return 0;
+
             if (shieldBlockAction == null)
             {
                 Debug.LogWarning($"[{ownerTag}] ShieldBlockAction is missing. Skipping Shield Block reaction.");
                 return 0;
             }
 
-            return shieldBlockAction.Execute(reactor, incomingDamage, in result)
+            return shieldBlockAction.Execute(reactor, incomingDamage, in result, source)
                 ? result.targetDamageReduction
                 : 0;
         }

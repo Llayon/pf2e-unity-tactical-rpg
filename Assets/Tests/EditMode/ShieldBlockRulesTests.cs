@@ -83,7 +83,7 @@ namespace PF2e.Tests
         [Test]
         public void Calculate_UnequippedShield_ReturnsZeroes()
         {
-            var result = ShieldBlockRules.Calculate(default, incomingDamage: 10);
+            var result = ShieldBlockRules.Calculate(default(ShieldInstance), incomingDamage: 10);
             Assert.AreEqual(0, result.targetDamageReduction);
             Assert.AreEqual(0, result.shieldSelfDamage);
         }
