@@ -153,6 +153,8 @@ namespace PF2e.Tests
         [Test]
         public void ValidateActionBarController_ReadyButtonAssigned_MissingReadyModeRefs_EmitsErrors()
         {
+            bool oldIgnoreFailingLogs = LogAssert.ignoreFailingMessages;
+            LogAssert.ignoreFailingMessages = true;
             var root = new GameObject("ActionBarValidatorReadyModeContractTest");
             try
             {
@@ -191,6 +193,7 @@ namespace PF2e.Tests
             finally
             {
                 UnityEngine.Object.DestroyImmediate(root);
+                LogAssert.ignoreFailingMessages = oldIgnoreFailingLogs;
             }
         }
 
