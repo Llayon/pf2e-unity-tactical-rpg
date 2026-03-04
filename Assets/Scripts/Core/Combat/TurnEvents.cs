@@ -74,4 +74,16 @@ namespace PF2e.Core
             this.order = order;
         }
     }
+
+    public readonly struct ReadyTriggerModeChangedEvent
+    {
+        public readonly EntityHandle actor;
+        public readonly ReadyTriggerMode mode;
+
+        public ReadyTriggerModeChangedEvent(EntityHandle actor, ReadyTriggerMode mode)
+        {
+            this.actor = actor;
+            this.mode = mode;
+        }
+    }
 }

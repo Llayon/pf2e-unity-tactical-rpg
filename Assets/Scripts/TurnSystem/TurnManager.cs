@@ -321,22 +321,35 @@ namespace PF2e.TurnSystem
 
         public ReadyTriggerMode CycleReadyTriggerMode()
         {
-            readyTriggerMode = readyTriggerMode switch
+            var nextMode = readyTriggerMode switch
             {
                 ReadyTriggerMode.Movement => ReadyTriggerMode.Attack,
                 ReadyTriggerMode.Attack => ReadyTriggerMode.Any,
                 _ => ReadyTriggerMode.Movement
             };
 
-            if (CurrentEntity.IsValid)
+            SetReadyTriggerMode(nextMode);
+            return readyTriggerMode;
+        }
+
+        public bool SetReadyTriggerMode(ReadyTriggerMode mode)
+        {
+            if (readyTriggerMode == mode)
+                return false;
+
+            readyTriggerMode = mode;
+
+            var actor = CurrentEntity;
+            if (actor.IsValid)
             {
                 eventBus?.Publish(
-                    CurrentEntity,
+                    actor,
                     $"ready trigger mode set to {readyTriggerMode.ToShortToken()}.",
                     CombatLogCategory.Turn);
             }
 
-            return readyTriggerMode;
+            PublishReadyTriggerModeChanged(actor, readyTriggerMode);
+            return true;
         }
 
         public bool TryPrepareReadiedStrike(
@@ -1383,6 +1396,11 @@ namespace PF2e.TurnSystem
         private void PublishDelayedTurnExpired(EntityHandle actor, EntityHandle afterActor)
         {
             eventBus?.PublishDelayedTurnExpired(actor, afterActor);
+        }
+
+        private void PublishReadyTriggerModeChanged(EntityHandle actor, ReadyTriggerMode mode)
+        {
+            eventBus?.PublishReadyTriggerModeChanged(actor, mode);
         }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD

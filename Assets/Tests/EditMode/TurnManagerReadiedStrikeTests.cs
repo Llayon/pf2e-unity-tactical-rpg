@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
@@ -22,6 +23,82 @@ namespace PF2e.Tests
             Assert.AreEqual(ReadyTriggerMode.Movement, ctx.TurnManager.CycleReadyTriggerMode());
             Assert.AreEqual(ReadyTriggerMode.Attack, ctx.TurnManager.CycleReadyTriggerMode());
             Assert.AreEqual(ReadyTriggerMode.Any, ctx.TurnManager.CycleReadyTriggerMode());
+        }
+
+        [Test]
+        public void SetReadyTriggerMode_Changed_PublishesTypedEvent()
+        {
+            using var ctx = new ReadyStrikeContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(0, 0, 0));
+            var actorData = ctx.Registry.Get(actor);
+            Assert.IsNotNull(actorData);
+
+            SetPrivateField(
+                ctx.TurnManager,
+                "initiativeOrder",
+                new List<InitiativeEntry>
+                {
+                    new InitiativeEntry
+                    {
+                        Handle = actor,
+                        Roll = new CheckRoll(10, actorData.PerceptionModifier, CheckSource.Perception()),
+                        IsPlayer = true
+                    }
+                });
+            SetPrivateField(ctx.TurnManager, "currentIndex", 0);
+
+            bool raised = false;
+            EntityHandle raisedActor = default;
+            ReadyTriggerMode raisedMode = ReadyTriggerMode.Any;
+            ctx.EventBus.OnReadyTriggerModeChangedTyped += HandleModeChanged;
+
+            try
+            {
+                bool changed = ctx.TurnManager.SetReadyTriggerMode(ReadyTriggerMode.Attack);
+
+                Assert.IsTrue(changed);
+                Assert.IsTrue(raised);
+                Assert.AreEqual(actor, raisedActor);
+                Assert.AreEqual(ReadyTriggerMode.Attack, raisedMode);
+            }
+            finally
+            {
+                ctx.EventBus.OnReadyTriggerModeChangedTyped -= HandleModeChanged;
+            }
+
+            void HandleModeChanged(in ReadyTriggerModeChangedEvent e)
+            {
+                raised = true;
+                raisedActor = e.actor;
+                raisedMode = e.mode;
+            }
+        }
+
+        [Test]
+        public void SetReadyTriggerMode_SameMode_ReturnsFalseAndDoesNotPublishEvent()
+        {
+            using var ctx = new ReadyStrikeContext();
+
+            bool raised = false;
+            ctx.EventBus.OnReadyTriggerModeChangedTyped += HandleModeChanged;
+
+            try
+            {
+                bool changed = ctx.TurnManager.SetReadyTriggerMode(ReadyTriggerMode.Any);
+
+                Assert.IsFalse(changed);
+                Assert.IsFalse(raised);
+            }
+            finally
+            {
+                ctx.EventBus.OnReadyTriggerModeChangedTyped -= HandleModeChanged;
+            }
+
+            void HandleModeChanged(in ReadyTriggerModeChangedEvent e)
+            {
+                _ = e;
+                raised = true;
+            }
         }
 
         [Test]

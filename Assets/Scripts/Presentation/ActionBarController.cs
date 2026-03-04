@@ -33,6 +33,10 @@ namespace PF2e.Presentation
         [SerializeField] private Button aidButton;
         [SerializeField] private Button readyButton;
         [SerializeField] private TMP_Text readyButtonLabel;
+        [SerializeField] private RectTransform readyModeSelectorRoot;
+        [SerializeField] private Button readyModeMoveButton;
+        [SerializeField] private Button readyModeAttackButton;
+        [SerializeField] private Button readyModeAnyButton;
         [SerializeField] private Button raiseShieldButton;
         [SerializeField] private Button standButton;
         [SerializeField] private Button delayButton;
@@ -59,6 +63,14 @@ namespace PF2e.Presentation
         [SerializeField] private Color aidPreparedIndicatorLabelColor = Color.black;
         [SerializeField] private string aidPreparedSingleText = string.Empty;
         [SerializeField] private string aidPreparedCountFormat = "{0}";
+        [SerializeField] private Color readyModeSelectedColor = new Color(0.95f, 0.78f, 0.18f, 0.95f);
+        [SerializeField] private Color readyModeUnselectedColor = new Color(0.18f, 0.23f, 0.30f, 0.92f);
+        [SerializeField] private Color readyModeTextColor = new Color(0.92f, 0.92f, 0.95f, 1f);
+
+        private const string ReadyModeSelectorName = "ReadyModeSelector";
+        private const string ReadyModeMoveButtonName = "ReadyModeMoveButton";
+        private const string ReadyModeAttackButtonName = "ReadyModeAttackButton";
+        private const string ReadyModeAnyButtonName = "ReadyModeAnyButton";
 
         private bool buttonListenersBound;
         private bool delayEventsSubscribedInternally;
@@ -100,6 +112,8 @@ namespace PF2e.Presentation
             SetCombatVisible(false);
             SetAllInteractable(false);
             ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
+            SetReadyModeButtonsInteractable(false);
+            RefreshReadyModeButtonsVisual();
             RefreshReadyButtonLabel();
             ClearAllHighlights();
         }
@@ -149,6 +163,8 @@ namespace PF2e.Presentation
             if (readyButtonLabel == null && readyButton != null)
                 readyButtonLabel = readyButton.GetComponentInChildren<TMP_Text>(true);
 
+            ResolveReadyModeSelectorReferences();
+
             aidPreparedIndicatorPresenter.Clear();
             RefreshAidPreparedIndicator();
         }
@@ -161,6 +177,138 @@ namespace PF2e.Presentation
                 ref aidPreparedIndicatorLabel,
                 aidPreparedIndicatorFillColor,
                 aidPreparedIndicatorLabelColor);
+        }
+
+        private void ResolveReadyModeSelectorReferences()
+        {
+            if (readyButton == null)
+                return;
+
+            if (readyModeSelectorRoot == null)
+            {
+                var existingRoot = readyButton.transform.Find(ReadyModeSelectorName);
+                if (existingRoot != null)
+                    readyModeSelectorRoot = existingRoot as RectTransform;
+            }
+
+            if (readyModeSelectorRoot == null)
+                readyModeSelectorRoot = CreateReadyModeSelectorRoot(readyButton.transform);
+
+            if (readyModeSelectorRoot == null)
+                return;
+
+            if (readyModeMoveButton == null)
+            {
+                var existing = readyModeSelectorRoot.Find(ReadyModeMoveButtonName);
+                if (existing != null)
+                    readyModeMoveButton = existing.GetComponent<Button>();
+            }
+            if (readyModeAttackButton == null)
+            {
+                var existing = readyModeSelectorRoot.Find(ReadyModeAttackButtonName);
+                if (existing != null)
+                    readyModeAttackButton = existing.GetComponent<Button>();
+            }
+            if (readyModeAnyButton == null)
+            {
+                var existing = readyModeSelectorRoot.Find(ReadyModeAnyButtonName);
+                if (existing != null)
+                    readyModeAnyButton = existing.GetComponent<Button>();
+            }
+
+            if (readyModeMoveButton == null)
+                readyModeMoveButton = CreateReadyModeButton(readyModeSelectorRoot, ReadyModeMoveButtonName, "M");
+            if (readyModeAttackButton == null)
+                readyModeAttackButton = CreateReadyModeButton(readyModeSelectorRoot, ReadyModeAttackButtonName, "A");
+            if (readyModeAnyButton == null)
+                readyModeAnyButton = CreateReadyModeButton(readyModeSelectorRoot, ReadyModeAnyButtonName, "*");
+        }
+
+        private RectTransform CreateReadyModeSelectorRoot(Transform parent)
+        {
+            if (parent == null)
+                return null;
+
+            var root = new GameObject(
+                ReadyModeSelectorName,
+                typeof(RectTransform),
+                typeof(HorizontalLayoutGroup));
+            root.transform.SetParent(parent, false);
+
+            var rect = root.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 1f);
+            rect.anchorMax = new Vector2(0.5f, 1f);
+            rect.pivot = new Vector2(0.5f, 0f);
+            rect.anchoredPosition = new Vector2(0f, 3f);
+            rect.sizeDelta = new Vector2(96f, 16f);
+
+            var layout = root.GetComponent<HorizontalLayoutGroup>();
+            layout.spacing = 2f;
+            layout.padding = new RectOffset(0, 0, 0, 0);
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = false;
+            layout.childControlHeight = false;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+
+            return rect;
+        }
+
+        private Button CreateReadyModeButton(Transform parent, string objectName, string labelText)
+        {
+            if (parent == null)
+                return null;
+
+            var buttonGo = new GameObject(
+                objectName,
+                typeof(RectTransform),
+                typeof(Image),
+                typeof(Button),
+                typeof(LayoutElement));
+            buttonGo.transform.SetParent(parent, false);
+
+            var rect = buttonGo.GetComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(30f, 16f);
+
+            var layout = buttonGo.GetComponent<LayoutElement>();
+            layout.preferredWidth = 30f;
+            layout.preferredHeight = 16f;
+            layout.minWidth = 28f;
+            layout.minHeight = 16f;
+
+            var image = buttonGo.GetComponent<Image>();
+            image.color = readyModeUnselectedColor;
+
+            var button = buttonGo.GetComponent<Button>();
+            button.transition = Selectable.Transition.ColorTint;
+            var colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1.15f, 1.15f, 1.15f, 1f);
+            colors.pressedColor = new Color(0.9f, 0.9f, 0.9f, 1f);
+            colors.disabledColor = new Color(1f, 1f, 1f, 0.45f);
+            colors.fadeDuration = 0.06f;
+            button.colors = colors;
+
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+            labelGo.transform.SetParent(buttonGo.transform, false);
+            var labelRect = labelGo.GetComponent<RectTransform>();
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = Vector2.one;
+            labelRect.offsetMin = Vector2.zero;
+            labelRect.offsetMax = Vector2.zero;
+
+            var label = labelGo.GetComponent<TextMeshProUGUI>();
+            label.text = labelText;
+            label.fontSize = 10f;
+            label.alignment = TextAlignmentOptions.Center;
+            label.color = readyModeTextColor;
+            label.textWrappingMode = TextWrappingModes.NoWrap;
+            if (readyButtonLabel != null && readyButtonLabel.font != null)
+                label.font = readyButtonLabel.font;
+            else if (TMP_Settings.defaultFontAsset != null)
+                label.font = TMP_Settings.defaultFontAsset;
+
+            return button;
         }
 
         private void OnEnable()
@@ -211,6 +359,9 @@ namespace PF2e.Presentation
             boundCount += BindButton(escapeButton, actionBarCommandCoordinator.OnEscapeClicked);
             boundCount += BindButton(aidButton, actionBarCommandCoordinator.OnAidClicked);
             boundCount += BindButton(readyButton, actionBarCommandCoordinator.OnReadyClicked);
+            boundCount += BindButton(readyModeMoveButton, actionBarCommandCoordinator.OnReadyModeMoveClicked);
+            boundCount += BindButton(readyModeAttackButton, actionBarCommandCoordinator.OnReadyModeAttackClicked);
+            boundCount += BindButton(readyModeAnyButton, actionBarCommandCoordinator.OnReadyModeAnyClicked);
             boundCount += BindButton(raiseShieldButton, actionBarCommandCoordinator.OnRaiseShieldClicked);
             boundCount += BindButton(standButton, actionBarCommandCoordinator.OnStandClicked);
             boundCount += BindButton(delayButton, actionBarCommandCoordinator.OnDelayClicked);
@@ -239,6 +390,7 @@ namespace PF2e.Presentation
             eventBus.OnShieldRaisedTyped += HandleShieldRaised;
             eventBus.OnAidPreparedTyped += HandleAidPrepared;
             eventBus.OnAidClearedTyped += HandleAidCleared;
+            eventBus.OnReadyTriggerModeChangedTyped += HandleReadyTriggerModeChanged;
         }
 
         private void UnsubscribeCoreEvents()
@@ -252,6 +404,7 @@ namespace PF2e.Presentation
             eventBus.OnShieldRaisedTyped -= HandleShieldRaised;
             eventBus.OnAidPreparedTyped -= HandleAidPrepared;
             eventBus.OnAidClearedTyped -= HandleAidCleared;
+            eventBus.OnReadyTriggerModeChangedTyped -= HandleReadyTriggerModeChanged;
         }
 
         private void SubscribeDelayEventsIfNeeded()
@@ -302,6 +455,8 @@ namespace PF2e.Presentation
             SetCombatVisible(false);
             SetAllInteractable(false);
             ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
+            SetReadyModeButtonsInteractable(false);
+            RefreshReadyModeButtonsVisual();
             RefreshReadyButtonLabel();
             ClearAllHighlights();
             aidPreparedIndicatorPresenter.Clear();
@@ -320,6 +475,8 @@ namespace PF2e.Presentation
 
             SetAllInteractable(false);
             ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
+            SetReadyModeButtonsInteractable(false);
+            RefreshReadyModeButtonsVisual();
             ClearAllHighlights();
         }
 
@@ -347,6 +504,12 @@ namespace PF2e.Presentation
         private void HandleAidCleared(in AidClearedEvent e)
         {
             aidPreparedIndicatorPresenter.HandleAidCleared(in e);
+            RefreshAvailability();
+        }
+
+        private void HandleReadyTriggerModeChanged(in ReadyTriggerModeChangedEvent e)
+        {
+            _ = e;
             RefreshAvailability();
         }
 
@@ -414,6 +577,8 @@ namespace PF2e.Presentation
                 SetAllInteractable(false);
                 ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
                 aidPreparedIndicatorPresenter.Clear();
+                SetReadyModeButtonsInteractable(false);
+                RefreshReadyModeButtonsVisual();
                 RefreshAidPreparedIndicator();
                 return;
             }
@@ -424,6 +589,8 @@ namespace PF2e.Presentation
 
                 bool canReturnNow = turnManager.TryGetFirstDelayedPlayerActor(out _);
                 ApplyDelayControls(delayActionBarStatePresenter.BuildReturnWindowState(canReturnNow));
+                SetReadyModeButtonsInteractable(false);
+                RefreshReadyModeButtonsVisual();
                 RefreshReadyButtonLabel();
                 RefreshAidPreparedIndicator();
                 return;
@@ -433,6 +600,8 @@ namespace PF2e.Presentation
             {
                 SetAllInteractable(false);
                 ApplyDelayControls(delayActionBarStatePresenter.BuildPlacementSelectionState());
+                SetReadyModeButtonsInteractable(false);
+                RefreshReadyModeButtonsVisual();
                 RefreshReadyButtonLabel();
                 RefreshAidPreparedIndicator();
                 return;
@@ -446,6 +615,8 @@ namespace PF2e.Presentation
             {
                 SetAllInteractable(false);
                 ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
+                SetReadyModeButtonsInteractable(false);
+                RefreshReadyModeButtonsVisual();
                 RefreshReadyButtonLabel();
                 RefreshAidPreparedIndicator();
                 return;
@@ -453,6 +624,18 @@ namespace PF2e.Presentation
 
             ApplyActionAvailability(in availability);
             ApplyDelayControls(delayActionBarStatePresenter.BuildNormalState(turnManager.CanDelayCurrentTurn()));
+
+            var actor = turnManager.CurrentEntity;
+            bool canAdjustReadyMode =
+                actor.IsValid &&
+                turnManager.IsPlayerTurn &&
+                !actionExecutor.IsBusy &&
+                !turnManager.IsDelayPlacementSelectionOpen &&
+                !turnManager.IsDelayReturnWindowOpen &&
+                !turnManager.HasReadiedStrike(actor);
+            SetReadyModeButtonsInteractable(canAdjustReadyMode);
+            RefreshReadyModeButtonsVisual();
+
             RefreshReadyButtonLabel();
             RefreshAidPreparedIndicator();
         }
@@ -477,6 +660,9 @@ namespace PF2e.Presentation
             SetInteractable(escapeButton, enabled);
             SetInteractable(aidButton, enabled);
             SetInteractable(readyButton, enabled);
+            SetInteractable(readyModeMoveButton, enabled);
+            SetInteractable(readyModeAttackButton, enabled);
+            SetInteractable(readyModeAnyButton, enabled);
             SetInteractable(raiseShieldButton, enabled);
             SetInteractable(standButton, enabled);
         }
@@ -551,6 +737,38 @@ namespace PF2e.Presentation
 
             var mode = turnManager != null ? turnManager.CurrentReadyTriggerMode : ReadyTriggerMode.Any;
             readyButtonLabel.text = $"Ready [{mode.ToShortToken()}]";
+        }
+
+        private void SetReadyModeButtonsInteractable(bool enabled)
+        {
+            if (readyModeSelectorRoot != null)
+                readyModeSelectorRoot.gameObject.SetActive(readyButton != null && readyButton.gameObject.activeInHierarchy);
+
+            SetInteractable(readyModeMoveButton, enabled);
+            SetInteractable(readyModeAttackButton, enabled);
+            SetInteractable(readyModeAnyButton, enabled);
+        }
+
+        private void RefreshReadyModeButtonsVisual()
+        {
+            var mode = turnManager != null ? turnManager.CurrentReadyTriggerMode : ReadyTriggerMode.Any;
+            ApplyReadyModeButtonVisual(readyModeMoveButton, mode == ReadyTriggerMode.Movement);
+            ApplyReadyModeButtonVisual(readyModeAttackButton, mode == ReadyTriggerMode.Attack);
+            ApplyReadyModeButtonVisual(readyModeAnyButton, mode == ReadyTriggerMode.Any);
+        }
+
+        private void ApplyReadyModeButtonVisual(Button button, bool selected)
+        {
+            if (button == null)
+                return;
+
+            var image = button.GetComponent<Image>();
+            if (image != null)
+                image.color = selected ? readyModeSelectedColor : readyModeUnselectedColor;
+
+            var label = button.GetComponentInChildren<TMP_Text>(true);
+            if (label != null)
+                label.color = selected ? Color.black : readyModeTextColor;
         }
 
         private static bool IsExternalDelayOrchestratorPresent()

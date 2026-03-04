@@ -85,6 +85,33 @@ namespace PF2e.Presentation
             actionExecutor.TryExecuteReadyStrike();
         }
 
+        public void OnReadyModeMoveClicked()
+        {
+            if (turnManager == null)
+                return;
+
+            if (turnManager.SetReadyTriggerMode(ReadyTriggerMode.Movement))
+                refreshAvailability?.Invoke();
+        }
+
+        public void OnReadyModeAttackClicked()
+        {
+            if (turnManager == null)
+                return;
+
+            if (turnManager.SetReadyTriggerMode(ReadyTriggerMode.Attack))
+                refreshAvailability?.Invoke();
+        }
+
+        public void OnReadyModeAnyClicked()
+        {
+            if (turnManager == null)
+                return;
+
+            if (turnManager.SetReadyTriggerMode(ReadyTriggerMode.Any))
+                refreshAvailability?.Invoke();
+        }
+
         public void OnRaiseShieldClicked()
         {
             if (actionExecutor == null)

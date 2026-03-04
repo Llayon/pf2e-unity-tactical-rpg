@@ -54,6 +54,7 @@ namespace PF2e.Core
         public delegate void DelayedTurnEnteredHandler(in DelayedTurnEnteredEvent e);
         public delegate void DelayedTurnResumedHandler(in DelayedTurnResumedEvent e);
         public delegate void DelayedTurnExpiredHandler(in DelayedTurnExpiredEvent e);
+        public delegate void ReadyTriggerModeChangedHandler(in ReadyTriggerModeChangedEvent e);
 
         public event Action<CombatLogEntry> OnLogEntry;
         public event StrikePreDamageHandler OnStrikePreDamageTyped;
@@ -73,6 +74,7 @@ namespace PF2e.Core
         public event DelayedTurnEnteredHandler OnDelayedTurnEnteredTyped;
         public event DelayedTurnResumedHandler OnDelayedTurnResumedTyped;
         public event DelayedTurnExpiredHandler OnDelayedTurnExpiredTyped;
+        public event ReadyTriggerModeChangedHandler OnReadyTriggerModeChangedTyped;
 
         public void Publish(CombatLogEntry entry)
         {
@@ -265,6 +267,12 @@ namespace PF2e.Core
         {
             var e = new DelayedTurnExpiredEvent(actor, afterActor);
             OnDelayedTurnExpiredTyped?.Invoke(in e);
+        }
+
+        public void PublishReadyTriggerModeChanged(EntityHandle actor, PF2e.TurnSystem.ReadyTriggerMode mode)
+        {
+            var e = new ReadyTriggerModeChangedEvent(actor, mode);
+            OnReadyTriggerModeChangedTyped?.Invoke(in e);
         }
         #endregion
 

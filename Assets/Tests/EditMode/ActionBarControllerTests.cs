@@ -71,6 +71,63 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void RefreshAvailability_PlayerTurn_WithActions_ReadyModeButtonsEnabled()
+        {
+            using var ctx = new ActionBarTestContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
+            ctx.AddActorToInitiativeOrder(ctx.RegisterEntity("Goblin", Team.Enemy));
+            ctx.SetDelayTurnBeginTriggerOpen(true);
+
+            ctx.RefreshAvailability();
+
+            Assert.IsNotNull(ctx.ReadyModeMoveButton, "Ready mode Move button must be created/resolved.");
+            Assert.IsNotNull(ctx.ReadyModeAttackButton, "Ready mode Attack button must be created/resolved.");
+            Assert.IsNotNull(ctx.ReadyModeAnyButton, "Ready mode Any button must be created/resolved.");
+            Assert.IsTrue(ctx.ReadyModeMoveButton.interactable);
+            Assert.IsTrue(ctx.ReadyModeAttackButton.interactable);
+            Assert.IsTrue(ctx.ReadyModeAnyButton.interactable);
+        }
+
+        [Test]
+        public void ReadyModeAttackButton_Click_UpdatesTurnManagerMode()
+        {
+            using var ctx = new ActionBarTestContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
+            ctx.AddActorToInitiativeOrder(ctx.RegisterEntity("Goblin", Team.Enemy));
+            ctx.SetDelayTurnBeginTriggerOpen(true);
+            ctx.RefreshAvailability();
+
+            Assert.AreEqual(ReadyTriggerMode.Any, ctx.TurnManager.CurrentReadyTriggerMode);
+
+            ctx.ReadyModeAttackButton.onClick.Invoke();
+
+            Assert.AreEqual(ReadyTriggerMode.Attack, ctx.TurnManager.CurrentReadyTriggerMode);
+        }
+
+        [Test]
+        public void RefreshAvailability_ReadiedStrikeAlreadyPrepared_DisablesReadyModeButtons()
+        {
+            using var ctx = new ActionBarTestContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
+            ctx.AddActorToInitiativeOrder(ctx.RegisterEntity("Goblin", Team.Enemy));
+            ctx.SetDelayTurnBeginTriggerOpen(true);
+
+            var actorData = ctx.Registry.Get(actor);
+            Assert.IsNotNull(actorData);
+            actorData.ReactionAvailable = true;
+            Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(actor, preparedRound: 1));
+
+            ctx.RefreshAvailability();
+
+            Assert.IsFalse(ctx.ReadyModeMoveButton.interactable);
+            Assert.IsFalse(ctx.ReadyModeAttackButton.interactable);
+            Assert.IsFalse(ctx.ReadyModeAnyButton.interactable);
+        }
+
+        [Test]
         public void RefreshAvailability_NotPlayerTurn_DisablesAll()
         {
             using var ctx = new ActionBarTestContext();
@@ -468,6 +525,9 @@ namespace PF2e.Tests
             public Button EscapeButton { get; }
             public Button AidButton { get; }
             public Button ReadyButton { get; }
+            public Button ReadyModeMoveButton { get; private set; }
+            public Button ReadyModeAttackButton { get; private set; }
+            public Button ReadyModeAnyButton { get; private set; }
             public Button RaiseShieldButton { get; }
             public Button StandButton { get; }
             public Button DelayButton { get; }
@@ -593,6 +653,7 @@ namespace PF2e.Tests
                 SetPrivateField(ActionBar, "raiseShieldHighlight", RaiseShieldHighlight);
                 SetPrivateField(ActionBar, "standHighlight", StandHighlight);
                 SetPrivateField(ActionBar, "aidPreparedIndicatorRoot", AidPreparedIndicatorRoot);
+                InvokePrivate(ActionBar, "ResolveOptionalAidUiReferences");
 
                 Root.SetActive(true);
                 targetingGo.SetActive(true);
@@ -602,6 +663,10 @@ namespace PF2e.Tests
                 // Call OnEnable explicitly to guarantee subscriptions for deterministic tests.
                 InvokePrivate(TargetingController, "OnEnable");
                 InvokePrivate(ActionBar, "OnEnable");
+
+                ReadyModeMoveButton = GetPrivateField<Button>(ActionBar, "readyModeMoveButton");
+                ReadyModeAttackButton = GetPrivateField<Button>(ActionBar, "readyModeAttackButton");
+                ReadyModeAnyButton = GetPrivateField<Button>(ActionBar, "readyModeAnyButton");
 
                 Assert.IsTrue(TargetingController.isActiveAndEnabled, "TargetingController failed to enable in test context.");
                 Assert.IsTrue(ActionBar.isActiveAndEnabled, "ActionBarController failed to enable in test context.");
@@ -795,6 +860,9 @@ namespace PF2e.Tests
                 Assert.IsFalse(EscapeButton.interactable);
                 Assert.IsFalse(AidButton.interactable);
                 Assert.IsFalse(ReadyButton.interactable);
+                Assert.IsFalse(ReadyModeMoveButton.interactable);
+                Assert.IsFalse(ReadyModeAttackButton.interactable);
+                Assert.IsFalse(ReadyModeAnyButton.interactable);
                 Assert.IsFalse(RaiseShieldButton.interactable);
                 Assert.IsFalse(StandButton.interactable);
                 Assert.IsFalse(DelayButton.interactable);
