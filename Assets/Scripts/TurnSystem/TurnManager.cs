@@ -1213,7 +1213,7 @@ namespace PF2e.TurnSystem
             var binder = GetComponent<ReadyStrikeEventBinder>();
             if (binder == null)
             {
-                Debug.LogError(
+                Debug.LogWarning(
                     "[TurnManager] ReadyStrikeEventBinder is missing. Run scene AutoFix to create/wire binder.",
                     this);
                 return;
