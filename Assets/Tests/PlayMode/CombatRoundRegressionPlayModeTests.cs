@@ -997,6 +997,109 @@ namespace PF2e.Tests
         }
 
         [UnityTest]
+        public IEnumerator GT_P34_PM_423_GlassShieldShards_PlayerBreakerNever_DoesNotShieldBlock()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+
+            BoostAllCombatantsHP(200);
+
+            // Deterministic initiative: fighter first for direct player strike setup.
+            fighter.Wisdom = 5000;
+            wizard.Wisdom = -3000;
+            goblin1.Wisdom = -4000;
+            goblin2.Wisdom = -5000;
+
+            fighter.Strength = 5000; // reliable hit
+            wizard.Dexterity = 1;    // low AC
+
+            // Convert wizard to enemy for player strike target.
+            wizard.Team = Team.Enemy;
+
+            MoveEntityToCell(goblin1, FindFarthestAvailableCell(fighter.GridPosition, goblin1.Handle, minDistFeet: 20));
+            MoveEntityToCell(goblin2, FindFarthestAvailableCell(fighter.GridPosition, goblin2.Handle, minDistFeet: 20));
+            MoveEntityToCell(
+                wizard,
+                FindAvailableAdjacentCell(fighter.GridPosition, wizard.Handle, blockedCell: goblin1.GridPosition));
+
+            // Pre-cast Glass Shield for target wizard.
+            wizard.KnowsGlassShieldCantrip = true;
+            wizard.EquippedShield = default;
+            wizard.GlassShieldCooldownRoundsRemaining = 0;
+            wizard.Level = 20;
+            wizard.Intelligence = 30;
+            wizard.ShieldBlockPreference = ReactionPreference.AutoBlock;
+            wizard.ReactionAvailable = true;
+            Assert.IsTrue(
+                wizard.ActivateGlassShield(
+                    acBonus: GlassShieldAction.BaseAcBonus,
+                    hardness: GlassShieldAction.ComputeHardnessForLevel(wizard.Level),
+                    maxHP: GlassShieldAction.BaseMaxHP),
+                "Wizard failed to activate Glass Shield in setup.");
+
+            // Breaker is a player with raised shield but Never preference.
+            Assert.IsTrue(fighter.EquippedShield.IsEquipped, "Fighter must have shield for Never-branch test.");
+            fighter.SetShieldRaised(true);
+            fighter.ReactionAvailable = true;
+            fighter.ShieldBlockPreference = ReactionPreference.Never;
+
+            int fighterHpBefore = fighter.CurrentHP;
+            bool wizardShieldBlockSeen = false;
+            bool fighterShieldBlockSeen = false;
+            int shardDamageAmount = 0;
+
+            void ShieldBlockResolvedHandler(in ShieldBlockResolvedEvent e)
+            {
+                if (e.reactor == wizard.Handle)
+                    wizardShieldBlockSeen = true;
+
+                if (e.reactor == fighter.Handle)
+                    fighterShieldBlockSeen = true;
+            }
+
+            void DamageAppliedHandler(in DamageAppliedEvent e)
+            {
+                if (e.sourceActionName != "Glass Shield (Shards)") return;
+                if (e.target != fighter.Handle) return;
+                shardDamageAmount += e.amount;
+            }
+
+            eventBus.OnShieldBlockResolvedTyped += ShieldBlockResolvedHandler;
+            eventBus.OnDamageAppliedTyped += DamageAppliedHandler;
+
+            try
+            {
+                turnManager.StartCombat();
+
+                yield return WaitUntilOrTimeout(
+                    () => turnManager.State == TurnState.PlayerTurn && turnManager.CurrentEntity == fighter.Handle,
+                    DefaultTimeoutSeconds,
+                    "Fighter did not become current player actor.");
+
+                bool started = playerActionExecutor.TryExecuteStrike(wizard.Handle);
+                Assert.IsTrue(started, "Fighter strike against wizard did not start.");
+
+                yield return WaitUntilOrTimeout(
+                    () => wizardShieldBlockSeen && shardDamageAmount > 0,
+                    DefaultTimeoutSeconds,
+                    "Did not observe wizard Glass Shield block and applied shard damage to breaker.");
+
+                Assert.IsTrue(wizardShieldBlockSeen, "Wizard should Shield Block with Glass Shield.");
+                Assert.IsFalse(fighterShieldBlockSeen, "Breaker with Never preference must not Shield Block shard damage.");
+                Assert.Greater(shardDamageAmount, 0, "Shard damage should be applied when breaker does not block.");
+                Assert.AreEqual(fighterHpBefore - shardDamageAmount, fighter.CurrentHP, "Breaker HP should decrease by applied shard damage.");
+                Assert.IsTrue(fighter.ReactionAvailable, "Never preference should leave breaker reaction unspent.");
+            }
+            finally
+            {
+                eventBus.OnShieldBlockResolvedTyped -= ShieldBlockResolvedHandler;
+                eventBus.OnDamageAppliedTyped -= DamageAppliedHandler;
+            }
+        }
+
+        [UnityTest]
         public IEnumerator GT_P29_PM_413_DelayPlanned_AutoResumesAfterAnchor_NoManualWindow()
         {
             var fighter = GetEntityByName("Fighter");
