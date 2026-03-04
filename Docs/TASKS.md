@@ -153,6 +153,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-147 | P1 | done | Builder | Phase 33r: enforce strict Ready UI wiring (remove remaining runtime fallback search) | Removed runtime fallback-search for `readyButton`/`readyButtonLabel`/`readyHighlight`; validator now requires full Ready wiring and autofix assigns `readyButtonLabel`; EditMode/PlayMode + CI green |
 | T-148 | P1 | done | Builder | Phase 33s: enforce strict Aid UI wiring and badge-label serialization | Aid refs (`aidButton`/`aidHighlight`/`aidPreparedIndicatorRoot`/`aidPreparedIndicatorLabel`) are validator-required; autofix now ensures `AidPreparedBadge/Label`; `SampleScene` serialized with `aidPreparedIndicatorLabel`; EditMode/PlayMode + CI green |
 | T-149 | P1 | done | Builder | Phase 33t: remove Aid UI legacy bootstrapper path | Deleted `AidActionBarUiBootstrapper` and its EditMode suite; removed ActionBar compat hook; runtime has no Aid UI bootstrap fallback; scene+validator are sole wiring sources; EditMode/PlayMode + CI green |
+| T-150 | P1 | done | Builder | Phase 34c: add generic incoming-damage Shield Block path and wire Trip crit damage | `ReactionBroker` now has reusable sync reduction API for generic incoming damage; `DamageApplicationService` accepts optional reaction context and applies Shield Block reduction before HP changes; `TripAction` now uses this path for crit damage when reaction dependencies are available; EditMode suite remains green (`642/642`) |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using PF2e.Core;
 using PF2e.Managers;
+using PF2e.Presentation;
 
 namespace PF2e.TurnSystem
 {
@@ -10,12 +11,17 @@ namespace PF2e.TurnSystem
         [Header("Dependencies (Inspector-only)")]
         [SerializeField] private EntityManager entityManager;
         [SerializeField] private CombatEventBus eventBus;
+        [SerializeField] private TurnManager turnManager;
+        [SerializeField] private ShieldBlockAction shieldBlockAction;
+        [SerializeField] private ReactionPromptController reactionPromptController;
 
         [Header("Rules")]
         [SerializeField] private bool requireSameElevation = true;
 
         private readonly ConditionService conditionService = new();
         private readonly List<ConditionDelta> conditionDeltaBuffer = new();
+        private readonly List<ReactionOption> reactionBuffer = new(2);
+        private IReactionDecisionPolicy reactionPolicy;
 
         public const int ActionCost = 1;
         private const string ActionName = "Trip";
@@ -25,8 +31,15 @@ namespace PF2e.TurnSystem
         {
             if (entityManager == null) Debug.LogError("[TripAction] Missing EntityManager", this);
             if (eventBus == null) Debug.LogWarning("[TripAction] Missing CombatEventBus", this);
+            if (turnManager == null) Debug.LogWarning("[TripAction] Missing TurnManager (generic damage reactions disabled).", this);
+            if (shieldBlockAction == null) Debug.LogWarning("[TripAction] Missing ShieldBlockAction (generic damage reactions disabled).", this);
         }
 #endif
+
+        private void Awake()
+        {
+            ResolveOptionalReferences();
+        }
 
         public TargetingFailureReason GetTripTargetFailure(EntityHandle actor, EntityHandle target)
         {
@@ -128,6 +141,8 @@ namespace PF2e.TurnSystem
         private void ApplyTripCritDamage(EntityHandle sourceHandle, EntityHandle targetHandle, IRng rng)
         {
             int damage = Mathf.Max(0, rng.RollDie(6));
+            bool canResolveReactions = turnManager != null && shieldBlockAction != null;
+
             DamageApplicationService.ApplyDamage(
                 sourceHandle,
                 targetHandle,
@@ -136,7 +151,50 @@ namespace PF2e.TurnSystem
                 ActionName,
                 isCritical: true,
                 entityManager,
-                eventBus);
+                eventBus,
+                initiativeOrder: canResolveReactions ? turnManager.InitiativeOrder : null,
+                getEntity: canResolveReactions ? ResolveEntity : null,
+                canUseReaction: canResolveReactions ? ResolveCanUseReaction : null,
+                reactionPolicy: canResolveReactions ? EnsureReactionPolicy() : null,
+                shieldBlockAction: canResolveReactions ? shieldBlockAction : null,
+                reactionBuffer: canResolveReactions ? reactionBuffer : null,
+                reactionPhase: ReactionTriggerPhase.PostHit,
+                reactionOwnerTag: "TripAction");
+        }
+
+        private void ResolveOptionalReferences()
+        {
+            if (turnManager == null)
+                turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();
+            if (shieldBlockAction == null)
+                shieldBlockAction = UnityEngine.Object.FindFirstObjectByType<ShieldBlockAction>();
+            if (reactionPromptController == null)
+                reactionPromptController = UnityEngine.Object.FindFirstObjectByType<ReactionPromptController>();
+        }
+
+        private EntityData ResolveEntity(EntityHandle handle)
+        {
+            return entityManager != null && entityManager.Registry != null
+                ? entityManager.Registry.Get(handle)
+                : null;
+        }
+
+        private bool ResolveCanUseReaction(EntityHandle handle)
+        {
+            if (turnManager != null)
+                return turnManager.CanUseReaction(handle);
+
+            var data = ResolveEntity(handle);
+            return data != null && data.IsAlive && data.ReactionAvailable;
+        }
+
+        private IReactionDecisionPolicy EnsureReactionPolicy()
+        {
+            if (reactionPolicy != null)
+                return reactionPolicy;
+
+            reactionPolicy = new ModalReactionPolicy(reactionPromptController);
+            return reactionPolicy;
         }
 
         private void PublishConditionDeltas()

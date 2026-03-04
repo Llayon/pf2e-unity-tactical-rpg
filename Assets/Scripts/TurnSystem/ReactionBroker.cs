@@ -7,8 +7,8 @@ using PF2e.Core;
 namespace PF2e.TurnSystem
 {
     /// <summary>
-    /// Shared post-hit reaction arbitration for strike damage reduction (Shield Block in MVP).
-    /// Keeps Player/AI execution paths behavior-consistent.
+    /// Shared reaction arbitration helpers (Shield Block in MVP).
+    /// Keeps Player/AI execution paths behavior-consistent for strike and generic incoming damage.
     /// </summary>
     public static class ReactionBroker
     {
@@ -117,11 +117,43 @@ namespace PF2e.TurnSystem
         {
             if (!resolved.damageDealt || resolved.damageRolled <= 0)
                 return 0;
+
+            return ResolveIncomingDamageReductionSync(
+                triggerSource: resolved.attacker,
+                triggerTarget: resolved.target,
+                resolved.damageRolled,
+                phase: ReactionTriggerPhase.PostHit,
+                initiativeOrder: initiativeOrder,
+                getEntity: getEntity,
+                canUseReaction: canUseReaction,
+                reactionPolicy: reactionPolicy,
+                shieldBlockAction: shieldBlockAction,
+                reactionBuffer: reactionBuffer,
+                ownerTag: ownerTag);
+        }
+
+        public static int ResolveIncomingDamageReductionSync(
+            EntityHandle triggerSource,
+            EntityHandle triggerTarget,
+            int incomingDamage,
+            ReactionTriggerPhase phase,
+            IReadOnlyList<InitiativeEntry> initiativeOrder,
+            Func<EntityHandle, EntityData> getEntity,
+            Func<EntityHandle, bool> canUseReaction,
+            IReactionDecisionPolicy reactionPolicy,
+            ShieldBlockAction shieldBlockAction,
+            List<ReactionOption> reactionBuffer,
+            string ownerTag)
+        {
+            if (incomingDamage <= 0)
+                return 0;
             if (reactionPolicy == null)
                 return 0;
 
             if (!TrySelectShieldBlockCandidate(
-                    resolved,
+                    phase,
+                    triggerSource,
+                    triggerTarget,
                     initiativeOrder,
                     getEntity,
                     canUseReaction,
@@ -136,7 +168,7 @@ namespace PF2e.TurnSystem
             reactionPolicy.DecideReaction(
                 option,
                 reactorData,
-                resolved.damageRolled,
+                incomingDamage,
                 result => decided = result);
 
             if (!decided.HasValue)
@@ -150,9 +182,9 @@ namespace PF2e.TurnSystem
 
             return ExecuteShieldBlock(
                 option.entity,
-                resolved.attacker,
+                triggerSource,
                 reactorData,
-                resolved.damageRolled,
+                incomingDamage,
                 shieldBlockAction,
                 ownerTag);
         }
@@ -184,7 +216,9 @@ namespace PF2e.TurnSystem
             }
 
             if (!TrySelectShieldBlockCandidate(
-                    resolved,
+                    ReactionTriggerPhase.PostHit,
+                    resolved.attacker,
+                    resolved.target,
                     initiativeOrder,
                     getEntity,
                     canUseReaction,
@@ -244,7 +278,9 @@ namespace PF2e.TurnSystem
         }
 
         private static bool TrySelectShieldBlockCandidate(
-            StrikePhaseResult resolved,
+            ReactionTriggerPhase phase,
+            EntityHandle triggerSource,
+            EntityHandle triggerTarget,
             IReadOnlyList<InitiativeEntry> initiativeOrder,
             Func<EntityHandle, EntityData> getEntity,
             Func<EntityHandle, bool> canUseReaction,
@@ -260,9 +296,9 @@ namespace PF2e.TurnSystem
 
             reactionBuffer.Clear();
             ReactionService.CollectEligibleReactions(
-                ReactionTriggerPhase.PostHit,
-                resolved.attacker,
-                resolved.target,
+                phase,
+                triggerSource,
+                triggerTarget,
                 initiativeOrder,
                 getEntity,
                 reactionBuffer);

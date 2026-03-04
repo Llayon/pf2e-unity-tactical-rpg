@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -115,14 +116,109 @@ namespace PF2e.Tests
             }
         }
 
+        [Test]
+        public void ApplyDamage_WithShieldBlockContext_AppliesReductionAndPublishesShieldBlockEvent()
+        {
+            using var ctx = new DamageContext();
+            var source = ctx.RegisterEntity("Source", Team.Player, hp: 10);
+            var target = ctx.RegisterEntity("Target", Team.Enemy, hp: 5);
+
+            var shieldDef = ScriptableObject.CreateInstance<ShieldDefinition>();
+            shieldDef.itemName = "Test Shield";
+            shieldDef.acBonus = 2;
+            shieldDef.hardness = 5;
+            shieldDef.maxHP = 20;
+
+            try
+            {
+                var targetData = ctx.Registry.Get(target);
+                targetData.EquippedShield = ShieldInstance.CreateEquipped(shieldDef);
+                targetData.RaiseShield();
+                targetData.ReactionAvailable = true;
+
+                int damageEventCount = 0;
+                int shieldEventCount = 0;
+                DamageAppliedEvent lastDamage = default;
+                ShieldBlockResolvedEvent lastShield = default;
+
+                ctx.EventBus.OnDamageAppliedTyped += OnDamageApplied;
+                ctx.EventBus.OnShieldBlockResolvedTyped += OnShieldBlockResolved;
+
+                try
+                {
+                    var initiative = new List<InitiativeEntry>
+                    {
+                        new InitiativeEntry { Handle = source, Roll = new CheckRoll(12, 3, CheckSource.Perception()), IsPlayer = true },
+                        new InitiativeEntry { Handle = target, Roll = new CheckRoll(10, 2, CheckSource.Perception()), IsPlayer = false }
+                    };
+                    var reactionBuffer = new List<ReactionOption>(2);
+                    var policy = new AutoShieldBlockPolicy();
+
+                    int applied = DamageApplicationService.ApplyDamage(
+                        source,
+                        target,
+                        amount: 7,
+                        damageType: DamageType.Bludgeoning,
+                        sourceActionName: "Trip",
+                        isCritical: true,
+                        entityManager: ctx.EntityManager,
+                        eventBus: ctx.EventBus,
+                        initiativeOrder: initiative,
+                        getEntity: handle => ctx.Registry.Get(handle),
+                        canUseReaction: handle =>
+                        {
+                            var data = ctx.Registry.Get(handle);
+                            return data != null && data.IsAlive && data.ReactionAvailable;
+                        },
+                        reactionPolicy: policy,
+                        shieldBlockAction: ctx.ShieldBlockAction,
+                        reactionBuffer: reactionBuffer,
+                        reactionOwnerTag: "DamageApplicationServiceTests");
+
+                    Assert.AreEqual(2, applied, "Incoming 7 with hardness 5 should deal 2 final damage.");
+                    Assert.AreEqual(3, targetData.CurrentHP);
+                    Assert.AreEqual(1, damageEventCount);
+                    Assert.AreEqual(1, shieldEventCount);
+                    Assert.AreEqual(2, lastDamage.amount);
+                    Assert.AreEqual(7, lastShield.incomingDamage);
+                    Assert.AreEqual(5, lastShield.damageReduction);
+                    Assert.IsFalse(targetData.ReactionAvailable, "Shield Block reaction should be consumed.");
+                    Assert.AreEqual(18, targetData.EquippedShield.currentHP, "Shield should take incoming-hardness self-damage.");
+                }
+                finally
+                {
+                    ctx.EventBus.OnDamageAppliedTyped -= OnDamageApplied;
+                    ctx.EventBus.OnShieldBlockResolvedTyped -= OnShieldBlockResolved;
+                }
+
+                void OnDamageApplied(in DamageAppliedEvent e)
+                {
+                    damageEventCount++;
+                    lastDamage = e;
+                }
+
+                void OnShieldBlockResolved(in ShieldBlockResolvedEvent e)
+                {
+                    shieldEventCount++;
+                    lastShield = e;
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(shieldDef);
+            }
+        }
+
         private sealed class DamageContext : System.IDisposable
         {
             private readonly bool oldIgnoreLogs;
             private readonly GameObject eventBusGo;
             private readonly GameObject entityManagerGo;
+            private readonly GameObject shieldBlockActionGo;
 
             public CombatEventBus EventBus { get; }
             public EntityManager EntityManager { get; }
+            public ShieldBlockAction ShieldBlockAction { get; }
             public EntityRegistry Registry => EntityManager.Registry;
 
             public DamageContext()
@@ -138,6 +234,11 @@ namespace PF2e.Tests
                 SetAutoPropertyBackingField(EntityManager, "Registry", new EntityRegistry());
                 SetPrivateField(EntityManager, "eventBus", EventBus);
                 SetPrivateField(EntityManager, "spawnTestEntities", false);
+
+                shieldBlockActionGo = new GameObject("Damage_ShieldBlockAction_Test");
+                ShieldBlockAction = shieldBlockActionGo.AddComponent<ShieldBlockAction>();
+                SetPrivateField(ShieldBlockAction, "entityManager", EntityManager);
+                SetPrivateField(ShieldBlockAction, "eventBus", EventBus);
             }
 
             public EntityHandle RegisterEntity(string name, Team team, int hp)
@@ -164,6 +265,7 @@ namespace PF2e.Tests
 
             public void Dispose()
             {
+                if (shieldBlockActionGo != null) Object.DestroyImmediate(shieldBlockActionGo);
                 if (entityManagerGo != null) Object.DestroyImmediate(entityManagerGo);
                 if (eventBusGo != null) Object.DestroyImmediate(eventBusGo);
                 LogAssert.ignoreFailingMessages = oldIgnoreLogs;

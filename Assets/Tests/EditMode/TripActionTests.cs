@@ -87,6 +87,75 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void TryTrip_CritSuccess_WithShieldReactionContext_TargetCanShieldBlockCritDamage()
+        {
+            using var ctx = new TripContext();
+            var tripWeapon = ctx.CreateWeaponDef(traits: WeaponTraitFlags.Trip);
+            var actor = ctx.RegisterDefaultTripActor(tripWeapon);
+            var target = ctx.RegisterDefaultTripTarget(tripWeapon, currentHp: 20);
+
+            var shieldDef = ScriptableObject.CreateInstance<ShieldDefinition>();
+            shieldDef.itemName = "Trip Target Shield";
+            shieldDef.acBonus = 2;
+            shieldDef.hardness = 5;
+            shieldDef.maxHP = 20;
+
+            try
+            {
+                var targetData = ctx.Registry.Get(target);
+                targetData.EquippedShield = ShieldInstance.CreateEquipped(shieldDef);
+                targetData.RaiseShield();
+                targetData.ReactionAvailable = true;
+
+                SetPrivateField(ctx.TurnManager, "initiativeOrder", new List<InitiativeEntry>
+                {
+                    new InitiativeEntry { Handle = actor, Roll = new CheckRoll(20, 5, CheckSource.Perception()), IsPlayer = true },
+                    new InitiativeEntry { Handle = target, Roll = new CheckRoll(10, 2, CheckSource.Perception()), IsPlayer = false }
+                });
+
+                int shieldEvents = 0;
+                int damageEvents = 0;
+                ShieldBlockResolvedEvent lastShield = default;
+                ctx.EventBus.OnShieldBlockResolvedTyped += OnShieldBlockResolved;
+                ctx.EventBus.OnDamageAppliedTyped += OnDamageApplied;
+
+                try
+                {
+                    var degree = ctx.Action.TryTrip(actor, target, new FixedRng(d20Rolls: new[] { 20 }, dieRolls: new[] { 4 }));
+
+                    Assert.AreEqual(DegreeOfSuccess.CriticalSuccess, degree);
+                    Assert.AreEqual(20, targetData.CurrentHP, "Shield Block should fully absorb incoming 4 damage with hardness 5.");
+                    Assert.AreEqual(1, shieldEvents);
+                    Assert.AreEqual(0, damageEvents, "No damage event should be published when final applied damage is 0.");
+                    Assert.AreEqual(4, lastShield.incomingDamage);
+                    Assert.AreEqual(4, lastShield.damageReduction);
+                    Assert.IsFalse(targetData.ReactionAvailable);
+                }
+                finally
+                {
+                    ctx.EventBus.OnShieldBlockResolvedTyped -= OnShieldBlockResolved;
+                    ctx.EventBus.OnDamageAppliedTyped -= OnDamageApplied;
+                }
+
+                void OnShieldBlockResolved(in ShieldBlockResolvedEvent e)
+                {
+                    shieldEvents++;
+                    lastShield = e;
+                }
+
+                void OnDamageApplied(in DamageAppliedEvent e)
+                {
+                    _ = e;
+                    damageEvents++;
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(shieldDef);
+            }
+        }
+
+        [Test]
         public void TryTrip_Success_TargetFallsProne()
         {
             using var ctx = new TripContext();
@@ -368,10 +437,14 @@ namespace PF2e.Tests
             private readonly List<WeaponDefinition> weaponDefs = new();
             private readonly GameObject eventBusGo;
             private readonly GameObject entityManagerGo;
+            private readonly GameObject turnManagerGo;
+            private readonly GameObject shieldBlockActionGo;
             private readonly GameObject tripActionGo;
 
             public CombatEventBus EventBus { get; }
             public EntityManager EntityManager { get; }
+            public TurnManager TurnManager { get; }
+            public ShieldBlockAction ShieldBlockAction { get; }
             public TripAction Action { get; }
             public EntityRegistry Registry => EntityManager.Registry;
 
@@ -389,10 +462,22 @@ namespace PF2e.Tests
                 SetPrivateField(EntityManager, "eventBus", EventBus);
                 SetPrivateField(EntityManager, "spawnTestEntities", false);
 
+                turnManagerGo = new GameObject("Trip_TurnManager_Test");
+                TurnManager = turnManagerGo.AddComponent<TurnManager>();
+                SetPrivateField(TurnManager, "entityManager", EntityManager);
+                SetPrivateField(TurnManager, "eventBus", EventBus);
+
+                shieldBlockActionGo = new GameObject("Trip_ShieldBlockAction_Test");
+                ShieldBlockAction = shieldBlockActionGo.AddComponent<ShieldBlockAction>();
+                SetPrivateField(ShieldBlockAction, "entityManager", EntityManager);
+                SetPrivateField(ShieldBlockAction, "eventBus", EventBus);
+
                 tripActionGo = new GameObject("TripAction_Test");
                 Action = tripActionGo.AddComponent<TripAction>();
                 SetPrivateField(Action, "entityManager", EntityManager);
                 SetPrivateField(Action, "eventBus", EventBus);
+                SetPrivateField(Action, "turnManager", TurnManager);
+                SetPrivateField(Action, "shieldBlockAction", ShieldBlockAction);
             }
 
             public WeaponDefinition CreateWeaponDef(
@@ -503,6 +588,8 @@ namespace PF2e.Tests
                 }
 
                 if (tripActionGo != null) Object.DestroyImmediate(tripActionGo);
+                if (shieldBlockActionGo != null) Object.DestroyImmediate(shieldBlockActionGo);
+                if (turnManagerGo != null) Object.DestroyImmediate(turnManagerGo);
                 if (entityManagerGo != null) Object.DestroyImmediate(entityManagerGo);
                 if (eventBusGo != null) Object.DestroyImmediate(eventBusGo);
                 LogAssert.ignoreFailingMessages = oldIgnoreLogs;

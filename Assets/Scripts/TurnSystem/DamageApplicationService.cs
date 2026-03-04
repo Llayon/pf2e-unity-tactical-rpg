@@ -1,5 +1,7 @@
 using PF2e.Core;
 using PF2e.Managers;
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace PF2e.TurnSystem
@@ -22,7 +24,15 @@ namespace PF2e.TurnSystem
             string sourceActionName,
             bool isCritical,
             EntityManager entityManager,
-            CombatEventBus eventBus)
+            CombatEventBus eventBus,
+            IReadOnlyList<InitiativeEntry> initiativeOrder = null,
+            Func<EntityHandle, EntityData> getEntity = null,
+            Func<EntityHandle, bool> canUseReaction = null,
+            IReactionDecisionPolicy reactionPolicy = null,
+            ShieldBlockAction shieldBlockAction = null,
+            List<ReactionOption> reactionBuffer = null,
+            ReactionTriggerPhase reactionPhase = ReactionTriggerPhase.PostHit,
+            string reactionOwnerTag = "DamageApplicationService")
         {
             if (entityManager == null || entityManager.Registry == null) return 0;
             if (!target.IsValid) return 0;
@@ -32,6 +42,30 @@ namespace PF2e.TurnSystem
 
             var targetData = entityManager.Registry.Get(target);
             if (targetData == null || !targetData.IsAlive) return 0;
+
+            if (initiativeOrder != null
+                && getEntity != null
+                && canUseReaction != null
+                && reactionPolicy != null
+                && shieldBlockAction != null
+                && reactionBuffer != null)
+            {
+                int damageReduction = ReactionBroker.ResolveIncomingDamageReductionSync(
+                    triggerSource: source,
+                    triggerTarget: target,
+                    incomingDamage: finalDamage,
+                    phase: reactionPhase,
+                    initiativeOrder: initiativeOrder,
+                    getEntity: getEntity,
+                    canUseReaction: canUseReaction,
+                    reactionPolicy: reactionPolicy,
+                    shieldBlockAction: shieldBlockAction,
+                    reactionBuffer: reactionBuffer,
+                    ownerTag: reactionOwnerTag);
+                finalDamage = Mathf.Max(0, finalDamage - Mathf.Max(0, damageReduction));
+            }
+
+            if (finalDamage <= 0) return 0;
 
             int hpBefore = Mathf.Max(0, targetData.CurrentHP);
             int hpAfter = Mathf.Max(0, hpBefore - finalDamage);
