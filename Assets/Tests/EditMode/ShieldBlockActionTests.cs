@@ -231,7 +231,7 @@ namespace PF2e.Tests
                 Assert.AreEqual(2, shieldEvents, "Expected initial Glass Shield block and breaker shield block on shards.");
                 Assert.AreEqual(0, shardDamageEvents, "Breaker shield should fully absorb shard damage with high hardness.");
                 Assert.AreEqual(hpBefore, breakerData.CurrentHP, "Shard damage should be fully reduced.");
-                Assert.Less(breakerData.EquippedShield.currentHP, shieldHpBefore, "Breaker shield must take self-damage from Shield Block.");
+                Assert.AreEqual(shieldHpBefore, breakerData.EquippedShield.currentHP, "With full hardness absorption, shield self-damage should be 0.");
                 Assert.IsFalse(breakerData.ReactionAvailable, "Breaker reaction should be consumed by shard Shield Block.");
             }
             finally
