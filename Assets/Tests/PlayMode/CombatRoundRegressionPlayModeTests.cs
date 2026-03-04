@@ -862,6 +862,141 @@ namespace PF2e.Tests
         }
 
         [UnityTest]
+        public IEnumerator GT_P34_PM_422_GlassShieldShards_BreakerShieldBlock_ReducesDamage()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+
+            BoostAllCombatantsHP(200);
+
+            // Deterministic initiative: goblin strikes first before wizard's turn-start can expire Glass Shield.
+            goblin1.Wisdom = 5000;
+            wizard.Wisdom = -3000;
+            goblin2.Wisdom = -4000;
+            fighter.Wisdom = -5000;
+
+            // Ensure the first goblin strike hits hard and triggers wizard Shield Block reliably.
+            goblin1.Strength = 5000;
+            wizard.Dexterity = 1;
+
+            // Keep non-participants out of melee target competition.
+            MoveEntityToCell(fighter, FindFarthestAvailableCell(goblin1.GridPosition, fighter.Handle, minDistFeet: 20));
+            MoveEntityToCell(goblin2, FindFarthestAvailableCell(wizard.GridPosition, goblin2.Handle, minDistFeet: 20));
+
+            Vector3Int goblinMeleeCell = FindAvailableAdjacentCell(wizard.GridPosition, goblin1.Handle, blockedCell: fighter.GridPosition);
+            MoveEntityToCell(goblin1, goblinMeleeCell);
+
+            // Pre-cast Glass Shield state for the wizard.
+            wizard.KnowsGlassShieldCantrip = true;
+            wizard.EquippedShield = default;
+            wizard.GlassShieldCooldownRoundsRemaining = 0;
+            wizard.Level = 20;
+            wizard.Intelligence = 30;
+            wizard.ShieldBlockPreference = ReactionPreference.AutoBlock;
+            wizard.ReactionAvailable = true;
+            Assert.IsTrue(
+                wizard.ActivateGlassShield(
+                    acBonus: GlassShieldAction.BaseAcBonus,
+                    hardness: GlassShieldAction.ComputeHardnessForLevel(wizard.Level),
+                    maxHP: GlassShieldAction.BaseMaxHP),
+                "Wizard failed to activate Glass Shield in setup.");
+
+            // Breaker shield configured to fully absorb shard damage and prove reduction path.
+            var breakerShieldDef = ScriptableObject.CreateInstance<ShieldDefinition>();
+            breakerShieldDef.itemName = "PlayMode_BreakerShield";
+            breakerShieldDef.acBonus = 2;
+            breakerShieldDef.hardness = 100;
+            breakerShieldDef.maxHP = 30;
+
+            goblin1.EquippedShield = ShieldInstance.CreateEquipped(breakerShieldDef);
+            goblin1.SetShieldRaised(false);
+            goblin1.ReactionAvailable = true;
+            goblin1.ShieldBlockPreference = ReactionPreference.AutoBlock;
+
+            int goblinHpBefore = goblin1.CurrentHP;
+            int goblinShieldHpBefore = goblin1.EquippedShield.currentHP;
+            bool strikePreDamageSeen = false;
+            bool wizardShieldBlockSeen = false;
+            bool goblinShardShieldBlockSeen = false;
+            int goblinShardIncomingDamage = 0;
+
+            void PreDamageHandler(in StrikePreDamageEvent e)
+            {
+                if (e.attacker != goblin1.Handle) return;
+                if (e.target != wizard.Handle) return;
+                if (e.damageRolled <= 0) return;
+
+                strikePreDamageSeen = true;
+                goblin1.SetShieldRaised(true);
+            }
+
+            void ShieldBlockResolvedHandler(in ShieldBlockResolvedEvent e)
+            {
+                if (e.reactor == wizard.Handle)
+                {
+                    wizardShieldBlockSeen = true;
+                    return;
+                }
+
+                if (e.reactor == goblin1.Handle)
+                {
+                    goblinShardShieldBlockSeen = true;
+                    goblinShardIncomingDamage = e.incomingDamage;
+                }
+            }
+
+            eventBus.OnStrikePreDamageTyped += PreDamageHandler;
+            eventBus.OnShieldBlockResolvedTyped += ShieldBlockResolvedHandler;
+
+            try
+            {
+                turnManager.StartCombat();
+
+                float deadline = Time.realtimeSinceStartup + SimulationTimeoutSeconds;
+                while (!goblinShardShieldBlockSeen)
+                {
+                    if (Time.realtimeSinceStartup > deadline)
+                    {
+                        Assert.Fail(
+                            "Timeout waiting for shard Shield Block reaction. " +
+                            $"state={turnManager.State}, current={turnManager.CurrentEntity.Id}, " +
+                            $"wizardBlock={wizardShieldBlockSeen}, preDamage={strikePreDamageSeen}");
+                    }
+
+                    if (turnManager.State == TurnState.Inactive)
+                        Assert.Fail("Combat ended before shard Shield Block scenario completed.");
+
+                    if (turnManager.State == TurnState.PlayerTurn)
+                    {
+                        turnManager.EndTurn();
+                    }
+                    else if (turnManager.State == TurnState.EnemyTurn && turnManager.CurrentEntity != goblin1.Handle)
+                    {
+                        turnManager.EndTurn();
+                    }
+
+                    yield return null;
+                }
+
+                Assert.IsTrue(strikePreDamageSeen, "Expected goblin->wizard pre-damage strike event.");
+                Assert.IsTrue(wizardShieldBlockSeen, "Expected wizard Glass Shield block before shard burst.");
+                Assert.Greater(goblinShardIncomingDamage, 0, "Shard Shield Block should receive positive incoming damage.");
+                Assert.AreEqual(goblinHpBefore, goblin1.CurrentHP, "Breaker HP should remain unchanged when shard damage is fully blocked.");
+                Assert.AreEqual(goblinShieldHpBefore, goblin1.EquippedShield.currentHP, "Breaker shield should take 0 self-damage on full hardness absorption.");
+                Assert.IsFalse(goblin1.ReactionAvailable, "Breaker reaction should be consumed by shard Shield Block.");
+            }
+            finally
+            {
+                eventBus.OnStrikePreDamageTyped -= PreDamageHandler;
+                eventBus.OnShieldBlockResolvedTyped -= ShieldBlockResolvedHandler;
+                if (breakerShieldDef != null)
+                    UnityEngine.Object.DestroyImmediate(breakerShieldDef);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator GT_P29_PM_413_DelayPlanned_AutoResumesAfterAnchor_NoManualWindow()
         {
             var fighter = GetEntityByName("Fighter");
