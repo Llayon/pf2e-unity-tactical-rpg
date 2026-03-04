@@ -194,6 +194,127 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void EntityMoved_TwoPreparedAllies_FirstKillsTriggerTarget_SecondKeepsReactionUntilNextEnemy()
+        {
+            using var ctx = new ReadyStrikeContext();
+            var meleeDef = ScriptableObject.CreateInstance<WeaponDefinition>();
+            meleeDef.itemName = "ReadyTestMelee";
+            meleeDef.isRanged = false;
+            meleeDef.reachFeet = 5;
+            meleeDef.diceCount = 1;
+            meleeDef.dieSides = 6;
+            meleeDef.damageType = DamageType.Slashing;
+            meleeDef.category = WeaponCategory.Simple;
+            meleeDef.group = WeaponGroup.Club;
+            meleeDef.hands = WeaponHands.One;
+
+            try
+            {
+                var fighter = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(0, 0, 0), strength: 5000);
+                var wizard = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(0, 0, 1), strength: 5000);
+                var goblinA = ctx.RegisterEntity("Goblin_A", Team.Enemy, new Vector3Int(2, 0, 0), strength: 10);
+                var goblinB = ctx.RegisterEntity("Goblin_B", Team.Enemy, new Vector3Int(2, 0, 1), strength: 10);
+
+                var fighterData = ctx.Registry.Get(fighter);
+                var wizardData = ctx.Registry.Get(wizard);
+                var goblinAData = ctx.Registry.Get(goblinA);
+                var goblinBData = ctx.Registry.Get(goblinB);
+                Assert.IsNotNull(fighterData);
+                Assert.IsNotNull(wizardData);
+                Assert.IsNotNull(goblinAData);
+                Assert.IsNotNull(goblinBData);
+
+                fighterData.EquippedWeapon = new WeaponInstance
+                {
+                    def = meleeDef,
+                    potencyBonus = 0,
+                    strikingRank = StrikingRuneRank.None
+                };
+                wizardData.EquippedWeapon = new WeaponInstance
+                {
+                    def = meleeDef,
+                    potencyBonus = 0,
+                    strikingRank = StrikingRuneRank.None
+                };
+                fighterData.ReactionAvailable = true;
+                wizardData.ReactionAvailable = true;
+                goblinAData.MaxHP = 1;
+                goblinAData.CurrentHP = 1; // Fighter must reliably kill first trigger target.
+
+                SetPrivateField(
+                    ctx.TurnManager,
+                    "initiativeOrder",
+                    new List<InitiativeEntry>
+                    {
+                        new InitiativeEntry
+                        {
+                            Handle = fighter,
+                            Roll = new CheckRoll(20, fighterData.PerceptionModifier, CheckSource.Perception()),
+                            IsPlayer = true
+                        },
+                        new InitiativeEntry
+                        {
+                            Handle = wizard,
+                            Roll = new CheckRoll(19, wizardData.PerceptionModifier, CheckSource.Perception()),
+                            IsPlayer = true
+                        },
+                        new InitiativeEntry
+                        {
+                            Handle = goblinA,
+                            Roll = new CheckRoll(10, goblinAData.PerceptionModifier, CheckSource.Perception()),
+                            IsPlayer = false
+                        },
+                        new InitiativeEntry
+                        {
+                            Handle = goblinB,
+                            Roll = new CheckRoll(9, goblinBData.PerceptionModifier, CheckSource.Perception()),
+                            IsPlayer = false
+                        }
+                    });
+
+                Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(fighter, preparedRound: 1));
+                Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(wizard, preparedRound: 1));
+                Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(fighter));
+                Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(wizard));
+
+                // First movement trigger: first resolver kills goblinA; second resolver must keep ready+reaction.
+                goblinAData.GridPosition = new Vector3Int(1, 0, 0);
+                ctx.EventBus.PublishEntityMoved(goblinA, new Vector3Int(2, 0, 0), goblinAData.GridPosition, forced: false);
+
+                Assert.LessOrEqual(goblinAData.CurrentHP, 0, "First trigger target should be dead after first readied strike resolves.");
+
+                bool fighterPreparedAfterFirst = ctx.TurnManager.HasReadiedStrike(fighter);
+                bool wizardPreparedAfterFirst = ctx.TurnManager.HasReadiedStrike(wizard);
+                Assert.AreNotEqual(
+                    fighterPreparedAfterFirst,
+                    wizardPreparedAfterFirst,
+                    "Exactly one ally must keep ready after first target dies mid-trigger chain.");
+
+                EntityHandle remainingActor = fighterPreparedAfterFirst ? fighter : wizard;
+                EntityHandle consumedActor = fighterPreparedAfterFirst ? wizard : fighter;
+                var remainingData = fighterPreparedAfterFirst ? fighterData : wizardData;
+                var consumedData = fighterPreparedAfterFirst ? wizardData : fighterData;
+
+                Assert.IsTrue(remainingData.ReactionAvailable, "Remaining prepared ally must keep reaction.");
+                Assert.IsFalse(consumedData.ReactionAvailable, "Consumed ally must have reaction spent.");
+
+                // Second movement trigger: the remaining prepared ally should react to another enemy entering reach.
+                goblinBData.GridPosition = new Vector3Int(1, 0, 1);
+                ctx.EventBus.PublishEntityMoved(goblinB, new Vector3Int(2, 0, 1), goblinBData.GridPosition, forced: false);
+
+                Assert.IsFalse(
+                    ctx.TurnManager.HasReadiedStrike(remainingActor),
+                    "Remaining ally ready should trigger on next valid enemy movement.");
+                Assert.IsFalse(remainingData.ReactionAvailable, "Remaining ally reaction should be spent on second trigger.");
+                Assert.IsFalse(ctx.TurnManager.HasReadiedStrike(consumedActor), "Consumed ally should not regain ready state.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(meleeDef);
+            }
+        }
+
+        [Test]
         public void EntityMoved_Normal_Ranged_EnteringFirstIncrement_ConsumesReadiedStrikeAndReaction()
         {
             using var ctx = new ReadyStrikeContext();
