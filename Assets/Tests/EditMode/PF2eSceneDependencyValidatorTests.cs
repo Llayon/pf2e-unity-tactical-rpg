@@ -117,6 +117,7 @@ namespace PF2e.Tests
             var actionBar = UnityEngine.Object.FindFirstObjectByType<ActionBarController>();
             Assert.IsNotNull(actionBar, "SampleScene must contain ActionBarController.");
 
+            SetPrivateField(actionBar, "readyButtonLabel", null);
             SetPrivateField(actionBar, "readyModeSelectorRoot", null);
             SetPrivateField(actionBar, "readyModeMoveButton", null);
             SetPrivateField(actionBar, "readyModeAttackButton", null);
@@ -136,11 +137,14 @@ namespace PF2e.Tests
             var moveButton = GetPrivateField<Button>(actionBar, "readyModeMoveButton");
             var attackButton = GetPrivateField<Button>(actionBar, "readyModeAttackButton");
             var anyButton = GetPrivateField<Button>(actionBar, "readyModeAnyButton");
+            var readyLabel = GetPrivateField<Component>(actionBar, "readyButtonLabel");
 
+            Assert.IsNotNull(readyLabel, "ActionBarController must have Ready button label wired by scene/autofix.");
             Assert.IsNotNull(selectorRoot, "ActionBarController must have Ready mode selector root wired by scene/autofix.");
             Assert.IsNotNull(moveButton, "ActionBarController must have Ready mode Move button wired by scene/autofix.");
             Assert.IsNotNull(attackButton, "ActionBarController must have Ready mode Attack button wired by scene/autofix.");
             Assert.IsNotNull(anyButton, "ActionBarController must have Ready mode Any button wired by scene/autofix.");
+            Assert.IsTrue(readyLabel.transform.IsChildOf(readyButton.transform), "Ready label must remain under ReadyButton hierarchy.");
             Assert.AreEqual("ReadyModeSelector", selectorRoot.gameObject.name);
             Assert.AreEqual("ReadyModeMoveButton", moveButton.gameObject.name);
             Assert.AreEqual("ReadyModeAttackButton", attackButton.gameObject.name);
@@ -151,15 +155,16 @@ namespace PF2e.Tests
         }
 
         [Test]
+        [TestMustExpectAllLogs(false)]
         public void ValidateActionBarController_ReadyButtonAssigned_MissingReadyModeRefs_EmitsErrors()
         {
             bool oldIgnoreFailingLogs = LogAssert.ignoreFailingMessages;
             LogAssert.ignoreFailingMessages = true;
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var root = new GameObject("ActionBarValidatorReadyModeContractTest");
             try
             {
                 var eventBus = root.AddComponent<CombatEventBus>();
-                var entityManager = root.AddComponent<EntityManager>();
                 var turnManager = root.AddComponent<TurnManager>();
                 var actionExecutor = root.AddComponent<PlayerActionExecutor>();
                 var targetingController = root.AddComponent<TargetingController>();
@@ -171,7 +176,6 @@ namespace PF2e.Tests
                 var readyButton = readyButtonGo.GetComponent<Button>();
 
                 SetPrivateField(actionBar, "eventBus", eventBus);
-                SetPrivateField(actionBar, "entityManager", entityManager);
                 SetPrivateField(actionBar, "turnManager", turnManager);
                 SetPrivateField(actionBar, "actionExecutor", actionExecutor);
                 SetPrivateField(actionBar, "targetingController", targetingController);
@@ -186,8 +190,8 @@ namespace PF2e.Tests
 
                 Assert.GreaterOrEqual(
                     errors,
-                    4,
-                    "When ReadyButton is assigned, missing ready mode selector refs must be treated as validator errors.");
+                    6,
+                    "When ReadyButton is assigned, missing Ready wiring refs (label/highlight/mode selector) must be validator errors.");
                 Assert.GreaterOrEqual(warnings, 1, "Optional missing action-bar slots should still report warnings.");
             }
             finally

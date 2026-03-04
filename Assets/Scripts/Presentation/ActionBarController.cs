@@ -67,11 +67,6 @@ namespace PF2e.Presentation
         [SerializeField] private Color readyModeUnselectedColor = new Color(0.18f, 0.23f, 0.30f, 0.92f);
         [SerializeField] private Color readyModeTextColor = new Color(0.92f, 0.92f, 0.95f, 1f);
 
-        private const string ReadyModeSelectorName = "ReadyModeSelector";
-        private const string ReadyModeMoveButtonName = "ReadyModeMoveButton";
-        private const string ReadyModeAttackButtonName = "ReadyModeAttackButton";
-        private const string ReadyModeAnyButtonName = "ReadyModeAnyButton";
-
         private bool buttonListenersBound;
         private bool delayEventsSubscribedInternally;
         private readonly ActionBarAvailabilityPolicy actionBarAvailabilityPolicy = new();
@@ -79,6 +74,7 @@ namespace PF2e.Presentation
         private readonly DelayActionBarStatePresenter delayActionBarStatePresenter = new();
         private readonly ActionBarCommandCoordinator actionBarCommandCoordinator = new();
         private readonly AidActionBarUiBootstrapper aidActionBarUiBootstrapper = new();
+        private bool readyUiWiringWarned;
         private bool readyModeWiringWarned;
 #if UNITY_EDITOR
         private void OnValidate()
@@ -99,6 +95,9 @@ namespace PF2e.Presentation
             if (demoralizeButton == null) Debug.LogWarning("[ActionBar] demoralizeButton not assigned", this);
             if (escapeButton == null) Debug.LogWarning("[ActionBar] escapeButton not assigned", this);
             // aid button is optional in older scenes; no warning spam.
+            if (readyButton == null) Debug.LogWarning("[ActionBar] readyButton not assigned", this);
+            if (readyButtonLabel == null) Debug.LogWarning("[ActionBar] readyButtonLabel not assigned", this);
+            if (readyHighlight == null) Debug.LogWarning("[ActionBar] readyHighlight not assigned", this);
             if (readyModeSelectorRoot == null) Debug.LogWarning("[ActionBar] readyModeSelectorRoot not assigned", this);
             if (readyModeMoveButton == null) Debug.LogWarning("[ActionBar] readyModeMoveButton not assigned", this);
             if (readyModeAttackButton == null) Debug.LogWarning("[ActionBar] readyModeAttackButton not assigned", this);
@@ -136,42 +135,26 @@ namespace PF2e.Presentation
                 ref aidPreparedIndicatorLabel,
                 aidPreparedIndicatorFillColor,
                 aidPreparedIndicatorLabelColor);
-
-            if (readyButton == null)
-            {
-                var ready = transform.Find("ReadyButton");
-                if (ready != null)
-                    readyButton = ready.GetComponent<Button>();
-
-                if (readyButton == null)
-                {
-                    var readyButtons = GetComponentsInChildren<Button>(true);
-                    for (int i = 0; i < readyButtons.Length; i++)
-                    {
-                        var button = readyButtons[i];
-                        if (button != null && string.Equals(button.name, "ReadyButton", System.StringComparison.Ordinal))
-                        {
-                            readyButton = button;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (readyHighlight == null && readyButton != null)
-            {
-                var highlight = readyButton.transform.Find("ActiveHighlight");
-                if (highlight != null)
-                    readyHighlight = highlight.GetComponent<Image>();
-            }
-
-            if (readyButtonLabel == null && readyButton != null)
-                readyButtonLabel = readyButton.GetComponentInChildren<TMP_Text>(true);
-
+            ValidateReadyUiReferences();
             ResolveReadyModeSelectorReferences();
 
             aidPreparedIndicatorPresenter.Clear();
             RefreshAidPreparedIndicator();
+        }
+
+        private void ValidateReadyUiReferences()
+        {
+            if (readyButton != null && readyButtonLabel != null && readyHighlight != null)
+                return;
+
+            if (readyUiWiringWarned)
+                return;
+
+            readyUiWiringWarned = true;
+            Debug.LogWarning(
+                "[ActionBar] Ready UI is not fully wired (readyButton/readyButtonLabel/readyHighlight). " +
+                "Assign references in scene or run scene validator autofix.",
+                this);
         }
 
         private void ResolveAidPreparedIndicatorReferences()
@@ -187,41 +170,15 @@ namespace PF2e.Presentation
         private void ResolveReadyModeSelectorReferences()
         {
             if (readyButton == null)
-                return;
-
-            if (readyModeSelectorRoot == null)
-            {
-                var existingRoot = readyButton.transform.Find(ReadyModeSelectorName);
-                if (existingRoot != null)
-                    readyModeSelectorRoot = existingRoot as RectTransform;
-            }
-
-            if (readyModeSelectorRoot == null)
             {
                 WarnMissingReadyModeWiring();
                 return;
             }
 
-            if (readyModeMoveButton == null)
-            {
-                var existing = readyModeSelectorRoot.Find(ReadyModeMoveButtonName);
-                if (existing != null)
-                    readyModeMoveButton = existing.GetComponent<Button>();
-            }
-            if (readyModeAttackButton == null)
-            {
-                var existing = readyModeSelectorRoot.Find(ReadyModeAttackButtonName);
-                if (existing != null)
-                    readyModeAttackButton = existing.GetComponent<Button>();
-            }
-            if (readyModeAnyButton == null)
-            {
-                var existing = readyModeSelectorRoot.Find(ReadyModeAnyButtonName);
-                if (existing != null)
-                    readyModeAnyButton = existing.GetComponent<Button>();
-            }
-
-            if (readyModeMoveButton == null || readyModeAttackButton == null || readyModeAnyButton == null)
+            if (readyModeSelectorRoot == null
+                || readyModeMoveButton == null
+                || readyModeAttackButton == null
+                || readyModeAnyButton == null)
                 WarnMissingReadyModeWiring();
         }
 

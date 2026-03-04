@@ -384,21 +384,13 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnRef(c, "repositionButton", "Button");
         warnings += WarnRef(c, "demoralizeButton", "Button");
         warnings += WarnRef(c, "escapeButton", "Button");
-        warnings += WarnRef(c, "readyButton", "Button");
-        if (IsRefAssigned(c, "readyButton"))
-        {
-            errors += RequireRef(c, "readyModeSelectorRoot", "RectTransform");
-            errors += RequireRef(c, "readyModeMoveButton", "Button");
-            errors += RequireRef(c, "readyModeAttackButton", "Button");
-            errors += RequireRef(c, "readyModeAnyButton", "Button");
-        }
-        else
-        {
-            warnings += WarnRef(c, "readyModeSelectorRoot", "RectTransform");
-            warnings += WarnRef(c, "readyModeMoveButton", "Button");
-            warnings += WarnRef(c, "readyModeAttackButton", "Button");
-            warnings += WarnRef(c, "readyModeAnyButton", "Button");
-        }
+        errors += RequireRef(c, "readyButton", "Button");
+        errors += RequireRef(c, "readyButtonLabel", "TMP_Text");
+        errors += RequireRef(c, "readyHighlight", "Image");
+        errors += RequireRef(c, "readyModeSelectorRoot", "RectTransform");
+        errors += RequireRef(c, "readyModeMoveButton", "Button");
+        errors += RequireRef(c, "readyModeAttackButton", "Button");
+        errors += RequireRef(c, "readyModeAnyButton", "Button");
         warnings += WarnRef(c, "raiseShieldButton", "Button");
         warnings += WarnRef(c, "standButton", "Button");
         warnings += WarnRef(c, "delayButton", "Button");
@@ -412,7 +404,6 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnRef(c, "repositionHighlight", "Image");
         warnings += WarnRef(c, "demoralizeHighlight", "Image");
         warnings += WarnRef(c, "escapeHighlight", "Image");
-        warnings += WarnRef(c, "readyHighlight", "Image");
         warnings += WarnRef(c, "raiseShieldHighlight", "Image");
         warnings += WarnRef(c, "standHighlight", "Image");
     }
@@ -716,26 +707,6 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         }
 
         return 0;
-    }
-
-    private static bool IsRefAssigned(Component c, string fieldName)
-    {
-        if (c == null || string.IsNullOrWhiteSpace(fieldName))
-            return false;
-
-        var t = c.GetType();
-        var f = t.GetField(fieldName, Flags);
-        if (f == null)
-            return false;
-
-        var value = f.GetValue(c);
-        if (value == null)
-            return false;
-
-        if (value is UnityEngine.Object unityObject && unityObject == null)
-            return false;
-
-        return true;
     }
 
     private static string GetPath(Transform t)
@@ -1260,6 +1231,10 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         if (readyButton != null)
             fixedCount += TryAssignIfNull(bar, "readyButton", readyButton);
 
+        var readyButtonLabel = ResolveReadyButtonLabel(readyButton);
+        if (readyButtonLabel != null)
+            fixedCount += TryAssignIfNull(bar, "readyButtonLabel", readyButtonLabel);
+
         var readyHighlight = readyButton != null ? EnsureAidButtonHighlight(readyButton) : null;
         if (readyHighlight != null)
             fixedCount += TryAssignIfNull(bar, "readyHighlight", readyHighlight);
@@ -1287,6 +1262,33 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
             fixedCount += TryAssignIfNull(bar, "readyModeAnyButton", readyModeAnyButton);
 
         return fixedCount;
+    }
+
+    private static TMPro.TMP_Text ResolveReadyButtonLabel(Button readyButton)
+    {
+        if (readyButton == null)
+            return null;
+
+        var labels = readyButton.GetComponentsInChildren<TMPro.TMP_Text>(true);
+        if (labels == null || labels.Length == 0)
+            return null;
+
+        TMPro.TMP_Text best = null;
+        for (int i = 0; i < labels.Length; i++)
+        {
+            var label = labels[i];
+            if (label == null)
+                continue;
+
+            var text = label.text ?? string.Empty;
+            if (text.StartsWith("Ready", StringComparison.OrdinalIgnoreCase))
+                return label;
+
+            if (best == null && text.Length > 1)
+                best = label;
+        }
+
+        return best ?? labels[0];
     }
 
     private static int EnsureAidActionBarUi(ActionBarController bar, Transform root)
