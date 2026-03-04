@@ -397,6 +397,11 @@ namespace PF2e.Tests
                 SetPrivateField(TurnManager, "eventBus", EventBus);
                 SetPrivateField(TurnManager, "strikeAction", StrikeAction);
                 SetPrivateField(TurnManager, "state", TurnState.PlayerTurn);
+
+                var binder = turnManagerGo.AddComponent<ReadyStrikeEventBinder>();
+                SetPrivateField(binder, "turnManager", TurnManager);
+                SetPrivateField(binder, "eventBus", EventBus);
+
                 InvokePrivate(TurnManager, "OnEnable", System.Array.Empty<object>());
             }
 
