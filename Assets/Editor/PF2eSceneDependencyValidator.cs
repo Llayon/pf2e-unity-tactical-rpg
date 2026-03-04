@@ -82,6 +82,7 @@ public static class PF2eSceneDependencyValidator
         errors += ValidateAll<InitiativeBarController>(ValidateInitiativeBarController);
         errors += ValidateAll<ActionBarController>(ValidateActionBarController);
         errors += ValidateAll<DelayUiOrchestrator>(ValidateDelayUiOrchestrator);
+        errors += ValidateAll<ReadyStrikeEventBinder>(ValidateReadyStrikeEventBinder);
         errors += ValidateAll<TargetingHintController>(ValidateTargetingHintController);
         errors += ValidateAll<TargetingFeedbackController>(ValidateTargetingFeedbackController);
         errors += ValidateAll<ConditionLogForwarder>(ValidateConditionLogForwarder);
@@ -114,6 +115,7 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<InitiativeBarController>();
         errors += ErrorIfMoreThanOne<ActionBarController>();
         errors += ErrorIfMoreThanOne<DelayUiOrchestrator>();
+        errors += ErrorIfMoreThanOne<ReadyStrikeEventBinder>();
         errors += ErrorIfMoreThanOne<TargetingHintController>();
         errors += ErrorIfMoreThanOne<TargetingFeedbackController>();
         errors += ErrorIfMoreThanOne<ConditionLogForwarder>();
@@ -160,6 +162,10 @@ public static class PF2eSceneDependencyValidator
             UnityEngine.Object.FindObjectsByType<InitiativeBarController>(FindObjectsSortMode.None).Length > 0)
         {
             warnings += WarnIfNone<DelayUiOrchestrator>();
+        }
+        if (UnityEngine.Object.FindObjectsByType<TurnManager>(FindObjectsSortMode.None).Length > 0)
+        {
+            warnings += WarnIfNone<ReadyStrikeEventBinder>();
         }
         warnings += WarnIfNone<TargetingHintController>();
         warnings += WarnIfNone<TargetingFeedbackController>();
@@ -402,6 +408,12 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(c, "eventBus", "CombatEventBus");
         errors += RequireRef(c, "actionBarController", "ActionBarController");
         errors += RequireRef(c, "initiativeBarController", "InitiativeBarController");
+    }
+
+    private static void ValidateReadyStrikeEventBinder(ReadyStrikeEventBinder c, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(c, "turnManager", "TurnManager");
+        errors += RequireRef(c, "eventBus", "CombatEventBus");
     }
 
     private static void ValidateTargetingFeedbackController(TargetingFeedbackController c, ref int errors, ref int warnings)
@@ -730,6 +742,7 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         TryGetSingleton(out ActionBarController actionBarControllerSingleton, logIfMissing: false);
         TryGetSingleton(out InitiativeBarController initiativeBarControllerSingleton, logIfMissing: false);
         TryGetSingleton(out DelayUiOrchestrator delayUiOrchestratorSingleton, logIfMissing: false);
+        TryGetSingleton(out ReadyStrikeEventBinder readyStrikeEventBinderSingleton, logIfMissing: false);
         TryGetSingleton(out TargetingHintController targetingHintControllerSingleton, logIfMissing: false);
         TryGetSingleton(out TargetingFeedbackController targetingFeedbackControllerSingleton, logIfMissing: false);
 
@@ -746,6 +759,17 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
             Debug.Log("[PF2eAutoFix] Created DelayUiOrchestrator.");
         }
 
+        if (readyStrikeEventBinderSingleton == null &&
+            turnManager != null &&
+            eventBus != null)
+        {
+            Undo.RecordObject(turnManager.gameObject, "Create ReadyStrikeEventBinder");
+            readyStrikeEventBinderSingleton = turnManager.gameObject.AddComponent<ReadyStrikeEventBinder>();
+            EditorUtility.SetDirty(turnManager.gameObject);
+            fixedCount++;
+            Debug.Log("[PF2eAutoFix] Created ReadyStrikeEventBinder on TurnManager GameObject.", turnManager.gameObject);
+        }
+
         // Fix null references only
 
         fixedCount += FixAll<EntityManager>("gridManager", gridManager);
@@ -757,6 +781,10 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
             fixedCount += FixAll<TurnManager>("eventBus", eventBus);
         if (strikeActionSingleton != null)
             fixedCount += FixAll<TurnManager>("strikeAction", strikeActionSingleton);
+
+        fixedCount += FixAll<ReadyStrikeEventBinder>("turnManager", turnManager);
+        if (eventBus != null)
+            fixedCount += FixAll<ReadyStrikeEventBinder>("eventBus", eventBus);
 
         fixedCount += FixAll<GridInteraction>("entityManager", entityManager);
         fixedCount += FixAll<GridInteraction>("turnManager", turnManager);

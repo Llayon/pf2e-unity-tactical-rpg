@@ -43,6 +43,7 @@ namespace PF2e.TurnSystem
         private readonly Dictionary<EntityHandle, DelayedTurnRecord> delayedTurns = new();
         private readonly HashSet<EntityHandle> delayReactionSuppressed = new();
         private IRng initiativeRng = UnityRng.Shared;
+        private bool readyLegacySubscriptionActive;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         private const float ActionLockWarnSeconds = 4f;
@@ -211,6 +212,11 @@ namespace PF2e.TurnSystem
             ResolveEventBusIfMissing();
             ResolveStrikeActionIfMissing();
             EnsureReadyStrikeEventBinder();
+        }
+
+        private void OnDisable()
+        {
+            UnsubscribeReadyLegacyFallback();
         }
 
         /// <summary>
@@ -1207,14 +1213,41 @@ namespace PF2e.TurnSystem
 
         private void EnsureReadyStrikeEventBinder()
         {
-            if (gameObject == null)
+            if (gameObject == null || eventBus == null)
                 return;
 
             var binder = GetComponent<ReadyStrikeEventBinder>();
-            if (binder == null)
-                binder = gameObject.AddComponent<ReadyStrikeEventBinder>();
+            if (binder != null)
+            {
+                UnsubscribeReadyLegacyFallback();
+                binder.Configure(this, eventBus);
+                return;
+            }
 
-            binder.Configure(this, eventBus);
+            SubscribeReadyLegacyFallback();
+        }
+
+        private void SubscribeReadyLegacyFallback()
+        {
+            if (readyLegacySubscriptionActive || eventBus == null)
+                return;
+
+            eventBus.OnEntityMovedTyped += HandleEntityMoved;
+            eventBus.OnStrikePreDamageTyped += HandleStrikePreDamage;
+            readyLegacySubscriptionActive = true;
+            Debug.LogWarning(
+                "[TurnManager] ReadyStrikeEventBinder is missing. Using legacy Ready trigger subscription fallback. Run scene AutoFix to author binder wiring.",
+                this);
+        }
+
+        private void UnsubscribeReadyLegacyFallback()
+        {
+            if (!readyLegacySubscriptionActive || eventBus == null)
+                return;
+
+            eventBus.OnEntityMovedTyped -= HandleEntityMoved;
+            eventBus.OnStrikePreDamageTyped -= HandleStrikePreDamage;
+            readyLegacySubscriptionActive = false;
         }
 
         private void ClearReadiedStrikes()

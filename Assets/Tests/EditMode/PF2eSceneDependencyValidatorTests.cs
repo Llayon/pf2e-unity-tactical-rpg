@@ -214,6 +214,40 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void AutoFix_WhenReadyStrikeEventBinderMissing_CreatesAndWiresOnTurnManager()
+        {
+            Assert.IsTrue(System.IO.File.Exists(SampleScenePath), $"Missing scene: {SampleScenePath}");
+
+            EditorSceneManager.OpenScene(SampleScenePath, OpenSceneMode.Single);
+
+            var turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();
+            var eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
+            Assert.IsNotNull(turnManager, "SampleScene must contain TurnManager.");
+            Assert.IsNotNull(eventBus, "SampleScene must contain CombatEventBus.");
+
+            var existing = UnityEngine.Object.FindObjectsByType<ReadyStrikeEventBinder>(FindObjectsSortMode.None);
+            for (int i = 0; i < existing.Length; i++)
+            {
+                UnityEngine.Object.DestroyImmediate(existing[i]);
+            }
+
+            Assert.AreEqual(
+                0,
+                UnityEngine.Object.FindObjectsByType<ReadyStrikeEventBinder>(FindObjectsSortMode.None).Length,
+                "Test precondition: ReadyStrikeEventBinder must be missing before autofix.");
+
+            InvokePrivateValidatorMethodWithBoolArg("RunAutoFix", false);
+
+            var after = UnityEngine.Object.FindObjectsByType<ReadyStrikeEventBinder>(FindObjectsSortMode.None);
+            Assert.AreEqual(1, after.Length, "AutoFix must create exactly one ReadyStrikeEventBinder.");
+
+            var binder = after[0];
+            Assert.AreSame(turnManager.gameObject, binder.gameObject, "ReadyStrikeEventBinder must be created on TurnManager GameObject.");
+            Assert.AreSame(turnManager, GetPrivateField<TurnManager>(binder, "turnManager"));
+            Assert.AreSame(eventBus, GetPrivateField<CombatEventBus>(binder, "eventBus"));
+        }
+
+        [Test]
         public void Validator_MissingEncounterActorId_OnAliveCombatants_EmitsWarnings()
         {
             var entities = new List<EntityData>

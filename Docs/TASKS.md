@@ -143,6 +143,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-137 | P1 | done | Verifier | Phase 33h: add Ready coordinator PlayMode E2E seam regressions | Added PlayMode coverage for forced-move non-trigger contract, combat-end prepared-state cleanup, and next-turn start expiry contract after prepare without trigger |
 | T-138 | P1 | done | Verifier | Phase 33i: add Ready anti-recursion PlayMode regression | Added PlayMode E2E for root attack-start trigger where player ready fires and enemy prepared ready does not counter-cascade in the same trigger scope |
 | T-139 | P1 | done | Builder | Phase 33j: move Ready combat-event subscriptions into dedicated binder | Added `ReadyStrikeEventBinder` as owner of `CombatEventBus` movement/pre-damage subscriptions and forwarding to `TurnManager`; `TurnManager` now bootstraps binder and no longer subscribes directly |
+| T-140 | P1 | done | Builder | Phase 33k: add validator/autofix wiring for `ReadyStrikeEventBinder` and remove runtime component-create fallback | `PF2eSceneDependencyValidator` now validates/creates/wires `ReadyStrikeEventBinder` (`turnManager` + `eventBus`), new EditMode autofix regression added, and `TurnManager` no longer `AddComponent`-creates binder at runtime (legacy direct-subscribe fallback remains temporary when binder is absent) |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal
