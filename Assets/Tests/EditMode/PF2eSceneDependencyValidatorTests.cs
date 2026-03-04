@@ -150,6 +150,50 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void ValidateActionBarController_ReadyButtonAssigned_MissingReadyModeRefs_EmitsErrors()
+        {
+            var root = new GameObject("ActionBarValidatorReadyModeContractTest");
+            try
+            {
+                var eventBus = root.AddComponent<CombatEventBus>();
+                var entityManager = root.AddComponent<EntityManager>();
+                var turnManager = root.AddComponent<TurnManager>();
+                var actionExecutor = root.AddComponent<PlayerActionExecutor>();
+                var targetingController = root.AddComponent<TargetingController>();
+                var canvasGroup = root.AddComponent<CanvasGroup>();
+                var actionBar = root.AddComponent<ActionBarController>();
+
+                var readyButtonGo = new GameObject("ReadyButton", typeof(RectTransform), typeof(Image), typeof(Button));
+                readyButtonGo.transform.SetParent(root.transform, false);
+                var readyButton = readyButtonGo.GetComponent<Button>();
+
+                SetPrivateField(actionBar, "eventBus", eventBus);
+                SetPrivateField(actionBar, "entityManager", entityManager);
+                SetPrivateField(actionBar, "turnManager", turnManager);
+                SetPrivateField(actionBar, "actionExecutor", actionExecutor);
+                SetPrivateField(actionBar, "targetingController", targetingController);
+                SetPrivateField(actionBar, "canvasGroup", canvasGroup);
+                SetPrivateField(actionBar, "readyButton", readyButton);
+                SetPrivateField(actionBar, "readyModeSelectorRoot", null);
+                SetPrivateField(actionBar, "readyModeMoveButton", null);
+                SetPrivateField(actionBar, "readyModeAttackButton", null);
+                SetPrivateField(actionBar, "readyModeAnyButton", null);
+
+                InvokePrivateValidateActionBarController(actionBar, out int errors, out int warnings);
+
+                Assert.GreaterOrEqual(
+                    errors,
+                    4,
+                    "When ReadyButton is assigned, missing ready mode selector refs must be treated as validator errors.");
+                Assert.GreaterOrEqual(warnings, 1, "Optional missing action-bar slots should still report warnings.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
         public void AutoFix_WhenDelayUiOrchestratorMissing_CreatesAndWiresIt()
         {
             Assert.IsTrue(System.IO.File.Exists(SampleScenePath), $"Missing scene: {SampleScenePath}");
@@ -381,6 +425,21 @@ namespace PF2e.Tests
             var method = target.GetType().GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance);
             Assert.IsNotNull(method, $"{methodName} not found on {target.GetType().Name}.");
             method.Invoke(target, null);
+        }
+
+        private static void InvokePrivateValidateActionBarController(ActionBarController actionBar, out int errors, out int warnings)
+        {
+            var validatorType = FindTypeByName("PF2eSceneDependencyValidator");
+            Assert.IsNotNull(validatorType, "PF2eSceneDependencyValidator type not found.");
+
+            var method = validatorType.GetMethod("ValidateActionBarController", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.IsNotNull(method, "ValidateActionBarController not found on PF2eSceneDependencyValidator.");
+
+            object[] args = { actionBar, 0, 0 };
+            method.Invoke(null, args);
+
+            errors = (int)args[1];
+            warnings = (int)args[2];
         }
 
         private static Type FindTypeByName(string typeName)

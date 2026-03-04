@@ -385,10 +385,20 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnRef(c, "demoralizeButton", "Button");
         warnings += WarnRef(c, "escapeButton", "Button");
         warnings += WarnRef(c, "readyButton", "Button");
-        warnings += WarnRef(c, "readyModeSelectorRoot", "RectTransform");
-        warnings += WarnRef(c, "readyModeMoveButton", "Button");
-        warnings += WarnRef(c, "readyModeAttackButton", "Button");
-        warnings += WarnRef(c, "readyModeAnyButton", "Button");
+        if (IsRefAssigned(c, "readyButton"))
+        {
+            errors += RequireRef(c, "readyModeSelectorRoot", "RectTransform");
+            errors += RequireRef(c, "readyModeMoveButton", "Button");
+            errors += RequireRef(c, "readyModeAttackButton", "Button");
+            errors += RequireRef(c, "readyModeAnyButton", "Button");
+        }
+        else
+        {
+            warnings += WarnRef(c, "readyModeSelectorRoot", "RectTransform");
+            warnings += WarnRef(c, "readyModeMoveButton", "Button");
+            warnings += WarnRef(c, "readyModeAttackButton", "Button");
+            warnings += WarnRef(c, "readyModeAnyButton", "Button");
+        }
         warnings += WarnRef(c, "raiseShieldButton", "Button");
         warnings += WarnRef(c, "standButton", "Button");
         warnings += WarnRef(c, "delayButton", "Button");
@@ -706,6 +716,26 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         }
 
         return 0;
+    }
+
+    private static bool IsRefAssigned(Component c, string fieldName)
+    {
+        if (c == null || string.IsNullOrWhiteSpace(fieldName))
+            return false;
+
+        var t = c.GetType();
+        var f = t.GetField(fieldName, Flags);
+        if (f == null)
+            return false;
+
+        var value = f.GetValue(c);
+        if (value == null)
+            return false;
+
+        if (value is UnityEngine.Object unityObject && unityObject == null)
+            return false;
+
+        return true;
     }
 
     private static string GetPath(Transform t)

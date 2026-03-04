@@ -199,11 +199,8 @@ namespace PF2e.Presentation
             if (readyModeSelectorRoot == null)
             {
                 WarnMissingReadyModeWiring();
-                readyModeSelectorRoot = CreateReadyModeSelectorRoot(readyButton.transform);
-            }
-
-            if (readyModeSelectorRoot == null)
                 return;
+            }
 
             if (readyModeMoveButton == null)
             {
@@ -225,102 +222,7 @@ namespace PF2e.Presentation
             }
 
             if (readyModeMoveButton == null || readyModeAttackButton == null || readyModeAnyButton == null)
-            {
                 WarnMissingReadyModeWiring();
-                if (readyModeMoveButton == null)
-                    readyModeMoveButton = CreateReadyModeButton(readyModeSelectorRoot, ReadyModeMoveButtonName, "M");
-                if (readyModeAttackButton == null)
-                    readyModeAttackButton = CreateReadyModeButton(readyModeSelectorRoot, ReadyModeAttackButtonName, "A");
-                if (readyModeAnyButton == null)
-                    readyModeAnyButton = CreateReadyModeButton(readyModeSelectorRoot, ReadyModeAnyButtonName, "*");
-            }
-        }
-
-        private RectTransform CreateReadyModeSelectorRoot(Transform parent)
-        {
-            if (parent == null)
-                return null;
-
-            var root = new GameObject(
-                ReadyModeSelectorName,
-                typeof(RectTransform),
-                typeof(HorizontalLayoutGroup));
-            root.transform.SetParent(parent, false);
-
-            var rect = root.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.5f, 1f);
-            rect.anchorMax = new Vector2(0.5f, 1f);
-            rect.pivot = new Vector2(0.5f, 0f);
-            rect.anchoredPosition = new Vector2(0f, 3f);
-            rect.sizeDelta = new Vector2(96f, 16f);
-
-            var layout = root.GetComponent<HorizontalLayoutGroup>();
-            layout.spacing = 2f;
-            layout.padding = new RectOffset(0, 0, 0, 0);
-            layout.childAlignment = TextAnchor.MiddleCenter;
-            layout.childControlWidth = false;
-            layout.childControlHeight = false;
-            layout.childForceExpandWidth = false;
-            layout.childForceExpandHeight = false;
-
-            return rect;
-        }
-
-        private Button CreateReadyModeButton(Transform parent, string objectName, string labelText)
-        {
-            if (parent == null)
-                return null;
-
-            var buttonGo = new GameObject(
-                objectName,
-                typeof(RectTransform),
-                typeof(Image),
-                typeof(Button),
-                typeof(LayoutElement));
-            buttonGo.transform.SetParent(parent, false);
-
-            var rect = buttonGo.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(30f, 16f);
-
-            var layout = buttonGo.GetComponent<LayoutElement>();
-            layout.preferredWidth = 30f;
-            layout.preferredHeight = 16f;
-            layout.minWidth = 28f;
-            layout.minHeight = 16f;
-
-            var image = buttonGo.GetComponent<Image>();
-            image.color = readyModeUnselectedColor;
-
-            var button = buttonGo.GetComponent<Button>();
-            button.transition = Selectable.Transition.ColorTint;
-            var colors = button.colors;
-            colors.normalColor = Color.white;
-            colors.highlightedColor = new Color(1.15f, 1.15f, 1.15f, 1f);
-            colors.pressedColor = new Color(0.9f, 0.9f, 0.9f, 1f);
-            colors.disabledColor = new Color(1f, 1f, 1f, 0.45f);
-            colors.fadeDuration = 0.06f;
-            button.colors = colors;
-
-            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
-            labelGo.transform.SetParent(buttonGo.transform, false);
-            var labelRect = labelGo.GetComponent<RectTransform>();
-            labelRect.anchorMin = Vector2.zero;
-            labelRect.anchorMax = Vector2.one;
-            labelRect.offsetMin = Vector2.zero;
-            labelRect.offsetMax = Vector2.zero;
-
-            var label = labelGo.GetComponent<TextMeshProUGUI>();
-            label.text = labelText;
-            label.fontSize = 10f;
-            label.alignment = TextAlignmentOptions.Center;
-            label.color = readyModeTextColor;
-            label.textWrappingMode = TextWrappingModes.NoWrap;
-            if (readyButtonLabel != null && readyButtonLabel.font != null)
-                label.font = readyButtonLabel.font;
-            else if (TMP_Settings.defaultFontAsset != null)
-                label.font = TMP_Settings.defaultFontAsset;
-
-            return button;
         }
 
         private void WarnMissingReadyModeWiring()
