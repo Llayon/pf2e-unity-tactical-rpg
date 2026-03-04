@@ -148,6 +148,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-142 | P1 | done | Builder | Stabilize Ready EditMode harness after phase 33l hard requirement | `TurnManagerReadiedStrikeTests` context now instantiates and wires `ReadyStrikeEventBinder` before manual `TurnManager.OnEnable`, restoring trigger-path coverage under binder-required runtime contract |
 | T-143 | P1 | done | Builder | Phase 33m: author `ReadyStrikeEventBinder` directly in scene wiring | Added authored `ReadyStrikeEventBinder` component (with `turnManager`/`eventBus` refs) on `CombatController` in `SampleScene` and `EncounterFlowPrefabScene` to satisfy phase 33l hard requirement without runtime/editor autofix bootstrap |
 | T-144 | P1 | done | Builder | Phase 33n: add configurable Ready trigger mode (Movement/Attack/Any) | Added `ReadyTriggerMode` carried through prepare/runtime/trigger execution; movement/attack dispatch now filters by prepared mode; `Shift+Ready` and `M` cycle mode; ready logs include `READY[...]` token; EditMode+PlayMode regressions added for mode-gating behavior |
+| T-145 | P1 | done | Builder | Phase 33p: ready mode selector validator wiring + explicit fallback warning | Scene validator/autofix now validates/wires `ReadyModeSelector` (`readyModeSelectorRoot` + `ReadyModeMove/Attack/AnyButton`) under `ReadyButton`; added EditMode validator regression and action-bar harness authored-selector setup; runtime now logs explicit warning if selector wiring is missing and fallback bootstrap is engaged |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

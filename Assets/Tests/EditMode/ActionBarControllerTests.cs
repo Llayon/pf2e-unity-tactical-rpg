@@ -603,6 +603,28 @@ namespace PF2e.Tests
                 EscapeButton = CreateButton("EscapeButton", ActionBarGameObject.transform, out var escapeHl);
                 AidButton = CreateButton("AidButton", ActionBarGameObject.transform, out var aidHl);
                 ReadyButton = CreateButton("ReadyButton", ActionBarGameObject.transform, out var readyHl);
+                var readyModeSelectorRootGo = new GameObject(
+                    "ReadyModeSelector",
+                    typeof(RectTransform),
+                    typeof(HorizontalLayoutGroup));
+                readyModeSelectorRootGo.transform.SetParent(ReadyButton.transform, false);
+                var selectorRect = readyModeSelectorRootGo.GetComponent<RectTransform>();
+                selectorRect.anchorMin = new Vector2(0.5f, 1f);
+                selectorRect.anchorMax = new Vector2(0.5f, 1f);
+                selectorRect.pivot = new Vector2(0.5f, 0f);
+                selectorRect.anchoredPosition = new Vector2(0f, 3f);
+                selectorRect.sizeDelta = new Vector2(96f, 16f);
+                var selectorLayout = readyModeSelectorRootGo.GetComponent<HorizontalLayoutGroup>();
+                selectorLayout.spacing = 2f;
+                selectorLayout.childAlignment = TextAnchor.MiddleCenter;
+                selectorLayout.childControlWidth = false;
+                selectorLayout.childControlHeight = false;
+                selectorLayout.childForceExpandWidth = false;
+                selectorLayout.childForceExpandHeight = false;
+
+                ReadyModeMoveButton = CreateReadyModeSelectorButton("ReadyModeMoveButton", readyModeSelectorRootGo.transform);
+                ReadyModeAttackButton = CreateReadyModeSelectorButton("ReadyModeAttackButton", readyModeSelectorRootGo.transform);
+                ReadyModeAnyButton = CreateReadyModeSelectorButton("ReadyModeAnyButton", readyModeSelectorRootGo.transform);
                 RaiseShieldButton = CreateButton("RaiseShieldButton", ActionBarGameObject.transform, out var raiseShieldHl);
                 StandButton = CreateButton("StandButton", ActionBarGameObject.transform, out var standHl);
                 DelayButton = CreateButton("DelayButton", ActionBarGameObject.transform, out _);
@@ -637,6 +659,10 @@ namespace PF2e.Tests
                 SetPrivateField(ActionBar, "escapeButton", EscapeButton);
                 SetPrivateField(ActionBar, "aidButton", AidButton);
                 SetPrivateField(ActionBar, "readyButton", ReadyButton);
+                SetPrivateField(ActionBar, "readyModeSelectorRoot", selectorRect);
+                SetPrivateField(ActionBar, "readyModeMoveButton", ReadyModeMoveButton);
+                SetPrivateField(ActionBar, "readyModeAttackButton", ReadyModeAttackButton);
+                SetPrivateField(ActionBar, "readyModeAnyButton", ReadyModeAnyButton);
                 SetPrivateField(ActionBar, "raiseShieldButton", RaiseShieldButton);
                 SetPrivateField(ActionBar, "standButton", StandButton);
                 SetPrivateField(ActionBar, "delayButton", DelayButton);
@@ -663,10 +689,6 @@ namespace PF2e.Tests
                 // Call OnEnable explicitly to guarantee subscriptions for deterministic tests.
                 InvokePrivate(TargetingController, "OnEnable");
                 InvokePrivate(ActionBar, "OnEnable");
-
-                ReadyModeMoveButton = GetPrivateField<Button>(ActionBar, "readyModeMoveButton");
-                ReadyModeAttackButton = GetPrivateField<Button>(ActionBar, "readyModeAttackButton");
-                ReadyModeAnyButton = GetPrivateField<Button>(ActionBar, "readyModeAnyButton");
 
                 Assert.IsTrue(TargetingController.isActiveAndEnabled, "TargetingController failed to enable in test context.");
                 Assert.IsTrue(ActionBar.isActiveAndEnabled, "ActionBarController failed to enable in test context.");
@@ -942,6 +964,23 @@ namespace PF2e.Tests
             highlightGo.SetActive(false);
             highlight = highlightGo.GetComponent<Image>();
             return button;
+        }
+
+        private static Button CreateReadyModeSelectorButton(string name, Transform parent)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+            go.transform.SetParent(parent, false);
+
+            var rect = go.GetComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(30f, 16f);
+
+            var layout = go.GetComponent<LayoutElement>();
+            layout.preferredWidth = 30f;
+            layout.preferredHeight = 16f;
+            layout.minWidth = 28f;
+            layout.minHeight = 16f;
+
+            return go.GetComponent<Button>();
         }
 
         private static void InvokePrivate(object target, string methodName)

@@ -385,6 +385,10 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnRef(c, "demoralizeButton", "Button");
         warnings += WarnRef(c, "escapeButton", "Button");
         warnings += WarnRef(c, "readyButton", "Button");
+        warnings += WarnRef(c, "readyModeSelectorRoot", "RectTransform");
+        warnings += WarnRef(c, "readyModeMoveButton", "Button");
+        warnings += WarnRef(c, "readyModeAttackButton", "Button");
+        warnings += WarnRef(c, "readyModeAnyButton", "Button");
         warnings += WarnRef(c, "raiseShieldButton", "Button");
         warnings += WarnRef(c, "standButton", "Button");
         warnings += WarnRef(c, "delayButton", "Button");
@@ -1230,6 +1234,28 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         if (readyHighlight != null)
             fixedCount += TryAssignIfNull(bar, "readyHighlight", readyHighlight);
 
+        var readyModeSelectorRoot = readyButton != null ? EnsureReadyModeSelectorRoot(readyButton) : null;
+        if (readyModeSelectorRoot != null)
+            fixedCount += TryAssignIfNull(bar, "readyModeSelectorRoot", readyModeSelectorRoot);
+
+        var readyModeMoveButton = readyModeSelectorRoot != null
+            ? EnsureReadyModeButton(readyModeSelectorRoot, "ReadyModeMoveButton", "M", readyButton)
+            : null;
+        if (readyModeMoveButton != null)
+            fixedCount += TryAssignIfNull(bar, "readyModeMoveButton", readyModeMoveButton);
+
+        var readyModeAttackButton = readyModeSelectorRoot != null
+            ? EnsureReadyModeButton(readyModeSelectorRoot, "ReadyModeAttackButton", "A", readyButton)
+            : null;
+        if (readyModeAttackButton != null)
+            fixedCount += TryAssignIfNull(bar, "readyModeAttackButton", readyModeAttackButton);
+
+        var readyModeAnyButton = readyModeSelectorRoot != null
+            ? EnsureReadyModeButton(readyModeSelectorRoot, "ReadyModeAnyButton", "*", readyButton)
+            : null;
+        if (readyModeAnyButton != null)
+            fixedCount += TryAssignIfNull(bar, "readyModeAnyButton", readyModeAnyButton);
+
         return fixedCount;
     }
 
@@ -1397,6 +1423,135 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         Undo.RegisterCreatedObjectUndo(highlightGo, "Create AidButton ActiveHighlight");
         EditorUtility.SetDirty(highlightGo);
         return image;
+    }
+
+    private static RectTransform EnsureReadyModeSelectorRoot(Button readyButton)
+    {
+        if (readyButton == null)
+            return null;
+
+        var existing = readyButton.transform.Find("ReadyModeSelector");
+        if (existing != null)
+            return existing as RectTransform;
+
+        var rootGo = new GameObject("ReadyModeSelector", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        rootGo.transform.SetParent(readyButton.transform, false);
+        rootGo.SetActive(true);
+
+        var rect = rootGo.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 1f);
+        rect.anchorMax = new Vector2(0.5f, 1f);
+        rect.pivot = new Vector2(0.5f, 0f);
+        rect.anchoredPosition = new Vector2(0f, 3f);
+        rect.sizeDelta = new Vector2(96f, 16f);
+
+        var layout = rootGo.GetComponent<HorizontalLayoutGroup>();
+        layout.spacing = 2f;
+        layout.padding = new RectOffset(0, 0, 0, 0);
+        layout.childAlignment = TextAnchor.MiddleCenter;
+        layout.childControlWidth = false;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+
+        Undo.RegisterCreatedObjectUndo(rootGo, "Create ReadyModeSelector");
+        EditorUtility.SetDirty(rootGo);
+        Debug.Log($"[PF2eAutoFix] Created ReadyModeSelector under {GetPath(readyButton.transform)}.", rootGo);
+        return rect;
+    }
+
+    private static Button EnsureReadyModeButton(RectTransform selectorRoot, string buttonName, string token, Button readyTemplate)
+    {
+        if (selectorRoot == null || string.IsNullOrWhiteSpace(buttonName))
+            return null;
+
+        var existing = selectorRoot.Find(buttonName);
+        Button button = existing != null ? existing.GetComponent<Button>() : null;
+        if (button == null)
+        {
+            var buttonGo = new GameObject(
+                buttonName,
+                typeof(RectTransform),
+                typeof(Image),
+                typeof(Button),
+                typeof(LayoutElement));
+            buttonGo.transform.SetParent(selectorRoot, false);
+            buttonGo.SetActive(true);
+
+            var rect = buttonGo.GetComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(30f, 16f);
+
+            var layout = buttonGo.GetComponent<LayoutElement>();
+            layout.preferredWidth = 30f;
+            layout.preferredHeight = 16f;
+            layout.minWidth = 28f;
+            layout.minHeight = 16f;
+
+            button = buttonGo.GetComponent<Button>();
+            button.onClick.RemoveAllListeners();
+
+            var image = buttonGo.GetComponent<Image>();
+            image.color = new Color(0.18f, 0.23f, 0.30f, 0.92f);
+
+            if (readyTemplate != null)
+            {
+                button.transition = readyTemplate.transition;
+                button.colors = readyTemplate.colors;
+            }
+            else
+            {
+                button.transition = Selectable.Transition.ColorTint;
+            }
+
+            Undo.RegisterCreatedObjectUndo(buttonGo, $"Create {buttonName}");
+            EditorUtility.SetDirty(buttonGo);
+            Debug.Log($"[PF2eAutoFix] Created {buttonName} under {GetPath(selectorRoot)}.", buttonGo);
+        }
+
+        EnsureReadyModeButtonLabel(button, token, readyTemplate);
+        return button;
+    }
+
+    private static void EnsureReadyModeButtonLabel(Button button, string token, Button readyTemplate)
+    {
+        if (button == null)
+            return;
+
+        var existing = button.transform.Find("Label");
+        TMPro.TextMeshProUGUI label = existing != null ? existing.GetComponent<TMPro.TextMeshProUGUI>() : null;
+        if (label == null)
+        {
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
+            labelGo.transform.SetParent(button.transform, false);
+
+            var rect = labelGo.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+
+            label = labelGo.GetComponent<TMPro.TextMeshProUGUI>();
+            Undo.RegisterCreatedObjectUndo(labelGo, "Create ReadyMode label");
+            EditorUtility.SetDirty(labelGo);
+        }
+
+        label.text = token;
+        label.fontSize = 10f;
+        label.alignment = TMPro.TextAlignmentOptions.Center;
+        label.color = new Color(0.92f, 0.92f, 0.95f, 1f);
+        label.enableWordWrapping = false;
+
+        if (readyTemplate != null)
+        {
+            var templateLabel = readyTemplate.GetComponentInChildren<TMPro.TMP_Text>(true);
+            if (templateLabel is TMPro.TextMeshProUGUI templateUi)
+            {
+                label.font = templateUi.font;
+                label.fontMaterial = templateUi.fontMaterial;
+            }
+        }
+
+        EditorUtility.SetDirty(label);
     }
 
     private static GameObject EnsureAidPreparedBadge(Button aidButton)

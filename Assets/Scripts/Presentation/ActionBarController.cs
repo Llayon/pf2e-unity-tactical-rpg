@@ -79,6 +79,7 @@ namespace PF2e.Presentation
         private readonly DelayActionBarStatePresenter delayActionBarStatePresenter = new();
         private readonly ActionBarCommandCoordinator actionBarCommandCoordinator = new();
         private readonly AidActionBarUiBootstrapper aidActionBarUiBootstrapper = new();
+        private bool readyModeWiringWarned;
 #if UNITY_EDITOR
         private void OnValidate()
         {
@@ -98,6 +99,10 @@ namespace PF2e.Presentation
             if (demoralizeButton == null) Debug.LogWarning("[ActionBar] demoralizeButton not assigned", this);
             if (escapeButton == null) Debug.LogWarning("[ActionBar] escapeButton not assigned", this);
             // aid button is optional in older scenes; no warning spam.
+            if (readyModeSelectorRoot == null) Debug.LogWarning("[ActionBar] readyModeSelectorRoot not assigned", this);
+            if (readyModeMoveButton == null) Debug.LogWarning("[ActionBar] readyModeMoveButton not assigned", this);
+            if (readyModeAttackButton == null) Debug.LogWarning("[ActionBar] readyModeAttackButton not assigned", this);
+            if (readyModeAnyButton == null) Debug.LogWarning("[ActionBar] readyModeAnyButton not assigned", this);
             if (raiseShieldButton == null) Debug.LogWarning("[ActionBar] raiseShieldButton not assigned", this);
             if (standButton == null) Debug.LogWarning("[ActionBar] standButton not assigned", this);
             // delay/return/skip buttons are optional in older scenes; no warning spam.
@@ -192,7 +197,10 @@ namespace PF2e.Presentation
             }
 
             if (readyModeSelectorRoot == null)
+            {
+                WarnMissingReadyModeWiring();
                 readyModeSelectorRoot = CreateReadyModeSelectorRoot(readyButton.transform);
+            }
 
             if (readyModeSelectorRoot == null)
                 return;
@@ -216,12 +224,16 @@ namespace PF2e.Presentation
                     readyModeAnyButton = existing.GetComponent<Button>();
             }
 
-            if (readyModeMoveButton == null)
-                readyModeMoveButton = CreateReadyModeButton(readyModeSelectorRoot, ReadyModeMoveButtonName, "M");
-            if (readyModeAttackButton == null)
-                readyModeAttackButton = CreateReadyModeButton(readyModeSelectorRoot, ReadyModeAttackButtonName, "A");
-            if (readyModeAnyButton == null)
-                readyModeAnyButton = CreateReadyModeButton(readyModeSelectorRoot, ReadyModeAnyButtonName, "*");
+            if (readyModeMoveButton == null || readyModeAttackButton == null || readyModeAnyButton == null)
+            {
+                WarnMissingReadyModeWiring();
+                if (readyModeMoveButton == null)
+                    readyModeMoveButton = CreateReadyModeButton(readyModeSelectorRoot, ReadyModeMoveButtonName, "M");
+                if (readyModeAttackButton == null)
+                    readyModeAttackButton = CreateReadyModeButton(readyModeSelectorRoot, ReadyModeAttackButtonName, "A");
+                if (readyModeAnyButton == null)
+                    readyModeAnyButton = CreateReadyModeButton(readyModeSelectorRoot, ReadyModeAnyButtonName, "*");
+            }
         }
 
         private RectTransform CreateReadyModeSelectorRoot(Transform parent)
@@ -309,6 +321,18 @@ namespace PF2e.Presentation
                 label.font = TMP_Settings.defaultFontAsset;
 
             return button;
+        }
+
+        private void WarnMissingReadyModeWiring()
+        {
+            if (readyModeWiringWarned)
+                return;
+
+            readyModeWiringWarned = true;
+            Debug.LogWarning(
+                "[ActionBar] Ready mode selector is not fully wired (root/mode buttons missing). " +
+                "Run scene validator autofix or assign references in scene.",
+                this);
         }
 
         private void OnEnable()

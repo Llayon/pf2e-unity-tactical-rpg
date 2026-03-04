@@ -107,6 +107,49 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void SampleScene_ReadyModeUi_Wired()
+        {
+            Assert.IsTrue(System.IO.File.Exists(SampleScenePath), $"Missing scene: {SampleScenePath}");
+
+            EditorSceneManager.OpenScene(SampleScenePath, OpenSceneMode.Single);
+
+            var actionBar = UnityEngine.Object.FindFirstObjectByType<ActionBarController>();
+            Assert.IsNotNull(actionBar, "SampleScene must contain ActionBarController.");
+
+            SetPrivateField(actionBar, "readyModeSelectorRoot", null);
+            SetPrivateField(actionBar, "readyModeMoveButton", null);
+            SetPrivateField(actionBar, "readyModeAttackButton", null);
+            SetPrivateField(actionBar, "readyModeAnyButton", null);
+
+            var readyButton = GetPrivateField<Button>(actionBar, "readyButton");
+            if (readyButton != null)
+            {
+                var staleSelector = readyButton.transform.Find("ReadyModeSelector");
+                if (staleSelector != null)
+                    UnityEngine.Object.DestroyImmediate(staleSelector.gameObject);
+            }
+
+            InvokePrivateValidatorMethodWithBoolArg("RunAutoFix", false);
+
+            var selectorRoot = GetPrivateField<RectTransform>(actionBar, "readyModeSelectorRoot");
+            var moveButton = GetPrivateField<Button>(actionBar, "readyModeMoveButton");
+            var attackButton = GetPrivateField<Button>(actionBar, "readyModeAttackButton");
+            var anyButton = GetPrivateField<Button>(actionBar, "readyModeAnyButton");
+
+            Assert.IsNotNull(selectorRoot, "ActionBarController must have Ready mode selector root wired by scene/autofix.");
+            Assert.IsNotNull(moveButton, "ActionBarController must have Ready mode Move button wired by scene/autofix.");
+            Assert.IsNotNull(attackButton, "ActionBarController must have Ready mode Attack button wired by scene/autofix.");
+            Assert.IsNotNull(anyButton, "ActionBarController must have Ready mode Any button wired by scene/autofix.");
+            Assert.AreEqual("ReadyModeSelector", selectorRoot.gameObject.name);
+            Assert.AreEqual("ReadyModeMoveButton", moveButton.gameObject.name);
+            Assert.AreEqual("ReadyModeAttackButton", attackButton.gameObject.name);
+            Assert.AreEqual("ReadyModeAnyButton", anyButton.gameObject.name);
+            Assert.AreSame(selectorRoot, moveButton.transform.parent);
+            Assert.AreSame(selectorRoot, attackButton.transform.parent);
+            Assert.AreSame(selectorRoot, anyButton.transform.parent);
+        }
+
+        [Test]
         public void AutoFix_WhenDelayUiOrchestratorMissing_CreatesAndWiresIt()
         {
             Assert.IsTrue(System.IO.File.Exists(SampleScenePath), $"Missing scene: {SampleScenePath}");
