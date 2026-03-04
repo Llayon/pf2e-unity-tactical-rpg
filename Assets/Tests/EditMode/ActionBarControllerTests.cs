@@ -679,7 +679,7 @@ namespace PF2e.Tests
                 SetPrivateField(ActionBar, "raiseShieldHighlight", RaiseShieldHighlight);
                 SetPrivateField(ActionBar, "standHighlight", StandHighlight);
                 SetPrivateField(ActionBar, "aidPreparedIndicatorRoot", AidPreparedIndicatorRoot);
-                InvokePrivate(ActionBar, "ResolveOptionalAidUiReferences");
+                InvokePrivate(ActionBar, "ValidateAndApplyUiWiring");
 
                 Root.SetActive(true);
                 targetingGo.SetActive(true);
@@ -854,7 +854,7 @@ namespace PF2e.Tests
                 SetMemberValue(AidPreparedIndicatorLabel, "text", string.Empty);
 
                 SetPrivateField(ActionBar, "aidPreparedIndicatorLabel", AidPreparedIndicatorLabel);
-                InvokePrivate(ActionBar, "ResolveAidPreparedIndicatorReferences");
+                InvokePrivate(ActionBar, "ValidateAndApplyUiWiring");
             }
 
             public void SetAidPreparedTextStyle(string singleText, string countFormat)

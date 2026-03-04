@@ -90,13 +90,16 @@ namespace PF2e.Tests
             var aidButton = GetPrivateField<Button>(actionBar, "aidButton");
             var aidHighlight = GetPrivateField<Image>(actionBar, "aidHighlight");
             var aidPreparedBadgeRoot = GetPrivateField<GameObject>(actionBar, "aidPreparedIndicatorRoot");
+            var aidPreparedBadgeLabel = GetPrivateField<Component>(actionBar, "aidPreparedIndicatorLabel");
             Assert.IsNotNull(aidButton, "ActionBarController must have Aid button wired by scene/autofix.");
             Assert.IsNotNull(aidHighlight, "ActionBarController must have Aid highlight wired by scene/autofix.");
             Assert.IsNotNull(aidPreparedBadgeRoot, "ActionBarController must have Aid prepared badge wired by scene/autofix.");
+            Assert.IsNotNull(aidPreparedBadgeLabel, "ActionBarController must have Aid prepared badge label wired by scene/autofix.");
             Assert.AreEqual("AidButton", aidButton.gameObject.name, "Resolved Aid button should use canonical name AidButton.");
             Assert.AreEqual("AidPreparedBadge", aidPreparedBadgeRoot.name, "Aid prepared badge should use canonical name AidPreparedBadge.");
             Assert.AreSame(aidButton.transform, aidPreparedBadgeRoot.transform.parent, "Aid prepared badge must be attached to Aid button.");
             Assert.IsNotNull(aidButton.transform.Find("AidPreparedBadge"), "Aid button hierarchy must contain AidPreparedBadge child.");
+            Assert.IsTrue(aidPreparedBadgeLabel.transform.IsChildOf(aidPreparedBadgeRoot.transform), "Aid prepared badge label must be under AidPreparedBadge.");
 
             var resolvedAidAction = GetPrivateField<AidAction>(executor, "aidAction");
             var wiredEventBus = GetPrivateField<CombatEventBus>(executor, "eventBus");
@@ -192,6 +195,67 @@ namespace PF2e.Tests
                     errors,
                     6,
                     "When ReadyButton is assigned, missing Ready wiring refs (label/highlight/mode selector) must be validator errors.");
+                Assert.GreaterOrEqual(warnings, 1, "Optional missing action-bar slots should still report warnings.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                LogAssert.ignoreFailingMessages = oldIgnoreFailingLogs;
+            }
+        }
+
+        [Test]
+        [TestMustExpectAllLogs(false)]
+        public void ValidateActionBarController_AidButtonAssigned_MissingAidRefs_EmitsErrors()
+        {
+            bool oldIgnoreFailingLogs = LogAssert.ignoreFailingMessages;
+            LogAssert.ignoreFailingMessages = true;
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("ActionBarValidatorAidContractTest");
+            try
+            {
+                var eventBus = root.AddComponent<CombatEventBus>();
+                var turnManager = root.AddComponent<TurnManager>();
+                var actionExecutor = root.AddComponent<PlayerActionExecutor>();
+                var targetingController = root.AddComponent<TargetingController>();
+                var canvasGroup = root.AddComponent<CanvasGroup>();
+                var actionBar = root.AddComponent<ActionBarController>();
+
+                var aidButton = CreateButton("AidButton", root.transform);
+                var readyButton = CreateButton("ReadyButton", root.transform);
+                var readyLabel = CreateTmpLabel("Label", readyButton.transform, "Ready");
+                var readyHighlight = CreateImage("ActiveHighlight", readyButton.transform);
+                var selectorRoot = new GameObject("ReadyModeSelector", typeof(RectTransform)).GetComponent<RectTransform>();
+                selectorRoot.transform.SetParent(readyButton.transform, false);
+                var moveButton = CreateButton("ReadyModeMoveButton", selectorRoot);
+                var attackButton = CreateButton("ReadyModeAttackButton", selectorRoot);
+                var anyButton = CreateButton("ReadyModeAnyButton", selectorRoot);
+
+                SetPrivateField(actionBar, "eventBus", eventBus);
+                SetPrivateField(actionBar, "turnManager", turnManager);
+                SetPrivateField(actionBar, "actionExecutor", actionExecutor);
+                SetPrivateField(actionBar, "targetingController", targetingController);
+                SetPrivateField(actionBar, "canvasGroup", canvasGroup);
+
+                SetPrivateField(actionBar, "aidButton", aidButton);
+                SetPrivateField(actionBar, "aidHighlight", null);
+                SetPrivateField(actionBar, "aidPreparedIndicatorRoot", null);
+                SetPrivateField(actionBar, "aidPreparedIndicatorLabel", null);
+
+                SetPrivateField(actionBar, "readyButton", readyButton);
+                SetPrivateField(actionBar, "readyButtonLabel", readyLabel);
+                SetPrivateField(actionBar, "readyHighlight", readyHighlight);
+                SetPrivateField(actionBar, "readyModeSelectorRoot", selectorRoot);
+                SetPrivateField(actionBar, "readyModeMoveButton", moveButton);
+                SetPrivateField(actionBar, "readyModeAttackButton", attackButton);
+                SetPrivateField(actionBar, "readyModeAnyButton", anyButton);
+
+                InvokePrivateValidateActionBarController(actionBar, out int errors, out int warnings);
+
+                Assert.GreaterOrEqual(
+                    errors,
+                    3,
+                    "When AidButton is assigned, missing aidHighlight/aidPreparedIndicatorRoot/aidPreparedIndicatorLabel must be validator errors.");
                 Assert.GreaterOrEqual(warnings, 1, "Optional missing action-bar slots should still report warnings.");
             }
             finally
@@ -382,6 +446,37 @@ namespace PF2e.Tests
 
             int warnings = InvokePrivateValidatorMethodForEncounterActorIds(entities);
             Assert.AreEqual(2, warnings, "Only alive Player/Enemy entities with empty EncounterActorId should be warned.");
+        }
+
+        private static Button CreateButton(string name, Transform parent)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+            go.transform.SetParent(parent, false);
+            return go.GetComponent<Button>();
+        }
+
+        private static Image CreateImage(string name, Transform parent)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            return go.GetComponent<Image>();
+        }
+
+        private static Component CreateTmpLabel(string name, Transform parent, string text)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+
+            var tmpType = Type.GetType("TMPro.TextMeshProUGUI, Unity.TextMeshPro");
+            Assert.IsNotNull(tmpType, "TMPro.TextMeshProUGUI type not found.");
+
+            var label = go.AddComponent(tmpType) as Component;
+            Assert.IsNotNull(label, "Failed to add TMP label.");
+
+            var textProperty = tmpType.GetProperty("text", BindingFlags.Instance | BindingFlags.Public);
+            textProperty?.SetValue(label, text);
+
+            return label;
         }
 
         private static void InvokePrivateValidatorMethod(string methodName)

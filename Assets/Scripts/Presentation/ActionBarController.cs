@@ -73,7 +73,7 @@ namespace PF2e.Presentation
         private readonly AidPreparedIndicatorPresenter aidPreparedIndicatorPresenter = new();
         private readonly DelayActionBarStatePresenter delayActionBarStatePresenter = new();
         private readonly ActionBarCommandCoordinator actionBarCommandCoordinator = new();
-        private readonly AidActionBarUiBootstrapper aidActionBarUiBootstrapper = new();
+        private bool aidUiWiringWarned;
         private bool readyUiWiringWarned;
         private bool readyModeWiringWarned;
 #if UNITY_EDITOR
@@ -94,7 +94,10 @@ namespace PF2e.Presentation
             if (repositionButton == null) Debug.LogWarning("[ActionBar] repositionButton not assigned", this);
             if (demoralizeButton == null) Debug.LogWarning("[ActionBar] demoralizeButton not assigned", this);
             if (escapeButton == null) Debug.LogWarning("[ActionBar] escapeButton not assigned", this);
-            // aid button is optional in older scenes; no warning spam.
+            if (aidButton == null) Debug.LogWarning("[ActionBar] aidButton not assigned", this);
+            if (aidHighlight == null) Debug.LogWarning("[ActionBar] aidHighlight not assigned", this);
+            if (aidPreparedIndicatorRoot == null) Debug.LogWarning("[ActionBar] aidPreparedIndicatorRoot not assigned", this);
+            if (aidPreparedIndicatorLabel == null) Debug.LogWarning("[ActionBar] aidPreparedIndicatorLabel not assigned", this);
             if (readyButton == null) Debug.LogWarning("[ActionBar] readyButton not assigned", this);
             if (readyButtonLabel == null) Debug.LogWarning("[ActionBar] readyButtonLabel not assigned", this);
             if (readyHighlight == null) Debug.LogWarning("[ActionBar] readyHighlight not assigned", this);
@@ -110,7 +113,7 @@ namespace PF2e.Presentation
 
         private void Awake()
         {
-            ResolveOptionalAidUiReferences();
+            ValidateAndApplyUiWiring();
             EnsureButtonListenersBound();
 
             SetCombatVisible(false);
@@ -122,24 +125,49 @@ namespace PF2e.Presentation
             ClearAllHighlights();
         }
 
-        private void ResolveOptionalAidUiReferences()
+        private void ValidateAndApplyUiWiring()
         {
-            aidActionBarUiBootstrapper.ResolveOptionalReferences(
-                this,
-                escapeButton,
-                demoralizeButton,
-                strikeButton,
-                ref aidButton,
-                ref aidHighlight,
-                ref aidPreparedIndicatorRoot,
-                ref aidPreparedIndicatorLabel,
-                aidPreparedIndicatorFillColor,
-                aidPreparedIndicatorLabelColor);
+            ValidateAidUiReferences();
+            ApplyAidPreparedIndicatorStyle();
             ValidateReadyUiReferences();
             ResolveReadyModeSelectorReferences();
 
             aidPreparedIndicatorPresenter.Clear();
             RefreshAidPreparedIndicator();
+        }
+
+        // Backward-compatible hook for EditMode tests that invoke the old method name via reflection.
+        private void ResolveOptionalAidUiReferences()
+        {
+            ValidateAndApplyUiWiring();
+        }
+
+        private void ValidateAidUiReferences()
+        {
+            if (aidButton != null && aidHighlight != null && aidPreparedIndicatorRoot != null && aidPreparedIndicatorLabel != null)
+                return;
+
+            if (aidUiWiringWarned)
+                return;
+
+            aidUiWiringWarned = true;
+            Debug.LogWarning(
+                "[ActionBar] Aid UI is not fully wired (aidButton/aidHighlight/aidPreparedIndicatorRoot/aidPreparedIndicatorLabel). " +
+                "Assign references in scene or run scene validator autofix.",
+                this);
+        }
+
+        private void ApplyAidPreparedIndicatorStyle()
+        {
+            if (aidPreparedIndicatorRoot != null)
+            {
+                var indicatorImage = aidPreparedIndicatorRoot.GetComponent<Image>();
+                if (indicatorImage != null)
+                    indicatorImage.color = aidPreparedIndicatorFillColor;
+            }
+
+            if (aidPreparedIndicatorLabel != null)
+                aidPreparedIndicatorLabel.color = aidPreparedIndicatorLabelColor;
         }
 
         private void ValidateReadyUiReferences()
@@ -155,16 +183,6 @@ namespace PF2e.Presentation
                 "[ActionBar] Ready UI is not fully wired (readyButton/readyButtonLabel/readyHighlight). " +
                 "Assign references in scene or run scene validator autofix.",
                 this);
-        }
-
-        private void ResolveAidPreparedIndicatorReferences()
-        {
-            aidActionBarUiBootstrapper.ResolveAidPreparedIndicatorReferences(
-                aidButton,
-                ref aidPreparedIndicatorRoot,
-                ref aidPreparedIndicatorLabel,
-                aidPreparedIndicatorFillColor,
-                aidPreparedIndicatorLabelColor);
         }
 
         private void ResolveReadyModeSelectorReferences()

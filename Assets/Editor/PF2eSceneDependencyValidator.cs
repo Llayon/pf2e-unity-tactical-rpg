@@ -384,6 +384,10 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnRef(c, "repositionButton", "Button");
         warnings += WarnRef(c, "demoralizeButton", "Button");
         warnings += WarnRef(c, "escapeButton", "Button");
+        errors += RequireRef(c, "aidButton", "Button");
+        errors += RequireRef(c, "aidHighlight", "Image");
+        errors += RequireRef(c, "aidPreparedIndicatorRoot", "GameObject");
+        errors += RequireRef(c, "aidPreparedIndicatorLabel", "TMP_Text");
         errors += RequireRef(c, "readyButton", "Button");
         errors += RequireRef(c, "readyButtonLabel", "TMP_Text");
         errors += RequireRef(c, "readyHighlight", "Image");
@@ -1313,7 +1317,7 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         {
             fixedCount += TryAssignIfNull(bar, "aidPreparedIndicatorRoot", aidBadge);
 
-            var label = aidBadge.GetComponentInChildren<TMPro.TMP_Text>(true);
+            var label = EnsureAidPreparedBadgeLabel(aidBadge, aidButton);
             if (label != null)
                 fixedCount += TryAssignIfNull(bar, "aidPreparedIndicatorLabel", label);
         }
@@ -1616,6 +1620,50 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         Undo.RegisterCreatedObjectUndo(badgeGo, "Create AidPreparedBadge");
         EditorUtility.SetDirty(badgeGo);
         return badgeGo;
+    }
+
+    private static TMPro.TMP_Text EnsureAidPreparedBadgeLabel(GameObject aidPreparedBadge, Button aidButton)
+    {
+        if (aidPreparedBadge == null)
+            return null;
+
+        var existing = aidPreparedBadge.transform.Find("Label");
+        TMPro.TextMeshProUGUI label = existing != null ? existing.GetComponent<TMPro.TextMeshProUGUI>() : null;
+        if (label == null)
+        {
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
+            labelGo.transform.SetParent(aidPreparedBadge.transform, false);
+
+            var rect = labelGo.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+
+            label = labelGo.GetComponent<TMPro.TextMeshProUGUI>();
+            Undo.RegisterCreatedObjectUndo(labelGo, "Create AidPreparedBadge label");
+            EditorUtility.SetDirty(labelGo);
+        }
+
+        label.text = string.Empty;
+        label.fontSize = 10f;
+        label.alignment = TMPro.TextAlignmentOptions.Center;
+        label.color = Color.black;
+        label.enableWordWrapping = false;
+        label.raycastTarget = false;
+
+        if (aidButton != null)
+        {
+            var templateLabel = aidButton.GetComponentInChildren<TMPro.TMP_Text>(true);
+            if (templateLabel is TMPro.TextMeshProUGUI templateUi)
+            {
+                label.font = templateUi.font;
+                label.fontMaterial = templateUi.fontMaterial;
+            }
+        }
+
+        EditorUtility.SetDirty(label);
+        return label;
     }
 
     private static int TryAssignActionBarChild<T>(ActionBarController bar, Transform root, string childPath, string fieldName)
