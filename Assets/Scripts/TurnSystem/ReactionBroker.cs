@@ -73,6 +73,7 @@ namespace PF2e.TurnSystem
             CombatEventBus eventBus,
             Func<EntityHandle, EntityData> getEntity,
             IRng rng,
+            ReadyTriggerMode preparedTriggerMode = ReadyTriggerMode.Any,
             int aidCircumstanceBonus = 0)
         {
             if (!actor.IsValid || !target.IsValid || strikeAction == null)
@@ -88,7 +89,10 @@ namespace PF2e.TurnSystem
 
             if (string.IsNullOrWhiteSpace(triggerReason))
                 triggerReason = "trigger";
-            eventBus?.Publish(actor, $"readied Strike triggers on {targetName} {triggerReason}.", CombatLogCategory.Turn);
+            eventBus?.Publish(
+                actor,
+                $"readied Strike triggers on {targetName} {triggerReason}. READY[{preparedTriggerMode.ToShortToken()}]",
+                CombatLogCategory.Turn);
 
             var phase = strikeAction.ResolveAttackRoll(actor, target, rng, aidCircumstanceBonus);
             if (!phase.HasValue)

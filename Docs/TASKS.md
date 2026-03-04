@@ -147,6 +147,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-141 | P1 | done | Builder | Phase 33l: remove legacy Ready trigger fallback and enforce binder requirement | `TurnManager` legacy direct bus-subscribe fallback removed; missing `ReadyStrikeEventBinder` now logs warning and disables Ready trigger wiring, validator treats missing binder as error when `TurnManager` exists, and Ready PlayMode setup explicitly ensures binder bootstrap for scene-independent CI stability |
 | T-142 | P1 | done | Builder | Stabilize Ready EditMode harness after phase 33l hard requirement | `TurnManagerReadiedStrikeTests` context now instantiates and wires `ReadyStrikeEventBinder` before manual `TurnManager.OnEnable`, restoring trigger-path coverage under binder-required runtime contract |
 | T-143 | P1 | done | Builder | Phase 33m: author `ReadyStrikeEventBinder` directly in scene wiring | Added authored `ReadyStrikeEventBinder` component (with `turnManager`/`eventBus` refs) on `CombatController` in `SampleScene` and `EncounterFlowPrefabScene` to satisfy phase 33l hard requirement without runtime/editor autofix bootstrap |
+| T-144 | P1 | done | Builder | Phase 33n: add configurable Ready trigger mode (Movement/Attack/Any) | Added `ReadyTriggerMode` carried through prepare/runtime/trigger execution; movement/attack dispatch now filters by prepared mode; `Shift+Ready` and `M` cycle mode; ready logs include `READY[...]` token; EditMode+PlayMode regressions added for mode-gating behavior |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

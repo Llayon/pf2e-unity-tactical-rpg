@@ -120,6 +120,76 @@ namespace PF2e.Tests
         }
 
         [UnityTest]
+        public IEnumerator GT_P33_PM_437_ReadyStrike_MovementMode_DoesNotTriggerOnAttackStart()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+
+            ConfigureDeterministicInitiative(fighter, wizard, goblin1, goblin2);
+
+            MoveEntityToCellSilent(fighter, new Vector3Int(1, 0, 1));
+            MoveEntityToCellSilent(wizard, new Vector3Int(2, 0, 1));
+            MoveEntityToCellSilent(goblin1, new Vector3Int(2, 0, 2));
+
+            turnManager.StartCombat();
+            yield return AdvanceToActorTurn(fighter.Handle, TimeoutSeconds, "Fighter did not get turn.");
+
+            Assert.IsTrue(turnManager.TryPrepareReadiedStrike(fighter.Handle, turnManager.RoundNumber, ReadyTriggerMode.Movement));
+            Assert.IsTrue(turnManager.HasReadiedStrike(fighter.Handle));
+
+            turnManager.EndTurn();
+            yield return AdvanceToActorTurn(goblin1.Handle, TimeoutSeconds, "Goblin_1 turn did not arrive.");
+
+            eventBus.PublishStrikePreDamage(
+                attacker: goblin1.Handle,
+                target: wizard.Handle,
+                naturalRoll: 15,
+                total: 20,
+                dc: 18,
+                degree: DegreeOfSuccess.Success,
+                damageRolled: 5,
+                damageType: DamageType.Piercing);
+            yield return null;
+
+            Assert.IsTrue(turnManager.HasReadiedStrike(fighter.Handle), "Movement-only Ready must ignore attack-start trigger.");
+            Assert.IsTrue(fighter.ReactionAvailable, "Movement-only Ready should not spend reaction on attack-start trigger.");
+        }
+
+        [UnityTest]
+        public IEnumerator GT_P33_PM_438_ReadyStrike_AttackMode_DoesNotTriggerOnMovement()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+
+            ConfigureDeterministicInitiative(fighter, wizard, goblin1, goblin2);
+
+            MoveEntityToCellSilent(fighter, new Vector3Int(1, 0, 1));
+            MoveEntityToCellSilent(goblin1, new Vector3Int(2, 0, 2));
+
+            turnManager.StartCombat();
+            yield return AdvanceToActorTurn(fighter.Handle, TimeoutSeconds, "Fighter did not get turn.");
+
+            Assert.IsTrue(turnManager.TryPrepareReadiedStrike(fighter.Handle, turnManager.RoundNumber, ReadyTriggerMode.Attack));
+            Assert.IsTrue(turnManager.HasReadiedStrike(fighter.Handle));
+
+            turnManager.EndTurn();
+            yield return AdvanceToActorTurn(goblin1.Handle, TimeoutSeconds, "Goblin_1 turn did not arrive.");
+
+            var from = goblin1.GridPosition;
+            var to = new Vector3Int(1, 0, 2);
+            MoveEntityToCellSilent(goblin1, to);
+            eventBus.PublishEntityMoved(goblin1.Handle, from, to, forced: false);
+            yield return null;
+
+            Assert.IsTrue(turnManager.HasReadiedStrike(fighter.Handle), "Attack-only Ready must ignore movement trigger.");
+            Assert.IsTrue(fighter.ReactionAvailable, "Attack-only Ready should not spend reaction on movement trigger.");
+        }
+
+        [UnityTest]
         public IEnumerator GT_P32_PM_432_ReadyStrike_Ranged_TriggersWhenEnemyMovesInsideFirstIncrement()
         {
             var fighter = GetEntityByName("Fighter");

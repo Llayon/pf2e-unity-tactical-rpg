@@ -191,6 +191,7 @@ namespace PF2e.Tests
 
                 Assert.IsTrue(performed, "Expected readied strike execution to complete.");
                 Assert.IsTrue(logs.Exists(x => x.Actor == actor && x.Message.Contains("readied Strike triggers on Goblin movement.")));
+                Assert.IsTrue(logs.Exists(x => x.Actor == actor && x.Message.Contains("READY[Any]")));
                 Assert.IsFalse(logs.Exists(x => x.Actor == actor && x.Message.Contains("readied Strike trigger resolves, but attack is no longer valid.")));
             }
             finally
@@ -228,6 +229,7 @@ namespace PF2e.Tests
                 Assert.IsFalse(performed, "Invalid readied strike target should fail.");
                 Assert.AreEqual(hpBefore, allyData.CurrentHP, "Invalid target must not take damage.");
                 Assert.IsTrue(logs.Exists(x => x.Actor == actor && x.Message.Contains("readied Strike triggers on Wizard movement.")));
+                Assert.IsTrue(logs.Exists(x => x.Actor == actor && x.Message.Contains("READY[Any]")));
                 Assert.IsTrue(logs.Exists(x => x.Actor == actor && x.Message.Contains("readied Strike trigger resolves, but attack is no longer valid.")));
             }
             finally

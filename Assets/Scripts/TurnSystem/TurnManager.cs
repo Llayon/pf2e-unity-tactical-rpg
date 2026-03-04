@@ -22,6 +22,9 @@ namespace PF2e.TurnSystem
         [SerializeField] private InitiativeCheckMode initiativeCheckMode = InitiativeCheckMode.Perception;
         [SerializeField] private SkillType initiativeSkill = SkillType.Stealth;
 
+        [Header("Ready")]
+        [SerializeField] private ReadyTriggerMode readyTriggerMode = ReadyTriggerMode.Any;
+
         [Header("Debug — visible in Inspector")]
         [SerializeField] private TurnState state = TurnState.Inactive;
         [SerializeField] private int currentIndex = -1;
@@ -110,6 +113,7 @@ namespace PF2e.TurnSystem
         public int DelayedActorCount => delayedTurns.Count;
         public InitiativeCheckMode InitiativeMode => initiativeCheckMode;
         public SkillType InitiativeSkill => initiativeSkill;
+        public ReadyTriggerMode CurrentReadyTriggerMode => readyTriggerMode;
 
         public bool IsDelayReturnWindowOpen => state == TurnState.DelayReturnWindow;
         public AidService AidService => aidService;
@@ -310,7 +314,35 @@ namespace PF2e.TurnSystem
             return readyStrikeCoordinator.HasPrepared(actor);
         }
 
-        public bool TryPrepareReadiedStrike(EntityHandle actor, int preparedRound)
+        public bool TryGetReadiedStrikeMode(EntityHandle actor, out ReadyTriggerMode triggerMode)
+        {
+            return readyStrikeCoordinator.TryGetPreparedTriggerMode(actor, out triggerMode);
+        }
+
+        public ReadyTriggerMode CycleReadyTriggerMode()
+        {
+            readyTriggerMode = readyTriggerMode switch
+            {
+                ReadyTriggerMode.Movement => ReadyTriggerMode.Attack,
+                ReadyTriggerMode.Attack => ReadyTriggerMode.Any,
+                _ => ReadyTriggerMode.Movement
+            };
+
+            if (CurrentEntity.IsValid)
+            {
+                eventBus?.Publish(
+                    CurrentEntity,
+                    $"ready trigger mode set to {readyTriggerMode.ToShortToken()}.",
+                    CombatLogCategory.Turn);
+            }
+
+            return readyTriggerMode;
+        }
+
+        public bool TryPrepareReadiedStrike(
+            EntityHandle actor,
+            int preparedRound,
+            ReadyTriggerMode triggerMode = ReadyTriggerMode.Any)
         {
             if (!actor.IsValid)
                 return false;
@@ -322,7 +354,8 @@ namespace PF2e.TurnSystem
                 actor,
                 preparedRound,
                 actorData,
-                CanUseReaction);
+                CanUseReaction,
+                triggerMode);
         }
 
         public bool IsDelayed(EntityHandle actor)

@@ -312,7 +312,10 @@ namespace PF2e.TurnSystem
             executionStartTime = Time.time;
 #endif
 
-            bool prepared = readyStrikeAction.TryPrepareReadiedStrike(actor, turnManager.RoundNumber);
+            bool prepared = readyStrikeAction.TryPrepareReadiedStrike(
+                actor,
+                turnManager.RoundNumber,
+                turnManager.CurrentReadyTriggerMode);
             if (!prepared)
             {
                 executingActor = EntityHandle.None;

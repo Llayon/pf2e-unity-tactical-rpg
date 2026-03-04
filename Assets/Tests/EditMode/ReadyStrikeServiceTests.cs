@@ -19,10 +19,23 @@ namespace PF2e.Tests
             Assert.IsTrue(service.TryPrepare(actor, preparedRound: 1));
             Assert.IsTrue(service.HasPrepared(actor));
             Assert.AreEqual(1, service.PreparedCount);
+            Assert.IsTrue(service.TryGetTriggerMode(actor, out var triggerMode));
+            Assert.AreEqual(ReadyTriggerMode.Any, triggerMode);
 
             Assert.IsTrue(service.TryRemovePrepared(actor));
             Assert.IsFalse(service.HasPrepared(actor));
             Assert.AreEqual(0, service.PreparedCount);
+        }
+
+        [Test]
+        public void Prepare_WithExplicitTriggerMode_PersistsMode()
+        {
+            var service = new ReadyStrikeService();
+            var actor = new EntityHandle(42);
+
+            Assert.IsTrue(service.TryPrepare(actor, preparedRound: 2, triggerMode: ReadyTriggerMode.Attack));
+            Assert.IsTrue(service.TryGetTriggerMode(actor, out var triggerMode));
+            Assert.AreEqual(ReadyTriggerMode.Attack, triggerMode);
         }
 
         [Test]

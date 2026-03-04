@@ -32,6 +32,7 @@ namespace PF2e.Presentation
         [SerializeField] private Button escapeButton;
         [SerializeField] private Button aidButton;
         [SerializeField] private Button readyButton;
+        [SerializeField] private TMP_Text readyButtonLabel;
         [SerializeField] private Button raiseShieldButton;
         [SerializeField] private Button standButton;
         [SerializeField] private Button delayButton;
@@ -99,6 +100,7 @@ namespace PF2e.Presentation
             SetCombatVisible(false);
             SetAllInteractable(false);
             ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
+            RefreshReadyButtonLabel();
             ClearAllHighlights();
         }
 
@@ -143,6 +145,9 @@ namespace PF2e.Presentation
                 if (highlight != null)
                     readyHighlight = highlight.GetComponent<Image>();
             }
+
+            if (readyButtonLabel == null && readyButton != null)
+                readyButtonLabel = readyButton.GetComponentInChildren<TMP_Text>(true);
 
             aidPreparedIndicatorPresenter.Clear();
             RefreshAidPreparedIndicator();
@@ -297,6 +302,7 @@ namespace PF2e.Presentation
             SetCombatVisible(false);
             SetAllInteractable(false);
             ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
+            RefreshReadyButtonLabel();
             ClearAllHighlights();
             aidPreparedIndicatorPresenter.Clear();
             RefreshAidPreparedIndicator();
@@ -418,6 +424,7 @@ namespace PF2e.Presentation
 
                 bool canReturnNow = turnManager.TryGetFirstDelayedPlayerActor(out _);
                 ApplyDelayControls(delayActionBarStatePresenter.BuildReturnWindowState(canReturnNow));
+                RefreshReadyButtonLabel();
                 RefreshAidPreparedIndicator();
                 return;
             }
@@ -426,6 +433,7 @@ namespace PF2e.Presentation
             {
                 SetAllInteractable(false);
                 ApplyDelayControls(delayActionBarStatePresenter.BuildPlacementSelectionState());
+                RefreshReadyButtonLabel();
                 RefreshAidPreparedIndicator();
                 return;
             }
@@ -438,12 +446,14 @@ namespace PF2e.Presentation
             {
                 SetAllInteractable(false);
                 ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
+                RefreshReadyButtonLabel();
                 RefreshAidPreparedIndicator();
                 return;
             }
 
             ApplyActionAvailability(in availability);
             ApplyDelayControls(delayActionBarStatePresenter.BuildNormalState(turnManager.CanDelayCurrentTurn()));
+            RefreshReadyButtonLabel();
             RefreshAidPreparedIndicator();
         }
 
@@ -532,6 +542,15 @@ namespace PF2e.Presentation
                 aidPreparedIndicatorLabel,
                 aidPreparedSingleText,
                 aidPreparedCountFormat);
+        }
+
+        private void RefreshReadyButtonLabel()
+        {
+            if (readyButtonLabel == null)
+                return;
+
+            var mode = turnManager != null ? turnManager.CurrentReadyTriggerMode : ReadyTriggerMode.Any;
+            readyButtonLabel.text = $"Ready [{mode.ToShortToken()}]";
         }
 
         private static bool IsExternalDelayOrchestratorPresent()

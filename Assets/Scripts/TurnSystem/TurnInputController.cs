@@ -12,6 +12,7 @@ namespace PF2e.TurnSystem
     /// - Escape → CancelTargeting
     /// - T / H / J / K / Y / V / B → Begin explicit targeting for Trip / Shove / Grapple / Escape / Demoralize / Reposition / Aid
     /// - N → execute Ready Strike prepare (no target selection)
+    /// - M → cycle Ready Strike trigger mode (Movement -> Attack -> Any)
     /// - Cell click → targetingController.TryConfirmCell (after guards)
     /// - Entity click → targetingController.TryConfirmEntity (after guards)
     ///
@@ -189,6 +190,12 @@ namespace PF2e.TurnSystem
             {
                 if (turnManager.IsPlayerTurn && !actionExecutor.IsBusy)
                     actionExecutor.TryExecuteReadyStrike();
+            }
+
+            if (kb.mKey.wasPressedThisFrame)
+            {
+                if (turnManager.IsPlayerTurn && !actionExecutor.IsBusy)
+                    turnManager.CycleReadyTriggerMode();
             }
         }
     }

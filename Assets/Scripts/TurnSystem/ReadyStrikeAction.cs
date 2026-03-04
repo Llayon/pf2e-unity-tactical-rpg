@@ -8,7 +8,7 @@ namespace PF2e.TurnSystem
     /// Ready Strike basic action (trigger-model MVP):
     /// - spends 2 actions now,
     /// - stores a readied strike state for actor,
-    /// - strike is attempted later as a reaction when an enemy movement trigger fires.
+    /// - strike is attempted later as a reaction based on selected trigger mode.
     /// </summary>
     public class ReadyStrikeAction : MonoBehaviour
     {
@@ -36,7 +36,10 @@ namespace PF2e.TurnSystem
             if (eventBus != null) this.eventBus = eventBus;
         }
 
-        public bool TryPrepareReadiedStrike(EntityHandle actor, int preparedRound)
+        public bool TryPrepareReadiedStrike(
+            EntityHandle actor,
+            int preparedRound,
+            ReadyTriggerMode triggerMode = ReadyTriggerMode.Any)
         {
             if (!actor.IsValid)
                 return false;
@@ -45,12 +48,12 @@ namespace PF2e.TurnSystem
             if (turnManager.HasReadiedStrike(actor))
                 return false;
 
-            if (!turnManager.TryPrepareReadiedStrike(actor, preparedRound))
+            if (!turnManager.TryPrepareReadiedStrike(actor, preparedRound, triggerMode))
                 return false;
 
             eventBus?.Publish(
                 actor,
-                "readies Strike (trigger: enemy movement).",
+                $"readies Strike (trigger: {triggerMode.ToPrepareDescription()}).",
                 CombatLogCategory.Turn);
             return true;
         }

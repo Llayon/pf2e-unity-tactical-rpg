@@ -1,4 +1,5 @@
 using System;
+using UnityEngine.InputSystem;
 using PF2e.Core;
 using PF2e.TurnSystem;
 
@@ -69,8 +70,17 @@ namespace PF2e.Presentation
 
         public void OnReadyClicked()
         {
-            if (actionExecutor == null)
+            if (turnManager == null || actionExecutor == null)
                 return;
+
+            var kb = Keyboard.current;
+            bool shiftPressed = kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed);
+            if (shiftPressed)
+            {
+                turnManager.CycleReadyTriggerMode();
+                refreshAvailability?.Invoke();
+                return;
+            }
 
             actionExecutor.TryExecuteReadyStrike();
         }

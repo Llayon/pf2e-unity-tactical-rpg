@@ -30,8 +30,10 @@ namespace PF2e.Tests
             Assert.IsFalse(ctx.Coordinator.TryPrepare(actor, 1, actorData, ctx.CanUseReaction));
 
             actorData.CurrentHP = actorData.MaxHP;
-            Assert.IsTrue(ctx.Coordinator.TryPrepare(actor, 1, actorData, ctx.CanUseReaction));
+            Assert.IsTrue(ctx.Coordinator.TryPrepare(actor, 1, actorData, ctx.CanUseReaction, ReadyTriggerMode.Attack));
             Assert.IsTrue(ctx.Coordinator.HasPrepared(actor));
+            Assert.IsTrue(ctx.Coordinator.TryGetPreparedTriggerMode(actor, out var triggerMode));
+            Assert.AreEqual(ReadyTriggerMode.Attack, triggerMode);
         }
 
         [Test]

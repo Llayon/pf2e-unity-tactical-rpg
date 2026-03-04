@@ -54,6 +54,10 @@ namespace PF2e.TurnSystem
                     handle => entityManager.Registry.Get(handle),
                     (actor, actorData) =>
                     {
+                        if (!readyStrikeService.TryGetTriggerMode(actor, out var triggerMode))
+                            return false;
+                        if (!triggerMode.AllowsMovement())
+                            return false;
                         if (actorData.Team == movedData.Team)
                             return false;
                         if (!ReadyStrikeTriggerPolicy.DidEnterStrikeRange(actorData, movedData, fromCell, toCell))
@@ -115,6 +119,10 @@ namespace PF2e.TurnSystem
                     handle => entityManager.Registry.Get(handle),
                     (actor, actorData) =>
                     {
+                        if (!readyStrikeService.TryGetTriggerMode(actor, out var triggerMode))
+                            return false;
+                        if (!triggerMode.AllowsAttack())
+                            return false;
                         if (actorData.Team == attackSourceData.Team)
                             return false;
                         if (!ReadyStrikeTriggerPolicy.IsWithinReadyStrikeTriggerRange(actorData, attackSourceData))

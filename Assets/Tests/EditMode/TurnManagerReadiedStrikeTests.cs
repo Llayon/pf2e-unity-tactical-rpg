@@ -14,6 +14,17 @@ namespace PF2e.Tests
         private const BindingFlags InstanceNonPublic = BindingFlags.Instance | BindingFlags.NonPublic;
 
         [Test]
+        public void CycleReadyTriggerMode_CyclesAnyToMovementToAttackToAny()
+        {
+            using var ctx = new ReadyStrikeContext();
+
+            Assert.AreEqual(ReadyTriggerMode.Any, ctx.TurnManager.CurrentReadyTriggerMode);
+            Assert.AreEqual(ReadyTriggerMode.Movement, ctx.TurnManager.CycleReadyTriggerMode());
+            Assert.AreEqual(ReadyTriggerMode.Attack, ctx.TurnManager.CycleReadyTriggerMode());
+            Assert.AreEqual(ReadyTriggerMode.Any, ctx.TurnManager.CycleReadyTriggerMode());
+        }
+
+        [Test]
         public void EntityMoved_Forced_DoesNotTriggerReadiedStrike()
         {
             using var ctx = new ReadyStrikeContext();
@@ -57,6 +68,29 @@ namespace PF2e.Tests
 
             Assert.IsFalse(ctx.TurnManager.HasReadiedStrike(actor), "Normal movement trigger should consume readied strike.");
             Assert.IsFalse(actorData.ReactionAvailable, "Triggered readied strike should consume reaction.");
+        }
+
+        [Test]
+        public void EntityMoved_Normal_AttackOnlyMode_DoesNotConsumeReadiedStrike()
+        {
+            using var ctx = new ReadyStrikeContext();
+
+            var actor = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(0, 0, 0), strength: 22);
+            var target = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(2, 0, 0), strength: 10);
+            var actorData = ctx.Registry.Get(actor);
+            Assert.IsNotNull(actorData);
+            actorData.ReactionAvailable = true;
+
+            Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(actor, preparedRound: 1, triggerMode: ReadyTriggerMode.Attack));
+            Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(actor));
+
+            var targetData = ctx.Registry.Get(target);
+            Assert.IsNotNull(targetData);
+            targetData.GridPosition = new Vector3Int(1, 0, 0);
+            ctx.EventBus.PublishEntityMoved(target, new Vector3Int(2, 0, 0), targetData.GridPosition, forced: false);
+
+            Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(actor), "Attack-only ready must not trigger on movement.");
+            Assert.IsTrue(actorData.ReactionAvailable, "Reaction should remain available when trigger mode filters movement.");
         }
 
         [Test]
@@ -219,6 +253,34 @@ namespace PF2e.Tests
 
             Assert.IsFalse(ctx.TurnManager.HasReadiedStrike(actor), "Enemy attack start should trigger readied strike.");
             Assert.IsFalse(actorData.ReactionAvailable, "Triggered readied strike should consume reaction.");
+        }
+
+        [Test]
+        public void StrikePreDamage_MovementOnlyMode_DoesNotConsumeReadiedStrike()
+        {
+            using var ctx = new ReadyStrikeContext();
+
+            var actor = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(0, 0, 0), strength: 22);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(1, 0, 0), strength: 10);
+            var actorData = ctx.Registry.Get(actor);
+            Assert.IsNotNull(actorData);
+            actorData.ReactionAvailable = true;
+
+            Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(actor, preparedRound: 1, triggerMode: ReadyTriggerMode.Movement));
+            Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(actor));
+
+            ctx.EventBus.PublishStrikePreDamage(
+                attacker: enemy,
+                target: actor,
+                naturalRoll: 15,
+                total: 20,
+                dc: 18,
+                degree: DegreeOfSuccess.Success,
+                damageRolled: 5,
+                damageType: DamageType.Slashing);
+
+            Assert.IsTrue(ctx.TurnManager.HasReadiedStrike(actor), "Movement-only ready must not trigger on attack start.");
+            Assert.IsTrue(actorData.ReactionAvailable, "Reaction should remain available when trigger mode filters attack.");
         }
 
         [Test]

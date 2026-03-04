@@ -22,11 +22,17 @@ namespace PF2e.TurnSystem
             return readyStrikeService.HasPrepared(actor);
         }
 
+        public bool TryGetPreparedTriggerMode(EntityHandle actor, out ReadyTriggerMode triggerMode)
+        {
+            return readyStrikeService.TryGetTriggerMode(actor, out triggerMode);
+        }
+
         public bool TryPrepare(
             EntityHandle actor,
             int preparedRound,
             EntityData actorData,
-            Func<EntityHandle, bool> canUseReaction)
+            Func<EntityHandle, bool> canUseReaction,
+            ReadyTriggerMode triggerMode = ReadyTriggerMode.Any)
         {
             if (!actor.IsValid)
                 return false;
@@ -35,7 +41,7 @@ namespace PF2e.TurnSystem
             if (canUseReaction == null || !canUseReaction(actor))
                 return false;
 
-            return readyStrikeService.TryPrepare(actor, preparedRound);
+            return readyStrikeService.TryPrepare(actor, preparedRound, triggerMode);
         }
 
         public void ClearAll()

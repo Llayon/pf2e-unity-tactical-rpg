@@ -109,6 +109,85 @@ namespace PF2e.Tests
             Assert.AreEqual(enemy, targets[1], "Ready trigger target should be the attack source.");
         }
 
+        [Test]
+        public void HandleStrikePreDamage_MovementOnlyPrepared_DoesNotDispatch()
+        {
+            using var ctx = new OrchestratorContext();
+
+            var actor = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(0, 0, 0));
+            var ally = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(1, 0, 0));
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(1, 0, 1));
+
+            Assert.IsTrue(ctx.ReadyService.TryPrepare(actor, preparedRound: 1, triggerMode: ReadyTriggerMode.Movement));
+
+            int dispatchCount = 0;
+            var evt = new StrikePreDamageEvent(
+                attacker: enemy,
+                target: ally,
+                naturalRoll: 15,
+                total: 20,
+                dc: 18,
+                degree: DegreeOfSuccess.Success,
+                damageRolled: 5,
+                damageType: DamageType.Slashing);
+
+            ctx.Orchestrator.HandleStrikePreDamage(
+                in evt,
+                ctx.ReadyService,
+                ctx.EntityManager,
+                ctx.StrikeAction,
+                _ => 0,
+                (triggerActor, triggerTarget, triggerReason) =>
+                {
+                    _ = triggerActor;
+                    _ = triggerTarget;
+                    _ = triggerReason;
+                    dispatchCount++;
+                });
+
+            Assert.AreEqual(0, dispatchCount, "Movement-only ready must ignore attack-start triggers.");
+            Assert.IsTrue(ctx.ReadyService.HasPrepared(actor), "Prepared record must remain when trigger type is filtered out.");
+        }
+
+        [Test]
+        public void HandleEntityMoved_AttackOnlyPrepared_DoesNotDispatch()
+        {
+            using var ctx = new OrchestratorContext();
+
+            var actor = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(0, 0, 0));
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(2, 0, 0));
+
+            Assert.IsTrue(ctx.ReadyService.TryPrepare(actor, preparedRound: 1, triggerMode: ReadyTriggerMode.Attack));
+
+            int dispatchCount = 0;
+            var evt = new EntityMovedEvent(
+                enemy,
+                from: new Vector3Int(2, 0, 0),
+                to: new Vector3Int(1, 0, 0),
+                forced: false);
+
+            var movedData = ctx.Registry.Get(enemy);
+            Assert.IsNotNull(movedData);
+            movedData.GridPosition = evt.to;
+
+            ctx.Orchestrator.HandleEntityMoved(
+                in evt,
+                ctx.ReadyService,
+                ctx.EntityManager,
+                ctx.StrikeAction,
+                _ => 0,
+                (triggerActor, triggerTarget, triggerReason) =>
+                {
+                    _ = triggerActor;
+                    _ = triggerTarget;
+                    _ = triggerReason;
+                    dispatchCount++;
+                });
+
+            Assert.AreEqual(0, dispatchCount, "Attack-only ready must ignore movement triggers.");
+            Assert.IsTrue(ctx.ReadyService.HasPrepared(actor), "Prepared record must remain when trigger type is filtered out.");
+        }
+
         private sealed class OrchestratorContext : System.IDisposable
         {
             private readonly bool oldIgnoreLogs;

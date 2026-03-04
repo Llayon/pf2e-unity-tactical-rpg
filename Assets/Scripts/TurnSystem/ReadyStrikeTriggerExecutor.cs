@@ -33,6 +33,9 @@ namespace PF2e.TurnSystem
             if (strikeAction == null || canUseReaction == null)
                 return;
 
+            ReadyTriggerMode preparedTriggerMode = ReadyTriggerMode.Any;
+            readyStrikeService.TryGetTriggerMode(actor, out preparedTriggerMode);
+
             var actorData = entityManager.Registry.Get(actor);
             if (actorData == null || !actorData.IsAlive)
             {
@@ -56,6 +59,7 @@ namespace PF2e.TurnSystem
                     eventBus,
                     handle => entityManager.Registry.Get(handle),
                     UnityRng.Shared,
+                    preparedTriggerMode,
                     aidCircumstanceBonus: 0);
             }
             finally

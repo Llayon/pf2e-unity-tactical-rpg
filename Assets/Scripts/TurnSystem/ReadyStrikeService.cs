@@ -9,7 +9,7 @@ namespace PF2e.TurnSystem
     /// </summary>
     public sealed class ReadyStrikeService
     {
-        private readonly Dictionary<EntityHandle, int> preparedByActor = new();
+        private readonly Dictionary<EntityHandle, PreparedReadyStrike> preparedByActor = new();
         private readonly HashSet<EntityHandle> consumedInScope = new();
         private int triggerScopeDepth;
 
@@ -21,12 +21,24 @@ namespace PF2e.TurnSystem
             return actor.IsValid && preparedByActor.ContainsKey(actor);
         }
 
-        public bool TryPrepare(EntityHandle actor, int preparedRound)
+        public bool TryPrepare(EntityHandle actor, int preparedRound, ReadyTriggerMode triggerMode = ReadyTriggerMode.Any)
         {
             if (!actor.IsValid)
                 return false;
 
-            preparedByActor[actor] = preparedRound;
+            preparedByActor[actor] = new PreparedReadyStrike(preparedRound, triggerMode);
+            return true;
+        }
+
+        public bool TryGetTriggerMode(EntityHandle actor, out ReadyTriggerMode triggerMode)
+        {
+            triggerMode = ReadyTriggerMode.Any;
+            if (!actor.IsValid)
+                return false;
+            if (!preparedByActor.TryGetValue(actor, out var prepared))
+                return false;
+
+            triggerMode = prepared.triggerMode;
             return true;
         }
 
@@ -78,6 +90,18 @@ namespace PF2e.TurnSystem
                 actorData,
                 canUseReaction,
                 consumedInScope);
+        }
+
+        private readonly struct PreparedReadyStrike
+        {
+            public readonly int preparedRound;
+            public readonly ReadyTriggerMode triggerMode;
+
+            public PreparedReadyStrike(int preparedRound, ReadyTriggerMode triggerMode)
+            {
+                this.preparedRound = preparedRound;
+                this.triggerMode = triggerMode;
+            }
         }
     }
 }
