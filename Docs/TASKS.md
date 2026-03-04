@@ -158,6 +158,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-152 | P1 | done | Builder | Add PlayMode E2E for Glass Shield shard damage blocked by breaker shield | Added `GT_P34_PM_422_GlassShieldShards_BreakerShieldBlock_ReducesDamage` in `CombatRoundRegressionPlayModeTests`: live goblin strike into wizard `Glass Shield` triggers shard burst, breaker raises shield at pre-damage hook, and shard damage is reduced through generic Shield Block path |
 | T-153 | P1 | done | Builder | Add PlayMode E2E for Never-preference breaker on Glass Shield shards | Added `GT_P34_PM_423_GlassShieldShards_PlayerBreakerNever_DoesNotShieldBlock`: player breaker with raised shield + `ShieldBlockPreference=Never` takes shard damage, does not emit breaker `ShieldBlockResolvedEvent`, and keeps reaction available |
 | T-154 | P1 | done | Builder | Add PlayMode E2E for Ready chain where first trigger target dies mid-resolution | Added `GT_P35_PM_424_ReadyStrike_TwoPrepared_FirstKill_DoesNotConsumeSecondReaction`: two prepared allies react to enemy movement, first kill leaves second `Ready`+reaction intact, and second trigger is consumed correctly on the next enemy |
+| T-155 | P1 | done | Builder | Add PlayMode E2E mirror for Ready Attack trigger chain with first-kill preservation | Added `GT_P35_PM_425_ReadyStrikeAttack_TwoPrepared_FirstKill_DoesNotConsumeSecondReaction`: two prepared allies in `Ready[Attack]`, first attacker dies on chain start, second ally keeps `Ready`+reaction and consumes it on the next enemy attack |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal
