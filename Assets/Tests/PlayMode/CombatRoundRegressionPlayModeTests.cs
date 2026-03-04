@@ -1100,6 +1100,153 @@ namespace PF2e.Tests
         }
 
         [UnityTest]
+        public IEnumerator GT_P35_PM_424_ReadyStrike_TwoPrepared_FirstKill_DoesNotConsumeSecondReaction()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+
+            BoostAllCombatantsHP(200);
+
+            // Deterministic initiative: fighter -> wizard -> goblin1 -> goblin2.
+            fighter.Wisdom = 5000;
+            wizard.Wisdom = 4000;
+            goblin1.Wisdom = -4000;
+            goblin2.Wisdom = -5000;
+
+            // Ensure first ready striker kills goblin1 on trigger.
+            fighter.Strength = 5000;
+            goblin1.Dexterity = 1;
+            goblin1.MaxHP = 1;
+            goblin1.CurrentHP = 1;
+
+            // Stable placement: players grouped, enemies at 10-15 ft to force movement trigger.
+            var reservedCells = new HashSet<Vector3Int> { fighter.GridPosition };
+            var wizardCell = FindAvailableAdjacentCell(fighter.GridPosition, wizard.Handle, blockedCell: fighter.GridPosition + Vector3Int.right);
+            MoveEntityToCell(wizard, wizardCell);
+            reservedCells.Add(wizard.GridPosition);
+
+            var goblin1Cell = FindAvailableCellInDistanceBand(fighter.GridPosition, goblin1.Handle, minDistFeet: 10, maxDistFeet: 15, reservedCells);
+            MoveEntityToCell(goblin1, goblin1Cell);
+            reservedCells.Add(goblin1.GridPosition);
+
+            var goblin2Cell = FindAvailableCellInDistanceBand(fighter.GridPosition, goblin2.Handle, minDistFeet: 10, maxDistFeet: 15, reservedCells);
+            MoveEntityToCell(goblin2, goblin2Cell);
+
+            bool goblin1DefeatedSeen = false;
+            bool fighterStrikeVsGoblin1Seen = false;
+            bool wizardStrikeVsGoblin1Seen = false;
+            bool wizardStrikeVsGoblin2Seen = false;
+
+            void DefeatedHandler(in EntityDefeatedEvent e)
+            {
+                if (e.handle == goblin1.Handle)
+                    goblin1DefeatedSeen = true;
+            }
+
+            void StrikeResolvedHandler(in StrikeResolvedEvent e)
+            {
+                if (e.attacker == fighter.Handle && e.target == goblin1.Handle)
+                    fighterStrikeVsGoblin1Seen = true;
+                if (e.attacker == wizard.Handle && e.target == goblin1.Handle)
+                    wizardStrikeVsGoblin1Seen = true;
+                if (e.attacker == wizard.Handle && e.target == goblin2.Handle)
+                    wizardStrikeVsGoblin2Seen = true;
+            }
+
+            eventBus.OnEntityDefeated += DefeatedHandler;
+            eventBus.OnStrikeResolved += StrikeResolvedHandler;
+
+            try
+            {
+                turnManager.StartCombat();
+
+                yield return AdvanceToActorTurn(
+                    fighter.Handle,
+                    SimulationTimeoutSeconds,
+                    "Did not reach fighter turn for first ready setup.");
+
+                if (turnManager.CurrentReadyTriggerMode != ReadyTriggerMode.Movement)
+                    turnManager.SetReadyTriggerMode(ReadyTriggerMode.Movement);
+
+                Assert.IsTrue(playerActionExecutor.TryExecuteReadyStrike(), "Fighter failed to prepare ready strike.");
+                Assert.IsTrue(turnManager.HasReadiedStrike(fighter.Handle), "Fighter should have prepared ready strike.");
+                turnManager.EndTurn();
+
+                yield return AdvanceToActorTurn(
+                    wizard.Handle,
+                    SimulationTimeoutSeconds,
+                    "Did not reach wizard turn for second ready setup.");
+
+                if (turnManager.CurrentReadyTriggerMode != ReadyTriggerMode.Movement)
+                    turnManager.SetReadyTriggerMode(ReadyTriggerMode.Movement);
+
+                Assert.IsTrue(playerActionExecutor.TryExecuteReadyStrike(), "Wizard failed to prepare ready strike.");
+                Assert.IsTrue(turnManager.HasReadiedStrike(wizard.Handle), "Wizard should have prepared ready strike.");
+                turnManager.EndTurn();
+
+                // Stage 1: first enemy movement triggers chain; first ready kills goblin1.
+                float stageOneDeadline = Time.realtimeSinceStartup + SimulationTimeoutSeconds;
+                while (!goblin1DefeatedSeen)
+                {
+                    if (Time.realtimeSinceStartup > stageOneDeadline)
+                    {
+                        Assert.Fail(
+                            "Timeout waiting for first ready trigger kill. " +
+                            $"state={turnManager.State}, current={turnManager.CurrentEntity.Id}, " +
+                            $"fighterReady={turnManager.HasReadiedStrike(fighter.Handle)}, wizardReady={turnManager.HasReadiedStrike(wizard.Handle)}");
+                    }
+
+                    if (turnManager.State == TurnState.Inactive)
+                        Assert.Fail("Combat ended before first ready-trigger kill completed.");
+
+                    if (turnManager.State == TurnState.PlayerTurn)
+                        turnManager.EndTurn();
+
+                    yield return null;
+                }
+
+                Assert.IsTrue(fighterStrikeVsGoblin1Seen, "First ready strike should come from fighter and kill goblin1.");
+                Assert.IsFalse(wizardStrikeVsGoblin1Seen, "Wizard should not execute ready strike on already-dead first trigger target.");
+                Assert.IsFalse(turnManager.HasReadiedStrike(fighter.Handle), "Fighter ready should be consumed by first trigger.");
+                Assert.IsTrue(turnManager.HasReadiedStrike(wizard.Handle), "Wizard ready must remain after first target dies mid-chain.");
+                Assert.IsFalse(fighter.ReactionAvailable, "Fighter reaction should be spent by first trigger.");
+                Assert.IsTrue(wizard.ReactionAvailable, "Wizard reaction should remain after first target dies before wizard execution.");
+
+                // Stage 2: second enemy movement should consume remaining wizard ready reaction.
+                float stageTwoDeadline = Time.realtimeSinceStartup + SimulationTimeoutSeconds;
+                while (turnManager.HasReadiedStrike(wizard.Handle))
+                {
+                    if (Time.realtimeSinceStartup > stageTwoDeadline)
+                    {
+                        Assert.Fail(
+                            "Timeout waiting for second ready trigger consumption. " +
+                            $"state={turnManager.State}, current={turnManager.CurrentEntity.Id}, " +
+                            $"wizardReaction={wizard.ReactionAvailable}");
+                    }
+
+                    if (turnManager.State == TurnState.Inactive)
+                        Assert.Fail("Combat ended before second ready trigger was consumed.");
+
+                    if (turnManager.State == TurnState.PlayerTurn)
+                        turnManager.EndTurn();
+
+                    yield return null;
+                }
+
+                Assert.IsTrue(wizardStrikeVsGoblin2Seen, "Remaining wizard ready should trigger against second goblin movement.");
+                Assert.IsFalse(turnManager.HasReadiedStrike(wizard.Handle), "Wizard ready should be consumed by second trigger.");
+                Assert.IsFalse(wizard.ReactionAvailable, "Wizard reaction should be consumed on second trigger.");
+            }
+            finally
+            {
+                eventBus.OnEntityDefeated -= DefeatedHandler;
+                eventBus.OnStrikeResolved -= StrikeResolvedHandler;
+            }
+        }
+
+        [UnityTest]
         public IEnumerator GT_P29_PM_413_DelayPlanned_AutoResumesAfterAnchor_NoManualWindow()
         {
             var fighter = GetEntityByName("Fighter");
@@ -1880,6 +2027,44 @@ namespace PF2e.Tests
             BlockIfCellExists(center + Vector3Int.back);
 
             return blocked;
+        }
+
+        private Vector3Int FindAvailableCellInDistanceBand(
+            Vector3Int from,
+            EntityHandle mover,
+            int minDistFeet,
+            int maxDistFeet,
+            HashSet<Vector3Int> reserved = null)
+        {
+            Vector3Int bestCell = default;
+            int bestElevationDelta = int.MaxValue;
+            int bestDist = int.MaxValue;
+            bool found = false;
+
+            foreach (var kvp in gridManager.Data.Cells)
+            {
+                Vector3Int cell = kvp.Key;
+                if (!kvp.Value.IsWalkable) continue;
+                if (reserved != null && reserved.Contains(cell)) continue;
+                if (!entityManager.Occupancy.CanOccupy(cell, mover)) continue;
+
+                int distFeet = GridDistancePF2e.DistanceFeetXZ(from, cell);
+                if (distFeet < minDistFeet || distFeet > maxDistFeet) continue;
+
+                int elevationDelta = Mathf.Abs(cell.y - from.y);
+                if (!found || elevationDelta < bestElevationDelta || (elevationDelta == bestElevationDelta && distFeet < bestDist))
+                {
+                    bestCell = cell;
+                    bestElevationDelta = elevationDelta;
+                    bestDist = distFeet;
+                    found = true;
+                }
+            }
+
+            Assert.IsTrue(
+                found,
+                $"Could not find available cell in distance band [{minDistFeet}, {maxDistFeet}] from {from} for mover {mover.Id}.");
+            return bestCell;
         }
 
         private void MoveAllPlayersAwayFrom(Vector3Int center, int minDistFeet)
