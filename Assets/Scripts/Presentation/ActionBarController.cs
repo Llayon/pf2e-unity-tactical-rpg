@@ -139,7 +139,10 @@ namespace PF2e.Presentation
             if (raiseShieldButton == null) Debug.LogWarning("[ActionBar] raiseShieldButton not assigned", this);
             if (standButton == null) Debug.LogWarning("[ActionBar] standButton not assigned", this);
             // delay/return/skip buttons are optional in older scenes; no warning spam.
-            if (useLauncherLayout && tacticsLauncherButton == null) Debug.LogWarning("[ActionBar] useLauncherLayout=true but tacticsLauncherButton is not assigned (runtime fallback will be used).", this);
+            if (useLauncherLayout && tacticsLauncherButton == null) Debug.LogWarning("[ActionBar] useLauncherLayout=true but tacticsLauncherButton is not assigned (run scene validator autofix or assign in scene).", this);
+            if (useLauncherLayout && strikePopupRoot == null) Debug.LogWarning("[ActionBar] useLauncherLayout=true but strikePopupRoot is not assigned (run scene validator autofix or assign in scene).", this);
+            if (useLauncherLayout && tacticsPopupRoot == null) Debug.LogWarning("[ActionBar] useLauncherLayout=true but tacticsPopupRoot is not assigned (run scene validator autofix or assign in scene).", this);
+            if (useLauncherLayout && strikePopupStrikeButton == null) Debug.LogWarning("[ActionBar] useLauncherLayout=true but strikePopupStrikeButton is not assigned (run scene validator autofix or assign in scene).", this);
         }
 #endif
 
@@ -335,12 +338,6 @@ namespace PF2e.Presentation
                 return;
             }
 
-            var actionBarRect = transform as RectTransform;
-            tacticsLauncherButton ??= FindChildButton(actionBarRect, "TacticsLauncherButton");
-            strikePopupRoot ??= FindChildRect(actionBarRect, "StrikePopupRoot");
-            tacticsPopupRoot ??= FindChildRect(actionBarRect, "TacticsPopupRoot");
-            strikePopupStrikeButton ??= FindChildButton(strikePopupRoot, "StrikePopupStrikeButton");
-
             if (tacticsLauncherButton == null || strikePopupRoot == null || tacticsPopupRoot == null || strikePopupStrikeButton == null)
             {
                 if (!launcherLayoutWiringWarned)
@@ -424,23 +421,6 @@ namespace PF2e.Presentation
                 castSpellModeSelectorRoot);
         }
 
-        private static Button FindChildButton(RectTransform parent, string name)
-        {
-            if (parent == null)
-                return null;
-            var child = parent.Find(name);
-            if (child == null)
-                return null;
-            return child.GetComponent<Button>();
-        }
-
-        private static RectTransform FindChildRect(RectTransform parent, string name)
-        {
-            if (parent == null)
-                return null;
-            return parent.Find(name) as RectTransform;
-        }
-
         private static void ConfigurePopupRootVisual(RectTransform root)
         {
             if (root == null)
@@ -509,8 +489,8 @@ namespace PF2e.Presentation
             if (strikePopupRoot == null)
                 return;
 
-            var attacksHeader = FindChildRect(strikePopupRoot, "AttacksHeader");
-            var maneuversHeader = FindChildRect(strikePopupRoot, "ManeuversHeader");
+            var attacksHeader = strikePopupRoot.Find("AttacksHeader") as RectTransform;
+            var maneuversHeader = strikePopupRoot.Find("ManeuversHeader") as RectTransform;
             if (attacksHeader == null || maneuversHeader == null)
             {
                 if (!strikePopupHeaderWiringWarned)

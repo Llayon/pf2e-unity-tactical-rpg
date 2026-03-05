@@ -206,6 +206,51 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void SampleScene_LauncherLayoutRefs_Wired()
+        {
+            Assert.IsTrue(System.IO.File.Exists(SampleScenePath), $"Missing scene: {SampleScenePath}");
+
+            EditorSceneManager.OpenScene(SampleScenePath, OpenSceneMode.Single);
+
+            var actionBar = UnityEngine.Object.FindFirstObjectByType<ActionBarController>();
+            Assert.IsNotNull(actionBar, "SampleScene must contain ActionBarController.");
+
+            SetPrivateField(actionBar, "tacticsLauncherButton", null);
+            SetPrivateField(actionBar, "strikePopupRoot", null);
+            SetPrivateField(actionBar, "tacticsPopupRoot", null);
+            SetPrivateField(actionBar, "strikePopupStrikeButton", null);
+
+            var staleTacticsLauncherButton = actionBar.transform.Find("TacticsLauncherButton");
+            if (staleTacticsLauncherButton != null)
+                UnityEngine.Object.DestroyImmediate(staleTacticsLauncherButton.gameObject);
+
+            var staleStrikePopupRoot = actionBar.transform.Find("StrikePopupRoot");
+            if (staleStrikePopupRoot != null)
+                UnityEngine.Object.DestroyImmediate(staleStrikePopupRoot.gameObject);
+
+            var staleTacticsPopupRoot = actionBar.transform.Find("TacticsPopupRoot");
+            if (staleTacticsPopupRoot != null)
+                UnityEngine.Object.DestroyImmediate(staleTacticsPopupRoot.gameObject);
+
+            InvokePrivateValidatorMethodWithBoolArg("RunAutoFix", false);
+
+            var tacticsLauncherButton = GetPrivateField<Button>(actionBar, "tacticsLauncherButton");
+            var strikePopupRoot = GetPrivateField<RectTransform>(actionBar, "strikePopupRoot");
+            var tacticsPopupRoot = GetPrivateField<RectTransform>(actionBar, "tacticsPopupRoot");
+            var strikePopupStrikeButton = GetPrivateField<Button>(actionBar, "strikePopupStrikeButton");
+
+            Assert.AreEqual("TacticsLauncherButton", tacticsLauncherButton.gameObject.name);
+            Assert.AreEqual("StrikePopupRoot", strikePopupRoot.gameObject.name);
+            Assert.AreEqual("TacticsPopupRoot", tacticsPopupRoot.gameObject.name);
+            Assert.AreEqual("StrikePopupStrikeButton", strikePopupStrikeButton.gameObject.name);
+
+            Assert.AreSame(actionBar.transform, tacticsLauncherButton.transform.parent, "Tactics launcher button must be under ActionBar.");
+            Assert.AreSame(actionBar.transform, strikePopupRoot.transform.parent, "StrikePopupRoot must be under ActionBar.");
+            Assert.AreSame(actionBar.transform, tacticsPopupRoot.transform.parent, "TacticsPopupRoot must be under ActionBar.");
+            Assert.AreSame(strikePopupRoot, strikePopupStrikeButton.transform.parent, "StrikePopupStrikeButton must be under StrikePopupRoot.");
+        }
+
+        [Test]
         public void SampleScene_StrikePopupHeaders_WiredByAutoFix()
         {
             Assert.IsTrue(System.IO.File.Exists(SampleScenePath), $"Missing scene: {SampleScenePath}");

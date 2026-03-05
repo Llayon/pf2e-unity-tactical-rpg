@@ -419,6 +419,10 @@ public static class PF2eSceneDependencyValidator
 
         if (IsActionBarLauncherLayoutEnabled(c))
         {
+            errors += RequireRef(c, "tacticsLauncherButton", "Button");
+            errors += RequireRef(c, "strikePopupRoot", "RectTransform");
+            errors += RequireRef(c, "tacticsPopupRoot", "RectTransform");
+            errors += RequireRef(c, "strikePopupStrikeButton", "Button");
             warnings += WarnMissingActionBarChild(c, "StrikePopupRoot/AttacksHeader", "Strike popup AttacksHeader");
             warnings += WarnMissingActionBarChild(c, "StrikePopupRoot/ManeuversHeader", "Strike popup ManeuversHeader");
         }
@@ -1255,6 +1259,10 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "DelayButton", "delayButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "ReturnNowButton", "returnNowButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "SkipDelayWindowButton", "skipDelayWindowButton");
+        fixedCount += TryAssignActionBarChild<Button>(bar, root, "TacticsLauncherButton", "tacticsLauncherButton");
+        fixedCount += TryAssignActionBarChild<RectTransform>(bar, root, "StrikePopupRoot", "strikePopupRoot");
+        fixedCount += TryAssignActionBarChild<RectTransform>(bar, root, "TacticsPopupRoot", "tacticsPopupRoot");
+        fixedCount += TryAssignActionBarChild<Button>(bar, root, "StrikePopupRoot/StrikePopupStrikeButton", "strikePopupStrikeButton");
 
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "StrikeButton/ActiveHighlight", "strikeHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "TripButton/ActiveHighlight", "tripHighlight");
@@ -1270,6 +1278,7 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         fixedCount += EnsureStrikePopupHeaders(root);
         fixedCount += EnsureReadyActionBarUi(bar, root);
         fixedCount += EnsureCastSpellActionBarUi(bar, root);
+        fixedCount += EnsureLauncherActionBarUi(bar, root);
         fixedCount += EnsureAidActionBarUi(bar, root);
 
         return fixedCount;
@@ -1457,6 +1466,35 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         return fixedCount;
     }
 
+    private static int EnsureLauncherActionBarUi(ActionBarController bar, Transform root)
+    {
+        if (bar == null || root == null) return 0;
+        if (!IsActionBarLauncherLayoutEnabled(bar)) return 0;
+
+        int fixedCount = 0;
+
+        var tacticsLauncherButton = FindActionBarButton(root, "TacticsLauncherButton");
+        if (tacticsLauncherButton == null)
+            tacticsLauncherButton = TryCreateTacticsLauncherButtonFromTemplate(root);
+        if (tacticsLauncherButton != null)
+            fixedCount += TryAssignIfNull(bar, "tacticsLauncherButton", tacticsLauncherButton);
+
+        var strikePopupRoot = EnsureLauncherPopupRoot(root, "StrikePopupRoot");
+        if (strikePopupRoot != null)
+            fixedCount += TryAssignIfNull(bar, "strikePopupRoot", strikePopupRoot);
+
+        var tacticsPopupRoot = EnsureLauncherPopupRoot(root, "TacticsPopupRoot");
+        if (tacticsPopupRoot != null)
+            fixedCount += TryAssignIfNull(bar, "tacticsPopupRoot", tacticsPopupRoot);
+
+        var strikeButton = FindActionBarButton(root, "StrikeButton");
+        var strikePopupStrikeButton = EnsureStrikePopupStrikeButton(strikePopupRoot, strikeButton);
+        if (strikePopupStrikeButton != null)
+            fixedCount += TryAssignIfNull(bar, "strikePopupStrikeButton", strikePopupStrikeButton);
+
+        return fixedCount;
+    }
+
     private static TMPro.TMP_Text ResolveReadyButtonLabel(Button readyButton)
     {
         if (readyButton == null)
@@ -1509,6 +1547,57 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         }
 
         return best ?? labels[0];
+    }
+
+    private static Button TryCreateTacticsLauncherButtonFromTemplate(Transform root)
+    {
+        if (root == null)
+            return null;
+
+        var template = FindActionBarButton(root, "CastSpellButton")
+            ?? FindActionBarButton(root, "DemoralizeButton")
+            ?? FindActionBarButton(root, "EscapeButton")
+            ?? FindActionBarButton(root, "StrikeButton");
+        if (template == null || template.transform.parent == null)
+            return null;
+
+        var clone = UnityEngine.Object.Instantiate(template.gameObject, template.transform.parent, false);
+        clone.name = "TacticsLauncherButton";
+        clone.SetActive(true);
+        clone.transform.SetSiblingIndex(template.transform.GetSiblingIndex() + 1);
+        Undo.RegisterCreatedObjectUndo(clone, "Create TacticsLauncherButton");
+        EditorUtility.SetDirty(clone);
+
+        var button = clone.GetComponent<Button>();
+        if (button != null)
+            button.onClick.RemoveAllListeners();
+
+        var labels = clone.GetComponentsInChildren<TMPro.TMP_Text>(true);
+        for (int i = 0; i < labels.Length; i++)
+        {
+            var label = labels[i];
+            if (label == null) continue;
+
+            if (string.Equals(label.text, "C", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(label.text, "D", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(label.text, "ESC", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(label.text, "S", StringComparison.OrdinalIgnoreCase))
+            {
+                label.text = "T";
+            }
+            else if (string.Equals(label.text, "Cast", StringComparison.OrdinalIgnoreCase)
+                  || string.Equals(label.text, "Demoralize", StringComparison.OrdinalIgnoreCase)
+                  || string.Equals(label.text, "Escape", StringComparison.OrdinalIgnoreCase)
+                  || string.Equals(label.text, "Strike", StringComparison.OrdinalIgnoreCase))
+            {
+                label.text = "Tactics";
+            }
+
+            EditorUtility.SetDirty(label);
+        }
+
+        Debug.Log($"[PF2eAutoFix] Created TacticsLauncherButton under {GetPath(template.transform.parent)}.", clone);
+        return button;
     }
 
     private static int EnsureAidActionBarUi(ActionBarController bar, Transform root)
@@ -1697,6 +1786,82 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         }
 
         Debug.Log($"[PF2eAutoFix] Created CastSpellButton under {GetPath(template.transform.parent)}.", clone);
+        return button;
+    }
+
+    private static RectTransform EnsureLauncherPopupRoot(Transform root, string popupName)
+    {
+        if (root == null || string.IsNullOrWhiteSpace(popupName))
+            return null;
+
+        var existing = root.Find(popupName) as RectTransform;
+        if (existing != null)
+            return existing;
+
+        var popupGo = new GameObject(
+            popupName,
+            typeof(RectTransform),
+            typeof(Image),
+            typeof(HorizontalLayoutGroup),
+            typeof(ContentSizeFitter));
+        popupGo.transform.SetParent(root, false);
+        popupGo.SetActive(false);
+
+        var rect = popupGo.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 1f);
+        rect.anchorMax = new Vector2(0.5f, 1f);
+        rect.pivot = new Vector2(0.5f, 0f);
+        rect.anchoredPosition = new Vector2(0f, 10f);
+        rect.sizeDelta = new Vector2(0f, 0f);
+
+        var image = popupGo.GetComponent<Image>();
+        image.color = new Color(0.08f, 0.09f, 0.12f, 0.96f);
+        image.raycastTarget = true;
+
+        var layout = popupGo.GetComponent<HorizontalLayoutGroup>();
+        layout.padding = new RectOffset(6, 6, 4, 4);
+        layout.spacing = 4f;
+        layout.childControlWidth = false;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+        layout.childAlignment = TextAnchor.MiddleCenter;
+
+        var fitter = popupGo.GetComponent<ContentSizeFitter>();
+        fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        Undo.RegisterCreatedObjectUndo(popupGo, $"Create {popupName}");
+        EditorUtility.SetDirty(popupGo);
+        Debug.Log($"[PF2eAutoFix] Created {popupName} under {GetPath(root)}.", popupGo);
+        return rect;
+    }
+
+    private static Button EnsureStrikePopupStrikeButton(RectTransform strikePopupRoot, Button strikeTemplate)
+    {
+        if (strikePopupRoot == null)
+            return null;
+
+        var existing = strikePopupRoot.Find("StrikePopupStrikeButton");
+        var button = existing != null ? existing.GetComponent<Button>() : null;
+        if (button != null)
+            return button;
+
+        if (strikeTemplate == null)
+            return null;
+
+        var clone = UnityEngine.Object.Instantiate(strikeTemplate.gameObject, strikePopupRoot, false);
+        clone.name = "StrikePopupStrikeButton";
+        clone.SetActive(true);
+        clone.transform.SetAsLastSibling();
+        Undo.RegisterCreatedObjectUndo(clone, "Create StrikePopupStrikeButton");
+        EditorUtility.SetDirty(clone);
+
+        button = clone.GetComponent<Button>();
+        if (button != null)
+            button.onClick.RemoveAllListeners();
+
+        Debug.Log($"[PF2eAutoFix] Created StrikePopupStrikeButton under {GetPath(strikePopupRoot)}.", clone);
         return button;
     }
 

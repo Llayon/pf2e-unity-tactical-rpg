@@ -5332,10 +5332,10 @@ MonoBehaviour:
   returnNowButton: {fileID: 2090371753}
   skipDelayWindowButton: {fileID: 1772304277}
   useLauncherLayout: 1
-  tacticsLauncherButton: {fileID: 0}
-  strikePopupRoot: {fileID: 0}
-  tacticsPopupRoot: {fileID: 0}
-  strikePopupStrikeButton: {fileID: 0}
+  tacticsLauncherButton: {fileID: 1077444099}
+  strikePopupRoot: {fileID: 1795897114}
+  tacticsPopupRoot: {fileID: 1657988091}
+  strikePopupStrikeButton: {fileID: 1632530207}
   popupClampPadding: 10
   strikePopupTileWidth: 132
   tacticsPopupTileWidth: 126
