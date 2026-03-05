@@ -67,14 +67,27 @@ namespace PF2e.Tests
             yield return AdvanceToNextPlayerTurn(DefaultTimeoutSeconds, "Did not reach player turn for Aid toggle test.");
 
             var aidButton = GetActionBarButton("aidButton");
+            var tacticsLauncher = GetActionBarButtonOrNull("tacticsLauncherButton");
             Assert.IsNotNull(aidButton, "Aid button is not wired in ActionBarController.");
-            Assert.IsTrue(aidButton.gameObject.activeInHierarchy, "Aid button should be visible during player turn.");
-            Assert.IsTrue(aidButton.interactable, "Aid button should be interactable during player turn.");
+            if (tacticsLauncher != null && tacticsLauncher.gameObject.activeInHierarchy)
+            {
+                PointerClick(tacticsLauncher.gameObject);
+                yield return null;
+            }
+
+            Assert.IsTrue(aidButton.gameObject.activeInHierarchy, "Aid action entry should be visible during player turn.");
+            Assert.IsTrue(aidButton.interactable, "Aid action entry should be interactable during player turn.");
             Assert.AreEqual(TargetingMode.None, targetingController.ActiveMode, "Precondition failed: targeting mode must start as None.");
 
             PointerClick(aidButton.gameObject);
             yield return null;
             Assert.AreEqual(TargetingMode.Aid, targetingController.ActiveMode, "Aid pointer click should enter Aid targeting mode.");
+
+            if (tacticsLauncher != null && tacticsLauncher.gameObject.activeInHierarchy)
+            {
+                PointerClick(tacticsLauncher.gameObject);
+                yield return null;
+            }
 
             PointerClick(aidButton.gameObject);
             yield return null;
@@ -104,8 +117,15 @@ namespace PF2e.Tests
                 "Did not reach helper player turn.");
 
             var aidButton = GetActionBarButton("aidButton");
+            var tacticsLauncher = GetActionBarButtonOrNull("tacticsLauncherButton");
             Assert.IsNotNull(aidButton, "Aid button is not wired in ActionBarController.");
-            Assert.IsTrue(aidButton.interactable, "Aid button should be interactable for helper turn.");
+            if (tacticsLauncher != null && tacticsLauncher.gameObject.activeInHierarchy)
+            {
+                PointerClick(tacticsLauncher.gameObject);
+                yield return null;
+            }
+
+            Assert.IsTrue(aidButton.interactable, "Aid action entry should be interactable for helper turn.");
 
             PointerClick(aidButton.gameObject);
             yield return null;
@@ -593,6 +613,14 @@ namespace PF2e.Tests
         {
             var field = actionBar.GetType().GetField(privateFieldName, InstanceNonPublic);
             Assert.IsNotNull(field, $"Missing ActionBarController field '{privateFieldName}'.");
+            return field.GetValue(actionBar) as Button;
+        }
+
+        private Button GetActionBarButtonOrNull(string privateFieldName)
+        {
+            var field = actionBar.GetType().GetField(privateFieldName, InstanceNonPublic);
+            if (field == null)
+                return null;
             return field.GetValue(actionBar) as Button;
         }
 

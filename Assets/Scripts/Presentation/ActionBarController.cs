@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
 using TMPro;
 using PF2e.Core;
 using PF2e.Managers;
@@ -48,6 +49,13 @@ namespace PF2e.Presentation
         [SerializeField] private Button returnNowButton;
         [SerializeField] private Button skipDelayWindowButton;
 
+        [Header("Launcher Layout (Step 5, optional)")]
+        [SerializeField] private bool useLauncherLayout;
+        [SerializeField] private Button tacticsLauncherButton;
+        [SerializeField] private RectTransform strikePopupRoot;
+        [SerializeField] private RectTransform tacticsPopupRoot;
+        [SerializeField] private Button strikePopupStrikeButton;
+
         [Header("Highlights (optional overlays)")]
         [SerializeField] private Image strikeHighlight;
         [SerializeField] private Image tripHighlight;
@@ -79,6 +87,9 @@ namespace PF2e.Presentation
         private bool buttonListenersBound;
         private bool delayEventsSubscribedInternally;
         private bool turnManagementButtonsExternallyHidden;
+        private bool strikePopupOpen;
+        private bool tacticsPopupOpen;
+        private bool castPopupOpen;
         private readonly ActionBarAvailabilityPolicy actionBarAvailabilityPolicy = new();
         private readonly AidPreparedIndicatorPresenter aidPreparedIndicatorPresenter = new();
         private readonly DelayActionBarStatePresenter delayActionBarStatePresenter = new();
@@ -86,6 +97,7 @@ namespace PF2e.Presentation
         private bool aidUiWiringWarned;
         private bool readyUiWiringWarned;
         private bool readyModeWiringWarned;
+        private bool launcherLayoutWiringWarned;
 #if UNITY_EDITOR
         private void OnValidate()
         {
@@ -120,6 +132,7 @@ namespace PF2e.Presentation
             if (raiseShieldButton == null) Debug.LogWarning("[ActionBar] raiseShieldButton not assigned", this);
             if (standButton == null) Debug.LogWarning("[ActionBar] standButton not assigned", this);
             // delay/return/skip buttons are optional in older scenes; no warning spam.
+            if (useLauncherLayout && tacticsLauncherButton == null) Debug.LogWarning("[ActionBar] useLauncherLayout=true but tacticsLauncherButton is not assigned (runtime fallback will be used).", this);
         }
 #endif
 
@@ -127,6 +140,7 @@ namespace PF2e.Presentation
         {
             ValidateAndApplyUiWiring();
             EnsureButtonListenersBound();
+            ApplyStaticButtonLabels();
 
             SetCombatVisible(false);
             SetCastSpellUiVisible(false);
@@ -139,6 +153,9 @@ namespace PF2e.Presentation
             RefreshReadyButtonLabel();
             RefreshCastSpellButtonLabel();
             ClearAllHighlights();
+            SetStrikePopupVisible(false);
+            SetTacticsPopupVisible(false);
+            SetCastPopupVisible(false);
         }
 
         private void ValidateAndApplyUiWiring()
@@ -149,6 +166,7 @@ namespace PF2e.Presentation
             ResolveReadyModeSelectorReferences();
             ResolveCastSpellUiReferences();
             EnsureCastSpellUiFallback();
+            EnsureLauncherLayoutFallback();
 
             aidPreparedIndicatorPresenter.Clear();
             RefreshAidPreparedIndicator();
@@ -360,6 +378,289 @@ namespace PF2e.Presentation
             return null;
         }
 
+        private void EnsureLauncherLayoutFallback()
+        {
+            if (!useLauncherLayout)
+                return;
+            if (!Application.isPlaying)
+                return;
+
+            if (strikeButton == null || castSpellButton == null || demoralizeButton == null)
+            {
+                if (!launcherLayoutWiringWarned)
+                {
+                    launcherLayoutWiringWarned = true;
+                    Debug.LogWarning(
+                        "[ActionBar] Launcher layout requires strike/cast/demoralize buttons. Falling back to legacy visibility.",
+                        this);
+                }
+                useLauncherLayout = false;
+                return;
+            }
+
+            var rowParent = strikeButton.transform.parent;
+            if (rowParent == null)
+            {
+                useLauncherLayout = false;
+                return;
+            }
+
+            if (tacticsLauncherButton == null)
+                tacticsLauncherButton = BuildLauncherButtonFromTemplate("TacticsLauncherButton_Auto", demoralizeButton, rowParent, "Tactics ▾");
+
+            if (strikePopupRoot == null)
+                strikePopupRoot = BuildPopupRoot("StrikePopup_Auto", rowParent);
+            if (tacticsPopupRoot == null)
+                tacticsPopupRoot = BuildPopupRoot("TacticsPopup_Auto", rowParent);
+
+            if (strikePopupRoot != null)
+            {
+                strikePopupRoot.SetParent(strikeButton.transform, false);
+                strikePopupRoot.anchorMin = new Vector2(0.5f, 1f);
+                strikePopupRoot.anchorMax = new Vector2(0.5f, 1f);
+                strikePopupRoot.pivot = new Vector2(0.5f, 0f);
+                strikePopupRoot.anchoredPosition = new Vector2(0f, 10f);
+            }
+
+            if (tacticsPopupRoot != null && tacticsLauncherButton != null)
+            {
+                tacticsPopupRoot.SetParent(tacticsLauncherButton.transform, false);
+                tacticsPopupRoot.anchorMin = new Vector2(0.5f, 1f);
+                tacticsPopupRoot.anchorMax = new Vector2(0.5f, 1f);
+                tacticsPopupRoot.pivot = new Vector2(0.5f, 0f);
+                tacticsPopupRoot.anchoredPosition = new Vector2(0f, 10f);
+            }
+
+            if (strikePopupStrikeButton == null)
+            {
+                strikePopupStrikeButton = BuildPopupActionButton("StrikeOptionButton_Auto", strikePopupRoot, "Strike [1]");
+                CopyButtonVisualStyle(strikePopupStrikeButton, strikeButton);
+            }
+
+            MoveButtonToPopup(tripButton, strikePopupRoot);
+            MoveButtonToPopup(shoveButton, strikePopupRoot);
+            MoveButtonToPopup(grappleButton, strikePopupRoot);
+            MoveButtonToPopup(repositionButton, strikePopupRoot);
+
+            MoveButtonToPopup(demoralizeButton, tacticsPopupRoot);
+            MoveButtonToPopup(escapeButton, tacticsPopupRoot);
+            MoveButtonToPopup(aidButton, tacticsPopupRoot);
+
+            if (castSpellModeSelectorRoot != null)
+            {
+                castSpellModeSelectorRoot.SetParent(castSpellButton.transform, false);
+                castSpellModeSelectorRoot.anchorMin = new Vector2(0.5f, 1f);
+                castSpellModeSelectorRoot.anchorMax = new Vector2(0.5f, 1f);
+                castSpellModeSelectorRoot.pivot = new Vector2(0.5f, 0f);
+                castSpellModeSelectorRoot.anchoredPosition = new Vector2(0f, 10f);
+            }
+
+            if (standButton != null)
+                standButton.gameObject.SetActive(false);
+        }
+
+        private static Button BuildLauncherButtonFromTemplate(string name, Button template, Transform parent, string labelText)
+        {
+            if (template == null || parent == null)
+                return null;
+
+            var clonedObject = Instantiate(template.gameObject, parent);
+            clonedObject.name = name;
+
+            var rect = clonedObject.transform as RectTransform;
+            if (rect != null && template.transform is RectTransform templateRect)
+            {
+                rect.anchorMin = templateRect.anchorMin;
+                rect.anchorMax = templateRect.anchorMax;
+                rect.pivot = templateRect.pivot;
+                rect.sizeDelta = templateRect.sizeDelta;
+                rect.localScale = Vector3.one;
+                rect.localRotation = Quaternion.identity;
+            }
+
+            var label = clonedObject.GetComponentInChildren<TMP_Text>(true);
+            if (label != null)
+                label.text = labelText;
+
+            return clonedObject.GetComponent<Button>();
+        }
+
+        private static RectTransform BuildPopupRoot(string name, Transform parent)
+        {
+            var popupObject = new GameObject(
+                name,
+                typeof(RectTransform),
+                typeof(Image),
+                typeof(HorizontalLayoutGroup),
+                typeof(ContentSizeFitter));
+            popupObject.transform.SetParent(parent, false);
+
+            var rect = popupObject.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 1f);
+            rect.anchorMax = new Vector2(0.5f, 1f);
+            rect.pivot = new Vector2(0.5f, 0f);
+            rect.anchoredPosition = new Vector2(0f, 14f);
+            rect.sizeDelta = new Vector2(520f, 30f);
+
+            var image = popupObject.GetComponent<Image>();
+            image.color = new Color(0.08f, 0.09f, 0.12f, 0.96f);
+            image.raycastTarget = true;
+
+            var layout = popupObject.GetComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(6, 6, 4, 4);
+            layout.spacing = 4f;
+            layout.childControlWidth = false;
+            layout.childControlHeight = false;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+
+            var fitter = popupObject.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            popupObject.SetActive(false);
+            return rect;
+        }
+
+        private static Button BuildPopupActionButton(string name, RectTransform parent, string labelText)
+        {
+            if (parent == null)
+                return null;
+
+            var buttonObject = new GameObject(
+                name,
+                typeof(RectTransform),
+                typeof(Image),
+                typeof(Button),
+                typeof(LayoutElement));
+            buttonObject.transform.SetParent(parent, false);
+
+            var rect = buttonObject.GetComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(120f, 24f);
+
+            var layout = buttonObject.GetComponent<LayoutElement>();
+            layout.preferredWidth = 120f;
+            layout.preferredHeight = 24f;
+            layout.minWidth = 90f;
+            layout.minHeight = 24f;
+
+            var image = buttonObject.GetComponent<Image>();
+            image.color = new Color(0.18f, 0.23f, 0.30f, 0.92f);
+
+            var labelObject = new GameObject("Label", typeof(RectTransform));
+            labelObject.transform.SetParent(buttonObject.transform, false);
+            var label = labelObject.AddComponent<TextMeshProUGUI>();
+            label.text = labelText;
+            label.alignment = TextAlignmentOptions.Center;
+            label.fontSize = 12f;
+            label.color = new Color(0.92f, 0.92f, 0.95f, 1f);
+            label.raycastTarget = false;
+            label.enableWordWrapping = false;
+
+            var labelRect = labelObject.GetComponent<RectTransform>();
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = Vector2.one;
+            labelRect.offsetMin = Vector2.zero;
+            labelRect.offsetMax = Vector2.zero;
+
+            return buttonObject.GetComponent<Button>();
+        }
+
+        private static void MoveButtonToPopup(Button button, RectTransform popupRoot)
+        {
+            if (button == null || popupRoot == null)
+                return;
+
+            button.transform.SetParent(popupRoot, false);
+            if (button.TryGetComponent<LayoutElement>(out var layoutElement))
+            {
+                layoutElement.preferredHeight = Mathf.Max(24f, layoutElement.preferredHeight);
+            }
+        }
+
+        private static void CopyButtonVisualStyle(Button destination, Button source)
+        {
+            if (destination == null || source == null)
+                return;
+
+            if (destination.TryGetComponent<Image>(out var destinationImage)
+                && source.TryGetComponent<Image>(out var sourceImage))
+            {
+                destinationImage.color = sourceImage.color;
+                destinationImage.sprite = sourceImage.sprite;
+                destinationImage.type = sourceImage.type;
+            }
+        }
+
+        private void ApplyStaticButtonLabels()
+        {
+            if (!useLauncherLayout)
+                return;
+
+            if (strikeButton != null)
+                SetButtonLabelText(strikeButton, "Strike ▾");
+
+            if (tacticsLauncherButton != null)
+                SetButtonLabelText(tacticsLauncherButton, "Tactics ▾");
+
+            if (tripButton != null)
+                SetButtonLabelText(tripButton, "Trip [1][ATK]");
+            if (shoveButton != null)
+                SetButtonLabelText(shoveButton, "Shove [1][ATK]");
+            if (grappleButton != null)
+                SetButtonLabelText(grappleButton, "Grapple [1][ATK]");
+            if (repositionButton != null)
+                SetButtonLabelText(repositionButton, "Reposition [1][ATK]");
+            if (demoralizeButton != null)
+                SetButtonLabelText(demoralizeButton, "Demoralize [1]");
+            if (escapeButton != null)
+                SetButtonLabelText(escapeButton, "Escape [1]");
+            if (aidButton != null)
+                SetButtonLabelText(aidButton, "Aid [1]");
+            if (raiseShieldButton != null)
+                SetButtonLabelText(raiseShieldButton, "Guard [1]");
+            if (standButton != null)
+                SetButtonLabelText(standButton, "Stand [1]");
+
+            if (castSpellButton != null)
+                SetButtonLabelText(castSpellButton, "Cast ▾");
+            if (castSpellModeStandardButton != null)
+                SetButtonLabelText(castSpellModeStandardButton, "Shield [1]");
+            if (castSpellModeGlassButton != null)
+                SetButtonLabelText(castSpellModeGlassButton, "Glass Shield [1]");
+            if (strikePopupStrikeButton != null)
+                SetButtonLabelText(strikePopupStrikeButton, "Strike [1]");
+        }
+
+        private static void SetButtonLabelText(Button button, string text)
+        {
+            if (button == null)
+                return;
+
+            TMP_Text label = null;
+            var directText = button.transform.Find("Text");
+            if (directText != null)
+                label = directText.GetComponent<TMP_Text>();
+
+            if (label == null)
+            {
+                var directLabel = button.transform.Find("Label");
+                if (directLabel != null)
+                    label = directLabel.GetComponent<TMP_Text>();
+            }
+
+            if (label == null)
+            {
+                var labels = button.GetComponentsInChildren<TMP_Text>(true);
+                if (labels != null && labels.Length > 0)
+                    label = labels[0];
+            }
+
+            if (label != null)
+                label.text = text;
+        }
+
         private void OnEnable()
         {
             EnsureButtonListenersBound();
@@ -393,6 +694,50 @@ namespace PF2e.Presentation
 
             if (targetingController != null)
                 targetingController.OnModeChanged -= HandleModeChanged;
+
+            CloseAllPopups();
+        }
+
+        private void Update()
+        {
+            if (!useLauncherLayout)
+                return;
+            if (!strikePopupOpen && !tacticsPopupOpen && !castPopupOpen)
+                return;
+
+            var kb = Keyboard.current;
+            if (kb != null && kb.escapeKey.wasPressedThisFrame)
+            {
+                CloseAllPopups();
+                return;
+            }
+
+            var mouse = Mouse.current;
+            if (mouse == null || !mouse.leftButton.wasPressedThisFrame)
+                return;
+
+            Vector2 screen = mouse.position.ReadValue();
+            if (IsPointInsideAnyLauncherUi(screen))
+                return;
+
+            CloseAllPopups();
+        }
+
+        private bool IsPointInsideAnyLauncherUi(Vector2 screenPoint)
+        {
+            if (IsPointInsideRect(screenPoint, strikeButton != null ? strikeButton.transform as RectTransform : null)) return true;
+            if (IsPointInsideRect(screenPoint, tacticsLauncherButton != null ? tacticsLauncherButton.transform as RectTransform : null)) return true;
+            if (IsPointInsideRect(screenPoint, castSpellButton != null ? castSpellButton.transform as RectTransform : null)) return true;
+            if (IsPointInsideRect(screenPoint, strikePopupRoot)) return true;
+            if (IsPointInsideRect(screenPoint, tacticsPopupRoot)) return true;
+            if (IsPointInsideRect(screenPoint, castSpellModeSelectorRoot)) return true;
+            return false;
+        }
+
+        private static bool IsPointInsideRect(Vector2 screenPoint, RectTransform rect)
+        {
+            return rect != null && rect.gameObject.activeInHierarchy
+                && RectTransformUtility.RectangleContainsScreenPoint(rect, screenPoint, null);
         }
 
         private void EnsureButtonListenersBound()
@@ -400,26 +745,28 @@ namespace PF2e.Presentation
             if (buttonListenersBound) return;
 
             int boundCount = 0;
-            boundCount += BindButton(strikeButton, actionBarCommandCoordinator.OnStrikeClicked);
-            boundCount += BindButton(tripButton, actionBarCommandCoordinator.OnTripClicked);
-            boundCount += BindButton(shoveButton, actionBarCommandCoordinator.OnShoveClicked);
-            boundCount += BindButton(grappleButton, actionBarCommandCoordinator.OnGrappleClicked);
-            boundCount += BindButton(repositionButton, actionBarCommandCoordinator.OnRepositionClicked);
-            boundCount += BindButton(demoralizeButton, actionBarCommandCoordinator.OnDemoralizeClicked);
-            boundCount += BindButton(escapeButton, actionBarCommandCoordinator.OnEscapeClicked);
-            boundCount += BindButton(aidButton, actionBarCommandCoordinator.OnAidClicked);
+            boundCount += BindButton(strikeButton, useLauncherLayout ? ToggleStrikePopup : actionBarCommandCoordinator.OnStrikeClicked);
+            boundCount += BindButton(tripButton, useLauncherLayout ? HandleTripPopupClicked : actionBarCommandCoordinator.OnTripClicked);
+            boundCount += BindButton(shoveButton, useLauncherLayout ? HandleShovePopupClicked : actionBarCommandCoordinator.OnShoveClicked);
+            boundCount += BindButton(grappleButton, useLauncherLayout ? HandleGrapplePopupClicked : actionBarCommandCoordinator.OnGrappleClicked);
+            boundCount += BindButton(repositionButton, useLauncherLayout ? HandleRepositionPopupClicked : actionBarCommandCoordinator.OnRepositionClicked);
+            boundCount += BindButton(demoralizeButton, useLauncherLayout ? HandleDemoralizePopupClicked : actionBarCommandCoordinator.OnDemoralizeClicked);
+            boundCount += BindButton(escapeButton, useLauncherLayout ? HandleEscapePopupClicked : actionBarCommandCoordinator.OnEscapeClicked);
+            boundCount += BindButton(aidButton, useLauncherLayout ? HandleAidPopupClicked : actionBarCommandCoordinator.OnAidClicked);
             boundCount += BindButton(readyButton, actionBarCommandCoordinator.OnReadyClicked);
             boundCount += BindButton(readyModeMoveButton, actionBarCommandCoordinator.OnReadyModeMoveClicked);
             boundCount += BindButton(readyModeAttackButton, actionBarCommandCoordinator.OnReadyModeAttackClicked);
             boundCount += BindButton(readyModeAnyButton, actionBarCommandCoordinator.OnReadyModeAnyClicked);
-            boundCount += BindButton(castSpellButton, actionBarCommandCoordinator.OnCastSpellClicked);
-            boundCount += BindButton(castSpellModeStandardButton, actionBarCommandCoordinator.OnCastSpellModeStandardClicked);
-            boundCount += BindButton(castSpellModeGlassButton, actionBarCommandCoordinator.OnCastSpellModeGlassClicked);
+            boundCount += BindButton(castSpellButton, useLauncherLayout ? ToggleCastPopup : actionBarCommandCoordinator.OnCastSpellClicked);
+            boundCount += BindButton(castSpellModeStandardButton, useLauncherLayout ? HandleCastStandardPopupClicked : actionBarCommandCoordinator.OnCastSpellModeStandardClicked);
+            boundCount += BindButton(castSpellModeGlassButton, useLauncherLayout ? HandleCastGlassPopupClicked : actionBarCommandCoordinator.OnCastSpellModeGlassClicked);
             boundCount += BindButton(raiseShieldButton, actionBarCommandCoordinator.OnRaiseShieldClicked);
             boundCount += BindButton(standButton, actionBarCommandCoordinator.OnStandClicked);
             boundCount += BindButton(delayButton, actionBarCommandCoordinator.OnDelayClicked);
             boundCount += BindButton(returnNowButton, actionBarCommandCoordinator.OnReturnNowClicked);
             boundCount += BindButton(skipDelayWindowButton, actionBarCommandCoordinator.OnSkipDelayWindowClicked);
+            boundCount += BindButton(tacticsLauncherButton, ToggleTacticsPopup);
+            boundCount += BindButton(strikePopupStrikeButton, HandleStrikePopupStrikeClicked);
 
             if (boundCount > 0)
                 buttonListenersBound = true;
@@ -430,6 +777,116 @@ namespace PF2e.Presentation
             if (button == null || handler == null) return 0;
             button.onClick.AddListener(handler);
             return 1;
+        }
+
+        private void ToggleStrikePopup()
+        {
+            if (!useLauncherLayout)
+            {
+                actionBarCommandCoordinator.OnStrikeClicked();
+                return;
+            }
+
+            bool next = !strikePopupOpen;
+            CloseAllPopups();
+            SetStrikePopupVisible(next);
+        }
+
+        private void ToggleTacticsPopup()
+        {
+            if (!useLauncherLayout)
+                return;
+
+            bool next = !tacticsPopupOpen;
+            CloseAllPopups();
+            SetTacticsPopupVisible(next);
+        }
+
+        private void ToggleCastPopup()
+        {
+            if (!useLauncherLayout)
+            {
+                actionBarCommandCoordinator.OnCastSpellClicked();
+                return;
+            }
+
+            bool next = !castPopupOpen;
+            CloseAllPopups();
+            SetCastPopupVisible(next);
+        }
+
+        private void HandleStrikePopupStrikeClicked()
+        {
+            actionBarCommandCoordinator.OnStrikeClicked();
+            CloseAllPopups();
+        }
+
+        private void HandleTripPopupClicked() => ExecutePopupAction(actionBarCommandCoordinator.OnTripClicked);
+        private void HandleShovePopupClicked() => ExecutePopupAction(actionBarCommandCoordinator.OnShoveClicked);
+        private void HandleGrapplePopupClicked() => ExecutePopupAction(actionBarCommandCoordinator.OnGrappleClicked);
+        private void HandleRepositionPopupClicked() => ExecutePopupAction(actionBarCommandCoordinator.OnRepositionClicked);
+        private void HandleDemoralizePopupClicked() => ExecutePopupAction(actionBarCommandCoordinator.OnDemoralizeClicked);
+        private void HandleEscapePopupClicked() => ExecutePopupAction(actionBarCommandCoordinator.OnEscapeClicked);
+        private void HandleAidPopupClicked() => ExecutePopupAction(actionBarCommandCoordinator.OnAidClicked);
+
+        private void HandleCastStandardPopupClicked()
+        {
+            actionBarCommandCoordinator.OnCastSpellModeStandardClicked();
+            actionBarCommandCoordinator.OnCastSpellClicked();
+            CloseAllPopups();
+        }
+
+        private void HandleCastGlassPopupClicked()
+        {
+            actionBarCommandCoordinator.OnCastSpellModeGlassClicked();
+            actionBarCommandCoordinator.OnCastSpellClicked();
+            CloseAllPopups();
+        }
+
+        private void ExecutePopupAction(System.Action action)
+        {
+            action?.Invoke();
+            CloseAllPopups();
+        }
+
+        private void SetStrikePopupVisible(bool visible)
+        {
+            if (!useLauncherLayout)
+                return;
+
+            strikePopupOpen = visible;
+            if (strikePopupRoot != null && strikePopupRoot.gameObject.activeSelf != visible)
+                strikePopupRoot.gameObject.SetActive(visible);
+        }
+
+        private void SetTacticsPopupVisible(bool visible)
+        {
+            if (!useLauncherLayout)
+                return;
+
+            tacticsPopupOpen = visible;
+            if (tacticsPopupRoot != null && tacticsPopupRoot.gameObject.activeSelf != visible)
+                tacticsPopupRoot.gameObject.SetActive(visible);
+        }
+
+        private void SetCastPopupVisible(bool visible)
+        {
+            if (!useLauncherLayout)
+                return;
+
+            castPopupOpen = visible;
+            if (castSpellModeSelectorRoot != null && castSpellModeSelectorRoot.gameObject.activeSelf != visible)
+                castSpellModeSelectorRoot.gameObject.SetActive(visible);
+        }
+
+        private void CloseAllPopups()
+        {
+            if (!useLauncherLayout)
+                return;
+
+            SetStrikePopupVisible(false);
+            SetTacticsPopupVisible(false);
+            SetCastPopupVisible(false);
         }
 
         private void SubscribeCoreEvents()
@@ -635,6 +1092,7 @@ namespace PF2e.Presentation
         {
             if (turnManager == null || entityManager == null || entityManager.Registry == null || actionExecutor == null)
             {
+                CloseAllPopups();
                 SetCastSpellUiVisible(false);
                 SetAllInteractable(false);
                 ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
@@ -654,6 +1112,7 @@ namespace PF2e.Presentation
 
             if (turnManager.IsDelayReturnWindowOpen)
             {
+                CloseAllPopups();
                 SetAllInteractable(false);
 
                 bool canReturnNow = turnManager.TryGetFirstDelayedPlayerActor(out _);
@@ -670,6 +1129,7 @@ namespace PF2e.Presentation
 
             if (turnManager.IsDelayPlacementSelectionOpen)
             {
+                CloseAllPopups();
                 SetAllInteractable(false);
                 ApplyDelayControls(delayActionBarStatePresenter.BuildPlacementSelectionState());
                 SetReadyModeButtonsInteractable(false);
@@ -688,6 +1148,7 @@ namespace PF2e.Presentation
                 entityManager.Registry,
                 out var availability))
             {
+                CloseAllPopups();
                 SetAllInteractable(false);
                 ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
                 SetReadyModeButtonsInteractable(false);
@@ -727,6 +1188,7 @@ namespace PF2e.Presentation
             RefreshReadyButtonLabel();
             RefreshCastSpellButtonLabel();
             RefreshAidPreparedIndicator();
+            ApplyStaticButtonLabels();
         }
 
         private void SetCombatVisible(bool visible)
@@ -740,39 +1202,97 @@ namespace PF2e.Presentation
 
         private void SetAllInteractable(bool enabled)
         {
-            SetInteractable(strikeButton, enabled);
-            SetInteractable(tripButton, enabled);
-            SetInteractable(shoveButton, enabled);
-            SetInteractable(grappleButton, enabled);
-            SetInteractable(repositionButton, enabled);
-            SetInteractable(demoralizeButton, enabled);
-            SetInteractable(escapeButton, enabled);
-            SetInteractable(aidButton, enabled);
-            SetInteractable(readyButton, !turnManagementButtonsExternallyHidden && enabled);
-            SetInteractable(readyModeMoveButton, enabled);
-            SetInteractable(readyModeAttackButton, enabled);
-            SetInteractable(readyModeAnyButton, enabled);
-            SetInteractable(castSpellButton, enabled);
-            SetInteractable(castSpellModeStandardButton, enabled);
-            SetInteractable(castSpellModeGlassButton, enabled);
-            SetInteractable(raiseShieldButton, enabled);
-            SetInteractable(standButton, enabled);
+            if (useLauncherLayout)
+            {
+                SetInteractable(strikeButton, enabled);
+                SetInteractable(tacticsLauncherButton, enabled);
+                SetInteractable(castSpellButton, enabled);
+                SetInteractable(raiseShieldButton, enabled);
+                SetInteractable(castSpellModeStandardButton, enabled);
+                SetInteractable(castSpellModeGlassButton, enabled);
+                SetInteractable(tripButton, enabled);
+                SetInteractable(shoveButton, enabled);
+                SetInteractable(grappleButton, enabled);
+                SetInteractable(repositionButton, enabled);
+                SetInteractable(demoralizeButton, enabled);
+                SetInteractable(escapeButton, enabled);
+                SetInteractable(aidButton, enabled);
+                SetInteractable(strikePopupStrikeButton, enabled);
+                SetInteractable(standButton, enabled);
+            }
+            else
+            {
+                SetInteractable(strikeButton, enabled);
+                SetInteractable(tripButton, enabled);
+                SetInteractable(shoveButton, enabled);
+                SetInteractable(grappleButton, enabled);
+                SetInteractable(repositionButton, enabled);
+                SetInteractable(demoralizeButton, enabled);
+                SetInteractable(escapeButton, enabled);
+                SetInteractable(aidButton, enabled);
+                SetInteractable(readyButton, !turnManagementButtonsExternallyHidden && enabled);
+                SetInteractable(readyModeMoveButton, enabled);
+                SetInteractable(readyModeAttackButton, enabled);
+                SetInteractable(readyModeAnyButton, enabled);
+                SetInteractable(castSpellButton, enabled);
+                SetInteractable(castSpellModeStandardButton, enabled);
+                SetInteractable(castSpellModeGlassButton, enabled);
+                SetInteractable(raiseShieldButton, enabled);
+                SetInteractable(standButton, enabled);
+            }
         }
 
         private void ApplyActionAvailability(in ActionBarAvailabilityState availability)
         {
-            SetInteractable(strikeButton, availability.strikeInteractable);
-            SetInteractable(tripButton, availability.tripInteractable);
-            SetInteractable(shoveButton, availability.shoveInteractable);
-            SetInteractable(grappleButton, availability.grappleInteractable);
-            SetInteractable(repositionButton, availability.repositionInteractable);
-            SetInteractable(demoralizeButton, availability.demoralizeInteractable);
-            SetInteractable(escapeButton, availability.escapeInteractable);
-            SetInteractable(aidButton, availability.aidInteractable);
-            SetInteractable(readyButton, !turnManagementButtonsExternallyHidden && availability.readyInteractable);
-            SetInteractable(castSpellButton, availability.castSpellInteractable);
-            SetInteractable(raiseShieldButton, availability.raiseShieldInteractable);
-            SetInteractable(standButton, availability.standInteractable);
+            if (useLauncherLayout)
+            {
+                bool anyStrikeOptions = availability.strikeInteractable
+                                     || availability.tripInteractable
+                                     || availability.shoveInteractable
+                                     || availability.grappleInteractable
+                                     || availability.repositionInteractable;
+                bool anyTacticsOptions = availability.demoralizeInteractable
+                                      || availability.escapeInteractable
+                                      || availability.aidInteractable;
+
+                SetInteractable(strikeButton, anyStrikeOptions);
+                SetInteractable(strikePopupStrikeButton, availability.strikeInteractable);
+                SetInteractable(tripButton, availability.tripInteractable);
+                SetInteractable(shoveButton, availability.shoveInteractable);
+                SetInteractable(grappleButton, availability.grappleInteractable);
+                SetInteractable(repositionButton, availability.repositionInteractable);
+
+                SetInteractable(tacticsLauncherButton, anyTacticsOptions);
+                SetInteractable(demoralizeButton, availability.demoralizeInteractable);
+                SetInteractable(escapeButton, availability.escapeInteractable);
+                SetInteractable(aidButton, availability.aidInteractable);
+
+                SetInteractable(castSpellButton, availability.castSpellInteractable);
+                SetInteractable(castSpellModeStandardButton, availability.castSpellInteractable);
+                SetInteractable(castSpellModeGlassButton, availability.castSpellInteractable);
+
+                bool guardInteractable = availability.raiseShieldInteractable || availability.castSpellInteractable;
+                SetInteractable(raiseShieldButton, guardInteractable);
+                SetButtonVisible(raiseShieldButton, guardInteractable);
+
+                SetButtonVisible(standButton, availability.standInteractable);
+                SetInteractable(standButton, availability.standInteractable);
+            }
+            else
+            {
+                SetInteractable(strikeButton, availability.strikeInteractable);
+                SetInteractable(tripButton, availability.tripInteractable);
+                SetInteractable(shoveButton, availability.shoveInteractable);
+                SetInteractable(grappleButton, availability.grappleInteractable);
+                SetInteractable(repositionButton, availability.repositionInteractable);
+                SetInteractable(demoralizeButton, availability.demoralizeInteractable);
+                SetInteractable(escapeButton, availability.escapeInteractable);
+                SetInteractable(aidButton, availability.aidInteractable);
+                SetInteractable(readyButton, !turnManagementButtonsExternallyHidden && availability.readyInteractable);
+                SetInteractable(castSpellButton, availability.castSpellInteractable);
+                SetInteractable(raiseShieldButton, availability.raiseShieldInteractable);
+                SetInteractable(standButton, availability.standInteractable);
+            }
         }
 
         private void ApplyDelayControls(in DelayActionBarState state)
@@ -867,7 +1387,12 @@ namespace PF2e.Presentation
         private void SetReadyModeButtonsInteractable(bool enabled)
         {
             if (readyModeSelectorRoot != null)
-                readyModeSelectorRoot.gameObject.SetActive(readyButton != null && readyButton.gameObject.activeInHierarchy);
+            {
+                bool visible = !useLauncherLayout
+                    && readyButton != null
+                    && readyButton.gameObject.activeInHierarchy;
+                readyModeSelectorRoot.gameObject.SetActive(visible);
+            }
 
             SetInteractable(readyModeMoveButton, enabled);
             SetInteractable(readyModeAttackButton, enabled);
@@ -877,7 +1402,12 @@ namespace PF2e.Presentation
         private void SetCastSpellModeButtonsInteractable(bool enabled)
         {
             if (castSpellModeSelectorRoot != null)
-                castSpellModeSelectorRoot.gameObject.SetActive(castSpellButton != null && castSpellButton.gameObject.activeInHierarchy);
+            {
+                bool shouldBeVisible = castSpellButton != null && castSpellButton.gameObject.activeInHierarchy;
+                if (useLauncherLayout)
+                    shouldBeVisible = shouldBeVisible && castPopupOpen;
+                castSpellModeSelectorRoot.gameObject.SetActive(shouldBeVisible);
+            }
 
             SetInteractable(castSpellModeStandardButton, enabled);
             SetInteractable(castSpellModeGlassButton, enabled);
@@ -888,8 +1418,12 @@ namespace PF2e.Presentation
             if (castSpellButton != null && castSpellButton.gameObject.activeSelf != visible)
                 castSpellButton.gameObject.SetActive(visible);
 
-            if (castSpellModeSelectorRoot != null && castSpellModeSelectorRoot.gameObject.activeSelf != visible)
-                castSpellModeSelectorRoot.gameObject.SetActive(visible);
+            if (castSpellModeSelectorRoot != null)
+            {
+                bool modeRootVisible = visible && (!useLauncherLayout || castPopupOpen);
+                if (castSpellModeSelectorRoot.gameObject.activeSelf != modeRootVisible)
+                    castSpellModeSelectorRoot.gameObject.SetActive(modeRootVisible);
+            }
         }
 
         private static bool ShouldShowCastSpellUi(EntityData actorData)
@@ -944,6 +1478,12 @@ namespace PF2e.Presentation
 
         private void RefreshCastSpellButtonLabel()
         {
+            if (useLauncherLayout)
+            {
+                SetButtonLabelText(castSpellButton, "Cast ▾");
+                return;
+            }
+
             if (castSpellButtonLabel == null)
                 return;
 

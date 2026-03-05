@@ -3975,6 +3975,11 @@ MonoBehaviour:
   delayButton: {fileID: 679344840}
   returnNowButton: {fileID: 2090371753}
   skipDelayWindowButton: {fileID: 1772304277}
+  useLauncherLayout: 1
+  tacticsLauncherButton: {fileID: 0}
+  strikePopupRoot: {fileID: 0}
+  tacticsPopupRoot: {fileID: 0}
+  strikePopupStrikeButton: {fileID: 0}
   strikeHighlight: {fileID: 1288669210}
   tripHighlight: {fileID: 935974848}
   shoveHighlight: {fileID: 1274925898}
