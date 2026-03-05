@@ -397,20 +397,25 @@ namespace PF2e.Presentation
                 return;
             }
 
-            var rowParent = strikeButton.transform.parent;
-            if (rowParent == null)
+            var actionBarRect = transform as RectTransform;
+            tacticsLauncherButton ??= FindChildButton(actionBarRect, "TacticsLauncherButton");
+            strikePopupRoot ??= FindChildRect(actionBarRect, "StrikePopupRoot");
+            tacticsPopupRoot ??= FindChildRect(actionBarRect, "TacticsPopupRoot");
+            strikePopupStrikeButton ??= FindChildButton(strikePopupRoot, "StrikePopupStrikeButton");
+
+            if (tacticsLauncherButton == null || strikePopupRoot == null || tacticsPopupRoot == null || strikePopupStrikeButton == null)
             {
+                if (!launcherLayoutWiringWarned)
+                {
+                    launcherLayoutWiringWarned = true;
+                    Debug.LogWarning(
+                        "[ActionBar] Launcher layout requires scene wiring: TacticsLauncherButton, StrikePopupRoot, TacticsPopupRoot, StrikePopupStrikeButton.",
+                        this);
+                }
+
                 useLauncherLayout = false;
                 return;
             }
-
-            if (tacticsLauncherButton == null)
-                tacticsLauncherButton = BuildLauncherButtonFromTemplate("TacticsLauncherButton_Auto", demoralizeButton, rowParent, "Tactics ▾");
-
-            if (strikePopupRoot == null)
-                strikePopupRoot = BuildPopupRoot("StrikePopup_Auto", rowParent);
-            if (tacticsPopupRoot == null)
-                tacticsPopupRoot = BuildPopupRoot("TacticsPopup_Auto", rowParent);
 
             if (strikePopupRoot != null)
             {
@@ -428,12 +433,6 @@ namespace PF2e.Presentation
                 tacticsPopupRoot.anchorMax = new Vector2(0.5f, 1f);
                 tacticsPopupRoot.pivot = new Vector2(0.5f, 0f);
                 tacticsPopupRoot.anchoredPosition = new Vector2(0f, 10f);
-            }
-
-            if (strikePopupStrikeButton == null)
-            {
-                strikePopupStrikeButton = BuildPopupActionButton("StrikeOptionButton_Auto", strikePopupRoot, "Strike [1]");
-                CopyButtonVisualStyle(strikePopupStrikeButton, strikeButton);
             }
 
             MoveButtonToPopup(tripButton, strikePopupRoot);
@@ -469,112 +468,21 @@ namespace PF2e.Presentation
                 castSpellModeSelectorRoot);
         }
 
-        private static Button BuildLauncherButtonFromTemplate(string name, Button template, Transform parent, string labelText)
-        {
-            if (template == null || parent == null)
-                return null;
-
-            var clonedObject = Instantiate(template.gameObject, parent);
-            clonedObject.name = name;
-
-            var rect = clonedObject.transform as RectTransform;
-            if (rect != null && template.transform is RectTransform templateRect)
-            {
-                rect.anchorMin = templateRect.anchorMin;
-                rect.anchorMax = templateRect.anchorMax;
-                rect.pivot = templateRect.pivot;
-                rect.sizeDelta = templateRect.sizeDelta;
-                rect.localScale = Vector3.one;
-                rect.localRotation = Quaternion.identity;
-            }
-
-            var label = clonedObject.GetComponentInChildren<TMP_Text>(true);
-            if (label != null)
-                label.text = labelText;
-
-            return clonedObject.GetComponent<Button>();
-        }
-
-        private static RectTransform BuildPopupRoot(string name, Transform parent)
-        {
-            var popupObject = new GameObject(
-                name,
-                typeof(RectTransform),
-                typeof(Image),
-                typeof(HorizontalLayoutGroup),
-                typeof(ContentSizeFitter));
-            popupObject.transform.SetParent(parent, false);
-
-            var rect = popupObject.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.5f, 1f);
-            rect.anchorMax = new Vector2(0.5f, 1f);
-            rect.pivot = new Vector2(0.5f, 0f);
-            rect.anchoredPosition = new Vector2(0f, 14f);
-            rect.sizeDelta = new Vector2(520f, 30f);
-
-            var image = popupObject.GetComponent<Image>();
-            image.color = new Color(0.08f, 0.09f, 0.12f, 0.96f);
-            image.raycastTarget = true;
-
-            var layout = popupObject.GetComponent<HorizontalLayoutGroup>();
-            layout.padding = new RectOffset(6, 6, 4, 4);
-            layout.spacing = 4f;
-            layout.childControlWidth = false;
-            layout.childControlHeight = false;
-            layout.childForceExpandWidth = false;
-            layout.childForceExpandHeight = false;
-            layout.childAlignment = TextAnchor.MiddleCenter;
-
-            var fitter = popupObject.GetComponent<ContentSizeFitter>();
-            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            popupObject.SetActive(false);
-            return rect;
-        }
-
-        private static Button BuildPopupActionButton(string name, RectTransform parent, string labelText)
+        private static Button FindChildButton(RectTransform parent, string name)
         {
             if (parent == null)
                 return null;
+            var child = parent.Find(name);
+            if (child == null)
+                return null;
+            return child.GetComponent<Button>();
+        }
 
-            var buttonObject = new GameObject(
-                name,
-                typeof(RectTransform),
-                typeof(Image),
-                typeof(Button),
-                typeof(LayoutElement));
-            buttonObject.transform.SetParent(parent, false);
-
-            var rect = buttonObject.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(120f, 24f);
-
-            var layout = buttonObject.GetComponent<LayoutElement>();
-            layout.preferredWidth = 120f;
-            layout.preferredHeight = 24f;
-            layout.minWidth = 90f;
-            layout.minHeight = 24f;
-
-            var image = buttonObject.GetComponent<Image>();
-            image.color = new Color(0.18f, 0.23f, 0.30f, 0.92f);
-
-            var labelObject = new GameObject("Label", typeof(RectTransform));
-            labelObject.transform.SetParent(buttonObject.transform, false);
-            var label = labelObject.AddComponent<TextMeshProUGUI>();
-            label.text = labelText;
-            label.alignment = TextAlignmentOptions.Center;
-            label.fontSize = 12f;
-            label.color = new Color(0.92f, 0.92f, 0.95f, 1f);
-            label.raycastTarget = false;
-            label.enableWordWrapping = false;
-
-            var labelRect = labelObject.GetComponent<RectTransform>();
-            labelRect.anchorMin = Vector2.zero;
-            labelRect.anchorMax = Vector2.one;
-            labelRect.offsetMin = Vector2.zero;
-            labelRect.offsetMax = Vector2.zero;
-
-            return buttonObject.GetComponent<Button>();
+        private static RectTransform FindChildRect(RectTransform parent, string name)
+        {
+            if (parent == null)
+                return null;
+            return parent.Find(name) as RectTransform;
         }
 
         private static void MoveButtonToPopup(Button button, RectTransform popupRoot)
@@ -586,20 +494,6 @@ namespace PF2e.Presentation
             if (button.TryGetComponent<LayoutElement>(out var layoutElement))
             {
                 layoutElement.preferredHeight = Mathf.Max(24f, layoutElement.preferredHeight);
-            }
-        }
-
-        private static void CopyButtonVisualStyle(Button destination, Button source)
-        {
-            if (destination == null || source == null)
-                return;
-
-            if (destination.TryGetComponent<Image>(out var destinationImage)
-                && source.TryGetComponent<Image>(out var sourceImage))
-            {
-                destinationImage.color = sourceImage.color;
-                destinationImage.sprite = sourceImage.sprite;
-                destinationImage.type = sourceImage.type;
             }
         }
 
