@@ -163,6 +163,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 | T-157 | P1 | done | Builder | Step 6d: finalize contextual Guard/Stand visibility contract in Action Bar | `ActionBarController` now hides contextual `Guard/Stand` controls when bar is globally inactive (enemy/non-actionable/delay states), while active-turn visibility remains policy-driven via `guardVisible/standVisible`; EditMode `665/665` + PlayMode `64/64` green |
 | T-158 | P1 | done | Builder | Step 6e: polish launcher popup readability (group headers + attack badge consistency) | `ActionBarController` now inserts `Attacks:`/`Maneuvers:` headers in `StrikePopupRoot` and aligns strike tile labeling to `Strike [1][ATK]`; EditMode `665/665` + PlayMode `64/64` green |
 | T-159 | P1 | done | Builder | Step 6f: move strike popup headers to authored scene + validator/autofix | `ActionBarController` no longer runtime-creates `AttacksHeader/ManeuversHeader`; scene/autofix now owns header creation/wiring under `StrikePopupRoot` with validator warnings and EditMode regression coverage (`PF2eSceneDependencyValidatorTests`) |
+| T-160 | P1 | done | Builder | Step 6g: move Cast popup/button wiring to authored scene + validator/autofix | `ActionBarController` no longer runtime-creates `CastSpellButton`/mode selector UI, validator now enforces and autofixes cast wiring (`CastSpellButton`, label, selector root, standard/glass mode buttons, highlight), `SampleScene` serialized with cast refs, and EditMode/PlayMode regressions are green |
 
 ## Agent Prompt Contract (Copy/Paste)
 1. Goal

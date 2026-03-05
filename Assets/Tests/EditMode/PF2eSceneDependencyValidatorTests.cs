@@ -164,6 +164,48 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void SampleScene_CastSpellModeUi_Wired()
+        {
+            Assert.IsTrue(System.IO.File.Exists(SampleScenePath), $"Missing scene: {SampleScenePath}");
+
+            EditorSceneManager.OpenScene(SampleScenePath, OpenSceneMode.Single);
+
+            var actionBar = UnityEngine.Object.FindFirstObjectByType<ActionBarController>();
+            Assert.IsNotNull(actionBar, "SampleScene must contain ActionBarController.");
+
+            SetPrivateField(actionBar, "castSpellButton", null);
+            SetPrivateField(actionBar, "castSpellButtonLabel", null);
+            SetPrivateField(actionBar, "castSpellModeSelectorRoot", null);
+            SetPrivateField(actionBar, "castSpellModeStandardButton", null);
+            SetPrivateField(actionBar, "castSpellModeGlassButton", null);
+            SetPrivateField(actionBar, "castSpellHighlight", null);
+
+            var staleCastButton = actionBar.transform.Find("CastSpellButton");
+            if (staleCastButton != null)
+                UnityEngine.Object.DestroyImmediate(staleCastButton.gameObject);
+
+            InvokePrivateValidatorMethodWithBoolArg("RunAutoFix", false);
+
+            var castButton = GetPrivateField<Button>(actionBar, "castSpellButton");
+            var castButtonLabel = GetPrivateField<Component>(actionBar, "castSpellButtonLabel");
+            var castModeRoot = GetPrivateField<RectTransform>(actionBar, "castSpellModeSelectorRoot");
+            var castModeStandardButton = GetPrivateField<Button>(actionBar, "castSpellModeStandardButton");
+            var castModeGlassButton = GetPrivateField<Button>(actionBar, "castSpellModeGlassButton");
+            var castHighlight = GetPrivateField<Image>(actionBar, "castSpellHighlight");
+
+            Assert.AreEqual("CastSpellButton", castButton.gameObject.name);
+            Assert.IsTrue(castButtonLabel.transform.IsChildOf(castButton.transform), "Cast label must remain under CastSpellButton hierarchy.");
+            Assert.AreEqual("CastSpellModeSelector", castModeRoot.gameObject.name);
+            Assert.AreSame(castButton.transform, castModeRoot.transform.parent, "Cast mode selector must be attached to CastSpellButton.");
+            Assert.AreEqual("CastSpellModeStandardButton", castModeStandardButton.gameObject.name);
+            Assert.AreEqual("CastSpellModeGlassButton", castModeGlassButton.gameObject.name);
+            Assert.AreSame(castModeRoot, castModeStandardButton.transform.parent);
+            Assert.AreSame(castModeRoot, castModeGlassButton.transform.parent);
+            Assert.AreEqual("ActiveHighlight", castHighlight.gameObject.name);
+            Assert.AreSame(castButton.transform, castHighlight.transform.parent);
+        }
+
+        [Test]
         public void SampleScene_StrikePopupHeaders_WiredByAutoFix()
         {
             Assert.IsTrue(System.IO.File.Exists(SampleScenePath), $"Missing scene: {SampleScenePath}");

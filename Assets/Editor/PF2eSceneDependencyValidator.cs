@@ -395,6 +395,12 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(c, "readyModeMoveButton", "Button");
         errors += RequireRef(c, "readyModeAttackButton", "Button");
         errors += RequireRef(c, "readyModeAnyButton", "Button");
+        errors += RequireRef(c, "castSpellButton", "Button");
+        errors += RequireRef(c, "castSpellButtonLabel", "TMP_Text");
+        errors += RequireRef(c, "castSpellModeSelectorRoot", "RectTransform");
+        errors += RequireRef(c, "castSpellModeStandardButton", "Button");
+        errors += RequireRef(c, "castSpellModeGlassButton", "Button");
+        warnings += WarnRef(c, "castSpellHighlight", "Image");
         warnings += WarnRef(c, "raiseShieldButton", "Button");
         warnings += WarnRef(c, "standButton", "Button");
         warnings += WarnRef(c, "delayButton", "Button");
@@ -1243,6 +1249,7 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "DemoralizeButton", "demoralizeButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "EscapeButton", "escapeButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "ReadyButton", "readyButton");
+        fixedCount += TryAssignActionBarChild<Button>(bar, root, "CastSpellButton", "castSpellButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "RaiseShieldButton", "raiseShieldButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "StandButton", "standButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "DelayButton", "delayButton");
@@ -1257,10 +1264,12 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "DemoralizeButton/ActiveHighlight", "demoralizeHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "EscapeButton/ActiveHighlight", "escapeHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "ReadyButton/ActiveHighlight", "readyHighlight");
+        fixedCount += TryAssignActionBarChild<Image>(bar, root, "CastSpellButton/ActiveHighlight", "castSpellHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "RaiseShieldButton/ActiveHighlight", "raiseShieldHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "StandButton/ActiveHighlight", "standHighlight");
         fixedCount += EnsureStrikePopupHeaders(root);
         fixedCount += EnsureReadyActionBarUi(bar, root);
+        fixedCount += EnsureCastSpellActionBarUi(bar, root);
         fixedCount += EnsureAidActionBarUi(bar, root);
 
         return fixedCount;
@@ -1406,6 +1415,48 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         return fixedCount;
     }
 
+    private static int EnsureCastSpellActionBarUi(ActionBarController bar, Transform root)
+    {
+        if (bar == null || root == null) return 0;
+
+        int fixedCount = 0;
+
+        var castSpellButton = FindActionBarButton(root, "CastSpellButton");
+        if (castSpellButton == null)
+            castSpellButton = TryCreateCastSpellButtonFromTemplate(root);
+
+        if (castSpellButton != null)
+            fixedCount += TryAssignIfNull(bar, "castSpellButton", castSpellButton);
+
+        var castSpellButtonLabel = ResolveCastSpellButtonLabel(castSpellButton);
+        if (castSpellButtonLabel != null)
+            fixedCount += TryAssignIfNull(bar, "castSpellButtonLabel", castSpellButtonLabel);
+
+        var castHighlight = castSpellButton != null ? EnsureAidButtonHighlight(castSpellButton) : null;
+        if (castHighlight != null)
+            fixedCount += TryAssignIfNull(bar, "castSpellHighlight", castHighlight);
+
+        var castSpellModeSelectorRoot = castSpellButton != null
+            ? EnsureCastSpellModeSelectorRoot(castSpellButton)
+            : null;
+        if (castSpellModeSelectorRoot != null)
+            fixedCount += TryAssignIfNull(bar, "castSpellModeSelectorRoot", castSpellModeSelectorRoot);
+
+        var castSpellModeStandardButton = castSpellModeSelectorRoot != null
+            ? EnsureCastSpellModeButton(castSpellModeSelectorRoot, "CastSpellModeStandardButton", "S", castSpellButton)
+            : null;
+        if (castSpellModeStandardButton != null)
+            fixedCount += TryAssignIfNull(bar, "castSpellModeStandardButton", castSpellModeStandardButton);
+
+        var castSpellModeGlassButton = castSpellModeSelectorRoot != null
+            ? EnsureCastSpellModeButton(castSpellModeSelectorRoot, "CastSpellModeGlassButton", "G", castSpellButton)
+            : null;
+        if (castSpellModeGlassButton != null)
+            fixedCount += TryAssignIfNull(bar, "castSpellModeGlassButton", castSpellModeGlassButton);
+
+        return fixedCount;
+    }
+
     private static TMPro.TMP_Text ResolveReadyButtonLabel(Button readyButton)
     {
         if (readyButton == null)
@@ -1424,6 +1475,33 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
 
             var text = label.text ?? string.Empty;
             if (text.StartsWith("Ready", StringComparison.OrdinalIgnoreCase))
+                return label;
+
+            if (best == null && text.Length > 1)
+                best = label;
+        }
+
+        return best ?? labels[0];
+    }
+
+    private static TMPro.TMP_Text ResolveCastSpellButtonLabel(Button castSpellButton)
+    {
+        if (castSpellButton == null)
+            return null;
+
+        var labels = castSpellButton.GetComponentsInChildren<TMPro.TMP_Text>(true);
+        if (labels == null || labels.Length == 0)
+            return null;
+
+        TMPro.TMP_Text best = null;
+        for (int i = 0; i < labels.Length; i++)
+        {
+            var label = labels[i];
+            if (label == null)
+                continue;
+
+            var text = label.text ?? string.Empty;
+            if (text.StartsWith("Cast", StringComparison.OrdinalIgnoreCase))
                 return label;
 
             if (best == null && text.Length > 1)
@@ -1569,6 +1647,59 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         return button;
     }
 
+    private static Button TryCreateCastSpellButtonFromTemplate(Transform root)
+    {
+        if (root == null)
+            return null;
+
+        var template = FindActionBarButton(root, "RaiseShieldButton")
+            ?? FindActionBarButton(root, "ReadyButton")
+            ?? FindActionBarButton(root, "AidButton")
+            ?? FindActionBarButton(root, "EscapeButton")
+            ?? FindActionBarButton(root, "DemoralizeButton")
+            ?? FindActionBarButton(root, "StrikeButton");
+        if (template == null || template.transform.parent == null)
+            return null;
+
+        var clone = UnityEngine.Object.Instantiate(template.gameObject, template.transform.parent, false);
+        clone.name = "CastSpellButton";
+        clone.SetActive(true);
+        clone.transform.SetSiblingIndex(template.transform.GetSiblingIndex() + 1);
+        Undo.RegisterCreatedObjectUndo(clone, "Create CastSpellButton");
+        EditorUtility.SetDirty(clone);
+
+        var button = clone.GetComponent<Button>();
+        if (button != null)
+            button.onClick.RemoveAllListeners();
+
+        var labels = clone.GetComponentsInChildren<TMPro.TMP_Text>(true);
+        for (int i = 0; i < labels.Length; i++)
+        {
+            var label = labels[i];
+            if (label == null) continue;
+
+            if (string.Equals(label.text, "R", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(label.text, "N", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(label.text, "A", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(label.text, "ESC", StringComparison.OrdinalIgnoreCase))
+            {
+                label.text = "C";
+            }
+            else if (string.Equals(label.text, "Guard", StringComparison.OrdinalIgnoreCase)
+                  || string.Equals(label.text, "Ready", StringComparison.OrdinalIgnoreCase)
+                  || string.Equals(label.text, "Aid", StringComparison.OrdinalIgnoreCase)
+                  || string.Equals(label.text, "Escape", StringComparison.OrdinalIgnoreCase))
+            {
+                label.text = "Cast";
+            }
+
+            EditorUtility.SetDirty(label);
+        }
+
+        Debug.Log($"[PF2eAutoFix] Created CastSpellButton under {GetPath(template.transform.parent)}.", clone);
+        return button;
+    }
+
     private static Image EnsureAidButtonHighlight(Button aidButton)
     {
         if (aidButton == null)
@@ -1634,6 +1765,41 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         return rect;
     }
 
+    private static RectTransform EnsureCastSpellModeSelectorRoot(Button castSpellButton)
+    {
+        if (castSpellButton == null)
+            return null;
+
+        var existing = castSpellButton.transform.Find("CastSpellModeSelector");
+        if (existing != null)
+            return existing as RectTransform;
+
+        var rootGo = new GameObject("CastSpellModeSelector", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        rootGo.transform.SetParent(castSpellButton.transform, false);
+        rootGo.SetActive(true);
+
+        var rect = rootGo.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 1f);
+        rect.anchorMax = new Vector2(0.5f, 1f);
+        rect.pivot = new Vector2(0.5f, 0f);
+        rect.anchoredPosition = new Vector2(0f, 3f);
+        rect.sizeDelta = new Vector2(64f, 16f);
+
+        var layout = rootGo.GetComponent<HorizontalLayoutGroup>();
+        layout.spacing = 2f;
+        layout.padding = new RectOffset(0, 0, 0, 0);
+        layout.childAlignment = TextAnchor.MiddleCenter;
+        layout.childControlWidth = false;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+
+        Undo.RegisterCreatedObjectUndo(rootGo, "Create CastSpellModeSelector");
+        EditorUtility.SetDirty(rootGo);
+        Debug.Log($"[PF2eAutoFix] Created CastSpellModeSelector under {GetPath(castSpellButton.transform)}.", rootGo);
+        return rect;
+    }
+
     private static Button EnsureReadyModeButton(RectTransform selectorRoot, string buttonName, string token, Button readyTemplate)
     {
         if (selectorRoot == null || string.IsNullOrWhiteSpace(buttonName))
@@ -1686,6 +1852,58 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         return button;
     }
 
+    private static Button EnsureCastSpellModeButton(RectTransform selectorRoot, string buttonName, string token, Button castTemplate)
+    {
+        if (selectorRoot == null || string.IsNullOrWhiteSpace(buttonName))
+            return null;
+
+        var existing = selectorRoot.Find(buttonName);
+        Button button = existing != null ? existing.GetComponent<Button>() : null;
+        if (button == null)
+        {
+            var buttonGo = new GameObject(
+                buttonName,
+                typeof(RectTransform),
+                typeof(Image),
+                typeof(Button),
+                typeof(LayoutElement));
+            buttonGo.transform.SetParent(selectorRoot, false);
+            buttonGo.SetActive(true);
+
+            var rect = buttonGo.GetComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(30f, 16f);
+
+            var layout = buttonGo.GetComponent<LayoutElement>();
+            layout.preferredWidth = 30f;
+            layout.preferredHeight = 16f;
+            layout.minWidth = 28f;
+            layout.minHeight = 16f;
+
+            button = buttonGo.GetComponent<Button>();
+            button.onClick.RemoveAllListeners();
+
+            var image = buttonGo.GetComponent<Image>();
+            image.color = new Color(0.18f, 0.23f, 0.30f, 0.92f);
+
+            if (castTemplate != null)
+            {
+                button.transition = castTemplate.transition;
+                button.colors = castTemplate.colors;
+            }
+            else
+            {
+                button.transition = Selectable.Transition.ColorTint;
+            }
+
+            Undo.RegisterCreatedObjectUndo(buttonGo, $"Create {buttonName}");
+            EditorUtility.SetDirty(buttonGo);
+            Debug.Log($"[PF2eAutoFix] Created {buttonName} under {GetPath(selectorRoot)}.", buttonGo);
+        }
+
+        EnsureCastSpellModeButtonLabel(button, token, castTemplate);
+        return button;
+    }
+
     private static void EnsureReadyModeButtonLabel(Button button, string token, Button readyTemplate)
     {
         if (button == null)
@@ -1718,6 +1936,48 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         if (readyTemplate != null)
         {
             var templateLabel = readyTemplate.GetComponentInChildren<TMPro.TMP_Text>(true);
+            if (templateLabel is TMPro.TextMeshProUGUI templateUi)
+            {
+                label.font = templateUi.font;
+                label.fontMaterial = templateUi.fontMaterial;
+            }
+        }
+
+        EditorUtility.SetDirty(label);
+    }
+
+    private static void EnsureCastSpellModeButtonLabel(Button button, string token, Button castTemplate)
+    {
+        if (button == null)
+            return;
+
+        var existing = button.transform.Find("Label");
+        TMPro.TextMeshProUGUI label = existing != null ? existing.GetComponent<TMPro.TextMeshProUGUI>() : null;
+        if (label == null)
+        {
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
+            labelGo.transform.SetParent(button.transform, false);
+
+            var rect = labelGo.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+
+            label = labelGo.GetComponent<TMPro.TextMeshProUGUI>();
+            Undo.RegisterCreatedObjectUndo(labelGo, "Create CastSpellMode label");
+            EditorUtility.SetDirty(labelGo);
+        }
+
+        label.text = token;
+        label.fontSize = 10f;
+        label.alignment = TMPro.TextAlignmentOptions.Center;
+        label.color = new Color(0.92f, 0.92f, 0.95f, 1f);
+        label.enableWordWrapping = false;
+
+        if (castTemplate != null)
+        {
+            var templateLabel = castTemplate.GetComponentInChildren<TMPro.TMP_Text>(true);
             if (templateLabel is TMPro.TextMeshProUGUI templateUi)
             {
                 label.font = templateUi.font;

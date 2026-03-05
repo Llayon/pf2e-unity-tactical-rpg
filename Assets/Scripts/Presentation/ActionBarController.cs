@@ -99,6 +99,7 @@ namespace PF2e.Presentation
         private bool aidUiWiringWarned;
         private bool readyUiWiringWarned;
         private bool readyModeWiringWarned;
+        private bool castSpellUiWiringWarned;
         private bool launcherLayoutWiringWarned;
         private bool strikePopupHeaderWiringWarned;
 #if UNITY_EDITOR
@@ -132,6 +133,9 @@ namespace PF2e.Presentation
             if (readyModeAnyButton == null) Debug.LogWarning("[ActionBar] readyModeAnyButton not assigned", this);
             if (castSpellButton == null) Debug.LogWarning("[ActionBar] castSpellButton not assigned", this);
             if (castSpellButtonLabel == null) Debug.LogWarning("[ActionBar] castSpellButtonLabel not assigned", this);
+            if (castSpellModeSelectorRoot == null) Debug.LogWarning("[ActionBar] castSpellModeSelectorRoot not assigned", this);
+            if (castSpellModeStandardButton == null) Debug.LogWarning("[ActionBar] castSpellModeStandardButton not assigned", this);
+            if (castSpellModeGlassButton == null) Debug.LogWarning("[ActionBar] castSpellModeGlassButton not assigned", this);
             if (raiseShieldButton == null) Debug.LogWarning("[ActionBar] raiseShieldButton not assigned", this);
             if (standButton == null) Debug.LogWarning("[ActionBar] standButton not assigned", this);
             // delay/return/skip buttons are optional in older scenes; no warning spam.
@@ -168,7 +172,6 @@ namespace PF2e.Presentation
             ValidateReadyUiReferences();
             ResolveReadyModeSelectorReferences();
             ResolveCastSpellUiReferences();
-            EnsureCastSpellUiFallback();
             EnsureLauncherLayoutFallback();
             ConfigureLauncherPresenter();
 
@@ -248,112 +251,45 @@ namespace PF2e.Presentation
 
         private void ResolveCastSpellUiReferences()
         {
+            if (castSpellButton == null)
+            {
+                WarnMissingCastSpellWiring();
+                return;
+            }
+
             if (castSpellButton != null && castSpellButtonLabel == null)
                 castSpellButtonLabel = castSpellButton.GetComponentInChildren<TMP_Text>(true);
-        }
-
-        private void EnsureCastSpellUiFallback()
-        {
-            if (castSpellButton == null && raiseShieldButton != null)
-            {
-                var clonedObject = Instantiate(raiseShieldButton.gameObject, raiseShieldButton.transform.parent);
-                clonedObject.name = "CastSpellButton_Auto";
-
-                var clonedRect = clonedObject.transform as RectTransform;
-                var raiseShieldRect = raiseShieldButton.transform as RectTransform;
-                if (clonedRect != null && raiseShieldRect != null)
-                {
-                    clonedRect.SetSiblingIndex(Mathf.Max(0, raiseShieldRect.GetSiblingIndex()));
-                }
-
-                castSpellButton = clonedObject.GetComponent<Button>();
-                castSpellButtonLabel = castSpellButton != null
-                    ? castSpellButton.GetComponentInChildren<TMP_Text>(true)
-                    : null;
-                if (castSpellButtonLabel != null)
-                    castSpellButtonLabel.text = "Cast [STD]";
-
-                if (castSpellHighlight == null)
-                    castSpellHighlight = ResolveFirstChildImage(clonedObject.transform);
-            }
 
             if (castSpellModeSelectorRoot == null && castSpellButton != null)
+                castSpellModeSelectorRoot = castSpellButton.transform.Find("CastSpellModeSelector") as RectTransform;
+
+            if (castSpellModeSelectorRoot == null)
             {
-                castSpellModeSelectorRoot = BuildCastSpellModeSelector(castSpellButton.transform);
+                WarnMissingCastSpellWiring();
+                return;
             }
 
-            if ((castSpellModeStandardButton == null || castSpellModeGlassButton == null) && castSpellModeSelectorRoot != null)
-            {
+            if (castSpellModeStandardButton == null || castSpellModeGlassButton == null)
                 ResolveCastSpellModeButtonsFromRoot(castSpellModeSelectorRoot);
-            }
-        }
 
-        private RectTransform BuildCastSpellModeSelector(Transform parent)
-        {
-            var rootObject = new GameObject(
-                "CastSpellModeSelector_Auto",
-                typeof(RectTransform),
-                typeof(HorizontalLayoutGroup));
-            rootObject.transform.SetParent(parent, false);
-
-            var rootRect = rootObject.GetComponent<RectTransform>();
-            rootRect.anchorMin = new Vector2(0.5f, 1f);
-            rootRect.anchorMax = new Vector2(0.5f, 1f);
-            rootRect.pivot = new Vector2(0.5f, 0f);
-            rootRect.anchoredPosition = new Vector2(0f, 3f);
-            rootRect.sizeDelta = new Vector2(64f, 16f);
-
-            var layout = rootObject.GetComponent<HorizontalLayoutGroup>();
-            layout.spacing = 2f;
-            layout.childAlignment = TextAnchor.MiddleCenter;
-            layout.childControlWidth = false;
-            layout.childControlHeight = false;
-            layout.childForceExpandWidth = false;
-            layout.childForceExpandHeight = false;
-
-            castSpellModeStandardButton = BuildCastSpellModeButton("Standard_Auto", "S", rootObject.transform);
-            castSpellModeGlassButton = BuildCastSpellModeButton("Glass_Auto", "G", rootObject.transform);
-            return rootRect;
-        }
-
-        private static Button BuildCastSpellModeButton(string name, string text, Transform parent)
-        {
-            var buttonObject = new GameObject(
-                name,
-                typeof(RectTransform),
-                typeof(Image),
-                typeof(Button),
-                typeof(LayoutElement));
-            buttonObject.transform.SetParent(parent, false);
-
-            var rect = buttonObject.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(30f, 16f);
-
-            var layout = buttonObject.GetComponent<LayoutElement>();
-            layout.preferredWidth = 30f;
-            layout.preferredHeight = 16f;
-            layout.minWidth = 28f;
-            layout.minHeight = 16f;
-
-            var labelObject = new GameObject("Label", typeof(RectTransform));
-            labelObject.transform.SetParent(buttonObject.transform, false);
-            var label = labelObject.AddComponent<TextMeshProUGUI>();
-            label.text = text;
-            label.alignment = TextAlignmentOptions.Center;
-            label.raycastTarget = false;
-
-            var labelRect = labelObject.GetComponent<RectTransform>();
-            labelRect.anchorMin = Vector2.zero;
-            labelRect.anchorMax = Vector2.one;
-            labelRect.offsetMin = Vector2.zero;
-            labelRect.offsetMax = Vector2.zero;
-
-            return buttonObject.GetComponent<Button>();
+            if (castSpellButtonLabel == null || castSpellModeStandardButton == null || castSpellModeGlassButton == null)
+                WarnMissingCastSpellWiring();
         }
 
         private void ResolveCastSpellModeButtonsFromRoot(RectTransform root)
         {
             if (root == null)
+                return;
+
+            var standardByName = root.Find("CastSpellModeStandardButton");
+            if (castSpellModeStandardButton == null && standardByName != null)
+                castSpellModeStandardButton = standardByName.GetComponent<Button>();
+
+            var glassByName = root.Find("CastSpellModeGlassButton");
+            if (castSpellModeGlassButton == null && glassByName != null)
+                castSpellModeGlassButton = glassByName.GetComponent<Button>();
+
+            if (castSpellModeStandardButton != null && castSpellModeGlassButton != null)
                 return;
 
             var buttons = root.GetComponentsInChildren<Button>(true);
@@ -367,19 +303,16 @@ namespace PF2e.Presentation
                 castSpellModeGlassButton = buttons[1];
         }
 
-        private static Image ResolveFirstChildImage(Transform root)
+        private void WarnMissingCastSpellWiring()
         {
-            if (root == null)
-                return null;
+            if (castSpellUiWiringWarned)
+                return;
 
-            var images = root.GetComponentsInChildren<Image>(true);
-            for (int i = 0; i < images.Length; i++)
-            {
-                if (images[i] != null && images[i].transform != root)
-                    return images[i];
-            }
-
-            return null;
+            castSpellUiWiringWarned = true;
+            Debug.LogWarning(
+                "[ActionBar] Cast Spell UI is not fully wired (castSpellButton/label/mode selector/mode buttons). " +
+                "Assign references in scene or run scene validator autofix.",
+                this);
         }
 
         private void EnsureLauncherLayoutFallback()
