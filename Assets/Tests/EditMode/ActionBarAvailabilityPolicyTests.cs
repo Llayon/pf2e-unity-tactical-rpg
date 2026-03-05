@@ -48,7 +48,9 @@ namespace PF2e.Tests
                 Assert.IsTrue(state.readyInteractable);
                 Assert.IsFalse(state.castSpellInteractable);
                 Assert.IsTrue(state.raiseShieldInteractable);
+                Assert.IsTrue(state.guardVisible);
                 Assert.IsTrue(state.standInteractable);
+                Assert.IsTrue(state.standVisible);
             }
             finally
             {
@@ -101,6 +103,8 @@ namespace PF2e.Tests
             var state = policy.BuildForActor(actor);
             Assert.IsFalse(state.raiseShieldInteractable);
             Assert.IsTrue(state.castSpellInteractable);
+            Assert.IsTrue(state.guardVisible);
+            Assert.IsFalse(state.standVisible);
         }
 
         [Test]
@@ -119,6 +123,8 @@ namespace PF2e.Tests
             var state = policy.BuildForActor(actor);
             Assert.IsFalse(state.raiseShieldInteractable);
             Assert.IsTrue(state.castSpellInteractable);
+            Assert.IsTrue(state.guardVisible);
+            Assert.IsFalse(state.standVisible);
         }
 
         [Test]
@@ -138,6 +144,27 @@ namespace PF2e.Tests
             var state = policy.BuildForActor(actor);
             Assert.IsFalse(state.castSpellInteractable);
             Assert.IsFalse(state.raiseShieldInteractable);
+            Assert.IsTrue(state.guardVisible);
+            Assert.IsFalse(state.standVisible);
+        }
+
+        [Test]
+        public void BuildForActor_NoShieldAndNoShieldCantrips_HidesGuard()
+        {
+            var policy = new ActionBarAvailabilityPolicy();
+            var actor = new EntityData
+            {
+                Team = Team.Player,
+                CurrentHP = 10,
+                MaxHP = 10,
+                EquippedShield = default,
+                KnowsStandardShieldCantrip = false,
+                KnowsGlassShieldCantrip = false
+            };
+
+            var state = policy.BuildForActor(actor);
+            Assert.IsFalse(state.guardVisible);
+            Assert.IsFalse(state.standVisible);
         }
 
         [Test]

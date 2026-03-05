@@ -1157,6 +1157,14 @@ namespace PF2e.Presentation
 
         private void SetAllInteractable(bool enabled)
         {
+            if (!enabled)
+            {
+                // Guard/Stand are contextual controls; when action bar is globally inactive
+                // (enemy turn, delay windows, no actionable actor), hide them to avoid stale carry-over.
+                SetButtonVisible(raiseShieldButton, false);
+                SetButtonVisible(standButton, false);
+            }
+
             if (useLauncherLayout)
             {
                 SetInteractable(strikeButton, enabled);

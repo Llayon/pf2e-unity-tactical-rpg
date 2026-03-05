@@ -264,6 +264,19 @@ namespace PF2e.Tests
             ctx.RefreshAvailability();
 
             Assert.IsTrue(ctx.StandButton.interactable);
+            Assert.IsTrue(ctx.StandButton.gameObject.activeSelf);
+        }
+
+        [Test]
+        public void RefreshAvailability_ActorNotProne_HidesStandButton()
+        {
+            using var ctx = new ActionBarTestContext();
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
+
+            ctx.RefreshAvailability();
+
+            Assert.IsFalse(ctx.StandButton.gameObject.activeSelf);
         }
 
         [Test]
@@ -290,6 +303,7 @@ namespace PF2e.Tests
             ctx.RefreshAvailability();
 
             Assert.IsTrue(ctx.RaiseShieldButton.interactable);
+            Assert.IsTrue(ctx.RaiseShieldButton.gameObject.activeSelf);
         }
 
         [Test]
@@ -303,6 +317,28 @@ namespace PF2e.Tests
             ctx.RefreshAvailability();
 
             Assert.IsFalse(ctx.RaiseShieldButton.interactable);
+            Assert.IsTrue(ctx.RaiseShieldButton.gameObject.activeSelf);
+        }
+
+        [Test]
+        public void RefreshAvailability_NonActionableTurn_HidesContextualStandAndGuardButtons()
+        {
+            using var ctx = new ActionBarTestContext();
+            var fighter = ctx.RegisterEntity("Fighter", Team.Player);
+            var goblin = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(fighter, TurnState.PlayerTurn, actionsRemaining: 3);
+            ctx.AddCondition(fighter, new ActiveCondition(ConditionType.Prone));
+            ctx.EquipShield(fighter, isRaised: false, broken: false);
+
+            ctx.RefreshAvailability();
+            Assert.IsTrue(ctx.StandButton.gameObject.activeSelf);
+            Assert.IsTrue(ctx.RaiseShieldButton.gameObject.activeSelf);
+
+            ctx.SetCurrentActor(goblin, TurnState.EnemyTurn, actionsRemaining: 3);
+            ctx.RefreshAvailability();
+
+            Assert.IsFalse(ctx.StandButton.gameObject.activeSelf);
+            Assert.IsFalse(ctx.RaiseShieldButton.gameObject.activeSelf);
         }
 
         [Test]
