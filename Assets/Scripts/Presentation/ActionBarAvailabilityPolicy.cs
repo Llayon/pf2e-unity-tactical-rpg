@@ -63,7 +63,9 @@ namespace PF2e.Presentation
                 readyInteractable: canPrepareReadyStrike && actionsRemaining >= ReadyStrikeAction.ActionCost,
                 castSpellInteractable: CanCastShieldSpell(actorData),
                 raiseShieldInteractable: CanRaisePhysicalShield(actorData),
-                standInteractable: HasCondition(actorData, ConditionType.Prone));
+                guardVisible: IsGuardVisible(actorData),
+                standInteractable: HasCondition(actorData, ConditionType.Prone),
+                standVisible: HasCondition(actorData, ConditionType.Prone));
         }
 
         private static bool HasWeaponTrait(EntityData data, WeaponTraitFlags trait)
@@ -100,6 +102,16 @@ namespace PF2e.Presentation
                 return false;
 
             return data.CanCastStandardShield || data.CanCastGlassShield;
+        }
+
+        private static bool IsGuardVisible(EntityData data)
+        {
+            if (data == null)
+                return false;
+
+            return data.EquippedShield.IsEquipped
+                || data.KnowsStandardShieldCantrip
+                || data.KnowsGlassShieldCantrip;
         }
 
         private static bool HasCondition(EntityData data, ConditionType type)

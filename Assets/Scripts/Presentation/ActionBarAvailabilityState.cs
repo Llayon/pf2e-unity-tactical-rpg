@@ -13,7 +13,9 @@ namespace PF2e.Presentation
         public readonly bool readyInteractable;
         public readonly bool castSpellInteractable;
         public readonly bool raiseShieldInteractable;
+        public readonly bool guardVisible;
         public readonly bool standInteractable;
+        public readonly bool standVisible;
 
         public ActionBarAvailabilityState(
             bool strikeInteractable,
@@ -27,7 +29,9 @@ namespace PF2e.Presentation
             bool readyInteractable,
             bool castSpellInteractable,
             bool raiseShieldInteractable,
-            bool standInteractable)
+            bool guardVisible,
+            bool standInteractable,
+            bool standVisible)
         {
             this.strikeInteractable = strikeInteractable;
             this.tripInteractable = tripInteractable;
@@ -40,7 +44,9 @@ namespace PF2e.Presentation
             this.readyInteractable = readyInteractable;
             this.castSpellInteractable = castSpellInteractable;
             this.raiseShieldInteractable = raiseShieldInteractable;
+            this.guardVisible = guardVisible;
             this.standInteractable = standInteractable;
+            this.standVisible = standVisible;
         }
     }
 }

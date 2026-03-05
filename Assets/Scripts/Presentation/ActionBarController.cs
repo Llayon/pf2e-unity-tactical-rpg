@@ -87,10 +87,8 @@ namespace PF2e.Presentation
         private bool buttonListenersBound;
         private bool delayEventsSubscribedInternally;
         private bool turnManagementButtonsExternallyHidden;
-        private bool strikePopupOpen;
-        private bool tacticsPopupOpen;
-        private bool castPopupOpen;
         private readonly ActionBarAvailabilityPolicy actionBarAvailabilityPolicy = new();
+        private readonly ActionBarLauncherPresenter actionBarLauncherPresenter = new();
         private readonly AidPreparedIndicatorPresenter aidPreparedIndicatorPresenter = new();
         private readonly DelayActionBarStatePresenter delayActionBarStatePresenter = new();
         private readonly ActionBarCommandCoordinator actionBarCommandCoordinator = new();
@@ -167,6 +165,7 @@ namespace PF2e.Presentation
             ResolveCastSpellUiReferences();
             EnsureCastSpellUiFallback();
             EnsureLauncherLayoutFallback();
+            ConfigureLauncherPresenter();
 
             aidPreparedIndicatorPresenter.Clear();
             RefreshAidPreparedIndicator();
@@ -459,6 +458,17 @@ namespace PF2e.Presentation
                 standButton.gameObject.SetActive(false);
         }
 
+        private void ConfigureLauncherPresenter()
+        {
+            actionBarLauncherPresenter.Configure(
+                strikeButton != null ? strikeButton.transform as RectTransform : null,
+                tacticsLauncherButton != null ? tacticsLauncherButton.transform as RectTransform : null,
+                castSpellButton != null ? castSpellButton.transform as RectTransform : null,
+                strikePopupRoot,
+                tacticsPopupRoot,
+                castSpellModeSelectorRoot);
+        }
+
         private static Button BuildLauncherButtonFromTemplate(string name, Button template, Transform parent, string labelText)
         {
             if (template == null || parent == null)
@@ -702,7 +712,7 @@ namespace PF2e.Presentation
         {
             if (!useLauncherLayout)
                 return;
-            if (!strikePopupOpen && !tacticsPopupOpen && !castPopupOpen)
+            if (!actionBarLauncherPresenter.AnyPopupOpen)
                 return;
 
             var kb = Keyboard.current;
@@ -717,27 +727,10 @@ namespace PF2e.Presentation
                 return;
 
             Vector2 screen = mouse.position.ReadValue();
-            if (IsPointInsideAnyLauncherUi(screen))
+            if (actionBarLauncherPresenter.IsPointInsideLauncherOrPopup(screen))
                 return;
 
             CloseAllPopups();
-        }
-
-        private bool IsPointInsideAnyLauncherUi(Vector2 screenPoint)
-        {
-            if (IsPointInsideRect(screenPoint, strikeButton != null ? strikeButton.transform as RectTransform : null)) return true;
-            if (IsPointInsideRect(screenPoint, tacticsLauncherButton != null ? tacticsLauncherButton.transform as RectTransform : null)) return true;
-            if (IsPointInsideRect(screenPoint, castSpellButton != null ? castSpellButton.transform as RectTransform : null)) return true;
-            if (IsPointInsideRect(screenPoint, strikePopupRoot)) return true;
-            if (IsPointInsideRect(screenPoint, tacticsPopupRoot)) return true;
-            if (IsPointInsideRect(screenPoint, castSpellModeSelectorRoot)) return true;
-            return false;
-        }
-
-        private static bool IsPointInsideRect(Vector2 screenPoint, RectTransform rect)
-        {
-            return rect != null && rect.gameObject.activeInHierarchy
-                && RectTransformUtility.RectangleContainsScreenPoint(rect, screenPoint, null);
         }
 
         private void EnsureButtonListenersBound()
@@ -787,9 +780,7 @@ namespace PF2e.Presentation
                 return;
             }
 
-            bool next = !strikePopupOpen;
-            CloseAllPopups();
-            SetStrikePopupVisible(next);
+            actionBarLauncherPresenter.ToggleStrikePopup();
         }
 
         private void ToggleTacticsPopup()
@@ -797,9 +788,7 @@ namespace PF2e.Presentation
             if (!useLauncherLayout)
                 return;
 
-            bool next = !tacticsPopupOpen;
-            CloseAllPopups();
-            SetTacticsPopupVisible(next);
+            actionBarLauncherPresenter.ToggleTacticsPopup();
         }
 
         private void ToggleCastPopup()
@@ -810,9 +799,7 @@ namespace PF2e.Presentation
                 return;
             }
 
-            bool next = !castPopupOpen;
-            CloseAllPopups();
-            SetCastPopupVisible(next);
+            actionBarLauncherPresenter.ToggleCastPopup();
         }
 
         private void HandleStrikePopupStrikeClicked()
@@ -853,40 +840,28 @@ namespace PF2e.Presentation
         {
             if (!useLauncherLayout)
                 return;
-
-            strikePopupOpen = visible;
-            if (strikePopupRoot != null && strikePopupRoot.gameObject.activeSelf != visible)
-                strikePopupRoot.gameObject.SetActive(visible);
+            actionBarLauncherPresenter.SetStrikePopupVisible(visible);
         }
 
         private void SetTacticsPopupVisible(bool visible)
         {
             if (!useLauncherLayout)
                 return;
-
-            tacticsPopupOpen = visible;
-            if (tacticsPopupRoot != null && tacticsPopupRoot.gameObject.activeSelf != visible)
-                tacticsPopupRoot.gameObject.SetActive(visible);
+            actionBarLauncherPresenter.SetTacticsPopupVisible(visible);
         }
 
         private void SetCastPopupVisible(bool visible)
         {
             if (!useLauncherLayout)
                 return;
-
-            castPopupOpen = visible;
-            if (castSpellModeSelectorRoot != null && castSpellModeSelectorRoot.gameObject.activeSelf != visible)
-                castSpellModeSelectorRoot.gameObject.SetActive(visible);
+            actionBarLauncherPresenter.SetCastPopupVisible(visible);
         }
 
         private void CloseAllPopups()
         {
             if (!useLauncherLayout)
                 return;
-
-            SetStrikePopupVisible(false);
-            SetTacticsPopupVisible(false);
-            SetCastPopupVisible(false);
+            actionBarLauncherPresenter.CloseAllPopups();
         }
 
         private void SubscribeCoreEvents()
@@ -1273,9 +1248,9 @@ namespace PF2e.Presentation
 
                 bool guardInteractable = availability.raiseShieldInteractable || availability.castSpellInteractable;
                 SetInteractable(raiseShieldButton, guardInteractable);
-                SetButtonVisible(raiseShieldButton, guardInteractable);
+                SetButtonVisible(raiseShieldButton, availability.guardVisible);
 
-                SetButtonVisible(standButton, availability.standInteractable);
+                SetButtonVisible(standButton, availability.standVisible);
                 SetInteractable(standButton, availability.standInteractable);
             }
             else
@@ -1291,7 +1266,9 @@ namespace PF2e.Presentation
                 SetInteractable(readyButton, !turnManagementButtonsExternallyHidden && availability.readyInteractable);
                 SetInteractable(castSpellButton, availability.castSpellInteractable);
                 SetInteractable(raiseShieldButton, availability.raiseShieldInteractable);
+                SetButtonVisible(raiseShieldButton, availability.guardVisible);
                 SetInteractable(standButton, availability.standInteractable);
+                SetButtonVisible(standButton, availability.standVisible);
             }
         }
 
@@ -1405,7 +1382,7 @@ namespace PF2e.Presentation
             {
                 bool shouldBeVisible = castSpellButton != null && castSpellButton.gameObject.activeInHierarchy;
                 if (useLauncherLayout)
-                    shouldBeVisible = shouldBeVisible && castPopupOpen;
+                    shouldBeVisible = shouldBeVisible && actionBarLauncherPresenter.CastPopupOpen;
                 castSpellModeSelectorRoot.gameObject.SetActive(shouldBeVisible);
             }
 
@@ -1420,7 +1397,7 @@ namespace PF2e.Presentation
 
             if (castSpellModeSelectorRoot != null)
             {
-                bool modeRootVisible = visible && (!useLauncherLayout || castPopupOpen);
+                bool modeRootVisible = visible && (!useLauncherLayout || actionBarLauncherPresenter.CastPopupOpen);
                 if (castSpellModeSelectorRoot.gameObject.activeSelf != modeRootVisible)
                     castSpellModeSelectorRoot.gameObject.SetActive(modeRootVisible);
             }
