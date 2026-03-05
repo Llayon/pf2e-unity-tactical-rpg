@@ -38,6 +38,10 @@ namespace PF2e.Presentation
         [SerializeField] private Button readyModeAttackButton;
         [SerializeField] private Button readyModeAnyButton;
         [SerializeField] private Button raiseShieldButton;
+        [SerializeField] private TMP_Text raiseShieldButtonLabel;
+        [SerializeField] private RectTransform raiseShieldModeSelectorRoot;
+        [SerializeField] private Button raiseShieldModeStandardButton;
+        [SerializeField] private Button raiseShieldModeGlassButton;
         [SerializeField] private Button standButton;
         [SerializeField] private Button delayButton;
         [SerializeField] private Button returnNowButton;
@@ -66,6 +70,9 @@ namespace PF2e.Presentation
         [SerializeField] private Color readyModeSelectedColor = new Color(0.95f, 0.78f, 0.18f, 0.95f);
         [SerializeField] private Color readyModeUnselectedColor = new Color(0.18f, 0.23f, 0.30f, 0.92f);
         [SerializeField] private Color readyModeTextColor = new Color(0.92f, 0.92f, 0.95f, 1f);
+        [SerializeField] private Color raiseShieldModeSelectedColor = new Color(0.95f, 0.78f, 0.18f, 0.95f);
+        [SerializeField] private Color raiseShieldModeUnselectedColor = new Color(0.18f, 0.23f, 0.30f, 0.92f);
+        [SerializeField] private Color raiseShieldModeTextColor = new Color(0.92f, 0.92f, 0.95f, 1f);
 
         private bool buttonListenersBound;
         private bool delayEventsSubscribedInternally;
@@ -106,6 +113,7 @@ namespace PF2e.Presentation
             if (readyModeAttackButton == null) Debug.LogWarning("[ActionBar] readyModeAttackButton not assigned", this);
             if (readyModeAnyButton == null) Debug.LogWarning("[ActionBar] readyModeAnyButton not assigned", this);
             if (raiseShieldButton == null) Debug.LogWarning("[ActionBar] raiseShieldButton not assigned", this);
+            if (raiseShieldButtonLabel == null) Debug.LogWarning("[ActionBar] raiseShieldButtonLabel not assigned", this);
             if (standButton == null) Debug.LogWarning("[ActionBar] standButton not assigned", this);
             // delay/return/skip buttons are optional in older scenes; no warning spam.
         }
@@ -120,8 +128,11 @@ namespace PF2e.Presentation
             SetAllInteractable(false);
             ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
             SetReadyModeButtonsInteractable(false);
+            SetRaiseShieldModeButtonsInteractable(false);
             RefreshReadyModeButtonsVisual();
+            RefreshRaiseShieldModeButtonsVisual();
             RefreshReadyButtonLabel();
+            RefreshRaiseShieldButtonLabel();
             ClearAllHighlights();
         }
 
@@ -131,6 +142,7 @@ namespace PF2e.Presentation
             ApplyAidPreparedIndicatorStyle();
             ValidateReadyUiReferences();
             ResolveReadyModeSelectorReferences();
+            ResolveRaiseShieldUiReferences();
 
             aidPreparedIndicatorPresenter.Clear();
             RefreshAidPreparedIndicator();
@@ -206,6 +218,12 @@ namespace PF2e.Presentation
                 this);
         }
 
+        private void ResolveRaiseShieldUiReferences()
+        {
+            if (raiseShieldButton != null && raiseShieldButtonLabel == null)
+                raiseShieldButtonLabel = raiseShieldButton.GetComponentInChildren<TMP_Text>(true);
+        }
+
         private void OnEnable()
         {
             EnsureButtonListenersBound();
@@ -258,6 +276,8 @@ namespace PF2e.Presentation
             boundCount += BindButton(readyModeAttackButton, actionBarCommandCoordinator.OnReadyModeAttackClicked);
             boundCount += BindButton(readyModeAnyButton, actionBarCommandCoordinator.OnReadyModeAnyClicked);
             boundCount += BindButton(raiseShieldButton, actionBarCommandCoordinator.OnRaiseShieldClicked);
+            boundCount += BindButton(raiseShieldModeStandardButton, actionBarCommandCoordinator.OnRaiseShieldModeStandardClicked);
+            boundCount += BindButton(raiseShieldModeGlassButton, actionBarCommandCoordinator.OnRaiseShieldModeGlassClicked);
             boundCount += BindButton(standButton, actionBarCommandCoordinator.OnStandClicked);
             boundCount += BindButton(delayButton, actionBarCommandCoordinator.OnDelayClicked);
             boundCount += BindButton(returnNowButton, actionBarCommandCoordinator.OnReturnNowClicked);
@@ -351,8 +371,11 @@ namespace PF2e.Presentation
             SetAllInteractable(false);
             ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
             SetReadyModeButtonsInteractable(false);
+            SetRaiseShieldModeButtonsInteractable(false);
             RefreshReadyModeButtonsVisual();
+            RefreshRaiseShieldModeButtonsVisual();
             RefreshReadyButtonLabel();
+            RefreshRaiseShieldButtonLabel();
             ClearAllHighlights();
             aidPreparedIndicatorPresenter.Clear();
             RefreshAidPreparedIndicator();
@@ -473,7 +496,10 @@ namespace PF2e.Presentation
                 ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
                 aidPreparedIndicatorPresenter.Clear();
                 SetReadyModeButtonsInteractable(false);
+                SetRaiseShieldModeButtonsInteractable(false);
                 RefreshReadyModeButtonsVisual();
+                RefreshRaiseShieldModeButtonsVisual();
+                RefreshRaiseShieldButtonLabel();
                 RefreshAidPreparedIndicator();
                 return;
             }
@@ -485,8 +511,11 @@ namespace PF2e.Presentation
                 bool canReturnNow = turnManager.TryGetFirstDelayedPlayerActor(out _);
                 ApplyDelayControls(delayActionBarStatePresenter.BuildReturnWindowState(canReturnNow));
                 SetReadyModeButtonsInteractable(false);
+                SetRaiseShieldModeButtonsInteractable(false);
                 RefreshReadyModeButtonsVisual();
+                RefreshRaiseShieldModeButtonsVisual();
                 RefreshReadyButtonLabel();
+                RefreshRaiseShieldButtonLabel();
                 RefreshAidPreparedIndicator();
                 return;
             }
@@ -496,8 +525,11 @@ namespace PF2e.Presentation
                 SetAllInteractable(false);
                 ApplyDelayControls(delayActionBarStatePresenter.BuildPlacementSelectionState());
                 SetReadyModeButtonsInteractable(false);
+                SetRaiseShieldModeButtonsInteractable(false);
                 RefreshReadyModeButtonsVisual();
+                RefreshRaiseShieldModeButtonsVisual();
                 RefreshReadyButtonLabel();
+                RefreshRaiseShieldButtonLabel();
                 RefreshAidPreparedIndicator();
                 return;
             }
@@ -511,8 +543,11 @@ namespace PF2e.Presentation
                 SetAllInteractable(false);
                 ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
                 SetReadyModeButtonsInteractable(false);
+                SetRaiseShieldModeButtonsInteractable(false);
                 RefreshReadyModeButtonsVisual();
+                RefreshRaiseShieldModeButtonsVisual();
                 RefreshReadyButtonLabel();
+                RefreshRaiseShieldButtonLabel();
                 RefreshAidPreparedIndicator();
                 return;
             }
@@ -531,7 +566,20 @@ namespace PF2e.Presentation
             SetReadyModeButtonsInteractable(canAdjustReadyMode);
             RefreshReadyModeButtonsVisual();
 
+            var actorData = entityManager.Registry.Get(actor);
+            bool canAdjustShieldMode =
+                actorData != null &&
+                actorData.CanCastStandardShield &&
+                actorData.CanCastGlassShield &&
+                !actionExecutor.IsBusy &&
+                turnManager.IsPlayerTurn &&
+                !turnManager.IsDelayPlacementSelectionOpen &&
+                !turnManager.IsDelayReturnWindowOpen;
+            SetRaiseShieldModeButtonsInteractable(canAdjustShieldMode);
+            RefreshRaiseShieldModeButtonsVisual();
+
             RefreshReadyButtonLabel();
+            RefreshRaiseShieldButtonLabel();
             RefreshAidPreparedIndicator();
         }
 
@@ -559,6 +607,8 @@ namespace PF2e.Presentation
             SetInteractable(readyModeAttackButton, enabled);
             SetInteractable(readyModeAnyButton, enabled);
             SetInteractable(raiseShieldButton, enabled);
+            SetInteractable(raiseShieldModeStandardButton, enabled);
+            SetInteractable(raiseShieldModeGlassButton, enabled);
             SetInteractable(standButton, enabled);
         }
 
@@ -644,12 +694,28 @@ namespace PF2e.Presentation
             SetInteractable(readyModeAnyButton, enabled);
         }
 
+        private void SetRaiseShieldModeButtonsInteractable(bool enabled)
+        {
+            if (raiseShieldModeSelectorRoot != null)
+                raiseShieldModeSelectorRoot.gameObject.SetActive(raiseShieldButton != null && raiseShieldButton.gameObject.activeInHierarchy);
+
+            SetInteractable(raiseShieldModeStandardButton, enabled);
+            SetInteractable(raiseShieldModeGlassButton, enabled);
+        }
+
         private void RefreshReadyModeButtonsVisual()
         {
             var mode = turnManager != null ? turnManager.CurrentReadyTriggerMode : ReadyTriggerMode.Any;
             ApplyReadyModeButtonVisual(readyModeMoveButton, mode == ReadyTriggerMode.Movement);
             ApplyReadyModeButtonVisual(readyModeAttackButton, mode == ReadyTriggerMode.Attack);
             ApplyReadyModeButtonVisual(readyModeAnyButton, mode == ReadyTriggerMode.Any);
+        }
+
+        private void RefreshRaiseShieldModeButtonsVisual()
+        {
+            var mode = actionBarCommandCoordinator.CurrentRaiseShieldSpellMode;
+            ApplyRaiseShieldModeButtonVisual(raiseShieldModeStandardButton, mode == RaiseShieldSpellMode.Standard);
+            ApplyRaiseShieldModeButtonVisual(raiseShieldModeGlassButton, mode == RaiseShieldSpellMode.Glass);
         }
 
         private void ApplyReadyModeButtonVisual(Button button, bool selected)
@@ -664,6 +730,29 @@ namespace PF2e.Presentation
             var label = button.GetComponentInChildren<TMP_Text>(true);
             if (label != null)
                 label.color = selected ? Color.black : readyModeTextColor;
+        }
+
+        private void ApplyRaiseShieldModeButtonVisual(Button button, bool selected)
+        {
+            if (button == null)
+                return;
+
+            var image = button.GetComponent<Image>();
+            if (image != null)
+                image.color = selected ? raiseShieldModeSelectedColor : raiseShieldModeUnselectedColor;
+
+            var label = button.GetComponentInChildren<TMP_Text>(true);
+            if (label != null)
+                label.color = selected ? Color.black : raiseShieldModeTextColor;
+        }
+
+        private void RefreshRaiseShieldButtonLabel()
+        {
+            if (raiseShieldButtonLabel == null)
+                return;
+
+            string token = actionBarCommandCoordinator.CurrentRaiseShieldSpellMode.ToShortToken();
+            raiseShieldButtonLabel.text = $"Shield [{token}]";
         }
 
         private static bool IsExternalDelayOrchestratorPresent()

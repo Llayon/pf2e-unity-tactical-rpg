@@ -741,6 +741,11 @@ namespace PF2e.TurnSystem
 
         public bool TryExecuteRaiseShield()
         {
+            return TryExecuteRaiseShield(RaiseShieldSpellMode.Standard);
+        }
+
+        public bool TryExecuteRaiseShield(RaiseShieldSpellMode preferredSpellMode)
+        {
             if (turnManager == null || entityManager == null) return false;
             if (!CanActNow()) return false;
 
@@ -750,9 +755,27 @@ namespace PF2e.TurnSystem
             bool canCastGlassShield = glassShieldAction != null && glassShieldAction.CanCastGlassShield(actor);
             if (!canRaisePhysicalShield && !canCastStandardShield && !canCastGlassShield) return false;
 
-            string actionSource = canRaisePhysicalShield
+            bool executePhysical = canRaisePhysicalShield;
+            bool executeStandard = false;
+            bool executeGlass = false;
+
+            if (!executePhysical)
+            {
+                if (canCastStandardShield && canCastGlassShield)
+                {
+                    executeStandard = preferredSpellMode == RaiseShieldSpellMode.Standard;
+                    executeGlass = !executeStandard;
+                }
+                else
+                {
+                    executeStandard = canCastStandardShield;
+                    executeGlass = canCastGlassShield;
+                }
+            }
+
+            string actionSource = executePhysical
                 ? "Player.RaiseShield"
-                : (canCastStandardShield ? "Player.StandardShield" : "Player.GlassShield");
+                : (executeStandard ? "Player.StandardShield" : "Player.GlassShield");
 
             executingActor = actor;
             turnManager.BeginActionExecution(actor, actionSource);
@@ -761,9 +784,9 @@ namespace PF2e.TurnSystem
 #endif
 
             bool raised;
-            if (canRaisePhysicalShield)
+            if (executePhysical)
                 raised = raiseShieldAction.TryRaiseShield(actor);
-            else if (canCastStandardShield)
+            else if (executeStandard)
                 raised = standardShieldAction.TryCastStandardShield(actor);
             else
                 raised = glassShieldAction.TryCastGlassShield(actor);

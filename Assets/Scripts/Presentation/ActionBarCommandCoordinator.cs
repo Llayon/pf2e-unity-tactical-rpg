@@ -15,6 +15,9 @@ namespace PF2e.Presentation
         private TargetingController targetingController;
         private PlayerActionExecutor actionExecutor;
         private Action refreshAvailability;
+        private RaiseShieldSpellMode raiseShieldSpellMode = RaiseShieldSpellMode.Standard;
+
+        public RaiseShieldSpellMode CurrentRaiseShieldSpellMode => raiseShieldSpellMode;
 
         public void Bind(
             TurnManager turnManager,
@@ -117,7 +120,41 @@ namespace PF2e.Presentation
             if (actionExecutor == null)
                 return;
 
-            actionExecutor.TryExecuteRaiseShield();
+            var kb = Keyboard.current;
+            bool shiftPressed = kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed);
+            if (shiftPressed)
+            {
+                ToggleRaiseShieldSpellMode();
+                refreshAvailability?.Invoke();
+                return;
+            }
+
+            actionExecutor.TryExecuteRaiseShield(raiseShieldSpellMode);
+        }
+
+        public void OnRaiseShieldModeStandardClicked()
+        {
+            if (raiseShieldSpellMode == RaiseShieldSpellMode.Standard)
+                return;
+
+            raiseShieldSpellMode = RaiseShieldSpellMode.Standard;
+            refreshAvailability?.Invoke();
+        }
+
+        public void OnRaiseShieldModeGlassClicked()
+        {
+            if (raiseShieldSpellMode == RaiseShieldSpellMode.Glass)
+                return;
+
+            raiseShieldSpellMode = RaiseShieldSpellMode.Glass;
+            refreshAvailability?.Invoke();
+        }
+
+        private void ToggleRaiseShieldSpellMode()
+        {
+            raiseShieldSpellMode = raiseShieldSpellMode == RaiseShieldSpellMode.Standard
+                ? RaiseShieldSpellMode.Glass
+                : RaiseShieldSpellMode.Standard;
         }
 
         public void OnStandClicked()

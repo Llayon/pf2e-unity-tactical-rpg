@@ -306,6 +306,29 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void RaiseShieldModeGlass_Click_WithBothCantrips_CastsGlassShield()
+        {
+            using var ctx = new ActionBarTestContext();
+            var actor = ctx.RegisterEntity("Wizard", Team.Player);
+            ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
+            ctx.EnableBothShieldCantrips(actor);
+
+            ctx.RefreshAvailability();
+            Assert.IsTrue(ctx.RaiseShieldModeGlassButton.interactable);
+            Assert.IsTrue(ctx.RaiseShieldModeStandardButton.interactable);
+
+            ctx.RaiseShieldModeGlassButton.onClick.Invoke();
+            Assert.AreEqual("Shield [GLS]", ctx.GetRaiseShieldButtonLabelText());
+
+            ctx.RaiseShieldButton.onClick.Invoke();
+
+            var data = ctx.Registry.Get(actor);
+            Assert.IsNotNull(data);
+            Assert.IsTrue(data.GlassShieldRaised, "Glass mode must cast Glass Shield when both cantrips are available.");
+            Assert.IsFalse(data.StandardShieldRaised);
+        }
+
+        [Test]
         public void AidPrepared_ForCurrentActor_ShowsAidPreparedIndicator()
         {
             using var ctx = new ActionBarTestContext();
@@ -529,6 +552,8 @@ namespace PF2e.Tests
             public Button ReadyModeAttackButton { get; private set; }
             public Button ReadyModeAnyButton { get; private set; }
             public Button RaiseShieldButton { get; }
+            public Button RaiseShieldModeStandardButton { get; private set; }
+            public Button RaiseShieldModeGlassButton { get; private set; }
             public Button StandButton { get; }
             public Button DelayButton { get; }
             public Button ReturnNowButton { get; }
@@ -546,6 +571,7 @@ namespace PF2e.Tests
             public Image StandHighlight { get; }
             public GameObject AidPreparedIndicatorRoot { get; }
             public Component AidPreparedIndicatorLabel { get; private set; }
+            public Component RaiseShieldButtonLabel { get; private set; }
 
             public ActionBarTestContext()
             {
@@ -578,6 +604,8 @@ namespace PF2e.Tests
                 ActionExecutor = executorGo.AddComponent<PlayerActionExecutor>();
                 SetPrivateField(ActionExecutor, "turnManager", TurnManager);
                 SetPrivateField(ActionExecutor, "entityManager", EntityManager);
+                SetPrivateField(ActionExecutor, "eventBus", EventBus);
+                InvokePrivate(ActionExecutor, "ResolveOptionalReferences");
 
                 var targetingGo = new GameObject("TargetingController");
                 targetingGo.transform.SetParent(Root.transform);
@@ -626,6 +654,29 @@ namespace PF2e.Tests
                 ReadyModeAttackButton = CreateReadyModeSelectorButton("ReadyModeAttackButton", readyModeSelectorRootGo.transform);
                 ReadyModeAnyButton = CreateReadyModeSelectorButton("ReadyModeAnyButton", readyModeSelectorRootGo.transform);
                 RaiseShieldButton = CreateButton("RaiseShieldButton", ActionBarGameObject.transform, out var raiseShieldHl);
+                RaiseShieldButtonLabel = CreateLabel("Label", RaiseShieldButton.transform, "Shield");
+                var raiseShieldModeSelectorRootGo = new GameObject(
+                    "RaiseShieldModeSelector",
+                    typeof(RectTransform),
+                    typeof(HorizontalLayoutGroup));
+                raiseShieldModeSelectorRootGo.transform.SetParent(RaiseShieldButton.transform, false);
+                var raiseShieldSelectorRect = raiseShieldModeSelectorRootGo.GetComponent<RectTransform>();
+                raiseShieldSelectorRect.anchorMin = new Vector2(0.5f, 1f);
+                raiseShieldSelectorRect.anchorMax = new Vector2(0.5f, 1f);
+                raiseShieldSelectorRect.pivot = new Vector2(0.5f, 0f);
+                raiseShieldSelectorRect.anchoredPosition = new Vector2(0f, 3f);
+                raiseShieldSelectorRect.sizeDelta = new Vector2(64f, 16f);
+                var raiseShieldSelectorLayout = raiseShieldModeSelectorRootGo.GetComponent<HorizontalLayoutGroup>();
+                raiseShieldSelectorLayout.spacing = 2f;
+                raiseShieldSelectorLayout.childAlignment = TextAnchor.MiddleCenter;
+                raiseShieldSelectorLayout.childControlWidth = false;
+                raiseShieldSelectorLayout.childControlHeight = false;
+                raiseShieldSelectorLayout.childForceExpandWidth = false;
+                raiseShieldSelectorLayout.childForceExpandHeight = false;
+                RaiseShieldModeStandardButton = CreateReadyModeSelectorButton("RaiseShieldModeStandardButton", raiseShieldModeSelectorRootGo.transform);
+                RaiseShieldModeGlassButton = CreateReadyModeSelectorButton("RaiseShieldModeGlassButton", raiseShieldModeSelectorRootGo.transform);
+                SetMemberValue(ResolveLabelComponent(RaiseShieldModeStandardButton.transform), "text", "S");
+                SetMemberValue(ResolveLabelComponent(RaiseShieldModeGlassButton.transform), "text", "G");
                 StandButton = CreateButton("StandButton", ActionBarGameObject.transform, out var standHl);
                 DelayButton = CreateButton("DelayButton", ActionBarGameObject.transform, out _);
                 ReturnNowButton = CreateButton("ReturnNowButton", ActionBarGameObject.transform, out _);
@@ -664,6 +715,10 @@ namespace PF2e.Tests
                 SetPrivateField(ActionBar, "readyModeAttackButton", ReadyModeAttackButton);
                 SetPrivateField(ActionBar, "readyModeAnyButton", ReadyModeAnyButton);
                 SetPrivateField(ActionBar, "raiseShieldButton", RaiseShieldButton);
+                SetPrivateField(ActionBar, "raiseShieldButtonLabel", RaiseShieldButtonLabel);
+                SetPrivateField(ActionBar, "raiseShieldModeSelectorRoot", raiseShieldSelectorRect);
+                SetPrivateField(ActionBar, "raiseShieldModeStandardButton", RaiseShieldModeStandardButton);
+                SetPrivateField(ActionBar, "raiseShieldModeGlassButton", RaiseShieldModeGlassButton);
                 SetPrivateField(ActionBar, "standButton", StandButton);
                 SetPrivateField(ActionBar, "delayButton", DelayButton);
                 SetPrivateField(ActionBar, "returnNowButton", ReturnNowButton);
@@ -835,6 +890,17 @@ namespace PF2e.Tests
                 data.Conditions.Add(condition);
             }
 
+            public void EnableBothShieldCantrips(EntityHandle actor)
+            {
+                var data = Registry.Get(actor);
+                Assert.IsNotNull(data);
+                data.EquippedShield = default;
+                data.KnowsStandardShieldCantrip = true;
+                data.KnowsGlassShieldCantrip = true;
+                data.StandardShieldCooldownRoundsRemaining = 0;
+                data.GlassShieldCooldownRoundsRemaining = 0;
+            }
+
             public void RefreshAvailability()
             {
                 InvokePrivate(ActionBar, "RefreshAvailability");
@@ -872,6 +938,15 @@ namespace PF2e.Tests
                 return value as string ?? string.Empty;
             }
 
+            public string GetRaiseShieldButtonLabelText()
+            {
+                if (RaiseShieldButtonLabel == null)
+                    return string.Empty;
+
+                var value = GetMemberValue(RaiseShieldButtonLabel, "text");
+                return value as string ?? string.Empty;
+            }
+
             public void AssertAllButtonsDisabled()
             {
                 Assert.IsFalse(StrikeButton.interactable);
@@ -886,6 +961,8 @@ namespace PF2e.Tests
                 Assert.IsFalse(ReadyModeAttackButton.interactable);
                 Assert.IsFalse(ReadyModeAnyButton.interactable);
                 Assert.IsFalse(RaiseShieldButton.interactable);
+                Assert.IsFalse(RaiseShieldModeStandardButton.interactable);
+                Assert.IsFalse(RaiseShieldModeGlassButton.interactable);
                 Assert.IsFalse(StandButton.interactable);
                 Assert.IsFalse(DelayButton.interactable);
                 Assert.IsFalse(ReturnNowButton.interactable);
@@ -980,7 +1057,42 @@ namespace PF2e.Tests
             layout.minWidth = 28f;
             layout.minHeight = 16f;
 
+            CreateLabel("Label", go.transform, string.Empty);
+
             return go.GetComponent<Button>();
+        }
+
+        private static Component CreateLabel(string name, Transform parent, string text)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+
+            var labelType = System.Type.GetType("TMPro.TextMeshProUGUI, Unity.TextMeshPro");
+            Assert.IsNotNull(labelType, "TMPro.TextMeshProUGUI type must be available.");
+            var label = go.AddComponent(labelType) as Component;
+            Assert.IsNotNull(label, "Failed to create TMP label component.");
+            SetMemberValue(label, "text", text);
+            return label;
+        }
+
+        private static Component ResolveLabelComponent(Transform root)
+        {
+            if (root == null)
+            {
+                Assert.Fail("ResolveLabelComponent requires a non-null root transform.");
+                return null;
+            }
+
+            var labelType = System.Type.GetType("TMPro.TextMeshProUGUI, Unity.TextMeshPro");
+            Assert.IsNotNull(labelType, "TMPro.TextMeshProUGUI type must be available.");
+
+            var labels = root.GetComponentsInChildren(labelType, true);
+            Assert.IsNotNull(labels, "TMP label lookup returned null.");
+            Assert.IsTrue(labels.Length > 0, "Expected at least one TMP label under selector button.");
+
+            var label = labels[0] as Component;
+            Assert.IsNotNull(label, "TMP label component cast failed.");
+            return label;
         }
 
         private static void InvokePrivate(object target, string methodName)
