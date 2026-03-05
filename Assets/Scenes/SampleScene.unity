@@ -1386,15 +1386,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0, g: 0, b: 0, a: 0.35}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 0
+  m_Sprite: {fileID: 21300000, guid: a908c301a0115904baf5d5a2e141ecac, type: 3}
+  m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -3164,15 +3164,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0, g: 0, b: 0, a: 0.55}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 0
+  m_Sprite: {fileID: 21300000, guid: 4b093c85204467b499099e2acaa0009c, type: 3}
+  m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -3962,6 +3962,11 @@ MonoBehaviour:
   readyModeMoveButton: {fileID: 243539455}
   readyModeAttackButton: {fileID: 224090345}
   readyModeAnyButton: {fileID: 323781009}
+  castSpellButton: {fileID: 0}
+  castSpellButtonLabel: {fileID: 0}
+  castSpellModeSelectorRoot: {fileID: 0}
+  castSpellModeStandardButton: {fileID: 0}
+  castSpellModeGlassButton: {fileID: 0}
   raiseShieldButton: {fileID: 1057837297}
   standButton: {fileID: 1143931168}
   delayButton: {fileID: 679344840}
@@ -3976,6 +3981,7 @@ MonoBehaviour:
   escapeHighlight: {fileID: 1978799060}
   aidHighlight: {fileID: 1285052544}
   readyHighlight: {fileID: 1554459371}
+  castSpellHighlight: {fileID: 0}
   raiseShieldHighlight: {fileID: 51814010}
   standHighlight: {fileID: 457823806}
   aidPreparedIndicatorRoot: {fileID: 2101356783}
@@ -3987,6 +3993,9 @@ MonoBehaviour:
   readyModeSelectedColor: {r: 0.95, g: 0.78, b: 0.18, a: 0.95}
   readyModeUnselectedColor: {r: 0.18, g: 0.23, b: 0.3, a: 0.92}
   readyModeTextColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
+  castSpellModeSelectedColor: {r: 0.95, g: 0.78, b: 0.18, a: 0.95}
+  castSpellModeUnselectedColor: {r: 0.18, g: 0.23, b: 0.3, a: 0.92}
+  castSpellModeTextColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
 --- !u!114 &436844933
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4250,6 +4259,8 @@ MonoBehaviour:
   demoralizeAction: {fileID: 456169802}
   aidAction: {fileID: 456169810}
   raiseShieldAction: {fileID: 456169801}
+  standardShieldAction: {fileID: 0}
+  glassShieldAction: {fileID: 0}
   shieldBlockAction: {fileID: 456169800}
   reactionPromptController: {fileID: 35781848}
 --- !u!114 &456169788
@@ -4518,6 +4529,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: PF2e::PF2e.TurnSystem.TripAction
   entityManager: {fileID: 569346726}
   eventBus: {fileID: 939543823}
+  turnManager: {fileID: 0}
+  shieldBlockAction: {fileID: 0}
+  reactionPromptController: {fileID: 0}
   requireSameElevation: 1
 --- !u!114 &456169804
 MonoBehaviour:
@@ -6716,15 +6730,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0, g: 0, b: 0, a: 0.55}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 0
+  m_Sprite: {fileID: 21300000, guid: 2f8b0440a6939af41b08483990bbcad8, type: 3}
+  m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -7470,15 +7484,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.05, g: 0.06, b: 0.08, a: 0.85}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 0
+  m_Sprite: {fileID: 21300000, guid: 2f8b0440a6939af41b08483990bbcad8, type: 3}
+  m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -9336,15 +9350,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.05, g: 0.05, b: 0.1, a: 0.85}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 0
+  m_Sprite: {fileID: 21300000, guid: a908c301a0115904baf5d5a2e141ecac, type: 3}
+  m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -15554,15 +15568,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.05, g: 0.06, b: 0.08, a: 0.85}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 0
+  m_Sprite: {fileID: 21300000, guid: 2f8b0440a6939af41b08483990bbcad8, type: 3}
+  m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
