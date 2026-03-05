@@ -164,6 +164,59 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void SampleScene_StrikePopupHeaders_WiredByAutoFix()
+        {
+            Assert.IsTrue(System.IO.File.Exists(SampleScenePath), $"Missing scene: {SampleScenePath}");
+
+            EditorSceneManager.OpenScene(SampleScenePath, OpenSceneMode.Single);
+
+            var actionBar = UnityEngine.Object.FindFirstObjectByType<ActionBarController>();
+            Assert.IsNotNull(actionBar, "SampleScene must contain ActionBarController.");
+
+            var strikePopupRoot = actionBar.transform.Find("StrikePopupRoot");
+            Assert.IsNotNull(strikePopupRoot, "SampleScene must contain StrikePopupRoot under ActionBar.");
+
+            var attacksHeader = strikePopupRoot.Find("AttacksHeader");
+            if (attacksHeader != null)
+                UnityEngine.Object.DestroyImmediate(attacksHeader.gameObject);
+
+            var maneuversHeader = strikePopupRoot.Find("ManeuversHeader");
+            if (maneuversHeader != null)
+                UnityEngine.Object.DestroyImmediate(maneuversHeader.gameObject);
+
+            InvokePrivateValidatorMethodWithBoolArg("RunAutoFix", false);
+
+            attacksHeader = strikePopupRoot.Find("AttacksHeader");
+            maneuversHeader = strikePopupRoot.Find("ManeuversHeader");
+
+            Assert.IsNotNull(attacksHeader, "AutoFix must create StrikePopupRoot/AttacksHeader.");
+            Assert.IsNotNull(maneuversHeader, "AutoFix must create StrikePopupRoot/ManeuversHeader.");
+
+            var attacksLayout = attacksHeader.GetComponent<LayoutElement>();
+            var maneuversLayout = maneuversHeader.GetComponent<LayoutElement>();
+            Assert.IsNotNull(attacksLayout, "AttacksHeader must have LayoutElement.");
+            Assert.IsNotNull(maneuversLayout, "ManeuversHeader must have LayoutElement.");
+
+            var tmpType = Type.GetType("TMPro.TextMeshProUGUI, Unity.TextMeshPro");
+            Assert.IsNotNull(tmpType, "TMPro.TextMeshProUGUI type not found.");
+
+            var attacksLabel = attacksHeader.Find("Label");
+            var maneuversLabel = maneuversHeader.Find("Label");
+            Assert.IsNotNull(attacksLabel, "AttacksHeader must have Label child.");
+            Assert.IsNotNull(maneuversLabel, "ManeuversHeader must have Label child.");
+
+            var attacksText = attacksLabel.GetComponent(tmpType);
+            var maneuversText = maneuversLabel.GetComponent(tmpType);
+            Assert.IsNotNull(attacksText, "AttacksHeader label must be TMP.");
+            Assert.IsNotNull(maneuversText, "ManeuversHeader label must be TMP.");
+
+            var attacksTextValue = GetComponentText(attacksText);
+            var maneuversTextValue = GetComponentText(maneuversText);
+            Assert.AreEqual("Attacks:", attacksTextValue);
+            Assert.AreEqual("Maneuvers:", maneuversTextValue);
+        }
+
+        [Test]
         [TestMustExpectAllLogs(false)]
         public void ValidateActionBarController_ReadyButtonAssigned_MissingReadyModeRefs_EmitsErrors()
         {
@@ -483,6 +536,20 @@ namespace PF2e.Tests
             textProperty?.SetValue(label, text);
 
             return label;
+        }
+
+        private static string GetComponentText(Component textComponent)
+        {
+            if (textComponent == null)
+                return string.Empty;
+
+            var textProperty = textComponent.GetType().GetProperty("text", BindingFlags.Public | BindingFlags.Instance);
+            if (textProperty != null)
+            {
+                return textProperty.GetValue(textComponent) as string ?? string.Empty;
+            }
+
+            return string.Empty;
         }
 
         private static void InvokePrivateValidatorMethod(string methodName)

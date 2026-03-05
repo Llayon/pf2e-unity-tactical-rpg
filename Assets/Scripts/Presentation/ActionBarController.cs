@@ -100,6 +100,7 @@ namespace PF2e.Presentation
         private bool readyUiWiringWarned;
         private bool readyModeWiringWarned;
         private bool launcherLayoutWiringWarned;
+        private bool strikePopupHeaderWiringWarned;
 #if UNITY_EDITOR
         private void OnValidate()
         {
@@ -575,8 +576,21 @@ namespace PF2e.Presentation
             if (strikePopupRoot == null)
                 return;
 
-            var attacksHeader = EnsurePopupHeader(strikePopupRoot, "AttacksHeader", "Attacks:");
-            var maneuversHeader = EnsurePopupHeader(strikePopupRoot, "ManeuversHeader", "Maneuvers:");
+            var attacksHeader = FindChildRect(strikePopupRoot, "AttacksHeader");
+            var maneuversHeader = FindChildRect(strikePopupRoot, "ManeuversHeader");
+            if (attacksHeader == null || maneuversHeader == null)
+            {
+                if (!strikePopupHeaderWiringWarned)
+                {
+                    strikePopupHeaderWiringWarned = true;
+                    Debug.LogWarning(
+                        "[ActionBar] Strike popup group headers are missing (AttacksHeader/ManeuversHeader). " +
+                        "Use scene wiring or validator autofix.",
+                        this);
+                }
+                return;
+            }
+
             ConfigurePopupHeaderLayout(attacksHeader, preferredWidth: 70f);
             ConfigurePopupHeaderLayout(maneuversHeader, preferredWidth: 92f);
 
@@ -596,43 +610,6 @@ namespace PF2e.Presentation
 
             if (tripButton != null && maneuversHeader != null)
                 tripButton.transform.SetSiblingIndex(maneuversHeader.GetSiblingIndex() + 1);
-        }
-
-        private static RectTransform EnsurePopupHeader(RectTransform popupRoot, string name, string text)
-        {
-            if (popupRoot == null)
-                return null;
-
-            var existing = popupRoot.Find(name) as RectTransform;
-            if (existing != null)
-            {
-                var existingLabel = existing.GetComponentInChildren<TMP_Text>(true);
-                if (existingLabel != null)
-                    existingLabel.text = text;
-                return existing;
-            }
-
-            var go = new GameObject(name, typeof(RectTransform), typeof(LayoutElement));
-            go.transform.SetParent(popupRoot, false);
-            var rect = go.GetComponent<RectTransform>();
-
-            var labelGo = new GameObject("Label", typeof(RectTransform));
-            labelGo.transform.SetParent(go.transform, false);
-            var label = labelGo.AddComponent<TextMeshProUGUI>();
-            label.text = text;
-            label.alignment = TextAlignmentOptions.MidlineLeft;
-            label.fontSize = 12f;
-            label.color = new Color(0.86f, 0.86f, 0.90f, 0.92f);
-            label.enableWordWrapping = false;
-            label.raycastTarget = false;
-
-            var labelRect = label.GetComponent<RectTransform>();
-            labelRect.anchorMin = Vector2.zero;
-            labelRect.anchorMax = Vector2.one;
-            labelRect.offsetMin = Vector2.zero;
-            labelRect.offsetMax = Vector2.zero;
-
-            return rect;
         }
 
         private static void ConfigurePopupHeaderLayout(RectTransform headerRect, float preferredWidth)

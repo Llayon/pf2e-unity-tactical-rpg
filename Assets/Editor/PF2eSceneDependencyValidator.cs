@@ -410,6 +410,12 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnRef(c, "escapeHighlight", "Image");
         warnings += WarnRef(c, "raiseShieldHighlight", "Image");
         warnings += WarnRef(c, "standHighlight", "Image");
+
+        if (IsActionBarLauncherLayoutEnabled(c))
+        {
+            warnings += WarnMissingActionBarChild(c, "StrikePopupRoot/AttacksHeader", "Strike popup AttacksHeader");
+            warnings += WarnMissingActionBarChild(c, "StrikePopupRoot/ManeuversHeader", "Strike popup ManeuversHeader");
+        }
     }
 
     private static void ValidateDelayUiOrchestrator(DelayUiOrchestrator c, ref int errors, ref int warnings)
@@ -417,6 +423,43 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(c, "eventBus", "CombatEventBus");
         errors += RequireRef(c, "actionBarController", "ActionBarController");
         errors += RequireRef(c, "initiativeBarController", "InitiativeBarController");
+    }
+
+    private static bool IsActionBarLauncherLayoutEnabled(ActionBarController controller)
+    {
+        if (controller == null)
+            return false;
+
+        var field = typeof(ActionBarController).GetField("useLauncherLayout", Flags);
+        if (field == null || field.FieldType != typeof(bool))
+            return false;
+
+        try
+        {
+            return (bool)field.GetValue(controller);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static int WarnMissingActionBarChild(ActionBarController controller, string childPath, string label)
+    {
+        if (controller == null || string.IsNullOrWhiteSpace(childPath))
+            return 0;
+
+        var root = controller.transform;
+        if (root == null)
+            return 0;
+
+        var child = root.Find(childPath);
+        if (child != null)
+            return 0;
+
+        string display = string.IsNullOrWhiteSpace(label) ? childPath : label;
+        Debug.LogWarning($"[PF2eValidator] {controller.GetType().Name} ({GetPath(root)}): missing {display} ({childPath})", controller);
+        return 1;
     }
 
     private static void ValidateReadyStrikeEventBinder(ReadyStrikeEventBinder c, ref int errors, ref int warnings)
@@ -1216,10 +1259,105 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "ReadyButton/ActiveHighlight", "readyHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "RaiseShieldButton/ActiveHighlight", "raiseShieldHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "StandButton/ActiveHighlight", "standHighlight");
+        fixedCount += EnsureStrikePopupHeaders(root);
         fixedCount += EnsureReadyActionBarUi(bar, root);
         fixedCount += EnsureAidActionBarUi(bar, root);
 
         return fixedCount;
+    }
+
+    private static int EnsureStrikePopupHeaders(Transform root)
+    {
+        if (root == null)
+            return 0;
+
+        var strikePopupRoot = root.Find("StrikePopupRoot") as RectTransform;
+        if (strikePopupRoot == null)
+            return 0;
+
+        int fixedCount = 0;
+        var attacksHeader = EnsureStrikePopupHeader(strikePopupRoot, "AttacksHeader", "Attacks:", 70f);
+        if (attacksHeader != null && attacksHeader.transform.GetSiblingIndex() != 0)
+        {
+            Undo.RecordObject(attacksHeader.transform, "Reorder AttacksHeader");
+            attacksHeader.transform.SetSiblingIndex(0);
+            EditorUtility.SetDirty(attacksHeader);
+            fixedCount++;
+        }
+
+        var maneuversHeader = EnsureStrikePopupHeader(strikePopupRoot, "ManeuversHeader", "Maneuvers:", 92f);
+        if (maneuversHeader != null)
+        {
+            var strikePopupStrike = strikePopupRoot.Find("StrikePopupStrikeButton");
+            int expectedIndex = strikePopupStrike != null ? strikePopupStrike.GetSiblingIndex() + 1 : 1;
+            if (maneuversHeader.transform.GetSiblingIndex() != expectedIndex)
+            {
+                Undo.RecordObject(maneuversHeader.transform, "Reorder ManeuversHeader");
+                maneuversHeader.transform.SetSiblingIndex(expectedIndex);
+                EditorUtility.SetDirty(maneuversHeader);
+                fixedCount++;
+            }
+        }
+
+        return fixedCount;
+    }
+
+    private static RectTransform EnsureStrikePopupHeader(RectTransform popupRoot, string name, string text, float preferredWidth)
+    {
+        if (popupRoot == null || string.IsNullOrWhiteSpace(name))
+            return null;
+
+        var existing = popupRoot.Find(name) as RectTransform;
+        if (existing == null)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(LayoutElement));
+            go.transform.SetParent(popupRoot, false);
+            existing = go.GetComponent<RectTransform>();
+            Undo.RegisterCreatedObjectUndo(go, $"Create {name}");
+            EditorUtility.SetDirty(go);
+            Debug.Log($"[PF2eAutoFix] Created {name} under {GetPath(popupRoot)}.", go);
+        }
+
+        var layout = existing.GetComponent<LayoutElement>();
+        if (layout == null)
+        {
+            layout = existing.gameObject.AddComponent<LayoutElement>();
+            Undo.RegisterCreatedObjectUndo(layout, $"Create {name} LayoutElement");
+            EditorUtility.SetDirty(layout);
+        }
+
+        layout.preferredWidth = preferredWidth;
+        layout.minWidth = preferredWidth;
+        layout.preferredHeight = 22f;
+        layout.minHeight = 22f;
+        EditorUtility.SetDirty(layout);
+
+        var labelTransform = existing.Find("Label");
+        TMPro.TextMeshProUGUI label = labelTransform != null ? labelTransform.GetComponent<TMPro.TextMeshProUGUI>() : null;
+        if (label == null)
+        {
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
+            labelGo.transform.SetParent(existing, false);
+            label = labelGo.GetComponent<TMPro.TextMeshProUGUI>();
+            Undo.RegisterCreatedObjectUndo(labelGo, $"Create {name} Label");
+            EditorUtility.SetDirty(labelGo);
+        }
+
+        var labelRect = label.GetComponent<RectTransform>();
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = Vector2.zero;
+        labelRect.offsetMax = Vector2.zero;
+
+        label.text = text;
+        label.fontSize = 12f;
+        label.alignment = TMPro.TextAlignmentOptions.MidlineLeft;
+        label.color = new Color(0.86f, 0.86f, 0.90f, 0.92f);
+        label.enableWordWrapping = false;
+        label.raycastTarget = false;
+        EditorUtility.SetDirty(label);
+
+        return existing;
     }
 
     private static int EnsureReadyActionBarUi(ActionBarController bar, Transform root)
