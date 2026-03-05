@@ -4,6 +4,7 @@ namespace PF2e.Core
     {
         None = 0,
         PhysicalShield = 1,
-        GlassShield = 2
+        GlassShield = 2,
+        StandardShield = 3
     }
 }

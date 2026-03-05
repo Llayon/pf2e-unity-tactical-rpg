@@ -31,6 +31,7 @@ namespace PF2e.TurnSystem
         [SerializeField] private DemoralizeAction demoralizeAction;
         [SerializeField] private AidAction aidAction;
         [SerializeField] private RaiseShieldAction raiseShieldAction;
+        [SerializeField] private StandardShieldAction standardShieldAction;
         [SerializeField] private GlassShieldAction glassShieldAction;
         [SerializeField] private ShieldBlockAction shieldBlockAction;
         [SerializeField] private ReactionPromptController reactionPromptController;
@@ -64,6 +65,7 @@ namespace PF2e.TurnSystem
             if (demoralizeAction == null) Debug.LogWarning("[Executor] Missing DemoralizeAction", this);
             if (aidAction == null) Debug.LogWarning("[Executor] Missing AidAction", this);
             if (raiseShieldAction == null) Debug.LogWarning("[Executor] Missing RaiseShieldAction", this);
+            if (standardShieldAction == null) Debug.LogWarning("[Executor] Missing StandardShieldAction", this);
             if (glassShieldAction == null) Debug.LogWarning("[Executor] Missing GlassShieldAction", this);
             if (shieldBlockAction == null) Debug.LogWarning("[Executor] Missing ShieldBlockAction", this);
             if (reactionPromptController == null) Debug.LogWarning("[Executor] Missing ReactionPromptController", this);
@@ -109,12 +111,20 @@ namespace PF2e.TurnSystem
                     glassShieldAction = gameObject.AddComponent<GlassShieldAction>();
             }
 
+            if (standardShieldAction == null)
+            {
+                standardShieldAction = GetComponent<StandardShieldAction>();
+                if (standardShieldAction == null && entityManager != null)
+                    standardShieldAction = gameObject.AddComponent<StandardShieldAction>();
+            }
+
             if (eventBus == null)
                 eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
 
             aidAction?.InjectDependencies(entityManager, eventBus);
             readyStrikeAction?.InjectDependencies(turnManager, entityManager, strikeAction, eventBus);
             glassShieldAction?.InjectDependencies(entityManager, eventBus);
+            standardShieldAction?.InjectDependencies(entityManager, eventBus);
         }
 
         public bool HasPendingRepositionSelection => hasPendingRepositionSelection;
@@ -736,20 +746,27 @@ namespace PF2e.TurnSystem
 
             var actor = turnManager.CurrentEntity;
             bool canRaisePhysicalShield = raiseShieldAction != null && raiseShieldAction.CanRaiseShield(actor);
+            bool canCastStandardShield = standardShieldAction != null && standardShieldAction.CanCastStandardShield(actor);
             bool canCastGlassShield = glassShieldAction != null && glassShieldAction.CanCastGlassShield(actor);
-            if (!canRaisePhysicalShield && !canCastGlassShield) return false;
+            if (!canRaisePhysicalShield && !canCastStandardShield && !canCastGlassShield) return false;
+
+            string actionSource = canRaisePhysicalShield
+                ? "Player.RaiseShield"
+                : (canCastStandardShield ? "Player.StandardShield" : "Player.GlassShield");
 
             executingActor = actor;
-            turnManager.BeginActionExecution(
-                actor,
-                canRaisePhysicalShield ? "Player.RaiseShield" : "Player.GlassShield");
+            turnManager.BeginActionExecution(actor, actionSource);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             executionStartTime = Time.time;
 #endif
 
-            bool raised = canRaisePhysicalShield
-                ? raiseShieldAction.TryRaiseShield(actor)
-                : glassShieldAction.TryCastGlassShield(actor);
+            bool raised;
+            if (canRaisePhysicalShield)
+                raised = raiseShieldAction.TryRaiseShield(actor);
+            else if (canCastStandardShield)
+                raised = standardShieldAction.TryCastStandardShield(actor);
+            else
+                raised = glassShieldAction.TryCastGlassShield(actor);
             if (!raised)
             {
                 executingActor = EntityHandle.None;

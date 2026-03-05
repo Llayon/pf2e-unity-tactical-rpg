@@ -48,6 +48,13 @@ namespace PF2e.TurnSystem
                     TryResolveGlassShieldShardBurst(reactor, triggerSource, data);
                     break;
 
+                case ShieldBlockSource.StandardShield:
+                    hpBefore = data.StandardShieldCurrentHP;
+                    data.ApplyStandardShieldSelfDamageAndDispel(result.shieldSelfDamage, StandardShieldAction.BlockCooldownRounds);
+                    hpAfter = data.StandardShieldCurrentHP;
+                    eventBus?.Publish(reactor, "Shield spell dissipates; recast blocked for 10 minutes.", CombatLogCategory.Spell);
+                    break;
+
                 case ShieldBlockSource.PhysicalShield:
                 default:
                     hpBefore = data.EquippedShield.currentHP;

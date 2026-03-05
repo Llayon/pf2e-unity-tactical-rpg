@@ -90,13 +90,20 @@ namespace PF2e.Core
         public int MAPCount;           // 0, 1, 2 — how many Strikes made this turn
         public bool ReactionAvailable;
         public bool KnowsGlassShieldCantrip;
+        public bool KnowsStandardShieldCantrip;
         public int GlassShieldCooldownRoundsRemaining;
+        public int StandardShieldCooldownRoundsRemaining;
 
         [SerializeField] private bool glassShieldRaised;
         [SerializeField] private int glassShieldHardness;
         [SerializeField] private int glassShieldCurrentHP;
         [SerializeField] private int glassShieldMaxHP;
         [SerializeField] private int glassShieldAcBonus;
+        [SerializeField] private bool standardShieldRaised;
+        [SerializeField] private int standardShieldHardness;
+        [SerializeField] private int standardShieldCurrentHP;
+        [SerializeField] private int standardShieldMaxHP;
+        [SerializeField] private int standardShieldAcBonus;
 
         // ─── Reaction Preferences ───
         public ReactionPreference ShieldBlockPreference = ReactionPreference.AutoBlock;
@@ -120,6 +127,8 @@ namespace PF2e.Core
         private int snapshotShieldACBonus;
         private bool snapshotGlassShieldRaised;
         private int snapshotGlassShieldACBonus;
+        private bool snapshotStandardShieldRaised;
+        private int snapshotStandardShieldACBonus;
         private int snapshotConditionsFingerprint;
 
         // ─── Computed: Multiple Attack Penalty ───
@@ -297,11 +306,29 @@ namespace PF2e.Core
 
         public int GlassShieldAcBonus => GlassShieldRaised ? Mathf.Max(0, glassShieldAcBonus) : 0;
 
-        public bool CanShieldBlock => HasRaisedPhysicalShield || GlassShieldRaised;
+        public bool StandardShieldRaised => standardShieldRaised && standardShieldCurrentHP > 0;
+
+        public int StandardShieldHardness => StandardShieldRaised ? Mathf.Max(0, standardShieldHardness) : 0;
+
+        public int StandardShieldCurrentHP => standardShieldCurrentHP;
+
+        public int StandardShieldMaxHP => standardShieldMaxHP;
+
+        public int StandardShieldAcBonus => StandardShieldRaised ? Mathf.Max(0, standardShieldAcBonus) : 0;
+
+        public bool CanShieldBlock => HasRaisedPhysicalShield || StandardShieldRaised || GlassShieldRaised;
 
         public bool CanCastGlassShield =>
             KnowsGlassShieldCantrip
             && GlassShieldCooldownRoundsRemaining <= 0
+            && !GlassShieldRaised
+            && !StandardShieldRaised
+            && !EquippedShield.IsEquipped;
+
+        public bool CanCastStandardShield =>
+            KnowsStandardShieldCantrip
+            && StandardShieldCooldownRoundsRemaining <= 0
+            && !StandardShieldRaised
             && !GlassShieldRaised
             && !EquippedShield.IsEquipped;
 
@@ -355,6 +382,8 @@ namespace PF2e.Core
             if (snapshotShieldACBonus != EquippedShield.ACBonus) return false;
             if (snapshotGlassShieldRaised != GlassShieldRaised) return false;
             if (snapshotGlassShieldACBonus != GlassShieldAcBonus) return false;
+            if (snapshotStandardShieldRaised != StandardShieldRaised) return false;
+            if (snapshotStandardShieldACBonus != StandardShieldAcBonus) return false;
             if (snapshotConditionsFingerprint != ComputeConditionsFingerprint()) return false;
             return true;
         }
@@ -373,6 +402,8 @@ namespace PF2e.Core
             snapshotShieldACBonus = EquippedShield.ACBonus;
             snapshotGlassShieldRaised = GlassShieldRaised;
             snapshotGlassShieldACBonus = GlassShieldAcBonus;
+            snapshotStandardShieldRaised = StandardShieldRaised;
+            snapshotStandardShieldACBonus = StandardShieldAcBonus;
             snapshotConditionsFingerprint = ComputeConditionsFingerprint();
         }
 
@@ -383,7 +414,9 @@ namespace PF2e.Core
                 out cachedConditionPenaltyToAttack,
                 out int acPenalty);
 
-            int shieldCircumstanceBonus = Mathf.Max(EquippedShield.ACBonus, GlassShieldAcBonus);
+            int shieldCircumstanceBonus = Mathf.Max(
+                EquippedShield.ACBonus,
+                Mathf.Max(GlassShieldAcBonus, StandardShieldAcBonus));
             cachedEffectiveAC = BaseAC + shieldCircumstanceBonus - acPenalty;
         }
 
@@ -514,6 +547,20 @@ namespace PF2e.Core
             return true;
         }
 
+        public bool ActivateStandardShield(int acBonus, int hardness, int maxHP = 1)
+        {
+            if (!CanCastStandardShield)
+                return false;
+
+            standardShieldAcBonus = Mathf.Max(0, acBonus);
+            standardShieldHardness = Mathf.Max(0, hardness);
+            standardShieldMaxHP = Mathf.Max(1, maxHP);
+            standardShieldCurrentHP = standardShieldMaxHP;
+            standardShieldRaised = true;
+            MarkDerivedStatsDirty();
+            return true;
+        }
+
         public void ExpireGlassShieldAtTurnStart()
         {
             if (!glassShieldRaised)
@@ -531,15 +578,39 @@ namespace PF2e.Core
             GlassShieldCooldownRoundsRemaining = Mathf.Max(0, GlassShieldCooldownRoundsRemaining - 1);
         }
 
+        public void ExpireStandardShieldAtTurnStart()
+        {
+            if (!standardShieldRaised)
+                return;
+
+            standardShieldRaised = false;
+            MarkDerivedStatsDirty();
+        }
+
+        public void TickStandardShieldCooldownAtTurnStart()
+        {
+            if (StandardShieldCooldownRoundsRemaining <= 0)
+                return;
+
+            StandardShieldCooldownRoundsRemaining = Mathf.Max(0, StandardShieldCooldownRoundsRemaining - 1);
+        }
+
         public void StartGlassShieldCooldown(int rounds)
         {
             GlassShieldCooldownRoundsRemaining = Mathf.Max(GlassShieldCooldownRoundsRemaining, Mathf.Max(0, rounds));
+        }
+
+        public void StartStandardShieldCooldown(int rounds)
+        {
+            StandardShieldCooldownRoundsRemaining = Mathf.Max(StandardShieldCooldownRoundsRemaining, Mathf.Max(0, rounds));
         }
 
         public ShieldBlockSource ResolveShieldBlockSource()
         {
             if (HasRaisedPhysicalShield)
                 return ShieldBlockSource.PhysicalShield;
+            if (StandardShieldRaised)
+                return ShieldBlockSource.StandardShield;
             if (GlassShieldRaised)
                 return ShieldBlockSource.GlassShield;
 
@@ -553,6 +624,7 @@ namespace PF2e.Core
             {
                 ShieldBlockSource.PhysicalShield => ShieldBlockRules.Calculate(EquippedShield, incomingDamage),
                 ShieldBlockSource.GlassShield => ShieldBlockRules.Calculate(GlassShieldHardness, incomingDamage),
+                ShieldBlockSource.StandardShield => ShieldBlockRules.Calculate(StandardShieldHardness, incomingDamage),
                 _ => new ShieldBlockResult(0, 0)
             };
         }
@@ -566,6 +638,19 @@ namespace PF2e.Core
             glassShieldRaised = false; // Spell always ends after Shield Block.
             glassShieldCurrentHP = 0;
             StartGlassShieldCooldown(cooldownRounds);
+            MarkDerivedStatsDirty();
+            return hpBefore;
+        }
+
+        public int ApplyStandardShieldSelfDamageAndDispel(int selfDamage, int cooldownRounds)
+        {
+            int hpBefore = standardShieldCurrentHP;
+            if (selfDamage > 0 && standardShieldCurrentHP > 0)
+                standardShieldCurrentHP = Mathf.Max(0, standardShieldCurrentHP - selfDamage);
+
+            standardShieldRaised = false; // Spell always ends after Shield Block.
+            standardShieldCurrentHP = 0;
+            StartStandardShieldCooldown(cooldownRounds);
             MarkDerivedStatsDirty();
             return hpBefore;
         }

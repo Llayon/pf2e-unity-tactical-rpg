@@ -110,6 +110,54 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void Execute_StandardShieldSource_ConsumesSpellAndStartsCooldown()
+        {
+            using var ctx = new ShieldBlockActionContext();
+
+            var actor = ctx.RegisterEntity("Wizard", Team.Player, shieldDef: null, reactionAvailable: true);
+            var data = ctx.Registry.Get(actor);
+            Assert.IsNotNull(data);
+            data.KnowsStandardShieldCantrip = true;
+            Assert.IsTrue(data.ActivateStandardShield(acBonus: 1, hardness: 5, maxHP: 1));
+
+            ShieldBlockResolvedEvent lastEvent = default;
+            int eventCount = 0;
+            ctx.EventBus.OnShieldBlockResolvedTyped += OnResolved;
+            try
+            {
+                bool ok = ctx.Action.Execute(
+                    actor,
+                    incomingDamage: 10,
+                    result: new ShieldBlockResult(5, 5),
+                    source: ShieldBlockSource.StandardShield);
+                Assert.IsTrue(ok);
+
+                Assert.IsFalse(data.ReactionAvailable);
+                Assert.IsFalse(data.StandardShieldRaised);
+                Assert.AreEqual(0, data.StandardShieldCurrentHP);
+                Assert.AreEqual(StandardShieldAction.BlockCooldownRounds, data.StandardShieldCooldownRoundsRemaining);
+
+                Assert.AreEqual(1, eventCount);
+                Assert.AreEqual(actor, lastEvent.reactor);
+                Assert.AreEqual(10, lastEvent.incomingDamage);
+                Assert.AreEqual(5, lastEvent.damageReduction);
+                Assert.AreEqual(5, lastEvent.shieldSelfDamage);
+                Assert.AreEqual(1, lastEvent.shieldHpBefore);
+                Assert.AreEqual(0, lastEvent.shieldHpAfter);
+            }
+            finally
+            {
+                ctx.EventBus.OnShieldBlockResolvedTyped -= OnResolved;
+            }
+
+            void OnResolved(in ShieldBlockResolvedEvent e)
+            {
+                eventCount++;
+                lastEvent = e;
+            }
+        }
+
+        [Test]
         public void Execute_GlassShieldSource_BreakerInRange_DealsShardDamage()
         {
             using var ctx = new ShieldBlockActionContext();

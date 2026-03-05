@@ -92,7 +92,7 @@ namespace PF2e.Presentation
                 && !shield.IsBroken
                 && !shield.isRaised;
 
-            return canRaisePhysicalShield || data.CanCastGlassShield;
+            return canRaisePhysicalShield || data.CanCastStandardShield || data.CanCastGlassShield;
         }
 
         private static bool HasCondition(EntityData data, ConditionType type)

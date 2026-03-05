@@ -102,6 +102,41 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void BuildForActor_StandardShieldCantripAvailable_EnablesRaiseShieldSlot()
+        {
+            var policy = new ActionBarAvailabilityPolicy();
+            var actor = new EntityData
+            {
+                Team = Team.Player,
+                CurrentHP = 10,
+                MaxHP = 10,
+                KnowsStandardShieldCantrip = true,
+                StandardShieldCooldownRoundsRemaining = 0
+            };
+
+            var state = policy.BuildForActor(actor);
+            Assert.IsTrue(state.raiseShieldInteractable);
+        }
+
+        [Test]
+        public void BuildForActor_StandardShieldAlreadyRaised_DisablesRaiseShieldSlot()
+        {
+            var policy = new ActionBarAvailabilityPolicy();
+            var actor = new EntityData
+            {
+                Team = Team.Player,
+                CurrentHP = 10,
+                MaxHP = 10,
+                KnowsStandardShieldCantrip = true,
+                StandardShieldCooldownRoundsRemaining = 0
+            };
+            Assert.IsTrue(actor.ActivateStandardShield(acBonus: 1, hardness: 5, maxHP: 1));
+
+            var state = policy.BuildForActor(actor);
+            Assert.IsFalse(state.raiseShieldInteractable);
+        }
+
+        [Test]
         public void TryEvaluate_NullDependencies_ReturnsFalse()
         {
             var policy = new ActionBarAvailabilityPolicy();

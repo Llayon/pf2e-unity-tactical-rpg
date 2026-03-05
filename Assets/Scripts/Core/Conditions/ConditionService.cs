@@ -103,6 +103,8 @@ namespace PF2e.Core
             entity.SetShieldRaised(false);
             entity.ExpireGlassShieldAtTurnStart();
             entity.TickGlassShieldCooldownAtTurnStart();
+            entity.ExpireStandardShieldAtTurnStart();
+            entity.TickStandardShieldCooldownAtTurnStart();
 
             int slowed = entity.GetConditionValue(ConditionType.Slowed);
             entity.ActionsRemaining -= slowed;

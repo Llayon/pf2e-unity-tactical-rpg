@@ -221,6 +221,7 @@ private void OnValidate()
                 broken = false
             };
             wizard.KnowsGlassShieldCantrip = true;
+            wizard.KnowsStandardShieldCantrip = true;
             CreateEntity(wizard, new Vector3Int(1, 0, 5));
 
             // Goblin_1 (from inspector defs)
