@@ -55,6 +55,10 @@ namespace PF2e.Presentation
         [SerializeField] private RectTransform strikePopupRoot;
         [SerializeField] private RectTransform tacticsPopupRoot;
         [SerializeField] private Button strikePopupStrikeButton;
+        [SerializeField] private float popupClampPadding = 10f;
+        [SerializeField] private float strikePopupTileWidth = 132f;
+        [SerializeField] private float tacticsPopupTileWidth = 126f;
+        [SerializeField] private float castPopupTileWidth = 132f;
 
         [Header("Highlights (optional overlays)")]
         [SerializeField] private Image strikeHighlight;
@@ -424,6 +428,7 @@ namespace PF2e.Presentation
                 strikePopupRoot.anchorMax = new Vector2(0.5f, 1f);
                 strikePopupRoot.pivot = new Vector2(0.5f, 0f);
                 strikePopupRoot.anchoredPosition = new Vector2(0f, 10f);
+                ConfigurePopupRootVisual(strikePopupRoot);
             }
 
             if (tacticsPopupRoot != null && tacticsLauncherButton != null)
@@ -433,6 +438,7 @@ namespace PF2e.Presentation
                 tacticsPopupRoot.anchorMax = new Vector2(0.5f, 1f);
                 tacticsPopupRoot.pivot = new Vector2(0.5f, 0f);
                 tacticsPopupRoot.anchoredPosition = new Vector2(0f, 10f);
+                ConfigurePopupRootVisual(tacticsPopupRoot);
             }
 
             MoveButtonToPopup(tripButton, strikePopupRoot);
@@ -451,7 +457,21 @@ namespace PF2e.Presentation
                 castSpellModeSelectorRoot.anchorMax = new Vector2(0.5f, 1f);
                 castSpellModeSelectorRoot.pivot = new Vector2(0.5f, 0f);
                 castSpellModeSelectorRoot.anchoredPosition = new Vector2(0f, 10f);
+                ConfigurePopupRootVisual(castSpellModeSelectorRoot);
             }
+
+            ConfigurePopupTileLayout(strikePopupStrikeButton, strikePopupTileWidth);
+            ConfigurePopupTileLayout(tripButton, strikePopupTileWidth);
+            ConfigurePopupTileLayout(shoveButton, strikePopupTileWidth);
+            ConfigurePopupTileLayout(grappleButton, strikePopupTileWidth);
+            ConfigurePopupTileLayout(repositionButton, strikePopupTileWidth);
+
+            ConfigurePopupTileLayout(demoralizeButton, tacticsPopupTileWidth);
+            ConfigurePopupTileLayout(escapeButton, tacticsPopupTileWidth);
+            ConfigurePopupTileLayout(aidButton, tacticsPopupTileWidth);
+
+            ConfigurePopupTileLayout(castSpellModeStandardButton, castPopupTileWidth);
+            ConfigurePopupTileLayout(castSpellModeGlassButton, castPopupTileWidth);
 
             if (standButton != null)
                 standButton.gameObject.SetActive(false);
@@ -485,12 +505,63 @@ namespace PF2e.Presentation
             return parent.Find(name) as RectTransform;
         }
 
+        private static void ConfigurePopupRootVisual(RectTransform root)
+        {
+            if (root == null)
+                return;
+
+            if (!root.TryGetComponent<Image>(out var image))
+                image = root.gameObject.AddComponent<Image>();
+            image.color = new Color(0.08f, 0.09f, 0.12f, 0.96f);
+            image.raycastTarget = true;
+
+            if (!root.TryGetComponent<HorizontalLayoutGroup>(out var layout))
+                layout = root.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(6, 6, 4, 4);
+            layout.spacing = 4f;
+            layout.childControlWidth = false;
+            layout.childControlHeight = false;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+
+            if (!root.TryGetComponent<ContentSizeFitter>(out var fitter))
+                fitter = root.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        }
+
+        private static void ConfigurePopupTileLayout(Button button, float preferredWidth)
+        {
+            if (button == null)
+                return;
+
+            var layoutElement = EnsureLayoutElement(button.gameObject);
+            layoutElement.preferredWidth = preferredWidth;
+            layoutElement.minWidth = Mathf.Min(preferredWidth, 110f);
+            layoutElement.preferredHeight = 24f;
+            layoutElement.minHeight = 24f;
+        }
+
+        private static LayoutElement EnsureLayoutElement(GameObject gameObject)
+        {
+            if (gameObject.TryGetComponent<LayoutElement>(out var existing))
+                return existing;
+            return gameObject.AddComponent<LayoutElement>();
+        }
+
         private static void MoveButtonToPopup(Button button, RectTransform popupRoot)
         {
             if (button == null || popupRoot == null)
                 return;
 
             button.transform.SetParent(popupRoot, false);
+            button.transform.SetAsLastSibling();
+            if (button.transform is RectTransform rect)
+            {
+                rect.localScale = Vector3.one;
+                rect.localRotation = Quaternion.identity;
+            }
             if (button.TryGetComponent<LayoutElement>(out var layoutElement))
             {
                 layoutElement.preferredHeight = Mathf.Max(24f, layoutElement.preferredHeight);
@@ -625,6 +696,21 @@ namespace PF2e.Presentation
                 return;
 
             CloseAllPopups();
+        }
+
+        private void LateUpdate()
+        {
+            if (!useLauncherLayout || !actionBarLauncherPresenter.AnyPopupOpen)
+                return;
+
+            var rootCanvas = canvasGroup != null
+                ? canvasGroup.GetComponentInParent<Canvas>()
+                : GetComponentInParent<Canvas>();
+            if (rootCanvas == null)
+                return;
+
+            var canvasRect = rootCanvas.transform as RectTransform;
+            actionBarLauncherPresenter.ClampOpenPopupsToCanvas(canvasRect, popupClampPadding);
         }
 
         private void EnsureButtonListenersBound()
