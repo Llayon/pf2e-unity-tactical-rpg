@@ -32,7 +32,9 @@ namespace PF2e.TurnSystem
             ShieldBlockAction shieldBlockAction = null,
             List<ReactionOption> reactionBuffer = null,
             ReactionTriggerPhase reactionPhase = ReactionTriggerPhase.PostHit,
-            string reactionOwnerTag = "DamageApplicationService")
+            string reactionOwnerTag = "DamageApplicationService",
+            TriggerWindowLedger triggerWindowLedger = null,
+            TriggerWindowToken triggerWindowToken = default)
         {
             if (entityManager == null || entityManager.Registry == null) return 0;
             if (!target.IsValid) return 0;
@@ -50,19 +52,39 @@ namespace PF2e.TurnSystem
                 && shieldBlockAction != null
                 && reactionBuffer != null)
             {
-                int damageReduction = ReactionBroker.ResolveIncomingDamageReductionSync(
-                    triggerSource: source,
-                    triggerTarget: target,
-                    incomingDamage: finalDamage,
-                    phase: reactionPhase,
-                    initiativeOrder: initiativeOrder,
-                    getEntity: getEntity,
-                    canUseReaction: canUseReaction,
-                    reactionPolicy: reactionPolicy,
-                    shieldBlockAction: shieldBlockAction,
-                    reactionBuffer: reactionBuffer,
-                    ownerTag: reactionOwnerTag);
-                finalDamage = Mathf.Max(0, finalDamage - Mathf.Max(0, damageReduction));
+                bool ownsWindowToken = false;
+                if (triggerWindowLedger != null && !triggerWindowToken.IsValid)
+                {
+                    triggerWindowToken = triggerWindowLedger.OpenWindow(
+                        TriggerWindowType.GenericIncomingDamage,
+                        source: source,
+                        target: target);
+                    ownsWindowToken = true;
+                }
+
+                try
+                {
+                    int damageReduction = ReactionBroker.ResolveIncomingDamageReductionSync(
+                        triggerSource: source,
+                        triggerTarget: target,
+                        incomingDamage: finalDamage,
+                        phase: reactionPhase,
+                        initiativeOrder: initiativeOrder,
+                        getEntity: getEntity,
+                        canUseReaction: canUseReaction,
+                        reactionPolicy: reactionPolicy,
+                        shieldBlockAction: shieldBlockAction,
+                        reactionBuffer: reactionBuffer,
+                        ownerTag: reactionOwnerTag,
+                        triggerWindowLedger: triggerWindowLedger,
+                        triggerWindowToken: triggerWindowToken);
+                    finalDamage = Mathf.Max(0, finalDamage - Mathf.Max(0, damageReduction));
+                }
+                finally
+                {
+                    if (ownsWindowToken && triggerWindowLedger != null && triggerWindowToken.IsValid)
+                        triggerWindowLedger.CloseWindow(triggerWindowToken);
+                }
             }
 
             if (finalDamage <= 0) return 0;

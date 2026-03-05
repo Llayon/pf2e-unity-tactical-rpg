@@ -277,30 +277,39 @@ namespace PF2e.Tests
         }
 
         [Test]
-        public void TryConsumeReadyReactionInScope_SpendsOncePerScope()
+        public void TryConsumeReadyReactionInWindow_SpendsOncePerWindowToken()
         {
             var shieldDef = CreateShieldDef();
             try
             {
-                var actor = new EntityHandle(11);
+                var actor = new EntityHandle(12);
                 var actorData = CreateEntityWithShieldState(reactionAvailable: true, shieldDef, shieldRaised: true);
-                var consumed = new HashSet<EntityHandle>();
+                var ledger = new TriggerWindowLedger();
+                var token = ledger.OpenWindow(TriggerWindowType.AttackStart);
 
-                bool first = ReactionBroker.TryConsumeReadyReactionInScope(
+                bool first = ReactionBroker.TryConsumeReadyReactionInWindow(
                     actor,
                     actorData,
                     canUseReaction: _ => actorData.ReactionAvailable,
-                    consumedInScope: consumed);
-                bool second = ReactionBroker.TryConsumeReadyReactionInScope(
-                    actor,
-                    actorData,
-                    canUseReaction: _ => actorData.ReactionAvailable,
-                    consumedInScope: consumed);
+                    triggerWindowLedger: ledger,
+                    triggerWindowToken: token);
 
                 Assert.IsTrue(first);
+                Assert.IsFalse(
+                    ledger.CanReact(token, actor),
+                    "Ledger must mark actor consumed after first successful window reaction.");
+
+                actorData.ReactionAvailable = true; // emulate external refill attempt in the same trigger window
+                bool second = ReactionBroker.TryConsumeReadyReactionInWindow(
+                    actor,
+                    actorData,
+                    canUseReaction: _ => actorData.ReactionAvailable,
+                    triggerWindowLedger: ledger,
+                    triggerWindowToken: token);
+
                 Assert.IsFalse(second);
-                Assert.IsFalse(actorData.ReactionAvailable);
-                Assert.IsTrue(consumed.Contains(actor));
+                Assert.IsTrue(ledger.IsOpen(token));
+                Assert.IsTrue(actorData.ReactionAvailable);
             }
             finally
             {

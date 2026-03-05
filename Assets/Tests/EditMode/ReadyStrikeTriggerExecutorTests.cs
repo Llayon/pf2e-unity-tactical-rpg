@@ -25,15 +25,7 @@ namespace PF2e.Tests
             actorData.ReactionAvailable = true;
             Assert.IsTrue(ctx.ReadyService.TryPrepare(actor, preparedRound: 1));
 
-            ctx.Executor.Resolve(
-                actor,
-                target,
-                "movement",
-                ctx.ReadyService,
-                ctx.EntityManager,
-                ctx.StrikeAction,
-                ctx.EventBus,
-                ctx.CanUseReaction);
+            ExecuteInTriggerWindow(ctx, actor, target);
 
             Assert.IsFalse(ctx.ReadyService.HasPrepared(actor), "Prepared ready should be removed after successful trigger.");
             Assert.IsFalse(actorData.ReactionAvailable, "Ready trigger should consume actor reaction.");
@@ -52,15 +44,7 @@ namespace PF2e.Tests
             actorData.ReactionAvailable = false;
             Assert.IsTrue(ctx.ReadyService.TryPrepare(actor, preparedRound: 1));
 
-            ctx.Executor.Resolve(
-                actor,
-                target,
-                "movement",
-                ctx.ReadyService,
-                ctx.EntityManager,
-                ctx.StrikeAction,
-                ctx.EventBus,
-                ctx.CanUseReaction);
+            ExecuteInTriggerWindow(ctx, actor, target);
 
             Assert.IsTrue(ctx.ReadyService.HasPrepared(actor), "Prepared ready should remain when reaction is unavailable.");
             Assert.IsFalse(actorData.ReactionAvailable, "Reaction availability should stay unchanged.");
@@ -79,15 +63,7 @@ namespace PF2e.Tests
             actorData.CurrentHP = 0;
             Assert.IsTrue(ctx.ReadyService.TryPrepare(actor, preparedRound: 1));
 
-            ctx.Executor.Resolve(
-                actor,
-                target,
-                "movement",
-                ctx.ReadyService,
-                ctx.EntityManager,
-                ctx.StrikeAction,
-                ctx.EventBus,
-                ctx.CanUseReaction);
+            ExecuteInTriggerWindow(ctx, actor, target);
 
             Assert.IsFalse(ctx.ReadyService.HasPrepared(actor), "Prepared ready should be cleaned up for dead actor.");
             Assert.IsTrue(actorData.ReactionAvailable, "Dead-actor cleanup should not flip reaction availability.");
@@ -108,15 +84,7 @@ namespace PF2e.Tests
             targetData.CurrentHP = 0; // Simulates first ready striker killing the trigger target.
             Assert.IsTrue(ctx.ReadyService.TryPrepare(actor, preparedRound: 1));
 
-            ctx.Executor.Resolve(
-                actor,
-                target,
-                "movement",
-                ctx.ReadyService,
-                ctx.EntityManager,
-                ctx.StrikeAction,
-                ctx.EventBus,
-                ctx.CanUseReaction);
+            ExecuteInTriggerWindow(ctx, actor, target);
 
             Assert.IsTrue(ctx.ReadyService.HasPrepared(actor), "Prepared ready should remain when trigger target is no longer valid.");
             Assert.IsTrue(actorData.ReactionAvailable, "Reaction should not be consumed when readied strike does not execute.");
@@ -208,6 +176,28 @@ namespace PF2e.Tests
             var field = target.GetType().GetField(fieldName, InstanceNonPublic);
             Assert.IsNotNull(field, $"Missing auto-property backing field '{fieldName}' on {target.GetType().Name}");
             field.SetValue(target, value);
+        }
+
+        private static void ExecuteInTriggerWindow(ExecutorContext ctx, EntityHandle actor, EntityHandle target)
+        {
+            var windowToken = ctx.ReadyService.OpenTriggerWindow(TriggerWindowType.MovementEnter);
+            try
+            {
+                ctx.Executor.Resolve(
+                    actor,
+                    target,
+                    "movement",
+                    ctx.ReadyService,
+                    ctx.EntityManager,
+                    ctx.StrikeAction,
+                    ctx.EventBus,
+                    ctx.CanUseReaction,
+                    windowToken);
+            }
+            finally
+            {
+                ctx.ReadyService.CloseTriggerWindow(windowToken);
+            }
         }
     }
 }

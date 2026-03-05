@@ -22,7 +22,8 @@ namespace PF2e.TurnSystem
             EntityManager entityManager,
             StrikeAction strikeAction,
             CombatEventBus eventBus,
-            Func<EntityHandle, bool> canUseReaction)
+            Func<EntityHandle, bool> canUseReaction,
+            TriggerWindowToken triggerWindowToken = default)
         {
             if (!actor.IsValid || !target.IsValid)
                 return;
@@ -43,7 +44,12 @@ namespace PF2e.TurnSystem
                 return;
             }
 
-            if (!readyStrikeService.CanConsumeReactionInScope(actor, actorData, canUseReaction))
+            if (!triggerWindowToken.IsValid)
+                return;
+
+            bool canConsumeInWindow =
+                readyStrikeService.CanConsumeReactionInWindow(triggerWindowToken, actor, actorData, canUseReaction);
+            if (!canConsumeInWindow)
                 return;
 
             bool wasResolving = isResolving;
@@ -64,7 +70,12 @@ namespace PF2e.TurnSystem
                 if (!executed)
                     return;
 
-                if (!readyStrikeService.TryConsumeReactionInScope(actor, actorData, canUseReaction))
+                bool consumed = readyStrikeService.TryConsumeReactionInWindow(
+                    triggerWindowToken,
+                    actor,
+                    actorData,
+                    canUseReaction);
+                if (!consumed)
                     return;
 
                 readyStrikeService.TryRemovePrepared(actor);

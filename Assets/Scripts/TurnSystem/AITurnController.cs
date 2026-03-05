@@ -365,23 +365,41 @@ namespace PF2e.TurnSystem
                 yield break;
             }
 
-            yield return ReactionBroker.ResolvePostHitReductionAsync(
-                resolved,
-                turnManager.InitiativeOrder,
-                handle => entityManager.Registry.Get(handle),
-                handle => turnManager.CanUseReaction(handle),
-                reactionPolicy,
-                shieldBlockAction,
-                reactionBuffer,
-                shouldAbortWaiting: () => !IsCurrentRun(token),
-                timeoutSeconds: ReactionTimeoutSeconds,
-                forceClosePrompt: () =>
-                {
-                    if (reactionPromptController != null)
-                        reactionPromptController.ForceCloseAsDecline();
-                },
-                setResult: setResult,
-                ownerTag: "AITurnController");
+            var ledger = turnManager.ReactionTriggerWindowLedger;
+            var triggerWindowToken = ledger != null
+                ? ledger.OpenWindow(
+                    TriggerWindowType.PostHitDamage,
+                    source: resolved.attacker,
+                    target: resolved.target)
+                : default;
+
+            try
+            {
+                yield return ReactionBroker.ResolvePostHitReductionAsync(
+                    resolved,
+                    turnManager.InitiativeOrder,
+                    handle => entityManager.Registry.Get(handle),
+                    handle => turnManager.CanUseReaction(handle),
+                    reactionPolicy,
+                    shieldBlockAction,
+                    reactionBuffer,
+                    shouldAbortWaiting: () => !IsCurrentRun(token),
+                    timeoutSeconds: ReactionTimeoutSeconds,
+                    forceClosePrompt: () =>
+                    {
+                        if (reactionPromptController != null)
+                            reactionPromptController.ForceCloseAsDecline();
+                    },
+                    setResult: setResult,
+                    ownerTag: "AITurnController",
+                    triggerWindowLedger: ledger,
+                    triggerWindowToken: triggerWindowToken);
+            }
+            finally
+            {
+                if (ledger != null && triggerWindowToken.IsValid)
+                    ledger.CloseWindow(triggerWindowToken);
+            }
         }
 
         private bool TryExecuteStand(EntityHandle actor)

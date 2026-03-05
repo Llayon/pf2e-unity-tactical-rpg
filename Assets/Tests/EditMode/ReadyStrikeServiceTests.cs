@@ -64,5 +64,34 @@ namespace PF2e.Tests
             Assert.IsTrue(service.TryConsumeReactionInScope(actor, actorData, CanUseReaction));
             service.EndTriggerScope();
         }
+
+        [Test]
+        public void TriggerScope_NestedScopes_HaveIndependentConsumptionSets()
+        {
+            var service = new ReadyStrikeService();
+            var actor = new EntityHandle(1);
+            var actorData = new EntityData
+            {
+                MaxHP = 10,
+                CurrentHP = 10,
+                ReactionAvailable = true
+            };
+
+            bool CanUseReaction(EntityHandle handle) => handle == actor && actorData.ReactionAvailable;
+
+            service.BeginTriggerScope(); // outer
+            Assert.IsTrue(service.TryConsumeReactionInScope(actor, actorData, CanUseReaction));
+
+            actorData.ReactionAvailable = true; // emulate external refill for nested trigger window
+            service.BeginTriggerScope(); // inner
+            Assert.IsTrue(service.TryConsumeReactionInScope(actor, actorData, CanUseReaction));
+            service.EndTriggerScope();
+
+            actorData.ReactionAvailable = true;
+            Assert.IsFalse(
+                service.TryConsumeReactionInScope(actor, actorData, CanUseReaction),
+                "Outer window must retain consumed state after nested window closes.");
+            service.EndTriggerScope();
+        }
     }
 }

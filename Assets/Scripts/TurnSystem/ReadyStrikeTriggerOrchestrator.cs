@@ -29,6 +29,26 @@ namespace PF2e.TurnSystem
             Func<EntityHandle, int> findInitiativeIndex,
             Action<EntityHandle, EntityHandle, string> resolveTrigger)
         {
+            if (resolveTrigger == null)
+                return;
+
+            HandleEntityMoved(
+                in e,
+                readyStrikeService,
+                entityManager,
+                strikeAction,
+                findInitiativeIndex,
+                (actor, target, reason, _) => resolveTrigger(actor, target, reason));
+        }
+
+        public void HandleEntityMoved(
+            in EntityMovedEvent e,
+            ReadyStrikeService readyStrikeService,
+            EntityManager entityManager,
+            StrikeAction strikeAction,
+            Func<EntityHandle, int> findInitiativeIndex,
+            Action<EntityHandle, EntityHandle, string, TriggerWindowToken> resolveTrigger)
+        {
             if (e.forced || !e.entity.IsValid)
                 return;
             if (readyStrikeService == null || readyStrikeService.PreparedCount <= 0)
@@ -43,7 +63,8 @@ namespace PF2e.TurnSystem
             if (movedData == null || !movedData.IsAlive)
                 return;
 
-            readyStrikeService.BeginTriggerScope();
+            var triggerWindowToken = readyStrikeService.OpenTriggerWindow(
+                TriggerWindowType.MovementEnter);
             try
             {
                 var fromCell = e.from;
@@ -76,13 +97,13 @@ namespace PF2e.TurnSystem
 
                 triggerBuffer.Sort((left, right) => CompareReadiedTriggerOrder(left, right, findInitiativeIndex));
                 for (int i = 0; i < triggerBuffer.Count; i++)
-                    resolveTrigger(triggerBuffer[i], movedEntity, "movement");
+                    resolveTrigger(triggerBuffer[i], movedEntity, "movement", triggerWindowToken);
 
                 triggerBuffer.Clear();
             }
             finally
             {
-                readyStrikeService.EndTriggerScope();
+                readyStrikeService.CloseTriggerWindow(triggerWindowToken);
             }
         }
 
@@ -93,6 +114,26 @@ namespace PF2e.TurnSystem
             StrikeAction strikeAction,
             Func<EntityHandle, int> findInitiativeIndex,
             Action<EntityHandle, EntityHandle, string> resolveTrigger)
+        {
+            if (resolveTrigger == null)
+                return;
+
+            HandleStrikePreDamage(
+                in e,
+                readyStrikeService,
+                entityManager,
+                strikeAction,
+                findInitiativeIndex,
+                (actor, target, reason, _) => resolveTrigger(actor, target, reason));
+        }
+
+        public void HandleStrikePreDamage(
+            in StrikePreDamageEvent e,
+            ReadyStrikeService readyStrikeService,
+            EntityManager entityManager,
+            StrikeAction strikeAction,
+            Func<EntityHandle, int> findInitiativeIndex,
+            Action<EntityHandle, EntityHandle, string, TriggerWindowToken> resolveTrigger)
         {
             if (!e.attacker.IsValid || !e.target.IsValid)
                 return;
@@ -111,7 +152,8 @@ namespace PF2e.TurnSystem
             if (!attackSourceData.IsAlive || !attackTargetData.IsAlive)
                 return;
 
-            readyStrikeService.BeginTriggerScope();
+            var triggerWindowToken = readyStrikeService.OpenTriggerWindow(
+                TriggerWindowType.AttackStart);
             try
             {
                 ReactionBroker.CollectReadyTriggerCandidates(
@@ -141,13 +183,13 @@ namespace PF2e.TurnSystem
 
                 triggerBuffer.Sort((left, right) => CompareReadiedTriggerOrder(left, right, findInitiativeIndex));
                 for (int i = 0; i < triggerBuffer.Count; i++)
-                    resolveTrigger(triggerBuffer[i], attacker, "attack");
+                    resolveTrigger(triggerBuffer[i], attacker, "attack", triggerWindowToken);
 
                 triggerBuffer.Clear();
             }
             finally
             {
-                readyStrikeService.EndTriggerScope();
+                readyStrikeService.CloseTriggerWindow(triggerWindowToken);
             }
         }
 

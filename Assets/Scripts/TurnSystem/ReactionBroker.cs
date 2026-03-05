@@ -45,22 +45,24 @@ namespace PF2e.TurnSystem
             }
         }
 
-        public static bool TryConsumeReadyReactionInScope(
+        public static bool TryConsumeReadyReactionInWindow(
             EntityHandle actor,
             EntityData actorData,
             Func<EntityHandle, bool> canUseReaction,
-            HashSet<EntityHandle> consumedInScope)
+            TriggerWindowLedger triggerWindowLedger,
+            TriggerWindowToken triggerWindowToken)
         {
             if (!actor.IsValid || actorData == null || !actorData.IsAlive)
                 return false;
-            if (canUseReaction == null || consumedInScope == null)
+            if (canUseReaction == null || triggerWindowLedger == null)
+                return false;
+            if (!triggerWindowLedger.IsOpen(triggerWindowToken))
                 return false;
             if (!canUseReaction(actor))
                 return false;
-            if (consumedInScope.Contains(actor))
+            if (!triggerWindowLedger.MarkReacted(triggerWindowToken, actor))
                 return false;
 
-            consumedInScope.Add(actor);
             actorData.ReactionAvailable = false;
             return true;
         }
@@ -113,7 +115,9 @@ namespace PF2e.TurnSystem
             IReactionDecisionPolicy reactionPolicy,
             ShieldBlockAction shieldBlockAction,
             List<ReactionOption> reactionBuffer,
-            string ownerTag)
+            string ownerTag,
+            TriggerWindowLedger triggerWindowLedger = null,
+            TriggerWindowToken triggerWindowToken = default)
         {
             if (!resolved.damageDealt || resolved.damageRolled <= 0)
                 return 0;
@@ -129,7 +133,9 @@ namespace PF2e.TurnSystem
                 reactionPolicy: reactionPolicy,
                 shieldBlockAction: shieldBlockAction,
                 reactionBuffer: reactionBuffer,
-                ownerTag: ownerTag);
+                ownerTag: ownerTag,
+                triggerWindowLedger: triggerWindowLedger,
+                triggerWindowToken: triggerWindowToken);
         }
 
         public static int ResolveIncomingDamageReductionSync(
@@ -143,7 +149,9 @@ namespace PF2e.TurnSystem
             IReactionDecisionPolicy reactionPolicy,
             ShieldBlockAction shieldBlockAction,
             List<ReactionOption> reactionBuffer,
-            string ownerTag)
+            string ownerTag,
+            TriggerWindowLedger triggerWindowLedger = null,
+            TriggerWindowToken triggerWindowToken = default)
         {
             if (incomingDamage <= 0)
                 return 0;
@@ -158,6 +166,8 @@ namespace PF2e.TurnSystem
                     getEntity,
                     canUseReaction,
                     reactionBuffer,
+                    triggerWindowLedger,
+                    triggerWindowToken,
                     out var option,
                     out var reactorData))
             {
@@ -186,7 +196,9 @@ namespace PF2e.TurnSystem
                 reactorData,
                 incomingDamage,
                 shieldBlockAction,
-                ownerTag);
+                ownerTag,
+                triggerWindowLedger,
+                triggerWindowToken);
         }
 
         public static IEnumerator ResolvePostHitReductionAsync(
@@ -201,7 +213,9 @@ namespace PF2e.TurnSystem
             float timeoutSeconds,
             Action forceClosePrompt,
             Action<int> setResult,
-            string ownerTag)
+            string ownerTag,
+            TriggerWindowLedger triggerWindowLedger = null,
+            TriggerWindowToken triggerWindowToken = default)
         {
             if (!resolved.damageDealt || resolved.damageRolled <= 0)
             {
@@ -223,6 +237,8 @@ namespace PF2e.TurnSystem
                     getEntity,
                     canUseReaction,
                     reactionBuffer,
+                    triggerWindowLedger,
+                    triggerWindowToken,
                     out var option,
                     out var reactorData))
             {
@@ -273,7 +289,9 @@ namespace PF2e.TurnSystem
                 reactorData,
                 resolved.damageRolled,
                 shieldBlockAction,
-                ownerTag);
+                ownerTag,
+                triggerWindowLedger,
+                triggerWindowToken);
             setResult?.Invoke(reduction);
         }
 
@@ -285,6 +303,8 @@ namespace PF2e.TurnSystem
             Func<EntityHandle, EntityData> getEntity,
             Func<EntityHandle, bool> canUseReaction,
             List<ReactionOption> reactionBuffer,
+            TriggerWindowLedger triggerWindowLedger,
+            TriggerWindowToken triggerWindowToken,
             out ReactionOption option,
             out EntityData reactorData)
         {
@@ -312,6 +332,9 @@ namespace PF2e.TurnSystem
                 return false;
             if (!canUseReaction(option.entity))
                 return false;
+            if (IsWindowGuardEnabled(triggerWindowLedger, triggerWindowToken)
+                && !triggerWindowLedger.CanReact(triggerWindowToken, option.entity))
+                return false;
 
             return true;
         }
@@ -322,7 +345,9 @@ namespace PF2e.TurnSystem
             EntityData reactorData,
             int incomingDamage,
             ShieldBlockAction shieldBlockAction,
-            string ownerTag)
+            string ownerTag,
+            TriggerWindowLedger triggerWindowLedger,
+            TriggerWindowToken triggerWindowToken)
         {
             var result = reactorData.CalculateShieldBlockResult(incomingDamage, out var source);
             if (source == ShieldBlockSource.None)
@@ -334,9 +359,22 @@ namespace PF2e.TurnSystem
                 return 0;
             }
 
-            return shieldBlockAction.Execute(reactor, incomingDamage, in result, source, triggerSource)
-                ? result.targetDamageReduction
-                : 0;
+            if (!shieldBlockAction.Execute(reactor, incomingDamage, in result, source, triggerSource))
+                return 0;
+
+            if (IsWindowGuardEnabled(triggerWindowLedger, triggerWindowToken))
+                triggerWindowLedger.MarkReacted(triggerWindowToken, reactor);
+
+            return result.targetDamageReduction;
+        }
+
+        private static bool IsWindowGuardEnabled(
+            TriggerWindowLedger triggerWindowLedger,
+            TriggerWindowToken triggerWindowToken)
+        {
+            return triggerWindowLedger != null
+                && triggerWindowToken.IsValid
+                && triggerWindowLedger.IsOpen(triggerWindowToken);
         }
     }
 }

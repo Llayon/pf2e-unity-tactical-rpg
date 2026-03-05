@@ -16,6 +16,7 @@ namespace PF2e.TurnSystem
 
         public int PreparedCount => readyStrikeService.PreparedCount;
         public bool IsResolvingTrigger => triggerExecutor.IsResolving;
+        public TriggerWindowLedger TriggerWindowLedger => readyStrikeService.TriggerWindowLedger;
 
         public bool HasPrepared(EntityHandle actor)
         {
@@ -80,7 +81,7 @@ namespace PF2e.TurnSystem
                 entityManager,
                 strikeAction,
                 findInitiativeIndex,
-                (actor, target, triggerReason) => triggerExecutor.Resolve(
+                (actor, target, triggerReason, triggerWindowToken) => triggerExecutor.Resolve(
                     actor,
                     target,
                     triggerReason,
@@ -88,7 +89,8 @@ namespace PF2e.TurnSystem
                     entityManager,
                     strikeAction,
                     eventBus,
-                    canUseReaction));
+                    canUseReaction,
+                    triggerWindowToken));
         }
 
         public void HandleStrikePreDamage(
@@ -113,7 +115,7 @@ namespace PF2e.TurnSystem
                 entityManager,
                 strikeAction,
                 findInitiativeIndex,
-                (actor, target, triggerReason) => triggerExecutor.Resolve(
+                (actor, target, triggerReason, triggerWindowToken) => triggerExecutor.Resolve(
                     actor,
                     target,
                     triggerReason,
@@ -121,7 +123,8 @@ namespace PF2e.TurnSystem
                     entityManager,
                     strikeAction,
                     eventBus,
-                    canUseReaction));
+                    canUseReaction,
+                    triggerWindowToken));
         }
 
         private bool CanProcessRuntimeEvents(

@@ -118,6 +118,7 @@ namespace PF2e.TurnSystem
         public bool IsDelayReturnWindowOpen => state == TurnState.DelayReturnWindow;
         public AidService AidService => aidService;
         public int ReadiedStrikeCount => readyStrikeCoordinator.PreparedCount;
+        public TriggerWindowLedger ReactionTriggerWindowLedger => readyStrikeCoordinator.TriggerWindowLedger;
 
         public EntityHandle DelayReturnWindowAfterActor => delayReturnWindowAfterActor;
 

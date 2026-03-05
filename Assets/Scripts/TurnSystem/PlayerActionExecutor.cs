@@ -348,15 +348,34 @@ namespace PF2e.TurnSystem
         {
             if (turnManager == null || entityManager == null || entityManager.Registry == null)
                 return 0;
-            return ReactionBroker.ResolvePostHitReductionSync(
-                resolved,
-                turnManager.InitiativeOrder,
-                handle => entityManager.Registry.Get(handle),
-                handle => turnManager.CanUseReaction(handle),
-                reactionPolicy,
-                shieldBlockAction,
-                reactionBuffer,
-                "Executor");
+
+            var ledger = turnManager.ReactionTriggerWindowLedger;
+            var token = ledger != null
+                ? ledger.OpenWindow(
+                    TriggerWindowType.PostHitDamage,
+                    source: resolved.attacker,
+                    target: resolved.target)
+                : default;
+
+            try
+            {
+                return ReactionBroker.ResolvePostHitReductionSync(
+                    resolved,
+                    turnManager.InitiativeOrder,
+                    handle => entityManager.Registry.Get(handle),
+                    handle => turnManager.CanUseReaction(handle),
+                    reactionPolicy,
+                    shieldBlockAction,
+                    reactionBuffer,
+                    "Executor",
+                    triggerWindowLedger: ledger,
+                    triggerWindowToken: token);
+            }
+            finally
+            {
+                if (ledger != null && token.IsValid)
+                    ledger.CloseWindow(token);
+            }
         }
 
         private bool EnsureReactionPolicy()
