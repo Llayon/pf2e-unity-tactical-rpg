@@ -473,6 +473,8 @@ namespace PF2e.Presentation
             ConfigurePopupTileLayout(castSpellModeStandardButton, castPopupTileWidth);
             ConfigurePopupTileLayout(castSpellModeGlassButton, castPopupTileWidth);
 
+            EnsureStrikePopupGroupHeaders();
+
             if (standButton != null)
                 standButton.gameObject.SetActive(false);
         }
@@ -568,6 +570,83 @@ namespace PF2e.Presentation
             }
         }
 
+        private void EnsureStrikePopupGroupHeaders()
+        {
+            if (strikePopupRoot == null)
+                return;
+
+            var attacksHeader = EnsurePopupHeader(strikePopupRoot, "AttacksHeader", "Attacks:");
+            var maneuversHeader = EnsurePopupHeader(strikePopupRoot, "ManeuversHeader", "Maneuvers:");
+            ConfigurePopupHeaderLayout(attacksHeader, preferredWidth: 70f);
+            ConfigurePopupHeaderLayout(maneuversHeader, preferredWidth: 92f);
+
+            if (attacksHeader != null)
+                attacksHeader.SetSiblingIndex(0);
+
+            if (strikePopupStrikeButton != null && attacksHeader != null)
+                strikePopupStrikeButton.transform.SetSiblingIndex(attacksHeader.GetSiblingIndex() + 1);
+
+            if (maneuversHeader != null)
+            {
+                int maneuversHeaderIndex = 1;
+                if (strikePopupStrikeButton != null)
+                    maneuversHeaderIndex = strikePopupStrikeButton.transform.GetSiblingIndex() + 1;
+                maneuversHeader.SetSiblingIndex(maneuversHeaderIndex);
+            }
+
+            if (tripButton != null && maneuversHeader != null)
+                tripButton.transform.SetSiblingIndex(maneuversHeader.GetSiblingIndex() + 1);
+        }
+
+        private static RectTransform EnsurePopupHeader(RectTransform popupRoot, string name, string text)
+        {
+            if (popupRoot == null)
+                return null;
+
+            var existing = popupRoot.Find(name) as RectTransform;
+            if (existing != null)
+            {
+                var existingLabel = existing.GetComponentInChildren<TMP_Text>(true);
+                if (existingLabel != null)
+                    existingLabel.text = text;
+                return existing;
+            }
+
+            var go = new GameObject(name, typeof(RectTransform), typeof(LayoutElement));
+            go.transform.SetParent(popupRoot, false);
+            var rect = go.GetComponent<RectTransform>();
+
+            var labelGo = new GameObject("Label", typeof(RectTransform));
+            labelGo.transform.SetParent(go.transform, false);
+            var label = labelGo.AddComponent<TextMeshProUGUI>();
+            label.text = text;
+            label.alignment = TextAlignmentOptions.MidlineLeft;
+            label.fontSize = 12f;
+            label.color = new Color(0.86f, 0.86f, 0.90f, 0.92f);
+            label.enableWordWrapping = false;
+            label.raycastTarget = false;
+
+            var labelRect = label.GetComponent<RectTransform>();
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = Vector2.one;
+            labelRect.offsetMin = Vector2.zero;
+            labelRect.offsetMax = Vector2.zero;
+
+            return rect;
+        }
+
+        private static void ConfigurePopupHeaderLayout(RectTransform headerRect, float preferredWidth)
+        {
+            if (headerRect == null)
+                return;
+
+            var layoutElement = EnsureLayoutElement(headerRect.gameObject);
+            layoutElement.preferredWidth = preferredWidth;
+            layoutElement.minWidth = preferredWidth;
+            layoutElement.preferredHeight = 22f;
+            layoutElement.minHeight = 22f;
+        }
+
         private void ApplyStaticButtonLabels()
         {
             if (!useLauncherLayout)
@@ -605,7 +684,7 @@ namespace PF2e.Presentation
             if (castSpellModeGlassButton != null)
                 SetButtonLabelText(castSpellModeGlassButton, "Glass Shield [1]");
             if (strikePopupStrikeButton != null)
-                SetButtonLabelText(strikePopupStrikeButton, "Strike [1]");
+                SetButtonLabelText(strikePopupStrikeButton, "Strike [1][ATK]");
         }
 
         private static void SetButtonLabelText(Button button, string text)
