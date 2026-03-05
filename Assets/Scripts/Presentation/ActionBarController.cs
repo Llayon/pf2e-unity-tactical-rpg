@@ -78,6 +78,7 @@ namespace PF2e.Presentation
 
         private bool buttonListenersBound;
         private bool delayEventsSubscribedInternally;
+        private bool turnManagementButtonsExternallyHidden;
         private readonly ActionBarAvailabilityPolicy actionBarAvailabilityPolicy = new();
         private readonly AidPreparedIndicatorPresenter aidPreparedIndicatorPresenter = new();
         private readonly DelayActionBarStatePresenter delayActionBarStatePresenter = new();
@@ -373,6 +374,7 @@ namespace PF2e.Presentation
             actionBarCommandCoordinator.Bind(turnManager, targetingController, actionExecutor, RefreshAvailability);
             SubscribeCoreEvents();
             SubscribeDelayEventsIfNeeded();
+            SetTurnManagementButtonsVisible(!IsExternalTurnOptionsPresenterPresent());
 
             targetingController.OnModeChanged += HandleModeChanged;
 
@@ -621,7 +623,7 @@ namespace PF2e.Presentation
             SetHighlight(demoralizeHighlight, mode == TargetingMode.Demoralize);
             SetHighlight(escapeHighlight, mode == TargetingMode.Escape);
             SetHighlight(aidHighlight, mode == TargetingMode.Aid);
-            SetHighlight(readyHighlight, mode == TargetingMode.ReadyStrike);
+            SetHighlight(readyHighlight, !turnManagementButtonsExternallyHidden && mode == TargetingMode.ReadyStrike);
             SetHighlight(castSpellHighlight, false);
             SetHighlight(raiseShieldHighlight, false);
             SetHighlight(standHighlight, false);
@@ -746,7 +748,7 @@ namespace PF2e.Presentation
             SetInteractable(demoralizeButton, enabled);
             SetInteractable(escapeButton, enabled);
             SetInteractable(aidButton, enabled);
-            SetInteractable(readyButton, enabled);
+            SetInteractable(readyButton, !turnManagementButtonsExternallyHidden && enabled);
             SetInteractable(readyModeMoveButton, enabled);
             SetInteractable(readyModeAttackButton, enabled);
             SetInteractable(readyModeAnyButton, enabled);
@@ -767,7 +769,7 @@ namespace PF2e.Presentation
             SetInteractable(demoralizeButton, availability.demoralizeInteractable);
             SetInteractable(escapeButton, availability.escapeInteractable);
             SetInteractable(aidButton, availability.aidInteractable);
-            SetInteractable(readyButton, availability.readyInteractable);
+            SetInteractable(readyButton, !turnManagementButtonsExternallyHidden && availability.readyInteractable);
             SetInteractable(castSpellButton, availability.castSpellInteractable);
             SetInteractable(raiseShieldButton, availability.raiseShieldInteractable);
             SetInteractable(standButton, availability.standInteractable);
@@ -775,12 +777,43 @@ namespace PF2e.Presentation
 
         private void ApplyDelayControls(in DelayActionBarState state)
         {
+            if (turnManagementButtonsExternallyHidden)
+            {
+                SetButtonVisible(delayButton, false);
+                SetButtonVisible(returnNowButton, false);
+                SetButtonVisible(skipDelayWindowButton, false);
+                return;
+            }
+
             delayActionBarStatePresenter.Apply(in state, delayButton, returnNowButton, skipDelayWindowButton);
+        }
+
+        public void SetTurnManagementButtonsVisible(bool visible)
+        {
+            turnManagementButtonsExternallyHidden = !visible;
+            SetButtonVisible(readyButton, visible);
+            SetButtonVisible(delayButton, visible);
+            if (!visible)
+            {
+                SetButtonVisible(returnNowButton, false);
+                SetButtonVisible(skipDelayWindowButton, false);
+                SetReadyModeButtonsInteractable(false);
+                SetHighlight(readyHighlight, false);
+            }
         }
 
         private static void SetInteractable(Button button, bool enabled)
         {
             if (button != null) button.interactable = enabled;
+        }
+
+        private static void SetButtonVisible(Button button, bool visible)
+        {
+            if (button == null)
+                return;
+
+            if (button.gameObject.activeSelf != visible)
+                button.gameObject.SetActive(visible);
         }
 
         private void ClearAllHighlights()
@@ -922,6 +955,12 @@ namespace PF2e.Presentation
         {
             var orchestrator = UnityEngine.Object.FindFirstObjectByType<DelayUiOrchestrator>();
             return orchestrator != null && orchestrator.isActiveAndEnabled;
+        }
+
+        private static bool IsExternalTurnOptionsPresenterPresent()
+        {
+            var presenter = UnityEngine.Object.FindFirstObjectByType<TurnOptionsPresenter>();
+            return presenter != null && presenter.isActiveAndEnabled;
         }
     }
 }

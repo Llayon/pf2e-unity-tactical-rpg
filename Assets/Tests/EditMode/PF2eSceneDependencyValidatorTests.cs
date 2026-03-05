@@ -50,10 +50,16 @@ namespace PF2e.Tests
                 "SampleScene must contain ActionBarController.");
             Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<InitiativeBarController>(),
                 "SampleScene must contain InitiativeBarController.");
-            Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<TurnUIController>(),
+            Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<TurnUIController>(FindObjectsInactive.Include),
                 "SampleScene must contain TurnUIController.");
             Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<CombatLogController>(),
                 "SampleScene must contain CombatLogController.");
+            Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<UnitPanelController>(),
+                "SampleScene must contain UnitPanelController.");
+            Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<TurnEconomyController>(),
+                "SampleScene must contain TurnEconomyController.");
+            Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<TurnOptionsPresenter>(),
+                "SampleScene must contain TurnOptionsPresenter.");
         }
 
         [Test]

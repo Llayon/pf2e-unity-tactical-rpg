@@ -669,6 +669,35 @@ namespace PF2e.Presentation
             delayPlacementPromptBackground = delayPromptPresenter.PromptBackground;
         }
 
+        public bool TryGetTurnOptionsAnchorRect(out RectTransform anchorRect)
+        {
+            anchorRect = null;
+            if (turnManager == null)
+                return false;
+
+            EntityHandle anchorHandle = EntityHandle.None;
+            if (turnManager.IsDelayReturnWindowOpen)
+                anchorHandle = turnManager.DelayReturnWindowAfterActor;
+
+            if (!anchorHandle.IsValid)
+                anchorHandle = turnManager.CurrentEntity;
+
+            if (anchorHandle.IsValid && slotByHandle.TryGetValue(anchorHandle, out var anchorSlot) && anchorSlot != null)
+            {
+                anchorRect = anchorSlot.transform as RectTransform;
+                if (anchorRect != null)
+                    return true;
+            }
+
+            if (activeSlots.Count > 0 && activeSlots[0] != null)
+            {
+                anchorRect = activeSlots[0].transform as RectTransform;
+                return anchorRect != null;
+            }
+
+            return false;
+        }
+
 #if UNITY_EDITOR
         private void OnValidate()
         {

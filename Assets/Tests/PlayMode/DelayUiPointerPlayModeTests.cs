@@ -24,6 +24,7 @@ namespace PF2e.Tests
         private EntityManager entityManager;
         private CombatEventBus eventBus;
         private ActionBarController actionBar;
+        private TurnOptionsPresenter turnOptionsPresenter;
         private TargetingController targetingController;
         private PlayerActionExecutor actionExecutor;
         private EventSystem eventSystem;
@@ -170,8 +171,16 @@ namespace PF2e.Tests
 
             Assert.IsTrue(turnManager.CanDelayCurrentTurn(), "Setup invalid: Delay must be available at turn start.");
 
-            var delayButton = GetActionBarButton("delayButton");
-            Assert.IsNotNull(delayButton, "Delay button is not wired in ActionBarController.");
+            var launcher = GetTurnOptionsButton("launcherButton");
+            Assert.IsNotNull(launcher, "Turn Options launcher button is not wired.");
+            Assert.IsTrue(launcher.gameObject.activeInHierarchy);
+            Assert.IsTrue(launcher.interactable);
+
+            PointerClick(launcher.gameObject);
+            yield return null;
+
+            var delayButton = GetTurnOptionsButton("delayButton");
+            Assert.IsNotNull(delayButton, "Delay option button is not wired in TurnOptionsPresenter.");
             Assert.IsTrue(delayButton.gameObject.activeInHierarchy);
             Assert.IsTrue(delayButton.interactable);
 
@@ -179,6 +188,8 @@ namespace PF2e.Tests
             yield return null;
             Assert.IsTrue(turnManager.IsDelayPlacementSelectionOpen, "First Delay pointer click should open placement selection.");
 
+            PointerClick(launcher.gameObject);
+            yield return null;
             PointerClick(delayButton.gameObject);
             yield return null;
             Assert.IsFalse(turnManager.IsDelayPlacementSelectionOpen, "Second Delay pointer click should cancel placement selection.");
@@ -198,8 +209,18 @@ namespace PF2e.Tests
                 TryGetLatestEnemyAnchorAfterCurrentActor(out var plannedAnchor),
                 "Setup invalid: no enemy anchor available after current player.");
 
-            var delayButton = GetActionBarButton("delayButton");
+            var launcher = GetTurnOptionsButton("launcherButton");
+            Assert.IsNotNull(launcher);
+            Assert.IsTrue(launcher.gameObject.activeInHierarchy);
+            Assert.IsTrue(launcher.interactable);
+
+            PointerClick(launcher.gameObject);
+            yield return null;
+
+            var delayButton = GetTurnOptionsButton("delayButton");
             Assert.IsNotNull(delayButton);
+            Assert.IsTrue(delayButton.gameObject.activeInHierarchy);
+            Assert.IsTrue(delayButton.interactable);
             PointerClick(delayButton.gameObject);
 
             yield return WaitUntilOrTimeout(
@@ -250,8 +271,16 @@ namespace PF2e.Tests
                 DefaultTimeoutSeconds,
                 "Delay return window did not open.");
 
-            var returnNowButton = GetActionBarButton("returnNowButton");
-            Assert.IsNotNull(returnNowButton, "ReturnNow button is not wired.");
+            var launcher = GetTurnOptionsButton("launcherButton");
+            Assert.IsNotNull(launcher, "Turn Options launcher is not wired.");
+            Assert.IsTrue(launcher.gameObject.activeInHierarchy);
+            Assert.IsTrue(launcher.interactable);
+
+            PointerClick(launcher.gameObject);
+            yield return null;
+
+            var returnNowButton = GetTurnOptionsButton("returnNowButton");
+            Assert.IsNotNull(returnNowButton, "ReturnNow option is not wired.");
             Assert.IsTrue(returnNowButton.gameObject.activeInHierarchy);
             Assert.IsTrue(returnNowButton.interactable);
 
@@ -287,8 +316,16 @@ namespace PF2e.Tests
                 DefaultTimeoutSeconds,
                 "Delay return window did not open.");
 
-            var skipButton = GetActionBarButton("skipDelayWindowButton");
-            Assert.IsNotNull(skipButton, "Skip button is not wired.");
+            var launcher = GetTurnOptionsButton("launcherButton");
+            Assert.IsNotNull(launcher, "Turn Options launcher is not wired.");
+            Assert.IsTrue(launcher.gameObject.activeInHierarchy);
+            Assert.IsTrue(launcher.interactable);
+
+            PointerClick(launcher.gameObject);
+            yield return null;
+
+            var skipButton = GetTurnOptionsButton("skipButton");
+            Assert.IsNotNull(skipButton, "Skip option is not wired.");
             Assert.IsTrue(skipButton.gameObject.activeInHierarchy);
             Assert.IsTrue(skipButton.interactable);
 
@@ -362,7 +399,15 @@ namespace PF2e.Tests
 
                     if (turnManager.State == TurnState.DelayReturnWindow)
                     {
-                        var skipButton = GetActionBarButton("skipDelayWindowButton");
+                        var launcher = GetTurnOptionsButton("launcherButton");
+                        Assert.IsNotNull(launcher);
+                        Assert.IsTrue(launcher.gameObject.activeInHierarchy);
+                        Assert.IsTrue(launcher.interactable);
+
+                        PointerClick(launcher.gameObject);
+                        yield return null;
+
+                        var skipButton = GetTurnOptionsButton("skipButton");
                         Assert.IsNotNull(skipButton);
                         Assert.IsTrue(skipButton.gameObject.activeInHierarchy);
                         Assert.IsTrue(skipButton.interactable);
@@ -400,6 +445,7 @@ namespace PF2e.Tests
             entityManager = UnityEngine.Object.FindFirstObjectByType<EntityManager>();
             eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
             actionBar = UnityEngine.Object.FindFirstObjectByType<ActionBarController>();
+            turnOptionsPresenter = UnityEngine.Object.FindFirstObjectByType<TurnOptionsPresenter>();
             targetingController = UnityEngine.Object.FindFirstObjectByType<TargetingController>();
             actionExecutor = UnityEngine.Object.FindFirstObjectByType<PlayerActionExecutor>();
 
@@ -407,6 +453,7 @@ namespace PF2e.Tests
             Assert.IsNotNull(entityManager, "EntityManager not found.");
             Assert.IsNotNull(eventBus, "CombatEventBus not found.");
             Assert.IsNotNull(actionBar, "ActionBarController not found.");
+            Assert.IsNotNull(turnOptionsPresenter, "TurnOptionsPresenter not found.");
             Assert.IsNotNull(targetingController, "TargetingController not found.");
             Assert.IsNotNull(actionExecutor, "PlayerActionExecutor not found.");
         }
@@ -547,6 +594,13 @@ namespace PF2e.Tests
             var field = actionBar.GetType().GetField(privateFieldName, InstanceNonPublic);
             Assert.IsNotNull(field, $"Missing ActionBarController field '{privateFieldName}'.");
             return field.GetValue(actionBar) as Button;
+        }
+
+        private Button GetTurnOptionsButton(string privateFieldName)
+        {
+            var field = turnOptionsPresenter.GetType().GetField(privateFieldName, InstanceNonPublic);
+            Assert.IsNotNull(field, $"Missing TurnOptionsPresenter field '{privateFieldName}'.");
+            return field.GetValue(turnOptionsPresenter) as Button;
         }
 
         private void PointerClick(GameObject target)
