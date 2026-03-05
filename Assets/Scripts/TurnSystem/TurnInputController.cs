@@ -134,6 +134,9 @@ namespace PF2e.TurnSystem
             if (kb.rKey.wasPressedThisFrame)
                 actionExecutor.TryExecuteRaiseShield();
 
+            if (kb.cKey.wasPressedThisFrame)
+                actionExecutor.TryExecuteCastShieldSpell(RaiseShieldSpellMode.Standard);
+
             if (kb.tKey.wasPressedThisFrame)
             {
                 if (turnManager.IsPlayerTurn && !actionExecutor.IsBusy)

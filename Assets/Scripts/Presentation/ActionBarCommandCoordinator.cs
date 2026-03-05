@@ -15,9 +15,9 @@ namespace PF2e.Presentation
         private TargetingController targetingController;
         private PlayerActionExecutor actionExecutor;
         private Action refreshAvailability;
-        private RaiseShieldSpellMode raiseShieldSpellMode = RaiseShieldSpellMode.Standard;
+        private RaiseShieldSpellMode castShieldSpellMode = RaiseShieldSpellMode.Standard;
 
-        public RaiseShieldSpellMode CurrentRaiseShieldSpellMode => raiseShieldSpellMode;
+        public RaiseShieldSpellMode CurrentCastShieldSpellMode => castShieldSpellMode;
 
         public void Bind(
             TurnManager turnManager,
@@ -120,39 +120,47 @@ namespace PF2e.Presentation
             if (actionExecutor == null)
                 return;
 
+            actionExecutor.TryExecuteRaiseShield();
+        }
+
+        public void OnCastSpellClicked()
+        {
+            if (actionExecutor == null)
+                return;
+
             var kb = Keyboard.current;
             bool shiftPressed = kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed);
             if (shiftPressed)
             {
-                ToggleRaiseShieldSpellMode();
+                ToggleCastShieldSpellMode();
                 refreshAvailability?.Invoke();
                 return;
             }
 
-            actionExecutor.TryExecuteRaiseShield(raiseShieldSpellMode);
+            actionExecutor.TryExecuteCastShieldSpell(castShieldSpellMode);
         }
 
-        public void OnRaiseShieldModeStandardClicked()
+        public void OnCastSpellModeStandardClicked()
         {
-            if (raiseShieldSpellMode == RaiseShieldSpellMode.Standard)
+            if (castShieldSpellMode == RaiseShieldSpellMode.Standard)
                 return;
 
-            raiseShieldSpellMode = RaiseShieldSpellMode.Standard;
+            castShieldSpellMode = RaiseShieldSpellMode.Standard;
             refreshAvailability?.Invoke();
         }
 
-        public void OnRaiseShieldModeGlassClicked()
+        public void OnCastSpellModeGlassClicked()
         {
-            if (raiseShieldSpellMode == RaiseShieldSpellMode.Glass)
+            if (castShieldSpellMode == RaiseShieldSpellMode.Glass)
                 return;
 
-            raiseShieldSpellMode = RaiseShieldSpellMode.Glass;
+            castShieldSpellMode = RaiseShieldSpellMode.Glass;
             refreshAvailability?.Invoke();
         }
 
-        private void ToggleRaiseShieldSpellMode()
+        private void ToggleCastShieldSpellMode()
         {
-            raiseShieldSpellMode = raiseShieldSpellMode == RaiseShieldSpellMode.Standard
+            castShieldSpellMode = castShieldSpellMode == RaiseShieldSpellMode.Standard
                 ? RaiseShieldSpellMode.Glass
                 : RaiseShieldSpellMode.Standard;
         }

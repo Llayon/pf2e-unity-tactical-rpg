@@ -11,6 +11,7 @@ namespace PF2e.Presentation
         public readonly bool escapeInteractable;
         public readonly bool aidInteractable;
         public readonly bool readyInteractable;
+        public readonly bool castSpellInteractable;
         public readonly bool raiseShieldInteractable;
         public readonly bool standInteractable;
 
@@ -24,6 +25,7 @@ namespace PF2e.Presentation
             bool escapeInteractable,
             bool aidInteractable,
             bool readyInteractable,
+            bool castSpellInteractable,
             bool raiseShieldInteractable,
             bool standInteractable)
         {
@@ -36,6 +38,7 @@ namespace PF2e.Presentation
             this.escapeInteractable = escapeInteractable;
             this.aidInteractable = aidInteractable;
             this.readyInteractable = readyInteractable;
+            this.castSpellInteractable = castSpellInteractable;
             this.raiseShieldInteractable = raiseShieldInteractable;
             this.standInteractable = standInteractable;
         }

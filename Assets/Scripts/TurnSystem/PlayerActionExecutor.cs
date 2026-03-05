@@ -741,55 +741,20 @@ namespace PF2e.TurnSystem
 
         public bool TryExecuteRaiseShield()
         {
-            return TryExecuteRaiseShield(RaiseShieldSpellMode.Standard);
-        }
-
-        public bool TryExecuteRaiseShield(RaiseShieldSpellMode preferredSpellMode)
-        {
             if (turnManager == null || entityManager == null) return false;
             if (!CanActNow()) return false;
 
             var actor = turnManager.CurrentEntity;
             bool canRaisePhysicalShield = raiseShieldAction != null && raiseShieldAction.CanRaiseShield(actor);
-            bool canCastStandardShield = standardShieldAction != null && standardShieldAction.CanCastStandardShield(actor);
-            bool canCastGlassShield = glassShieldAction != null && glassShieldAction.CanCastGlassShield(actor);
-            if (!canRaisePhysicalShield && !canCastStandardShield && !canCastGlassShield) return false;
-
-            bool executePhysical = canRaisePhysicalShield;
-            bool executeStandard = false;
-            bool executeGlass = false;
-
-            if (!executePhysical)
-            {
-                if (canCastStandardShield && canCastGlassShield)
-                {
-                    executeStandard = preferredSpellMode == RaiseShieldSpellMode.Standard;
-                    executeGlass = !executeStandard;
-                }
-                else
-                {
-                    executeStandard = canCastStandardShield;
-                    executeGlass = canCastGlassShield;
-                }
-            }
-
-            string actionSource = executePhysical
-                ? "Player.RaiseShield"
-                : (executeStandard ? "Player.StandardShield" : "Player.GlassShield");
+            if (!canRaisePhysicalShield) return false;
 
             executingActor = actor;
-            turnManager.BeginActionExecution(actor, actionSource);
+            turnManager.BeginActionExecution(actor, "Player.RaiseShield");
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             executionStartTime = Time.time;
 #endif
 
-            bool raised;
-            if (executePhysical)
-                raised = raiseShieldAction.TryRaiseShield(actor);
-            else if (executeStandard)
-                raised = standardShieldAction.TryCastStandardShield(actor);
-            else
-                raised = glassShieldAction.TryCastGlassShield(actor);
+            bool raised = raiseShieldAction.TryRaiseShield(actor);
             if (!raised)
             {
                 executingActor = EntityHandle.None;
@@ -797,6 +762,51 @@ namespace PF2e.TurnSystem
                 executionStartTime = -1f;
 #endif
                 turnManager.ActionCompleted(); // rollback (no action spent)
+                return false;
+            }
+
+            executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = -1f;
+#endif
+            turnManager.CompleteActionWithCost(RaiseShieldAction.ActionCost);
+            return true;
+        }
+
+        public bool TryExecuteCastShieldSpell(RaiseShieldSpellMode preferredSpellMode)
+        {
+            if (turnManager == null || entityManager == null) return false;
+            if (!CanActNow()) return false;
+
+            var actor = turnManager.CurrentEntity;
+            bool canCastStandardShield = standardShieldAction != null && standardShieldAction.CanCastStandardShield(actor);
+            bool canCastGlassShield = glassShieldAction != null && glassShieldAction.CanCastGlassShield(actor);
+            if (!canCastStandardShield && !canCastGlassShield) return false;
+
+            bool executeStandard;
+            if (canCastStandardShield && canCastGlassShield)
+                executeStandard = preferredSpellMode == RaiseShieldSpellMode.Standard;
+            else
+                executeStandard = canCastStandardShield;
+
+            string actionSource = executeStandard ? "Player.StandardShield" : "Player.GlassShield";
+
+            executingActor = actor;
+            turnManager.BeginActionExecution(actor, actionSource);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = Time.time;
+#endif
+
+            bool casted = executeStandard
+                ? standardShieldAction.TryCastStandardShield(actor)
+                : glassShieldAction.TryCastGlassShield(actor);
+            if (!casted)
+            {
+                executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                executionStartTime = -1f;
+#endif
+                turnManager.ActionCompleted();
                 return false;
             }
 

@@ -61,7 +61,8 @@ namespace PF2e.Presentation
                 // Aid remains selectable so player can receive contextual targeting feedback.
                 aidInteractable: true,
                 readyInteractable: canPrepareReadyStrike && actionsRemaining >= ReadyStrikeAction.ActionCost,
-                raiseShieldInteractable: CanRaiseShield(actorData),
+                castSpellInteractable: CanCastShieldSpell(actorData),
+                raiseShieldInteractable: CanRaisePhysicalShield(actorData),
                 standInteractable: HasCondition(actorData, ConditionType.Prone));
         }
 
@@ -81,18 +82,24 @@ namespace PF2e.Presentation
             return data.HasCondition(ConditionType.Grabbed) || data.HasCondition(ConditionType.Restrained);
         }
 
-        private static bool CanRaiseShield(EntityData data)
+        private static bool CanRaisePhysicalShield(EntityData data)
         {
             if (data == null)
                 return false;
 
             var shield = data.EquippedShield;
-            bool canRaisePhysicalShield =
+            return
                 shield.IsEquipped
                 && !shield.IsBroken
                 && !shield.isRaised;
+        }
 
-            return canRaisePhysicalShield || data.CanCastStandardShield || data.CanCastGlassShield;
+        private static bool CanCastShieldSpell(EntityData data)
+        {
+            if (data == null)
+                return false;
+
+            return data.CanCastStandardShield || data.CanCastGlassShield;
         }
 
         private static bool HasCondition(EntityData data, ConditionType type)

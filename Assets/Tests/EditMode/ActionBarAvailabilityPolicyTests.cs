@@ -46,6 +46,7 @@ namespace PF2e.Tests
                 Assert.IsTrue(state.escapeInteractable);
                 Assert.IsTrue(state.aidInteractable);
                 Assert.IsTrue(state.readyInteractable);
+                Assert.IsFalse(state.castSpellInteractable);
                 Assert.IsTrue(state.raiseShieldInteractable);
                 Assert.IsTrue(state.standInteractable);
             }
@@ -85,7 +86,7 @@ namespace PF2e.Tests
         }
 
         [Test]
-        public void BuildForActor_GlassShieldCantripAvailable_EnablesRaiseShieldSlot()
+        public void BuildForActor_GlassShieldCantripAvailable_EnablesCastSpellSlot()
         {
             var policy = new ActionBarAvailabilityPolicy();
             var actor = new EntityData
@@ -98,11 +99,12 @@ namespace PF2e.Tests
             };
 
             var state = policy.BuildForActor(actor);
-            Assert.IsTrue(state.raiseShieldInteractable);
+            Assert.IsFalse(state.raiseShieldInteractable);
+            Assert.IsTrue(state.castSpellInteractable);
         }
 
         [Test]
-        public void BuildForActor_StandardShieldCantripAvailable_EnablesRaiseShieldSlot()
+        public void BuildForActor_StandardShieldCantripAvailable_EnablesCastSpellSlot()
         {
             var policy = new ActionBarAvailabilityPolicy();
             var actor = new EntityData
@@ -115,11 +117,12 @@ namespace PF2e.Tests
             };
 
             var state = policy.BuildForActor(actor);
-            Assert.IsTrue(state.raiseShieldInteractable);
+            Assert.IsFalse(state.raiseShieldInteractable);
+            Assert.IsTrue(state.castSpellInteractable);
         }
 
         [Test]
-        public void BuildForActor_StandardShieldAlreadyRaised_DisablesRaiseShieldSlot()
+        public void BuildForActor_StandardShieldAlreadyRaised_DisablesCastSpellSlot()
         {
             var policy = new ActionBarAvailabilityPolicy();
             var actor = new EntityData
@@ -133,6 +136,7 @@ namespace PF2e.Tests
             Assert.IsTrue(actor.ActivateStandardShield(acBonus: 1, hardness: 5, maxHP: 1));
 
             var state = policy.BuildForActor(actor);
+            Assert.IsFalse(state.castSpellInteractable);
             Assert.IsFalse(state.raiseShieldInteractable);
         }
 

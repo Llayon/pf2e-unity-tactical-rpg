@@ -37,11 +37,12 @@ namespace PF2e.Presentation
         [SerializeField] private Button readyModeMoveButton;
         [SerializeField] private Button readyModeAttackButton;
         [SerializeField] private Button readyModeAnyButton;
+        [SerializeField] private Button castSpellButton;
+        [SerializeField] private TMP_Text castSpellButtonLabel;
+        [SerializeField] private RectTransform castSpellModeSelectorRoot;
+        [SerializeField] private Button castSpellModeStandardButton;
+        [SerializeField] private Button castSpellModeGlassButton;
         [SerializeField] private Button raiseShieldButton;
-        [SerializeField] private TMP_Text raiseShieldButtonLabel;
-        [SerializeField] private RectTransform raiseShieldModeSelectorRoot;
-        [SerializeField] private Button raiseShieldModeStandardButton;
-        [SerializeField] private Button raiseShieldModeGlassButton;
         [SerializeField] private Button standButton;
         [SerializeField] private Button delayButton;
         [SerializeField] private Button returnNowButton;
@@ -57,6 +58,7 @@ namespace PF2e.Presentation
         [SerializeField] private Image escapeHighlight;
         [SerializeField] private Image aidHighlight;
         [SerializeField] private Image readyHighlight;
+        [SerializeField] private Image castSpellHighlight;
         [SerializeField] private Image raiseShieldHighlight;
         [SerializeField] private Image standHighlight;
 
@@ -70,9 +72,9 @@ namespace PF2e.Presentation
         [SerializeField] private Color readyModeSelectedColor = new Color(0.95f, 0.78f, 0.18f, 0.95f);
         [SerializeField] private Color readyModeUnselectedColor = new Color(0.18f, 0.23f, 0.30f, 0.92f);
         [SerializeField] private Color readyModeTextColor = new Color(0.92f, 0.92f, 0.95f, 1f);
-        [SerializeField] private Color raiseShieldModeSelectedColor = new Color(0.95f, 0.78f, 0.18f, 0.95f);
-        [SerializeField] private Color raiseShieldModeUnselectedColor = new Color(0.18f, 0.23f, 0.30f, 0.92f);
-        [SerializeField] private Color raiseShieldModeTextColor = new Color(0.92f, 0.92f, 0.95f, 1f);
+        [SerializeField] private Color castSpellModeSelectedColor = new Color(0.95f, 0.78f, 0.18f, 0.95f);
+        [SerializeField] private Color castSpellModeUnselectedColor = new Color(0.18f, 0.23f, 0.30f, 0.92f);
+        [SerializeField] private Color castSpellModeTextColor = new Color(0.92f, 0.92f, 0.95f, 1f);
 
         private bool buttonListenersBound;
         private bool delayEventsSubscribedInternally;
@@ -112,8 +114,9 @@ namespace PF2e.Presentation
             if (readyModeMoveButton == null) Debug.LogWarning("[ActionBar] readyModeMoveButton not assigned", this);
             if (readyModeAttackButton == null) Debug.LogWarning("[ActionBar] readyModeAttackButton not assigned", this);
             if (readyModeAnyButton == null) Debug.LogWarning("[ActionBar] readyModeAnyButton not assigned", this);
+            if (castSpellButton == null) Debug.LogWarning("[ActionBar] castSpellButton not assigned", this);
+            if (castSpellButtonLabel == null) Debug.LogWarning("[ActionBar] castSpellButtonLabel not assigned", this);
             if (raiseShieldButton == null) Debug.LogWarning("[ActionBar] raiseShieldButton not assigned", this);
-            if (raiseShieldButtonLabel == null) Debug.LogWarning("[ActionBar] raiseShieldButtonLabel not assigned", this);
             if (standButton == null) Debug.LogWarning("[ActionBar] standButton not assigned", this);
             // delay/return/skip buttons are optional in older scenes; no warning spam.
         }
@@ -125,14 +128,15 @@ namespace PF2e.Presentation
             EnsureButtonListenersBound();
 
             SetCombatVisible(false);
+            SetCastSpellUiVisible(false);
             SetAllInteractable(false);
             ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
             SetReadyModeButtonsInteractable(false);
-            SetRaiseShieldModeButtonsInteractable(false);
+            SetCastSpellModeButtonsInteractable(false);
             RefreshReadyModeButtonsVisual();
-            RefreshRaiseShieldModeButtonsVisual();
+            RefreshCastSpellModeButtonsVisual();
             RefreshReadyButtonLabel();
-            RefreshRaiseShieldButtonLabel();
+            RefreshCastSpellButtonLabel();
             ClearAllHighlights();
         }
 
@@ -142,7 +146,8 @@ namespace PF2e.Presentation
             ApplyAidPreparedIndicatorStyle();
             ValidateReadyUiReferences();
             ResolveReadyModeSelectorReferences();
-            ResolveRaiseShieldUiReferences();
+            ResolveCastSpellUiReferences();
+            EnsureCastSpellUiFallback();
 
             aidPreparedIndicatorPresenter.Clear();
             RefreshAidPreparedIndicator();
@@ -218,10 +223,140 @@ namespace PF2e.Presentation
                 this);
         }
 
-        private void ResolveRaiseShieldUiReferences()
+        private void ResolveCastSpellUiReferences()
         {
-            if (raiseShieldButton != null && raiseShieldButtonLabel == null)
-                raiseShieldButtonLabel = raiseShieldButton.GetComponentInChildren<TMP_Text>(true);
+            if (castSpellButton != null && castSpellButtonLabel == null)
+                castSpellButtonLabel = castSpellButton.GetComponentInChildren<TMP_Text>(true);
+        }
+
+        private void EnsureCastSpellUiFallback()
+        {
+            if (castSpellButton == null && raiseShieldButton != null)
+            {
+                var clonedObject = Instantiate(raiseShieldButton.gameObject, raiseShieldButton.transform.parent);
+                clonedObject.name = "CastSpellButton_Auto";
+
+                var clonedRect = clonedObject.transform as RectTransform;
+                var raiseShieldRect = raiseShieldButton.transform as RectTransform;
+                if (clonedRect != null && raiseShieldRect != null)
+                {
+                    clonedRect.SetSiblingIndex(Mathf.Max(0, raiseShieldRect.GetSiblingIndex()));
+                }
+
+                castSpellButton = clonedObject.GetComponent<Button>();
+                castSpellButtonLabel = castSpellButton != null
+                    ? castSpellButton.GetComponentInChildren<TMP_Text>(true)
+                    : null;
+                if (castSpellButtonLabel != null)
+                    castSpellButtonLabel.text = "Cast [STD]";
+
+                if (castSpellHighlight == null)
+                    castSpellHighlight = ResolveFirstChildImage(clonedObject.transform);
+            }
+
+            if (castSpellModeSelectorRoot == null && castSpellButton != null)
+            {
+                castSpellModeSelectorRoot = BuildCastSpellModeSelector(castSpellButton.transform);
+            }
+
+            if ((castSpellModeStandardButton == null || castSpellModeGlassButton == null) && castSpellModeSelectorRoot != null)
+            {
+                ResolveCastSpellModeButtonsFromRoot(castSpellModeSelectorRoot);
+            }
+        }
+
+        private RectTransform BuildCastSpellModeSelector(Transform parent)
+        {
+            var rootObject = new GameObject(
+                "CastSpellModeSelector_Auto",
+                typeof(RectTransform),
+                typeof(HorizontalLayoutGroup));
+            rootObject.transform.SetParent(parent, false);
+
+            var rootRect = rootObject.GetComponent<RectTransform>();
+            rootRect.anchorMin = new Vector2(0.5f, 1f);
+            rootRect.anchorMax = new Vector2(0.5f, 1f);
+            rootRect.pivot = new Vector2(0.5f, 0f);
+            rootRect.anchoredPosition = new Vector2(0f, 3f);
+            rootRect.sizeDelta = new Vector2(64f, 16f);
+
+            var layout = rootObject.GetComponent<HorizontalLayoutGroup>();
+            layout.spacing = 2f;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = false;
+            layout.childControlHeight = false;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+
+            castSpellModeStandardButton = BuildCastSpellModeButton("Standard_Auto", "S", rootObject.transform);
+            castSpellModeGlassButton = BuildCastSpellModeButton("Glass_Auto", "G", rootObject.transform);
+            return rootRect;
+        }
+
+        private static Button BuildCastSpellModeButton(string name, string text, Transform parent)
+        {
+            var buttonObject = new GameObject(
+                name,
+                typeof(RectTransform),
+                typeof(Image),
+                typeof(Button),
+                typeof(LayoutElement));
+            buttonObject.transform.SetParent(parent, false);
+
+            var rect = buttonObject.GetComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(30f, 16f);
+
+            var layout = buttonObject.GetComponent<LayoutElement>();
+            layout.preferredWidth = 30f;
+            layout.preferredHeight = 16f;
+            layout.minWidth = 28f;
+            layout.minHeight = 16f;
+
+            var labelObject = new GameObject("Label", typeof(RectTransform));
+            labelObject.transform.SetParent(buttonObject.transform, false);
+            var label = labelObject.AddComponent<TextMeshProUGUI>();
+            label.text = text;
+            label.alignment = TextAlignmentOptions.Center;
+            label.raycastTarget = false;
+
+            var labelRect = labelObject.GetComponent<RectTransform>();
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = Vector2.one;
+            labelRect.offsetMin = Vector2.zero;
+            labelRect.offsetMax = Vector2.zero;
+
+            return buttonObject.GetComponent<Button>();
+        }
+
+        private void ResolveCastSpellModeButtonsFromRoot(RectTransform root)
+        {
+            if (root == null)
+                return;
+
+            var buttons = root.GetComponentsInChildren<Button>(true);
+            if (buttons == null || buttons.Length == 0)
+                return;
+
+            if (castSpellModeStandardButton == null)
+                castSpellModeStandardButton = buttons[0];
+
+            if (castSpellModeGlassButton == null && buttons.Length > 1)
+                castSpellModeGlassButton = buttons[1];
+        }
+
+        private static Image ResolveFirstChildImage(Transform root)
+        {
+            if (root == null)
+                return null;
+
+            var images = root.GetComponentsInChildren<Image>(true);
+            for (int i = 0; i < images.Length; i++)
+            {
+                if (images[i] != null && images[i].transform != root)
+                    return images[i];
+            }
+
+            return null;
         }
 
         private void OnEnable()
@@ -275,9 +410,10 @@ namespace PF2e.Presentation
             boundCount += BindButton(readyModeMoveButton, actionBarCommandCoordinator.OnReadyModeMoveClicked);
             boundCount += BindButton(readyModeAttackButton, actionBarCommandCoordinator.OnReadyModeAttackClicked);
             boundCount += BindButton(readyModeAnyButton, actionBarCommandCoordinator.OnReadyModeAnyClicked);
+            boundCount += BindButton(castSpellButton, actionBarCommandCoordinator.OnCastSpellClicked);
+            boundCount += BindButton(castSpellModeStandardButton, actionBarCommandCoordinator.OnCastSpellModeStandardClicked);
+            boundCount += BindButton(castSpellModeGlassButton, actionBarCommandCoordinator.OnCastSpellModeGlassClicked);
             boundCount += BindButton(raiseShieldButton, actionBarCommandCoordinator.OnRaiseShieldClicked);
-            boundCount += BindButton(raiseShieldModeStandardButton, actionBarCommandCoordinator.OnRaiseShieldModeStandardClicked);
-            boundCount += BindButton(raiseShieldModeGlassButton, actionBarCommandCoordinator.OnRaiseShieldModeGlassClicked);
             boundCount += BindButton(standButton, actionBarCommandCoordinator.OnStandClicked);
             boundCount += BindButton(delayButton, actionBarCommandCoordinator.OnDelayClicked);
             boundCount += BindButton(returnNowButton, actionBarCommandCoordinator.OnReturnNowClicked);
@@ -368,14 +504,15 @@ namespace PF2e.Presentation
                 targetingController.CancelTargeting();
 
             SetCombatVisible(false);
+            SetCastSpellUiVisible(false);
             SetAllInteractable(false);
             ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
             SetReadyModeButtonsInteractable(false);
-            SetRaiseShieldModeButtonsInteractable(false);
+            SetCastSpellModeButtonsInteractable(false);
             RefreshReadyModeButtonsVisual();
-            RefreshRaiseShieldModeButtonsVisual();
+            RefreshCastSpellModeButtonsVisual();
             RefreshReadyButtonLabel();
-            RefreshRaiseShieldButtonLabel();
+            RefreshCastSpellButtonLabel();
             ClearAllHighlights();
             aidPreparedIndicatorPresenter.Clear();
             RefreshAidPreparedIndicator();
@@ -394,7 +531,10 @@ namespace PF2e.Presentation
             SetAllInteractable(false);
             ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
             SetReadyModeButtonsInteractable(false);
+            SetCastSpellModeButtonsInteractable(false);
             RefreshReadyModeButtonsVisual();
+            RefreshCastSpellModeButtonsVisual();
+            RefreshCastSpellButtonLabel();
             ClearAllHighlights();
         }
 
@@ -482,6 +622,7 @@ namespace PF2e.Presentation
             SetHighlight(escapeHighlight, mode == TargetingMode.Escape);
             SetHighlight(aidHighlight, mode == TargetingMode.Aid);
             SetHighlight(readyHighlight, mode == TargetingMode.ReadyStrike);
+            SetHighlight(castSpellHighlight, false);
             SetHighlight(raiseShieldHighlight, false);
             SetHighlight(standHighlight, false);
 
@@ -492,17 +633,22 @@ namespace PF2e.Presentation
         {
             if (turnManager == null || entityManager == null || entityManager.Registry == null || actionExecutor == null)
             {
+                SetCastSpellUiVisible(false);
                 SetAllInteractable(false);
                 ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
                 aidPreparedIndicatorPresenter.Clear();
                 SetReadyModeButtonsInteractable(false);
-                SetRaiseShieldModeButtonsInteractable(false);
+                SetCastSpellModeButtonsInteractable(false);
                 RefreshReadyModeButtonsVisual();
-                RefreshRaiseShieldModeButtonsVisual();
-                RefreshRaiseShieldButtonLabel();
+                RefreshCastSpellModeButtonsVisual();
+                RefreshCastSpellButtonLabel();
                 RefreshAidPreparedIndicator();
                 return;
             }
+
+            var actor = turnManager.CurrentEntity;
+            var actorData = entityManager.Registry.Get(actor);
+            SetCastSpellUiVisible(ShouldShowCastSpellUi(actorData));
 
             if (turnManager.IsDelayReturnWindowOpen)
             {
@@ -511,11 +657,11 @@ namespace PF2e.Presentation
                 bool canReturnNow = turnManager.TryGetFirstDelayedPlayerActor(out _);
                 ApplyDelayControls(delayActionBarStatePresenter.BuildReturnWindowState(canReturnNow));
                 SetReadyModeButtonsInteractable(false);
-                SetRaiseShieldModeButtonsInteractable(false);
+                SetCastSpellModeButtonsInteractable(false);
                 RefreshReadyModeButtonsVisual();
-                RefreshRaiseShieldModeButtonsVisual();
+                RefreshCastSpellModeButtonsVisual();
                 RefreshReadyButtonLabel();
-                RefreshRaiseShieldButtonLabel();
+                RefreshCastSpellButtonLabel();
                 RefreshAidPreparedIndicator();
                 return;
             }
@@ -525,11 +671,11 @@ namespace PF2e.Presentation
                 SetAllInteractable(false);
                 ApplyDelayControls(delayActionBarStatePresenter.BuildPlacementSelectionState());
                 SetReadyModeButtonsInteractable(false);
-                SetRaiseShieldModeButtonsInteractable(false);
+                SetCastSpellModeButtonsInteractable(false);
                 RefreshReadyModeButtonsVisual();
-                RefreshRaiseShieldModeButtonsVisual();
+                RefreshCastSpellModeButtonsVisual();
                 RefreshReadyButtonLabel();
-                RefreshRaiseShieldButtonLabel();
+                RefreshCastSpellButtonLabel();
                 RefreshAidPreparedIndicator();
                 return;
             }
@@ -543,11 +689,11 @@ namespace PF2e.Presentation
                 SetAllInteractable(false);
                 ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
                 SetReadyModeButtonsInteractable(false);
-                SetRaiseShieldModeButtonsInteractable(false);
+                SetCastSpellModeButtonsInteractable(false);
                 RefreshReadyModeButtonsVisual();
-                RefreshRaiseShieldModeButtonsVisual();
+                RefreshCastSpellModeButtonsVisual();
                 RefreshReadyButtonLabel();
-                RefreshRaiseShieldButtonLabel();
+                RefreshCastSpellButtonLabel();
                 RefreshAidPreparedIndicator();
                 return;
             }
@@ -555,7 +701,6 @@ namespace PF2e.Presentation
             ApplyActionAvailability(in availability);
             ApplyDelayControls(delayActionBarStatePresenter.BuildNormalState(turnManager.CanDelayCurrentTurn()));
 
-            var actor = turnManager.CurrentEntity;
             bool canAdjustReadyMode =
                 actor.IsValid &&
                 turnManager.IsPlayerTurn &&
@@ -566,8 +711,7 @@ namespace PF2e.Presentation
             SetReadyModeButtonsInteractable(canAdjustReadyMode);
             RefreshReadyModeButtonsVisual();
 
-            var actorData = entityManager.Registry.Get(actor);
-            bool canAdjustShieldMode =
+            bool canAdjustCastSpellMode =
                 actorData != null &&
                 actorData.CanCastStandardShield &&
                 actorData.CanCastGlassShield &&
@@ -575,11 +719,11 @@ namespace PF2e.Presentation
                 turnManager.IsPlayerTurn &&
                 !turnManager.IsDelayPlacementSelectionOpen &&
                 !turnManager.IsDelayReturnWindowOpen;
-            SetRaiseShieldModeButtonsInteractable(canAdjustShieldMode);
-            RefreshRaiseShieldModeButtonsVisual();
+            SetCastSpellModeButtonsInteractable(canAdjustCastSpellMode);
+            RefreshCastSpellModeButtonsVisual();
 
             RefreshReadyButtonLabel();
-            RefreshRaiseShieldButtonLabel();
+            RefreshCastSpellButtonLabel();
             RefreshAidPreparedIndicator();
         }
 
@@ -606,9 +750,10 @@ namespace PF2e.Presentation
             SetInteractable(readyModeMoveButton, enabled);
             SetInteractable(readyModeAttackButton, enabled);
             SetInteractable(readyModeAnyButton, enabled);
+            SetInteractable(castSpellButton, enabled);
+            SetInteractable(castSpellModeStandardButton, enabled);
+            SetInteractable(castSpellModeGlassButton, enabled);
             SetInteractable(raiseShieldButton, enabled);
-            SetInteractable(raiseShieldModeStandardButton, enabled);
-            SetInteractable(raiseShieldModeGlassButton, enabled);
             SetInteractable(standButton, enabled);
         }
 
@@ -623,6 +768,7 @@ namespace PF2e.Presentation
             SetInteractable(escapeButton, availability.escapeInteractable);
             SetInteractable(aidButton, availability.aidInteractable);
             SetInteractable(readyButton, availability.readyInteractable);
+            SetInteractable(castSpellButton, availability.castSpellInteractable);
             SetInteractable(raiseShieldButton, availability.raiseShieldInteractable);
             SetInteractable(standButton, availability.standInteractable);
         }
@@ -648,6 +794,7 @@ namespace PF2e.Presentation
             SetHighlight(escapeHighlight, false);
             SetHighlight(aidHighlight, false);
             SetHighlight(readyHighlight, false);
+            SetHighlight(castSpellHighlight, false);
             SetHighlight(raiseShieldHighlight, false);
             SetHighlight(standHighlight, false);
         }
@@ -694,13 +841,29 @@ namespace PF2e.Presentation
             SetInteractable(readyModeAnyButton, enabled);
         }
 
-        private void SetRaiseShieldModeButtonsInteractable(bool enabled)
+        private void SetCastSpellModeButtonsInteractable(bool enabled)
         {
-            if (raiseShieldModeSelectorRoot != null)
-                raiseShieldModeSelectorRoot.gameObject.SetActive(raiseShieldButton != null && raiseShieldButton.gameObject.activeInHierarchy);
+            if (castSpellModeSelectorRoot != null)
+                castSpellModeSelectorRoot.gameObject.SetActive(castSpellButton != null && castSpellButton.gameObject.activeInHierarchy);
 
-            SetInteractable(raiseShieldModeStandardButton, enabled);
-            SetInteractable(raiseShieldModeGlassButton, enabled);
+            SetInteractable(castSpellModeStandardButton, enabled);
+            SetInteractable(castSpellModeGlassButton, enabled);
+        }
+
+        private void SetCastSpellUiVisible(bool visible)
+        {
+            if (castSpellButton != null && castSpellButton.gameObject.activeSelf != visible)
+                castSpellButton.gameObject.SetActive(visible);
+
+            if (castSpellModeSelectorRoot != null && castSpellModeSelectorRoot.gameObject.activeSelf != visible)
+                castSpellModeSelectorRoot.gameObject.SetActive(visible);
+        }
+
+        private static bool ShouldShowCastSpellUi(EntityData actorData)
+        {
+            return actorData != null
+                && actorData.IsAlive
+                && (actorData.KnowsStandardShieldCantrip || actorData.KnowsGlassShieldCantrip);
         }
 
         private void RefreshReadyModeButtonsVisual()
@@ -711,11 +874,11 @@ namespace PF2e.Presentation
             ApplyReadyModeButtonVisual(readyModeAnyButton, mode == ReadyTriggerMode.Any);
         }
 
-        private void RefreshRaiseShieldModeButtonsVisual()
+        private void RefreshCastSpellModeButtonsVisual()
         {
-            var mode = actionBarCommandCoordinator.CurrentRaiseShieldSpellMode;
-            ApplyRaiseShieldModeButtonVisual(raiseShieldModeStandardButton, mode == RaiseShieldSpellMode.Standard);
-            ApplyRaiseShieldModeButtonVisual(raiseShieldModeGlassButton, mode == RaiseShieldSpellMode.Glass);
+            var mode = actionBarCommandCoordinator.CurrentCastShieldSpellMode;
+            ApplyCastSpellModeButtonVisual(castSpellModeStandardButton, mode == RaiseShieldSpellMode.Standard);
+            ApplyCastSpellModeButtonVisual(castSpellModeGlassButton, mode == RaiseShieldSpellMode.Glass);
         }
 
         private void ApplyReadyModeButtonVisual(Button button, bool selected)
@@ -732,27 +895,27 @@ namespace PF2e.Presentation
                 label.color = selected ? Color.black : readyModeTextColor;
         }
 
-        private void ApplyRaiseShieldModeButtonVisual(Button button, bool selected)
+        private void ApplyCastSpellModeButtonVisual(Button button, bool selected)
         {
             if (button == null)
                 return;
 
             var image = button.GetComponent<Image>();
             if (image != null)
-                image.color = selected ? raiseShieldModeSelectedColor : raiseShieldModeUnselectedColor;
+                image.color = selected ? castSpellModeSelectedColor : castSpellModeUnselectedColor;
 
             var label = button.GetComponentInChildren<TMP_Text>(true);
             if (label != null)
-                label.color = selected ? Color.black : raiseShieldModeTextColor;
+                label.color = selected ? Color.black : castSpellModeTextColor;
         }
 
-        private void RefreshRaiseShieldButtonLabel()
+        private void RefreshCastSpellButtonLabel()
         {
-            if (raiseShieldButtonLabel == null)
+            if (castSpellButtonLabel == null)
                 return;
 
-            string token = actionBarCommandCoordinator.CurrentRaiseShieldSpellMode.ToShortToken();
-            raiseShieldButtonLabel.text = $"Shield [{token}]";
+            string token = actionBarCommandCoordinator.CurrentCastShieldSpellMode.ToShortToken();
+            castSpellButtonLabel.text = $"Cast [{token}]";
         }
 
         private static bool IsExternalDelayOrchestratorPresent()
