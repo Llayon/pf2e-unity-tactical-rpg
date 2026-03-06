@@ -619,7 +619,9 @@ namespace PF2e.Presentation
             actionBarCommandCoordinator.Bind(turnManager, targetingController, actionExecutor, RefreshAvailability);
             SubscribeCoreEvents();
             SubscribeDelayEventsIfNeeded();
-            SetTurnManagementButtonsVisible(!IsExternalTurnOptionsPresenterPresent());
+            // Turn-management visibility is now driven explicitly by TurnOptionsPresenter
+            // (OnEnable/OnDisable), not by ActionBar self-discovery.
+            SetTurnManagementButtonsVisible(true);
 
             targetingController.OnModeChanged += HandleModeChanged;
 
@@ -1443,10 +1445,5 @@ namespace PF2e.Presentation
             return orchestrator != null && orchestrator.isActiveAndEnabled;
         }
 
-        private static bool IsExternalTurnOptionsPresenterPresent()
-        {
-            var presenter = UnityEngine.Object.FindFirstObjectByType<TurnOptionsPresenter>();
-            return presenter != null && presenter.isActiveAndEnabled;
-        }
     }
 }
