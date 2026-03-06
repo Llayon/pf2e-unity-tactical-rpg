@@ -1,5 +1,5 @@
 # Project Memory
-Last updated: 2026-03-05
+Last updated: 2026-03-06
 
 ## Vision
 Build a small, playable, turn-based tactical PF2e combat slice in Unity where one player-controlled party can move on a grid, spend 3 actions, strike enemies, and finish encounters with clear visual feedback. Prioritize correctness of core turn/action/combat flow, maintainable architecture, and incremental delivery over full PF2e coverage.
@@ -181,6 +181,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Targeting preview contract: `TargetingController.PreviewEntityDetailed(...)` is the canonical source for target feedback/tints/hint text; UI layers must not duplicate action validation.
 - Targeting feedback contract: `GridInteraction` publishes hovered entity transitions through `GridManager` hover events; `TargetingFeedbackController`/`TargetingHintController` are event-driven (no per-frame full validation scan).
 - Combat log retention contract: `CombatLogController` keeps only last `maxLines` entries (currently 300) by recycling oldest pooled rows; older entries are intentionally dropped and communicated via retention notice label text.
+- Combat log teardown guard: `CombatLogController` now skips line instantiation while tearing down (`isTearingDown`, `lineTemplate/content` null-safe checks, stale pooled-line filtering), preventing transient TMP `MissingReferenceException` during scene shutdown event noise.
 - Combat log layout contract: each line row height must track TMP preferred wrapped height; pooled rows must be re-parented as last sibling on reuse to preserve scroll order.
 - Input/UI gate contract: when pointer is over UI, `GridInteraction` must ignore hover/click world interaction and `TacticalCameraController` must ignore wheel zoom input.
 - Generic damage UX contract: non-strike damage uses `DamageAppliedEvent`; `FloatingDamageUI`/`DamageLogForwarder` subscribe to this path. Strike damage still uses `OnStrikeResolved` path until an explicit strike migration is done (avoid duplicate UI/log lines).

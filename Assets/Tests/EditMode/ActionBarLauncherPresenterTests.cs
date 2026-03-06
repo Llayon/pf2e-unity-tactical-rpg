@@ -70,8 +70,19 @@ namespace PF2e.Tests
         [TearDown]
         public void TearDown()
         {
-            if (root != null)
-                Object.DestroyImmediate(root);
+            SafeDestroyGameObject(root);
+        }
+
+        private static void SafeDestroyGameObject(GameObject go)
+        {
+            if (go == null)
+                return;
+
+            if (go.activeSelf)
+                go.SetActive(false);
+
+            Canvas.ForceUpdateCanvases();
+            Object.DestroyImmediate(go);
         }
 
         [Test]

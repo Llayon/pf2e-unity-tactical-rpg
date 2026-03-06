@@ -45,6 +45,7 @@ namespace PF2e.Presentation
         private float combatStartTime = -1f;
         private bool scrollPending;
         private bool inCombat;
+        private bool isTearingDown;
         private float cachedMinLineHeight = 0f;
         private const int LegacyDefaultMaxLines = 80;
         private const int CurrentDefaultMaxLines = 300;
@@ -62,6 +63,8 @@ namespace PF2e.Presentation
 
         private void OnEnable()
         {
+            isTearingDown = false;
+
             if (entityManager == null || eventBus == null || scrollRect == null || content == null || lineTemplate == null)
             {
                 Debug.LogError("[CombatLog] Missing core dependencies. Disabling CombatLogController.", this);
@@ -94,6 +97,8 @@ namespace PF2e.Presentation
 
         private void OnDisable()
         {
+            isTearingDown = true;
+
             if (eventBus != null)
                 eventBus.OnLogEntry -= HandleBusLogEntry;
 
@@ -102,6 +107,7 @@ namespace PF2e.Presentation
 
         private void OnDestroy()
         {
+            isTearingDown = true;
             // Protection against static event leak (Play Mode exit without OnDisable)
             Canvas.willRenderCanvases -= HandleWillRenderCanvases;
         }
@@ -136,11 +142,15 @@ namespace PF2e.Presentation
         private void AddLineRaw(string text)
         {
             if (string.IsNullOrEmpty(text)) return;
+            if (!CanRenderLines()) return;
 
             while (activeLines.Count >= Mathf.Max(1, maxLines))
                 RecycleOldestLine();
 
             var line = GetLineInstance();
+            if (line == null)
+                return;
+
             EnsureLineIsLastChild(line);
             line.text = FormatLine(text);
             RefreshLinePreferredHeight(line);
@@ -179,12 +189,30 @@ namespace PF2e.Presentation
         private TextMeshProUGUI GetLineInstance()
         {
             if (pooledLines.Count > 0)
-                return pooledLines.Pop();
+            {
+                while (pooledLines.Count > 0)
+                {
+                    var pooled = pooledLines.Pop();
+                    if (pooled != null)
+                        return pooled;
+                }
+            }
+
+            if (!CanRenderLines())
+                return null;
 
             var inst = Instantiate(lineTemplate, content);
             inst.gameObject.name = "CombatLogLine";
             inst.gameObject.SetActive(false);
             return inst;
+        }
+
+        private bool CanRenderLines()
+        {
+            return !isTearingDown
+                && isActiveAndEnabled
+                && content != null
+                && lineTemplate != null;
         }
 
         private void EnsureLineIsLastChild(TextMeshProUGUI line)

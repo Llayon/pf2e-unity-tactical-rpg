@@ -1068,9 +1068,21 @@ namespace PF2e.Tests
                     if (asset != null) Object.DestroyImmediate(asset);
                 }
 
-                if (Root != null) Object.DestroyImmediate(Root);
+                SafeDestroyGameObject(Root);
                 LogAssert.ignoreFailingMessages = oldIgnoreLogs;
             }
+        }
+
+        private static void SafeDestroyGameObject(GameObject go)
+        {
+            if (go == null)
+                return;
+
+            if (go.activeSelf)
+                go.SetActive(false);
+
+            Canvas.ForceUpdateCanvases();
+            Object.DestroyImmediate(go);
         }
 
         private static object GetMemberValue(object target, string memberName)
