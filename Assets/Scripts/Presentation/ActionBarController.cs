@@ -1021,7 +1021,8 @@ namespace PF2e.Presentation
                 CloseAllPopups();
                 SetCastSpellUiVisible(false);
                 SetAllInteractable(false);
-                ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
+                if (!turnManagementButtonsExternallyHidden)
+                    ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
                 aidPreparedIndicatorPresenter.Clear();
                 SetReadyModeButtonsInteractable(false);
                 SetCastSpellModeButtonsInteractable(false);
@@ -1041,13 +1042,17 @@ namespace PF2e.Presentation
                 CloseAllPopups();
                 SetAllInteractable(false);
 
-                bool canReturnNow = turnManager.TryGetFirstDelayedPlayerActor(out _);
-                ApplyDelayControls(delayActionBarStatePresenter.BuildReturnWindowState(canReturnNow));
+                if (!turnManagementButtonsExternallyHidden)
+                {
+                    bool canReturnNow = turnManager.TryGetFirstDelayedPlayerActor(out _);
+                    ApplyDelayControls(delayActionBarStatePresenter.BuildReturnWindowState(canReturnNow));
+                }
                 SetReadyModeButtonsInteractable(false);
                 SetCastSpellModeButtonsInteractable(false);
                 RefreshReadyModeButtonsVisual();
                 RefreshCastSpellModeButtonsVisual();
-                RefreshReadyButtonLabel();
+                if (!turnManagementButtonsExternallyHidden)
+                    RefreshReadyButtonLabel();
                 RefreshCastSpellButtonLabel();
                 RefreshAidPreparedIndicator();
                 return;
@@ -1057,12 +1062,14 @@ namespace PF2e.Presentation
             {
                 CloseAllPopups();
                 SetAllInteractable(false);
-                ApplyDelayControls(delayActionBarStatePresenter.BuildPlacementSelectionState());
+                if (!turnManagementButtonsExternallyHidden)
+                    ApplyDelayControls(delayActionBarStatePresenter.BuildPlacementSelectionState());
                 SetReadyModeButtonsInteractable(false);
                 SetCastSpellModeButtonsInteractable(false);
                 RefreshReadyModeButtonsVisual();
                 RefreshCastSpellModeButtonsVisual();
-                RefreshReadyButtonLabel();
+                if (!turnManagementButtonsExternallyHidden)
+                    RefreshReadyButtonLabel();
                 RefreshCastSpellButtonLabel();
                 RefreshAidPreparedIndicator();
                 return;
@@ -1076,29 +1083,38 @@ namespace PF2e.Presentation
             {
                 CloseAllPopups();
                 SetAllInteractable(false);
-                ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
+                if (!turnManagementButtonsExternallyHidden)
+                    ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
                 SetReadyModeButtonsInteractable(false);
                 SetCastSpellModeButtonsInteractable(false);
                 RefreshReadyModeButtonsVisual();
                 RefreshCastSpellModeButtonsVisual();
-                RefreshReadyButtonLabel();
+                if (!turnManagementButtonsExternallyHidden)
+                    RefreshReadyButtonLabel();
                 RefreshCastSpellButtonLabel();
                 RefreshAidPreparedIndicator();
                 return;
             }
 
             ApplyActionAvailability(in availability);
-            ApplyDelayControls(delayActionBarStatePresenter.BuildNormalState(turnManager.CanDelayCurrentTurn()));
+            if (!turnManagementButtonsExternallyHidden)
+            {
+                ApplyDelayControls(delayActionBarStatePresenter.BuildNormalState(turnManager.CanDelayCurrentTurn()));
 
-            bool canAdjustReadyMode =
-                actor.IsValid &&
-                turnManager.IsPlayerTurn &&
-                !actionExecutor.IsBusy &&
-                !turnManager.IsDelayPlacementSelectionOpen &&
-                !turnManager.IsDelayReturnWindowOpen &&
-                !turnManager.HasReadiedStrike(actor);
-            SetReadyModeButtonsInteractable(canAdjustReadyMode);
-            RefreshReadyModeButtonsVisual();
+                bool canAdjustReadyMode =
+                    actor.IsValid &&
+                    turnManager.IsPlayerTurn &&
+                    !actionExecutor.IsBusy &&
+                    !turnManager.IsDelayPlacementSelectionOpen &&
+                    !turnManager.IsDelayReturnWindowOpen &&
+                    !turnManager.HasReadiedStrike(actor);
+                SetReadyModeButtonsInteractable(canAdjustReadyMode);
+                RefreshReadyModeButtonsVisual();
+            }
+            else
+            {
+                SetReadyModeButtonsInteractable(false);
+            }
 
             bool canAdjustCastSpellMode =
                 actorData != null &&
@@ -1111,7 +1127,8 @@ namespace PF2e.Presentation
             SetCastSpellModeButtonsInteractable(canAdjustCastSpellMode);
             RefreshCastSpellModeButtonsVisual();
 
-            RefreshReadyButtonLabel();
+            if (!turnManagementButtonsExternallyHidden)
+                RefreshReadyButtonLabel();
             RefreshCastSpellButtonLabel();
             RefreshAidPreparedIndicator();
             ApplyStaticButtonLabels();
