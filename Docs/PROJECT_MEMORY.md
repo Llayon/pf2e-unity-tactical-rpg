@@ -18,7 +18,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - `Assets/Scripts/Grid`: grid data, pathfinding, rendering, floor controls, click/hover interaction.
 - `Assets/Scripts/TurnSystem`: turn state machine, input routing, action execution (`StrideAction`, `StrikeAction`, `StandAction`, `RaiseShieldAction`, `ShieldBlockAction`, `TripAction`, `ShoveAction`, `GrappleAction`, `EscapeAction`, `DemoralizeAction`), phased strike/reaction windows, generic check system (`CheckResolver`), targeting, grapple lifecycle (`GrappleLifecycleController` + `GrappleService`), enemy AI orchestration (`AITurnController`), and AI decision seam (`IAIDecisionPolicy` + `SimpleMeleeDecisionPolicy`) plus reaction decision seam (`IReactionDecisionPolicy`, runtime default `ModalReactionPolicy`).
 - `Assets/Scripts/Managers`: `EntityManager` scene orchestration, spawning test entities (now including optional fighter shield + reaction preference), view management.
-- `Assets/Scripts/Presentation`: UI/controllers/log forwarders, initiative/floating damage visuals, action bar, targeting world tint feedback, targeting reason hint UI, Delay initiative/prompt composition helpers (`DelayPlacementPromptPresenter`, `DelayPlacementMarkerOverlayPresenter`, `DelayPlacementInteractionCoordinator`, `DelayInitiativeRowPlanner`), and top-level Delay UI mediation (`DelayUiOrchestrator`). `AidResolvedLogForwarder` now owns Aid lifecycle log rendering (`prepared/resolved/cleared`) from typed events.
+- `Assets/Scripts/Presentation`: UI/controllers/log forwarders, initiative/floating damage visuals, action bar, targeting world tint feedback, targeting reason hint UI, and Delay initiative/prompt composition helpers (`DelayPlacementPromptPresenter`, `DelayPlacementMarkerOverlayPresenter`, `DelayPlacementInteractionCoordinator`, `DelayInitiativeRowPlanner`). Delay UI now refreshes directly in `TurnOptionsPresenter` and `InitiativeBarController` via typed bus subscriptions (no orchestrator component). `AidResolvedLogForwarder` now owns Aid lifecycle log rendering (`prepared/resolved/cleared`) from typed events.
 - `Assets/Scripts/Data`: ScriptableObject configs (`GridConfig`).
 - `Assets/Tests/EditMode`: NUnit EditMode coverage for grid/pathfinding/occupancy/turn primitives.
 - `Assets/Tests/PlayMode`: smoke tests for encounter-end UX and scene-level flows.
@@ -88,13 +88,11 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Turn flow now uses typed payloads end-to-end: `TurnManager` publishes typed structs to its own events and directly to `CombatEventBus`; runtime consumers subscribe on typed bus channels.
 - Check domain model now has reusable `CheckRoll` + `CheckSource` + `CheckComparer` primitives; `CheckResult` composes `CheckRoll` (`dc`/`degree` on top) while keeping backward-compatible accessors (`naturalRoll`, `modifier`, `total`).
 - Delay UX is event-driven: `TurnManager` publishes typed delay channels (`DelayTurnBeginTriggerChanged`, `DelayPlacementSelectionChanged`, `DelayReturnWindowOpened/Closed`, `DelayedTurnEntered/Resumed/Expired`) and UI refresh is triggered from these events (no per-frame delay polling).
-- Delay UI fanout can be centralized via `DelayUiOrchestrator` (`ActionBarController` + `InitiativeBarController`), while controllers keep internal typed-event fallback for scenes/tests without explicit orchestrator wiring.
-- Scene tooling now understands Delay fanout wiring: `PF2eSceneDependencyValidator` validates `DelayUiOrchestrator` refs and `AutoFix` can create/wire it when both Action Bar and Initiative Bar are present.
+- Delay UI fanout is controller-owned: `TurnOptionsPresenter` and `InitiativeBarController` subscribe directly to typed delay channels on `CombatEventBus`; no external fanout orchestrator is used.
+- Scene tooling contract is simplified: `PF2eSceneDependencyValidator` no longer validates/creates Delay fanout mediator components; Delay UI wiring is limited to authored `TurnOptionsPresenter` and `InitiativeBarController` refs.
 - Scene tooling guard now has EditMode coverage: `PF2eSceneDependencyValidatorTests` verifies clean non-sample scene auto-returns to `SampleScene` through the workflow guard path.
 - `SampleScene` UI baseline now has EditMode smoke coverage: `PF2eSceneDependencyValidatorTests` asserts presence of critical combat UI controllers (`ActionBarController`, `InitiativeBarController`, `TurnUIController`, `CombatLogController`).
-- Delay orchestrator auto-fix now has EditMode regression coverage: `PF2eSceneDependencyValidatorTests` removes `DelayUiOrchestrator`, runs private `RunAutoFix(false)`, and verifies orchestrator recreation plus field wiring (`eventBus`, `actionBarController`, `initiativeBarController`).
-- Delay orchestrator auto-fix idempotency is covered: `PF2eSceneDependencyValidatorTests` verifies `RunAutoFix(false)` does not create duplicate `DelayUiOrchestrator` when one already exists.
-- Delay orchestrator remediation is covered: `PF2eSceneDependencyValidatorTests` nulls refs on an existing `DelayUiOrchestrator`, runs `RunAutoFix(false)`, and verifies refs are restored without duplicate creation.
+- Delay orchestrator cleanup is covered: `PF2eSceneDependencyValidatorTests` now asserts `SampleScene` does not contain obsolete `DelayUiOrchestrator` GameObject after the removal refactor.
 - Condition flow is now centralized through `ConditionService`; future rule expansion risk is concentrated in one place (good), but expanding stacking/implied rules must preserve deterministic tests.
 - Reaction UX introduces a mixed sync/async execution split: `AITurnController` enemy strike flow is coroutine-based for modal reaction windows, while `PlayerActionExecutor` strike flow remains sync for the current self-only Shield Block MVP.
 - Targeting UX now depends on validation-path equivalence: `TargetingController.PreviewEntity(...)` / `PreviewEntityDetailed(...)` and confirm click routing must stay in sync (shared evaluation core) to avoid "green highlight but invalid click" drift.
@@ -163,7 +161,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Delay fallback contract: manual `DelayReturnWindow` (`Return`/`Skip`) remains only for non-planned delayed actors; planned-delay-only windows must auto-skip to avoid Owlcat-flow UX regressions.
 - Delay reaction-suppression contract: delayed actors cannot use reactions until resumed/expired; suppression must clear on resume, expiry, and combat end cleanup.
 - Delay typed-event contract: Delay UI state changes are published through typed delay channels on `CombatEventBus`; UI controllers must not poll `TurnManager` each frame for Delay state changes.
-- Delay orchestrator contract: when both `ActionBarController` and `InitiativeBarController` exist in scene, validator should report missing `DelayUiOrchestrator`; `AutoFix` may create/wire it.
+- Delay UI ownership contract: delay-state UI refresh is owned directly by `TurnOptionsPresenter` and `InitiativeBarController` through typed `CombatEventBus` subscriptions; validator/autofix must not require or create `DelayUiOrchestrator`.
 - Conditions mutation contract: gameplay/turn/action code must mutate conditions through `ConditionService` (caller-owned `List<ConditionDelta>` buffers), not direct `EntityData` mutation helpers.
 - `EntityData.AddCondition/RemoveCondition` are internal guardrail APIs for core-only usage; cross-module/gameplay code must use `ConditionService`.
 - `EntityData.StartTurn/EndTurn` are compatibility-only legacy helpers; gameplay/tests should prefer `ConditionService.TickStartTurn/TickEndTurn`.
@@ -243,7 +241,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - PlayMode regression now covers multi-round movement/AI/condition-tick flow, blocked-turn recovery, sticky-target lock behavior, ranged concealment/cover logic, Shield Block reaction prompts, and Delay planned/manual + full-round expiry + pointer-level UI click flows (including pointer-driven Skip-loop expiry); full matrix coverage for spells/visibility states is still pending.
 - Ranged strike MVP is implemented (bow path, range increment penalties, grid LoS + simple cover AC, concealment flat-check misses via `Concealed`, `Volley` penalty, weapon-aware strike targeting, and crit math support for `Deadly`/`Fatal`), but advanced ranged rules remain deferred: ammo, reload, hidden/undetected and richer visibility states, volley-info preview UX, striking-rune scaling for crit traits, and crit specialization effects.
 - Delay UX is currently hybrid by design: Owlcat-style planned insertion is primary, while manual inter-turn `Return`/`Skip` controls are retained as fallback for non-planned delayed actors.
-- `DelayUiOrchestrator` is implemented but currently optional in scene wiring; fallback subscriptions remain active when orchestrator is absent/disabled.
+- `DelayUiOrchestrator` has been removed (`phase 29g.8`); any reintroduction requires explicit architecture decision and validator/test contract updates.
 - `ModalReactionPolicy` is the runtime default for both controllers; `AutoShieldBlockPolicy` remains in code for tests and simple synchronous policy scenarios.
 - Ready Strike MVP currently supports only Strike as readied action; full PF2e `Ready` (arbitrary action + chosen trigger sentence) remains intentionally deferred.
 - Combat round regression deadlock assertions now combine lock duration with turn-progress signals to reduce CI timing flakes while still detecting real stuck locks.
@@ -253,7 +251,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Legacy forwarder stubs (`TurnManagerLogForwarder`, `TurnManagerTypedForwarder`) were removed from scenes and code; turn/combat typed flow is direct `TurnManager -> CombatEventBus`.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Add dedicated scene/autofix regression coverage to assert `DelayUiOrchestrator` auto-create path and field wiring details (not only component presence).
+1. Decide and document final ownership split for turn-management controls (`Ready` in Action Bar vs `TurnOptionsPresenter`) and sync validator/UI contracts accordingly.
 2. Add explicit UI path for non-planned Delay (manual-delay click flow) so expiry tests can be fully pointer-driven end-to-end without API setup.
 3. Revisit combat log retention policy (cap value tuning / optional virtualization) before content scale significantly increases.
 
