@@ -445,7 +445,7 @@ public static class PF2eSceneDependencyValidator
     private static void ValidateDelayUiOrchestrator(DelayUiOrchestrator c, ref int errors, ref int warnings)
     {
         errors += RequireRef(c, "eventBus", "CombatEventBus");
-        errors += RequireRef(c, "actionBarController", "ActionBarController");
+        errors += RequireRef(c, "turnOptionsPresenter", "TurnOptionsPresenter");
         errors += RequireRef(c, "initiativeBarController", "InitiativeBarController");
     }
 
@@ -836,7 +836,7 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
 
         if (delayUiOrchestratorSingleton == null &&
             eventBus != null &&
-            actionBarControllerSingleton != null &&
+            turnOptionsPresenterSingleton != null &&
             initiativeBarControllerSingleton != null)
         {
             var orchestratorGo = new GameObject("DelayUiOrchestrator");
@@ -1103,8 +1103,8 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         // DelayUiOrchestrator (Phase 29j)
         if (eventBus != null)
             fixedCount += FixAll<DelayUiOrchestrator>("eventBus", eventBus);
-        if (actionBarControllerSingleton != null)
-            fixedCount += FixAll<DelayUiOrchestrator>("actionBarController", actionBarControllerSingleton);
+        if (turnOptionsPresenterSingleton != null)
+            fixedCount += FixAll<DelayUiOrchestrator>("turnOptionsPresenter", turnOptionsPresenterSingleton);
         if (initiativeBarControllerSingleton != null)
             fixedCount += FixAll<DelayUiOrchestrator>("initiativeBarController", initiativeBarControllerSingleton);
 

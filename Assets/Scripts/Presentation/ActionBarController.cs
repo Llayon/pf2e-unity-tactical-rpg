@@ -911,16 +911,6 @@ namespace PF2e.Presentation
             canvasGroup.interactable = visible;
         }
 
-        /// <summary>
-        /// Backward-compatible hook for DelayUiOrchestrator.
-        /// Delay controls moved out of ActionBar, but delay window transitions
-        /// still require ActionBar availability refresh.
-        /// </summary>
-        public void RefreshDelayUiFromOrchestrator()
-        {
-            RefreshAvailability();
-        }
-
         private void SetAllInteractable(bool enabled)
         {
             if (!enabled)

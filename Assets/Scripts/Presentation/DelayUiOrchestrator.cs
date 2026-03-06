@@ -4,14 +4,14 @@ using PF2e.Core;
 namespace PF2e.Presentation
 {
     /// <summary>
-    /// Centralized Delay UI mediator for ActionBar + InitiativeBar.
+    /// Centralized Delay UI mediator for TurnOptions + InitiativeBar.
     /// Owns Delay typed-event subscriptions and fans out refresh calls to presentation controllers.
     /// </summary>
     public class DelayUiOrchestrator : MonoBehaviour
     {
         [Header("Dependencies (Inspector-first)")]
         [SerializeField] private CombatEventBus eventBus;
-        [SerializeField] private ActionBarController actionBarController;
+        [SerializeField] private TurnOptionsPresenter turnOptionsPresenter;
         [SerializeField] private InitiativeBarController initiativeBarController;
 
         private bool subscribed;
@@ -60,58 +60,59 @@ namespace PF2e.Presentation
 
         private void HandleDelayTurnBeginTriggerChanged(in DelayTurnBeginTriggerChangedEvent _)
         {
-            actionBarController?.RefreshDelayUiFromOrchestrator();
+            turnOptionsPresenter?.RefreshFromDelayUiOrchestrator();
         }
 
         private void HandleDelayPlacementSelectionChanged(in DelayPlacementSelectionChangedEvent _)
         {
-            actionBarController?.RefreshDelayUiFromOrchestrator();
+            turnOptionsPresenter?.RefreshFromDelayUiOrchestrator();
             initiativeBarController?.RefreshDelayPlacementUiFromOrchestrator();
         }
 
         private void HandleDelayReturnWindowOpened(in DelayReturnWindowOpenedEvent _)
         {
-            actionBarController?.RefreshDelayUiFromOrchestrator();
+            turnOptionsPresenter?.RefreshFromDelayUiOrchestrator();
             initiativeBarController?.RefreshDelayReturnWindowUiFromOrchestrator();
         }
 
         private void HandleDelayReturnWindowClosed(in DelayReturnWindowClosedEvent _)
         {
-            actionBarController?.RefreshDelayUiFromOrchestrator();
+            turnOptionsPresenter?.RefreshFromDelayUiOrchestrator();
             initiativeBarController?.RefreshDelayReturnWindowUiFromOrchestrator();
         }
 
         private void HandleDelayedTurnEntered(in DelayedTurnEnteredEvent _)
         {
-            actionBarController?.RefreshDelayUiFromOrchestrator();
+            turnOptionsPresenter?.RefreshFromDelayUiOrchestrator();
             initiativeBarController?.RefreshDelayedActorsUiFromOrchestrator();
         }
 
         private void HandleDelayedTurnResumed(in DelayedTurnResumedEvent _)
         {
-            actionBarController?.RefreshDelayUiFromOrchestrator();
+            turnOptionsPresenter?.RefreshFromDelayUiOrchestrator();
             initiativeBarController?.RefreshDelayedActorsUiFromOrchestrator();
         }
 
         private void HandleDelayedTurnExpired(in DelayedTurnExpiredEvent _)
         {
-            actionBarController?.RefreshDelayUiFromOrchestrator();
+            turnOptionsPresenter?.RefreshFromDelayUiOrchestrator();
             initiativeBarController?.RefreshDelayedActorsUiFromOrchestrator();
         }
 
         private void RefreshAllDelayUi()
         {
-            actionBarController?.RefreshDelayUiFromOrchestrator();
+            turnOptionsPresenter?.RefreshFromDelayUiOrchestrator();
             initiativeBarController?.RefreshDelayedActorsUiFromOrchestrator();
             initiativeBarController?.RefreshDelayReturnWindowUiFromOrchestrator();
+            initiativeBarController?.RefreshDelayPlacementUiFromOrchestrator();
         }
 
         private void ResolveDependenciesIfMissing()
         {
             if (eventBus == null)
                 eventBus = FindFirstObjectByType<CombatEventBus>();
-            if (actionBarController == null)
-                actionBarController = FindFirstObjectByType<ActionBarController>();
+            if (turnOptionsPresenter == null)
+                turnOptionsPresenter = FindFirstObjectByType<TurnOptionsPresenter>();
             if (initiativeBarController == null)
                 initiativeBarController = FindFirstObjectByType<InitiativeBarController>();
         }
@@ -121,8 +122,8 @@ namespace PF2e.Presentation
         {
             if (eventBus == null)
                 Debug.LogWarning("[DelayUiOrchestrator] CombatEventBus not assigned.", this);
-            if (actionBarController == null)
-                Debug.LogWarning("[DelayUiOrchestrator] ActionBarController not assigned.", this);
+            if (turnOptionsPresenter == null)
+                Debug.LogWarning("[DelayUiOrchestrator] TurnOptionsPresenter not assigned.", this);
             if (initiativeBarController == null)
                 Debug.LogWarning("[DelayUiOrchestrator] InitiativeBarController not assigned.", this);
         }

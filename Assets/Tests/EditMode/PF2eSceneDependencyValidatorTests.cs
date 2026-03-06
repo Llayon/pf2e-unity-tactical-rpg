@@ -445,10 +445,10 @@ namespace PF2e.Tests
             EditorSceneManager.OpenScene(SampleScenePath, OpenSceneMode.Single);
 
             var eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
-            var actionBar = UnityEngine.Object.FindFirstObjectByType<ActionBarController>();
+            var turnOptions = UnityEngine.Object.FindFirstObjectByType<TurnOptionsPresenter>();
             var initiativeBar = UnityEngine.Object.FindFirstObjectByType<InitiativeBarController>();
             Assert.IsNotNull(eventBus, "SampleScene must contain CombatEventBus.");
-            Assert.IsNotNull(actionBar, "SampleScene must contain ActionBarController.");
+            Assert.IsNotNull(turnOptions, "SampleScene must contain TurnOptionsPresenter.");
             Assert.IsNotNull(initiativeBar, "SampleScene must contain InitiativeBarController.");
 
             var existing = UnityEngine.Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
@@ -469,7 +469,7 @@ namespace PF2e.Tests
 
             var orchestrator = after[0];
             Assert.AreSame(eventBus, GetPrivateField<CombatEventBus>(orchestrator, "eventBus"));
-            Assert.AreSame(actionBar, GetPrivateField<ActionBarController>(orchestrator, "actionBarController"));
+            Assert.AreSame(turnOptions, GetPrivateField<TurnOptionsPresenter>(orchestrator, "turnOptionsPresenter"));
             Assert.AreSame(initiativeBar, GetPrivateField<InitiativeBarController>(orchestrator, "initiativeBarController"));
         }
 
@@ -507,10 +507,10 @@ namespace PF2e.Tests
             EditorSceneManager.OpenScene(SampleScenePath, OpenSceneMode.Single);
 
             var eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
-            var actionBar = UnityEngine.Object.FindFirstObjectByType<ActionBarController>();
+            var turnOptions = UnityEngine.Object.FindFirstObjectByType<TurnOptionsPresenter>();
             var initiativeBar = UnityEngine.Object.FindFirstObjectByType<InitiativeBarController>();
             Assert.IsNotNull(eventBus, "SampleScene must contain CombatEventBus.");
-            Assert.IsNotNull(actionBar, "SampleScene must contain ActionBarController.");
+            Assert.IsNotNull(turnOptions, "SampleScene must contain TurnOptionsPresenter.");
             Assert.IsNotNull(initiativeBar, "SampleScene must contain InitiativeBarController.");
 
             var all = UnityEngine.Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
@@ -530,7 +530,7 @@ namespace PF2e.Tests
             Assert.IsNotNull(orchestrator, "Test precondition: one DelayUiOrchestrator must exist.");
 
             SetPrivateField(orchestrator, "eventBus", null);
-            SetPrivateField(orchestrator, "actionBarController", null);
+            SetPrivateField(orchestrator, "turnOptionsPresenter", null);
             SetPrivateField(orchestrator, "initiativeBarController", null);
 
             InvokePrivateValidatorMethodWithBoolArg("RunAutoFix", false);
@@ -540,7 +540,7 @@ namespace PF2e.Tests
 
             var rewired = after[0];
             Assert.AreSame(eventBus, GetPrivateField<CombatEventBus>(rewired, "eventBus"));
-            Assert.AreSame(actionBar, GetPrivateField<ActionBarController>(rewired, "actionBarController"));
+            Assert.AreSame(turnOptions, GetPrivateField<TurnOptionsPresenter>(rewired, "turnOptionsPresenter"));
             Assert.AreSame(initiativeBar, GetPrivateField<InitiativeBarController>(rewired, "initiativeBarController"));
         }
 

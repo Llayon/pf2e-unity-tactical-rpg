@@ -679,6 +679,15 @@ namespace PF2e.Presentation
                 panelRoot.gameObject.SetActive(visible);
         }
 
+        /// <summary>
+        /// External refresh hook for Delay UI orchestration.
+        /// Used by DelayUiOrchestrator to synchronize turn-management UI after delay-state events.
+        /// </summary>
+        public void RefreshFromDelayUiOrchestrator()
+        {
+            RefreshUiState();
+        }
+
 #if UNITY_EDITOR
         private void OnValidate()
         {
