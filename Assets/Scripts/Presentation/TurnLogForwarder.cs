@@ -61,20 +61,20 @@ namespace PF2e.Presentation
         {
             lastActor = EntityHandle.None;
             lastActions = -1;
-            eventBus.PublishSystem("Combat started.", CombatLogCategory.CombatStart);
+            eventBus.PublishSystem(CombatLogRichText.Round("Combat started."), CombatLogCategory.CombatStart);
         }
 
         private void OnCombatEndedTyped(in CombatEndedEvent e)
         {
             string message = EncounterEndLogMessageMap.For(e.result);
-            eventBus.PublishSystem(message, CombatLogCategory.CombatEnd);
+            eventBus.PublishSystem(CombatLogRichText.Round(message), CombatLogCategory.CombatEnd);
             lastActor = EntityHandle.None;
             lastActions = -1;
         }
 
         private void OnRoundStartedTyped(in RoundStartedEvent e)
         {
-            eventBus.PublishSystem($"Round {e.round} begins.", CombatLogCategory.Turn);
+            eventBus.PublishSystem(CombatLogRichText.Round($"Round {e.round} begins."), CombatLogCategory.Turn);
         }
 
         private void OnInitiativeRolledTyped(in InitiativeRolledEvent e)
@@ -90,7 +90,7 @@ namespace PF2e.Presentation
 
                 eventBus.Publish(
                     entry.Handle,
-                    $"rolls initiative: {RollBreakdownFormatter.FormatRoll(entry.Roll)}",
+                    $"{CombatLogRichText.Verb("rolls initiative:")} {RollBreakdownFormatter.FormatRoll(entry.Roll)}",
                     CombatLogCategory.Turn);
             }
         }
@@ -101,19 +101,23 @@ namespace PF2e.Presentation
             lastActions = e.actionsAtStart;
 
             var data = entityManager.Registry.Get(e.actor);
-            string name = data?.Name ?? e.actor.ToString();
-            string team = data != null ? data.Team.ToString() : "-";
+            string rawName = data?.Name ?? e.actor.ToString();
+            var team = data?.Team ?? Team.Neutral;
 
-            eventBus.PublishSystem($"{name} ({team}) starts turn. Actions: {Mathf.Clamp(e.actionsAtStart, 0, 3)}/3", CombatLogCategory.Turn);
+            eventBus.PublishSystem(
+                $"{CombatLogRichText.EntityName(rawName, team)} {CombatLogRichText.Verb($"({team}) starts turn. Actions: {Mathf.Clamp(e.actionsAtStart, 0, 3)}/3")}",
+                CombatLogCategory.Turn);
         }
 
         private void OnTurnEndedTyped(in TurnEndedEvent e)
         {
             var data = entityManager.Registry.Get(e.actor);
-            string name = data?.Name ?? e.actor.ToString();
-            string team = data != null ? data.Team.ToString() : "-";
+            string rawName = data?.Name ?? e.actor.ToString();
+            var team = data?.Team ?? Team.Neutral;
 
-            eventBus.PublishSystem($"{name} ({team}) ends turn.", CombatLogCategory.Turn);
+            eventBus.PublishSystem(
+                $"{CombatLogRichText.EntityName(rawName, team)} {CombatLogRichText.Verb($"({team}) ends turn.")}",
+                CombatLogCategory.Turn);
 
             if (e.actor == lastActor)
             {
@@ -137,7 +141,7 @@ namespace PF2e.Presentation
             {
                 int spent = lastActions - e.remaining;
                 eventBus.Publish(e.actor,
-                    $"spends {spent} action(s). Remaining {Mathf.Clamp(e.remaining, 0, 3)}/3",
+                    CombatLogRichText.Verb($"spends {spent} action(s). Remaining {Mathf.Clamp(e.remaining, 0, 3)}/3"),
                     CombatLogCategory.Turn);
             }
 

@@ -127,11 +127,14 @@ namespace PF2e.Presentation
                 SetInCombat(false);
             }
 
-            // Add line to log
+            // Add line to log with colored actor name
             if (entry.Actor.IsValid)
             {
-                var name = ResolveName(entry.Actor);
-                AddLineRaw($"{name}: {entry.Message}");
+                var data = entityManager.Registry?.Get(entry.Actor);
+                string rawName = data?.Name ?? entry.Actor.ToString();
+                var team = data?.Team ?? Team.Neutral;
+                string coloredName = CombatLogRichText.EntityName(rawName, team);
+                AddLineRaw($"{coloredName} {entry.Message}");
             }
             else
             {

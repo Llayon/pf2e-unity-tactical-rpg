@@ -49,15 +49,17 @@ namespace PF2e.Presentation
         private void HandleStrikeResolved(in StrikeResolvedEvent e)
         {
             var targetData = entityManager.Registry.Get(e.target);
-            string targetName = targetData?.Name ?? "Unknown";
+            string rawTargetName = targetData?.Name ?? "Unknown";
+            var targetTeam = targetData?.Team ?? Team.Neutral;
+            string targetName = CombatLogRichText.EntityName(rawTargetName, targetTeam);
 
             // 1. Attack roll line (always published)
             eventBus.Publish(e.attacker,
-                $"strikes {targetName} with {e.weaponName} — " +
-                $"{RollBreakdownFormatter.FormatRoll(e.attackRoll)} " +
-                $"[{RollBreakdownFormatter.FormatStrikeAttackBreakdown(e.attackBonus, e.mapPenalty, e.rangePenalty, e.volleyPenalty, e.aidCircumstanceBonus)}] " +
-                $"vs {RollBreakdownFormatter.FormatDefenseWithCover(e.defenseSource, e.dc, e.coverAcBonus)}" +
-                $" → {e.acDegree}",
+                $"{CombatLogRichText.Verb("strikes")} {targetName} {CombatLogRichText.Verb("with")} {CombatLogRichText.Weapon(e.weaponName)}{CombatLogRichText.Verb(",")} " +
+                $"{CombatLogRichText.Verb(RollBreakdownFormatter.FormatRoll(e.attackRoll))} " +
+                $"{CombatLogRichText.Verb("[" + RollBreakdownFormatter.FormatStrikeAttackBreakdown(e.attackBonus, e.mapPenalty, e.rangePenalty, e.volleyPenalty, e.aidCircumstanceBonus) + "]")} " +
+                $"{CombatLogRichText.Verb("vs")} {CombatLogRichText.Verb(RollBreakdownFormatter.FormatDefenseWithCover(e.defenseSource, e.dc, e.coverAcBonus))}" +
+                $" → {CombatLogRichText.Degree(e.acDegree)}",
                 CombatLogCategory.Attack);
 
             // 2. Hit/miss determination: use degree, NOT damage
@@ -68,7 +70,7 @@ namespace PF2e.Presentation
             {
                 eventBus.Publish(
                     e.attacker,
-                    $"{GetWouldHitVerb(e.acDegree)} {targetName}, but concealment DC 5 flat check d20({e.concealmentRoll.naturalRoll}) failed (miss).",
+                    $"{CombatLogRichText.Verb(GetWouldHitVerb(e.acDegree))} {targetName}{CombatLogRichText.Verb($", but concealment DC 5 flat check d20({e.concealmentRoll.naturalRoll}) failed")} {CombatLogRichText.DegreeShort(DegreeOfSuccess.Failure)}.",
                     CombatLogCategory.Attack);
             }
             else if (isHit)
@@ -76,29 +78,29 @@ namespace PF2e.Presentation
                 if (e.damage > 0)
                 {
                     eventBus.Publish(e.attacker,
-                        $"deals {e.damage} {e.damageType} damage to {targetName}" +
+                        $"{CombatLogRichText.Verb("deals")} {CombatLogRichText.Damage(e.damage)} {CombatLogRichText.DmgType(e.damageType)} {CombatLogRichText.Verb("damage to")} {targetName}" +
                         BuildCritTraitBreakdown(e) +
-                        $" (HP {e.hpBefore}→{e.hpAfter})",
+                        $" {CombatLogRichText.Hp(e.hpBefore, e.hpAfter)}",
                         CombatLogCategory.Attack);
                 }
                 else
                 {
                     eventBus.Publish(e.attacker,
-                        $"hits {targetName} but deals no damage (HP {e.hpBefore}→{e.hpAfter})",
+                        $"{CombatLogRichText.Verb("hits")} {targetName} {CombatLogRichText.Verb("but deals no damage")} {CombatLogRichText.Hp(e.hpBefore, e.hpAfter)}",
                         CombatLogCategory.Attack);
                 }
             }
             else
             {
                 eventBus.Publish(e.attacker,
-                    $"misses {targetName}.",
+                    $"{CombatLogRichText.Verb("misses")} {targetName}.",
                     CombatLogCategory.Attack);
             }
 
             // 3. Defeat notification (if applicable)
             if (e.targetDefeated)
             {
-                eventBus.PublishSystem($"{targetName} is defeated.");
+                eventBus.PublishSystem(CombatLogRichText.Defeated(rawTargetName));
             }
         }
 
@@ -108,22 +110,21 @@ namespace PF2e.Presentation
             {
                 eventBus.Publish(
                     e.reactor,
-                    "uses Shield Block, but no damage is prevented.",
+                    $"{CombatLogRichText.Verb("uses")} {CombatLogRichText.Weapon("Shield Block")}{CombatLogRichText.Verb(", but no damage is prevented.")}",
                     CombatLogCategory.Attack);
                 return;
             }
 
             eventBus.Publish(
                 e.reactor,
-                $"uses Shield Block — reduces {e.damageReduction} damage (incoming {e.incomingDamage}); " +
-                $"shield takes {e.shieldSelfDamage} (HP {e.shieldHpBefore}→{e.shieldHpAfter})",
+                $"{CombatLogRichText.Verb("uses")} {CombatLogRichText.Weapon("Shield Block")} {CombatLogRichText.Verb("— reduces")} {CombatLogRichText.Damage(e.damageReduction)} {CombatLogRichText.Verb($"damage (incoming {e.incomingDamage}); shield takes")} {e.shieldSelfDamage} {CombatLogRichText.Verb($"(HP {e.shieldHpBefore}→{e.shieldHpAfter})")}",
                 CombatLogCategory.Attack);
 
             if (e.shieldHpBefore > 0 && e.shieldHpAfter <= 0)
             {
                 eventBus.Publish(
                     e.reactor,
-                    "shield is broken.",
+                    $"<color={CombatLogRichText.DefeatedColor}><b>shield is broken!</b></color>",
                     CombatLogCategory.Attack);
             }
         }

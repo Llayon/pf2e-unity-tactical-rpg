@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -43,10 +44,11 @@ namespace PF2e.Tests
                 Assert.AreEqual(1, count);
                 Assert.AreEqual(source, last.Actor);
                 Assert.AreEqual(CombatLogCategory.Attack, last.Category);
-                StringAssert.Contains("Trip deals 4", last.Message);
-                StringAssert.Contains("Bludgeoning", last.Message);
-                StringAssert.Contains("Goblin_1", last.Message);
-                StringAssert.Contains("HP 20→16", last.Message);
+                var stripped = Strip(last.Message);
+                StringAssert.Contains("Trip deals 4", stripped);
+                StringAssert.Contains("Bludgeoning", stripped);
+                StringAssert.Contains("Goblin_1", stripped);
+                StringAssert.Contains("HP 20→16", stripped);
             }
             finally
             {
@@ -88,7 +90,7 @@ namespace PF2e.Tests
 
                 Assert.AreEqual(2, count);
                 Assert.AreEqual(EntityHandle.None, second.Actor);
-                StringAssert.Contains("is defeated", second.Message);
+                StringAssert.Contains("is defeated", Strip(second.Message));
             }
             finally
             {
@@ -221,5 +223,7 @@ namespace PF2e.Tests
             Assert.IsNotNull(method, $"Missing method '{methodName}' on {target.GetType().Name}");
             method.Invoke(target, null);
         }
+
+        private static string Strip(string s) => Regex.Replace(s, "<[^>]+>", "");
     }
 }

@@ -28,21 +28,23 @@ namespace PF2e.Presentation
 
         private void Handle(in ConditionChangedEvent e)
         {
-            string name = ConditionRules.DisplayName(e.conditionType);
+            string rawName = ConditionRules.DisplayName(e.conditionType);
             bool valued = ConditionRules.IsValued(e.conditionType);
 
             string msg = e.changeType switch
             {
                 ConditionChangeType.Added => valued && e.newValue > 0
-                    ? $"gains {name} {e.newValue}" : $"gains {name}",
-                ConditionChangeType.Removed => $"loses {name}",
+                    ? $"{CombatLogRichText.Verb("gains")} {CombatLogRichText.ConditionGain(rawName)} {e.newValue}"
+                    : $"{CombatLogRichText.Verb("gains")} {CombatLogRichText.ConditionGain(rawName)}",
+                ConditionChangeType.Removed =>
+                    $"{CombatLogRichText.Verb("loses")} {CombatLogRichText.ConditionLose(rawName)}",
                 ConditionChangeType.ValueChanged => e.newValue < e.oldValue
-                    ? $"{name} decreases to {e.newValue}"
-                    : $"{name} increases to {e.newValue}",
+                    ? $"{CombatLogRichText.ConditionGain(rawName)} {CombatLogRichText.Verb("decreases to")} {e.newValue}"
+                    : $"{CombatLogRichText.ConditionGain(rawName)} {CombatLogRichText.Verb("increases to")} {e.newValue}",
                 ConditionChangeType.DurationChanged => e.newRemainingRounds >= 0
-                    ? $"{name} duration decreases to {e.newRemainingRounds}"
-                    : $"{name} duration changed",
-                _ => $"{name} changed"
+                    ? $"{CombatLogRichText.ConditionGain(rawName)} {CombatLogRichText.Verb($"duration decreases to {e.newRemainingRounds}")}"
+                    : $"{CombatLogRichText.ConditionGain(rawName)} {CombatLogRichText.Verb("duration changed")}",
+                _ => $"{CombatLogRichText.ConditionGain(rawName)} {CombatLogRichText.Verb("changed")}"
             };
 
             eventBus.Publish(e.entity, msg, CombatLogCategory.Condition);

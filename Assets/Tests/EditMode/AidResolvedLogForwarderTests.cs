@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -44,11 +45,12 @@ namespace PF2e.Tests
                 Assert.AreEqual(1, count);
                 Assert.AreEqual(helper, last.Actor);
                 Assert.AreEqual(CombatLogCategory.Attack, last.Category);
-                StringAssert.Contains("aids Fighter for Trip", last.Message);
-                StringAssert.Contains("ATHLETICS d20(14) +7 = 21", last.Message);
-                StringAssert.Contains("vs DC 15", last.Message);
-                StringAssert.Contains("Success", last.Message);
-                StringAssert.Contains("(+2 circumstance)", last.Message);
+                var stripped = Strip(last.Message);
+                StringAssert.Contains("aids Fighter for Trip", stripped);
+                StringAssert.Contains("ATHLETICS d20(14) +7 = 21", stripped);
+                StringAssert.Contains("vs DC 15", stripped);
+                StringAssert.Contains("Success", stripped);
+                StringAssert.Contains("(+2 circumstance)", stripped);
             }
             finally
             {
@@ -132,8 +134,9 @@ namespace PF2e.Tests
                 ctx.EventBus.PublishAidResolved(in ev);
 
                 Assert.AreEqual(1, count);
-                StringAssert.Contains("CriticalFailure", last.Message);
-                StringAssert.Contains("(-1 circumstance penalty)", last.Message);
+                var stripped = Strip(last.Message);
+                StringAssert.Contains("Critical Failure!", stripped);
+                StringAssert.Contains("(-1 circumstance penalty)", stripped);
             }
             finally
             {
@@ -208,7 +211,7 @@ namespace PF2e.Tests
                 Assert.AreEqual(1, count);
                 Assert.AreEqual(helper, last.Actor);
                 Assert.AreEqual(CombatLogCategory.Turn, last.Category);
-                Assert.AreEqual("prepares Aid for Fighter", last.Message);
+                StringAssert.Contains("prepares Aid for Fighter", Strip(last.Message));
             }
             finally
             {
@@ -241,7 +244,7 @@ namespace PF2e.Tests
                 Assert.AreEqual(1, count);
                 Assert.AreEqual(helper, last.Actor);
                 Assert.AreEqual(CombatLogCategory.Turn, last.Category);
-                Assert.AreEqual("Aid for Fighter expires.", last.Message);
+                StringAssert.Contains("Aid for Fighter expires.", Strip(last.Message));
             }
             finally
             {
@@ -274,7 +277,7 @@ namespace PF2e.Tests
                 Assert.AreEqual(1, count);
                 Assert.AreEqual(helper, last.Actor);
                 Assert.AreEqual(CombatLogCategory.Turn, last.Category);
-                Assert.AreEqual("Aid for Fighter is replaced by a new preparation.", last.Message);
+                StringAssert.Contains("Aid for Fighter is replaced by a new preparation.", Strip(last.Message));
             }
             finally
             {
@@ -395,5 +398,7 @@ namespace PF2e.Tests
             Assert.IsNotNull(method, $"Missing method '{methodName}' on {target.GetType().Name}");
             method.Invoke(target, null);
         }
+
+        private static string Strip(string s) => Regex.Replace(s, "<[^>]+>", "");
     }
 }

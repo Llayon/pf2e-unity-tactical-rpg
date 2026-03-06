@@ -42,12 +42,12 @@ namespace PF2e.Presentation
 
         private void OnStrideStartedTyped(in StrideStartedEvent e)
         {
-            eventBus.Publish(e.actor, $"strides x{Mathf.Clamp(e.actionsCost, 1, 3)} → {e.to}", CombatLogCategory.Movement);
+            eventBus.Publish(e.actor, CombatLogRichText.Verb($"strides x{Mathf.Clamp(e.actionsCost, 1, 3)} → {e.to}"), CombatLogCategory.Movement);
         }
 
         private void OnStrideCompletedTyped(in StrideCompletedEvent e)
         {
-            eventBus.Publish(e.actor, $"arrives at {e.to}", CombatLogCategory.Movement);
+            eventBus.Publish(e.actor, CombatLogRichText.Verb($"arrives at {e.to}"), CombatLogCategory.Movement);
         }
     }
 }

@@ -41,12 +41,16 @@ namespace PF2e.Presentation
         private void HandleOpposedCheckResolved(in OpposedCheckResolvedEvent e)
         {
             var targetData = entityManager.Registry != null ? entityManager.Registry.Get(e.target) : null;
-            string targetName = targetData?.Name ?? "Unknown";
+            string rawTargetName = targetData?.Name ?? "Unknown";
+            var targetTeam = targetData?.Team ?? Team.Neutral;
+            string targetName = CombatLogRichText.EntityName(rawTargetName, targetTeam);
             string actionLabel = string.IsNullOrEmpty(e.actionName) ? "Opposed Check" : e.actionName;
 
             eventBus.Publish(
                 e.actor,
-                $"uses {actionLabel} on {targetName} — {RollBreakdownFormatter.FormatRoll(e.attackerRoll)} vs {RollBreakdownFormatter.FormatRoll(e.defenderRoll)} → {e.winner} ({RollBreakdownFormatter.FormatSigned(e.margin)})",
+                $"{CombatLogRichText.Verb("uses")} {CombatLogRichText.Weapon(actionLabel)} {CombatLogRichText.Verb("on")} {targetName} {CombatLogRichText.Verb("—")} " +
+                $"{CombatLogRichText.Verb(RollBreakdownFormatter.FormatRoll(e.attackerRoll))} {CombatLogRichText.Verb("vs")} {CombatLogRichText.Verb(RollBreakdownFormatter.FormatRoll(e.defenderRoll))}" +
+                $" → {CombatLogRichText.OpposedWinner(e.winner)} {CombatLogRichText.Verb($"({RollBreakdownFormatter.FormatSigned(e.margin)})")}",
                 CombatLogCategory.Attack);
         }
     }

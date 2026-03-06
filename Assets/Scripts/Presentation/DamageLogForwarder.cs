@@ -48,12 +48,16 @@ namespace PF2e.Presentation
             if (e.amount <= 0) return;
 
             var targetData = entityManager.Registry != null ? entityManager.Registry.Get(e.target) : null;
-            string targetName = targetData?.Name ?? "Unknown";
+            string rawTargetName = targetData?.Name ?? "Unknown";
+            var targetTeam = targetData?.Team ?? Team.Neutral;
+            string targetName = CombatLogRichText.EntityName(rawTargetName, targetTeam);
             string sourceLabel = string.IsNullOrEmpty(e.sourceActionName) ? "Damage" : e.sourceActionName;
 
-            string critPrefix = e.isCritical ? "critical " : string.Empty;
+            string critPrefix = e.isCritical
+                ? $"<color={CombatLogRichText.CritSuccessColor}><b>critical</b></color> "
+                : string.Empty;
             string damageLine =
-                $"{sourceLabel} deals {e.amount} {e.damageType} {critPrefix}damage to {targetName} (HP {e.hpBefore}→{e.hpAfter})";
+                $"{CombatLogRichText.Weapon(sourceLabel)} {CombatLogRichText.Verb("deals")} {CombatLogRichText.Damage(e.amount)} {CombatLogRichText.DmgType(e.damageType)} {critPrefix}{CombatLogRichText.Verb("damage to")} {targetName} {CombatLogRichText.Hp(e.hpBefore, e.hpAfter)}";
 
             if (e.source.IsValid)
                 eventBus.Publish(e.source, damageLine, CombatLogCategory.Attack);
@@ -61,7 +65,7 @@ namespace PF2e.Presentation
                 eventBus.PublishSystem(damageLine, CombatLogCategory.Attack);
 
             if (e.targetDefeated)
-                eventBus.PublishSystem($"{targetName} is defeated.");
+                eventBus.PublishSystem(CombatLogRichText.Defeated(rawTargetName));
         }
     }
 }

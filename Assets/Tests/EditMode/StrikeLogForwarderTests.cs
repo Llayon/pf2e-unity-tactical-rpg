@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -61,9 +62,10 @@ namespace PF2e.Tests
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 1);
-                StringAssert.Contains("ATK d20(12)", first.Message);
-                StringAssert.Contains("vs AC 18", first.Message);
-                StringAssert.DoesNotContain("RNG(", first.Message);
+                var stripped = Strip(first.Message);
+                StringAssert.Contains("ATK d20(12)", stripped);
+                StringAssert.Contains("vs AC 18", stripped);
+                StringAssert.DoesNotContain("RNG(", stripped);
             }
             finally
             {
@@ -218,7 +220,7 @@ namespace PF2e.Tests
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 1);
-                StringAssert.Contains("vs AC 18 + COVER(+2)", first.Message);
+                StringAssert.Contains("vs AC 18 + COVER(+2)", Strip(first.Message));
             }
             finally
             {
@@ -288,9 +290,9 @@ namespace PF2e.Tests
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 2);
-                StringAssert.Contains("CriticalSuccess", first.Message);
-                StringAssert.Contains("would critically hit Goblin_1", second.Message);
-                StringAssert.Contains("concealment DC 5 flat check d20(3) failed", second.Message);
+                StringAssert.Contains("Critical Success!", Strip(first.Message));
+                StringAssert.Contains("would critically hit Goblin_1", Strip(second.Message));
+                StringAssert.Contains("concealment DC 5 flat check d20(3) failed", Strip(second.Message));
             }
             finally
             {
@@ -323,8 +325,8 @@ namespace PF2e.Tests
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 2);
-                StringAssert.DoesNotContain("concealment", first.Message);
-                StringAssert.DoesNotContain("concealment", second.Message);
+                StringAssert.DoesNotContain("concealment", Strip(first.Message));
+                StringAssert.DoesNotContain("concealment", Strip(second.Message));
             }
             finally
             {
@@ -581,5 +583,7 @@ namespace PF2e.Tests
             Assert.IsNotNull(method, $"Missing method '{methodName}' on {target.GetType().Name}");
             method.Invoke(target, null);
         }
+
+        private static string Strip(string s) => Regex.Replace(s, "<[^>]+>", "");
     }
 }

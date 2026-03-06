@@ -47,28 +47,32 @@ namespace PF2e.Presentation
         private void HandleAidPrepared(in AidPreparedEvent e)
         {
             var allyData = entityManager.Registry != null ? entityManager.Registry.Get(e.ally) : null;
-            string allyName = allyData?.Name ?? "Unknown";
+            string rawAllyName = allyData?.Name ?? "Unknown";
+            var allyTeam = allyData?.Team ?? Team.Neutral;
 
             eventBus.Publish(
                 e.helper,
-                $"prepares Aid for {allyName}",
+                $"{CombatLogRichText.Verb("prepares Aid for")} {CombatLogRichText.EntityName(rawAllyName, allyTeam)}",
                 CombatLogCategory.Turn);
         }
 
         private void HandleAidResolved(in AidResolvedEvent e)
         {
             var allyData = entityManager.Registry != null ? entityManager.Registry.Get(e.ally) : null;
-            string allyName = allyData?.Name ?? "Unknown";
+            string rawAllyName = allyData?.Name ?? "Unknown";
+            var allyTeam = allyData?.Team ?? Team.Neutral;
+            string allyName = CombatLogRichText.EntityName(rawAllyName, allyTeam);
             string actionLabel = string.IsNullOrWhiteSpace(e.triggeringActionName)
                 ? "check"
                 : e.triggeringActionName;
 
             string modifierText = FormatModifierText(e.modifierApplied);
-            string reactionToken = e.reactionConsumed ? string.Empty : " (reaction not consumed)";
+            string reactionToken = e.reactionConsumed ? string.Empty : CombatLogRichText.Verb(" (reaction not consumed)");
 
             eventBus.Publish(
                 e.helper,
-                $"aids {allyName} for {actionLabel} — {RollBreakdownFormatter.FormatRoll(e.roll)} vs DC {e.dc} → {e.degree} ({modifierText}){reactionToken}",
+                $"{CombatLogRichText.Verb("aids")} {allyName} {CombatLogRichText.Verb("for")} {CombatLogRichText.Weapon(actionLabel)} {CombatLogRichText.Verb("—")} " +
+                $"{CombatLogRichText.Verb($"{RollBreakdownFormatter.FormatRoll(e.roll)} vs DC {e.dc}")} → {CombatLogRichText.Degree(e.degree)} {CombatLogRichText.Verb($"({modifierText})")}{reactionToken}",
                 CombatLogCategory.Attack);
         }
 
@@ -89,10 +93,13 @@ namespace PF2e.Presentation
             var allyData = entityManager.Registry != null ? entityManager.Registry.Get(e.ally) : null;
             string allyName = allyData?.Name ?? "Unknown";
 
+            var allyTeam = allyData?.Team ?? Team.Neutral;
+            string coloredAllyName = CombatLogRichText.EntityName(allyName, allyTeam);
+
             return e.reason switch
             {
-                AidClearReason.ExpiredOnHelperTurnStart => $"Aid for {allyName} expires.",
-                AidClearReason.OverwrittenByNewPreparation => $"Aid for {allyName} is replaced by a new preparation.",
+                AidClearReason.ExpiredOnHelperTurnStart => $"{CombatLogRichText.Verb("Aid for")} {coloredAllyName} {CombatLogRichText.Verb("expires.")}",
+                AidClearReason.OverwrittenByNewPreparation => $"{CombatLogRichText.Verb("Aid for")} {coloredAllyName} {CombatLogRichText.Verb("is replaced by a new preparation.")}",
                 _ => null
             };
         }

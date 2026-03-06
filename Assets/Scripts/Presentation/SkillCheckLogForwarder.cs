@@ -41,18 +41,22 @@ namespace PF2e.Presentation
         private void HandleSkillCheckResolved(in SkillCheckResolvedEvent e)
         {
             var targetData = entityManager.Registry != null ? entityManager.Registry.Get(e.target) : null;
-            string targetName = targetData?.Name ?? "Unknown";
+            string rawTargetName = targetData?.Name ?? "Unknown";
+            var targetTeam = targetData?.Team ?? Team.Neutral;
+            string targetName = CombatLogRichText.EntityName(rawTargetName, targetTeam);
             string actionLabel = string.IsNullOrEmpty(e.actionName) ? e.skill.ToString() : e.actionName;
             string projectionToken = e.hasOpposedProjection
-                ? $" (cmp {RollBreakdownFormatter.FormatSigned(e.opposedProjection.margin)})"
+                ? CombatLogRichText.Verb($" (cmp {RollBreakdownFormatter.FormatSigned(e.opposedProjection.margin)})")
                 : string.Empty;
             string aidToken = e.aidCircumstanceBonus != 0
-                ? $" + AID({RollBreakdownFormatter.FormatSigned(e.aidCircumstanceBonus)})"
+                ? CombatLogRichText.Verb($" + AID({RollBreakdownFormatter.FormatSigned(e.aidCircumstanceBonus)})")
                 : string.Empty;
 
             eventBus.Publish(
                 e.actor,
-                $"uses {actionLabel} on {targetName} — {RollBreakdownFormatter.FormatVsDc(e.roll, e.defenseSource, e.dc)}{aidToken} → {e.degree}{projectionToken}",
+                $"{CombatLogRichText.Verb("uses")} {CombatLogRichText.Weapon(actionLabel)} {CombatLogRichText.Verb("on")} {targetName} {CombatLogRichText.Verb("—")} " +
+                $"{CombatLogRichText.Verb(RollBreakdownFormatter.FormatVsDc(e.roll, e.defenseSource, e.dc))}{aidToken}" +
+                $" → {CombatLogRichText.Degree(e.degree)}{projectionToken}",
                 CombatLogCategory.Attack);
         }
     }
