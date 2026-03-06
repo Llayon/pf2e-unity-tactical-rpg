@@ -388,13 +388,18 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(c, "aidHighlight", "Image");
         errors += RequireRef(c, "aidPreparedIndicatorRoot", "GameObject");
         errors += RequireRef(c, "aidPreparedIndicatorLabel", "TMP_Text");
-        errors += RequireRef(c, "readyButton", "Button");
-        errors += RequireRef(c, "readyButtonLabel", "TMP_Text");
-        errors += RequireRef(c, "readyHighlight", "Image");
-        errors += RequireRef(c, "readyModeSelectorRoot", "RectTransform");
-        errors += RequireRef(c, "readyModeMoveButton", "Button");
-        errors += RequireRef(c, "readyModeAttackButton", "Button");
-        errors += RequireRef(c, "readyModeAnyButton", "Button");
+        // When TurnOptionsPresenter exists, it owns Ready/Delay/Return/Skip UX and
+        // ActionBar turn-management refs are legacy/optional.
+        if (!IsTurnOptionsPresenterPresent())
+        {
+            errors += RequireRef(c, "readyButton", "Button");
+            errors += RequireRef(c, "readyButtonLabel", "TMP_Text");
+            errors += RequireRef(c, "readyHighlight", "Image");
+            errors += RequireRef(c, "readyModeSelectorRoot", "RectTransform");
+            errors += RequireRef(c, "readyModeMoveButton", "Button");
+            errors += RequireRef(c, "readyModeAttackButton", "Button");
+            errors += RequireRef(c, "readyModeAnyButton", "Button");
+        }
         errors += RequireRef(c, "castSpellButton", "Button");
         errors += RequireRef(c, "castSpellButtonLabel", "TMP_Text");
         errors += RequireRef(c, "castSpellModeSelectorRoot", "RectTransform");
@@ -433,6 +438,11 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(c, "eventBus", "CombatEventBus");
         errors += RequireRef(c, "actionBarController", "ActionBarController");
         errors += RequireRef(c, "initiativeBarController", "InitiativeBarController");
+    }
+
+    private static bool IsTurnOptionsPresenterPresent()
+    {
+        return UnityEngine.Object.FindFirstObjectByType<TurnOptionsPresenter>() != null;
     }
 
     private static bool IsActionBarLauncherLayoutEnabled(ActionBarController controller)

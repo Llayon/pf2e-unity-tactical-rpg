@@ -352,6 +352,77 @@ namespace PF2e.Tests
 
         [Test]
         [TestMustExpectAllLogs(false)]
+        public void ValidateActionBarController_TurnOptionsPresenterPresent_MissingReadyModeRefs_DoNotEmitErrors()
+        {
+            bool oldIgnoreFailingLogs = LogAssert.ignoreFailingMessages;
+            LogAssert.ignoreFailingMessages = true;
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("ActionBarValidatorTurnOptionsContractTest");
+            try
+            {
+                var eventBus = root.AddComponent<CombatEventBus>();
+                var turnManager = root.AddComponent<TurnManager>();
+                var entityManager = root.AddComponent<EntityManager>();
+                var actionExecutor = root.AddComponent<PlayerActionExecutor>();
+                var targetingController = root.AddComponent<TargetingController>();
+                var canvasGroup = root.AddComponent<CanvasGroup>();
+                var actionBar = root.AddComponent<ActionBarController>();
+                root.AddComponent<TurnOptionsPresenter>();
+
+                var aidButton = CreateButton("AidButton", root.transform);
+                var aidHighlight = CreateImage("AidHighlight", aidButton.transform);
+                var aidBadgeRoot = new GameObject("AidPreparedBadge", typeof(RectTransform));
+                aidBadgeRoot.transform.SetParent(aidButton.transform, false);
+                var aidBadgeLabel = CreateTmpLabel("Label", aidBadgeRoot.transform, string.Empty);
+
+                var castButton = CreateButton("CastSpellButton", root.transform);
+                var castButtonLabel = CreateTmpLabel("Label", castButton.transform, "Cast");
+                var castSelector = new GameObject("CastSpellModeSelector", typeof(RectTransform)).GetComponent<RectTransform>();
+                castSelector.transform.SetParent(castButton.transform, false);
+                var castStandard = CreateButton("CastSpellModeStandardButton", castSelector);
+                var castGlass = CreateButton("CastSpellModeGlassButton", castSelector);
+
+                SetPrivateField(actionBar, "eventBus", eventBus);
+                SetPrivateField(actionBar, "entityManager", entityManager);
+                SetPrivateField(actionBar, "turnManager", turnManager);
+                SetPrivateField(actionBar, "actionExecutor", actionExecutor);
+                SetPrivateField(actionBar, "targetingController", targetingController);
+                SetPrivateField(actionBar, "canvasGroup", canvasGroup);
+
+                SetPrivateField(actionBar, "aidButton", aidButton);
+                SetPrivateField(actionBar, "aidHighlight", aidHighlight);
+                SetPrivateField(actionBar, "aidPreparedIndicatorRoot", aidBadgeRoot);
+                SetPrivateField(actionBar, "aidPreparedIndicatorLabel", aidBadgeLabel);
+
+                // Intentionally keep Ready refs null: TurnOptionsPresenter owns turn-management UI.
+                SetPrivateField(actionBar, "readyButton", null);
+                SetPrivateField(actionBar, "readyButtonLabel", null);
+                SetPrivateField(actionBar, "readyHighlight", null);
+                SetPrivateField(actionBar, "readyModeSelectorRoot", null);
+                SetPrivateField(actionBar, "readyModeMoveButton", null);
+                SetPrivateField(actionBar, "readyModeAttackButton", null);
+                SetPrivateField(actionBar, "readyModeAnyButton", null);
+
+                SetPrivateField(actionBar, "castSpellButton", castButton);
+                SetPrivateField(actionBar, "castSpellButtonLabel", castButtonLabel);
+                SetPrivateField(actionBar, "castSpellModeSelectorRoot", castSelector);
+                SetPrivateField(actionBar, "castSpellModeStandardButton", castStandard);
+                SetPrivateField(actionBar, "castSpellModeGlassButton", castGlass);
+
+                InvokePrivateValidateActionBarController(actionBar, out int errors, out int warnings);
+
+                Assert.AreEqual(0, errors, "With TurnOptionsPresenter present, missing Ready refs must not be validator errors.");
+                Assert.GreaterOrEqual(warnings, 1, "Optional non-turn-management slots may still emit warnings.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                LogAssert.ignoreFailingMessages = oldIgnoreFailingLogs;
+            }
+        }
+
+        [Test]
+        [TestMustExpectAllLogs(false)]
         public void ValidateActionBarController_AidButtonAssigned_MissingAidRefs_EmitsErrors()
         {
             bool oldIgnoreFailingLogs = LogAssert.ignoreFailingMessages;
