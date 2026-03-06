@@ -197,7 +197,7 @@ namespace PF2e.Presentation
             text.color = new Color(0.92f, 0.92f, 0.95f, 1f);
             text.raycastTarget = false;
             text.enableAutoSizing = false;
-            text.overflowMode = TextOverflowModes.Ellipsis;
+            text.overflowMode = TextOverflowModes.Truncate;
             return text;
         }
 

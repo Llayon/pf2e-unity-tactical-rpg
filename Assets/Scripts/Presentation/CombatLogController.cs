@@ -333,7 +333,7 @@ namespace PF2e.Presentation
             inst.gameObject.SetActive(true);
             inst.raycastTarget = false;
             inst.enableWordWrapping = false;
-            inst.overflowMode = TextOverflowModes.Ellipsis;
+            inst.overflowMode = TextOverflowModes.Truncate;
             inst.alignment = TextAlignmentOptions.TopRight;
             inst.fontStyle = FontStyles.Italic;
             inst.fontSize = Mathf.Max(12f, lineTemplate.fontSize * 0.75f);

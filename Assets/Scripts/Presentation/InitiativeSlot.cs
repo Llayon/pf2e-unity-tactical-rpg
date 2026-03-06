@@ -65,7 +65,7 @@ namespace PF2e.Presentation
             if (nameText != null)
             {
                 nameText.enableWordWrapping = false;
-                nameText.overflowMode = TextOverflowModes.Ellipsis;
+                nameText.overflowMode = TextOverflowModes.Truncate;
             }
 
             EnsureDelayedBadgeFallback();

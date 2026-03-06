@@ -687,6 +687,9 @@ namespace PF2e.Presentation
 #if UNITY_EDITOR
         private void OnValidate()
         {
+            if (UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode)
+                return;
+
             if (eventBus == null) Debug.LogWarning("[TurnOptions] CombatEventBus not assigned.", this);
             if (turnManager == null) Debug.LogWarning("[TurnOptions] TurnManager not assigned.", this);
             if (entityManager == null) Debug.LogWarning("[TurnOptions] EntityManager not assigned.", this);

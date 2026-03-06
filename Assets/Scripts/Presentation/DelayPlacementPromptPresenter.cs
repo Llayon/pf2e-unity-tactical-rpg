@@ -93,7 +93,7 @@ namespace PF2e.Presentation
             clone.gameObject.SetActive(true);
             clone.raycastTarget = false;
             clone.enableWordWrapping = false;
-            clone.overflowMode = TextOverflowModes.Ellipsis;
+            clone.overflowMode = TextOverflowModes.Truncate;
             clone.alignment = TextAlignmentOptions.Center;
             clone.fontStyle = FontStyles.Bold;
 
@@ -190,7 +190,7 @@ namespace PF2e.Presentation
             {
                 promptLabel.raycastTarget = false;
                 promptLabel.enableWordWrapping = false;
-                promptLabel.overflowMode = TextOverflowModes.Ellipsis;
+                promptLabel.overflowMode = TextOverflowModes.Truncate;
                 promptLabel.alignment = TextAlignmentOptions.Center;
                 promptLabel.color = new Color(0.98f, 0.95f, 0.82f, 1f);
 

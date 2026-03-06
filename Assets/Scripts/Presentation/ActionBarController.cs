@@ -543,10 +543,10 @@ namespace PF2e.Presentation
                 return;
 
             if (strikeButton != null)
-                SetButtonLabelText(strikeButton, "Strike ▾");
+                SetButtonLabelText(strikeButton, "Strike v");
 
             if (tacticsLauncherButton != null)
-                SetButtonLabelText(tacticsLauncherButton, "Tactics ▾");
+                SetButtonLabelText(tacticsLauncherButton, "Tactics v");
 
             if (tripButton != null)
                 SetButtonLabelText(tripButton, "Trip [1][ATK]");
@@ -568,7 +568,7 @@ namespace PF2e.Presentation
                 SetButtonLabelText(standButton, "Stand [1]");
 
             if (castSpellButton != null)
-                SetButtonLabelText(castSpellButton, "Cast ▾");
+                SetButtonLabelText(castSpellButton, "Cast v");
             if (castSpellModeStandardButton != null)
                 SetButtonLabelText(castSpellModeStandardButton, "Shield [1]");
             if (castSpellModeGlassButton != null)
@@ -1414,7 +1414,7 @@ namespace PF2e.Presentation
         {
             if (useLauncherLayout)
             {
-                SetButtonLabelText(castSpellButton, "Cast ▾");
+                SetButtonLabelText(castSpellButton, "Cast v");
                 return;
             }
 
