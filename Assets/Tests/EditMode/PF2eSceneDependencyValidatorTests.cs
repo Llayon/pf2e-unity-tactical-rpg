@@ -438,110 +438,14 @@ namespace PF2e.Tests
         }
 
         [Test]
-        public void AutoFix_WhenDelayUiOrchestratorMissing_CreatesAndWiresIt()
+        public void SampleScene_DoesNotContainDelayUiOrchestratorObject()
         {
             Assert.IsTrue(System.IO.File.Exists(SampleScenePath), $"Missing scene: {SampleScenePath}");
 
             EditorSceneManager.OpenScene(SampleScenePath, OpenSceneMode.Single);
 
-            var eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
-            var turnOptions = UnityEngine.Object.FindFirstObjectByType<TurnOptionsPresenter>();
-            var initiativeBar = UnityEngine.Object.FindFirstObjectByType<InitiativeBarController>();
-            Assert.IsNotNull(eventBus, "SampleScene must contain CombatEventBus.");
-            Assert.IsNotNull(turnOptions, "SampleScene must contain TurnOptionsPresenter.");
-            Assert.IsNotNull(initiativeBar, "SampleScene must contain InitiativeBarController.");
-
-            var existing = UnityEngine.Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
-            for (int i = 0; i < existing.Length; i++)
-            {
-                UnityEngine.Object.DestroyImmediate(existing[i]);
-            }
-
-            Assert.AreEqual(
-                0,
-                UnityEngine.Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None).Length,
-                "Test precondition: DelayUiOrchestrator must be missing before autofix.");
-
-            InvokePrivateValidatorMethodWithBoolArg("RunAutoFix", false);
-
-            var after = UnityEngine.Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
-            Assert.AreEqual(1, after.Length, "AutoFix must create exactly one DelayUiOrchestrator.");
-
-            var orchestrator = after[0];
-            Assert.AreSame(eventBus, GetPrivateField<CombatEventBus>(orchestrator, "eventBus"));
-            Assert.AreSame(turnOptions, GetPrivateField<TurnOptionsPresenter>(orchestrator, "turnOptionsPresenter"));
-            Assert.AreSame(initiativeBar, GetPrivateField<InitiativeBarController>(orchestrator, "initiativeBarController"));
-        }
-
-        [Test]
-        public void AutoFix_WhenDelayUiOrchestratorAlreadyExists_DoesNotCreateDuplicate()
-        {
-            Assert.IsTrue(System.IO.File.Exists(SampleScenePath), $"Missing scene: {SampleScenePath}");
-
-            EditorSceneManager.OpenScene(SampleScenePath, OpenSceneMode.Single);
-
-            var existing = UnityEngine.Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
-            for (int i = 0; i < existing.Length; i++)
-            {
-                UnityEngine.Object.DestroyImmediate(existing[i]);
-            }
-
-            var singletonGo = new GameObject("DelayUiOrchestrator_IdempotencyTest");
-            singletonGo.AddComponent<DelayUiOrchestrator>();
-            Assert.AreEqual(
-                1,
-                UnityEngine.Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None).Length,
-                "Test precondition: exactly one DelayUiOrchestrator must exist before autofix.");
-
-            InvokePrivateValidatorMethodWithBoolArg("RunAutoFix", false);
-
-            var after = UnityEngine.Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
-            Assert.AreEqual(1, after.Length, "AutoFix must keep DelayUiOrchestrator singleton idempotent.");
-        }
-
-        [Test]
-        public void AutoFix_WhenDelayUiOrchestratorExistsWithNullRefs_RewiresWithoutDuplicate()
-        {
-            Assert.IsTrue(System.IO.File.Exists(SampleScenePath), $"Missing scene: {SampleScenePath}");
-
-            EditorSceneManager.OpenScene(SampleScenePath, OpenSceneMode.Single);
-
-            var eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
-            var turnOptions = UnityEngine.Object.FindFirstObjectByType<TurnOptionsPresenter>();
-            var initiativeBar = UnityEngine.Object.FindFirstObjectByType<InitiativeBarController>();
-            Assert.IsNotNull(eventBus, "SampleScene must contain CombatEventBus.");
-            Assert.IsNotNull(turnOptions, "SampleScene must contain TurnOptionsPresenter.");
-            Assert.IsNotNull(initiativeBar, "SampleScene must contain InitiativeBarController.");
-
-            var all = UnityEngine.Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
-            if (all.Length == 0)
-            {
-                var go = new GameObject("DelayUiOrchestrator_RewireTest");
-                go.AddComponent<DelayUiOrchestrator>();
-                all = UnityEngine.Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
-            }
-
-            for (int i = 1; i < all.Length; i++)
-            {
-                UnityEngine.Object.DestroyImmediate(all[i]);
-            }
-
-            var orchestrator = UnityEngine.Object.FindFirstObjectByType<DelayUiOrchestrator>();
-            Assert.IsNotNull(orchestrator, "Test precondition: one DelayUiOrchestrator must exist.");
-
-            SetPrivateField(orchestrator, "eventBus", null);
-            SetPrivateField(orchestrator, "turnOptionsPresenter", null);
-            SetPrivateField(orchestrator, "initiativeBarController", null);
-
-            InvokePrivateValidatorMethodWithBoolArg("RunAutoFix", false);
-
-            var after = UnityEngine.Object.FindObjectsByType<DelayUiOrchestrator>(FindObjectsSortMode.None);
-            Assert.AreEqual(1, after.Length, "AutoFix must not create duplicate DelayUiOrchestrator while rewiring.");
-
-            var rewired = after[0];
-            Assert.AreSame(eventBus, GetPrivateField<CombatEventBus>(rewired, "eventBus"));
-            Assert.AreSame(turnOptions, GetPrivateField<TurnOptionsPresenter>(rewired, "turnOptionsPresenter"));
-            Assert.AreSame(initiativeBar, GetPrivateField<InitiativeBarController>(rewired, "initiativeBarController"));
+            var obsoleteObject = GameObject.Find("DelayUiOrchestrator");
+            Assert.IsNull(obsoleteObject, "SampleScene must not contain obsolete DelayUiOrchestrator object.");
         }
 
         [Test]

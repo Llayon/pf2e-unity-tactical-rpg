@@ -47,7 +47,6 @@ namespace PF2e.Presentation
         private DelayPlacementPromptPresenter delayPromptPresenter;
         private DelayPlacementInteractionCoordinator delayPlacementInteractionCoordinator;
         private DelayInitiativeRowPlanner delayInitiativeRowPlanner;
-        private bool delayEventsSubscribedInternally;
 
         private void OnEnable()
         {
@@ -59,18 +58,12 @@ namespace PF2e.Presentation
                 eventBus.OnTurnStartedTyped += HandleTurnStarted;
                 eventBus.OnStrikeResolved  += HandleStrikeResolved;
                 eventBus.OnEntityDefeated  += HandleEntityDefeated;
-
-                if (!IsExternalDelayOrchestratorPresent())
-                {
-                    eventBus.OnDelayPlacementSelectionChangedTyped += HandleDelayPlacementSelectionChanged;
-                    eventBus.OnDelayReturnWindowOpenedTyped += HandleDelayReturnWindowOpened;
-                    eventBus.OnDelayReturnWindowClosedTyped += HandleDelayReturnWindowClosed;
-                    delayEventsSubscribedInternally = true;
-                }
-                else
-                {
-                    delayEventsSubscribedInternally = false;
-                }
+                eventBus.OnDelayPlacementSelectionChangedTyped += HandleDelayPlacementSelectionChanged;
+                eventBus.OnDelayReturnWindowOpenedTyped += HandleDelayReturnWindowOpened;
+                eventBus.OnDelayReturnWindowClosedTyped += HandleDelayReturnWindowClosed;
+                eventBus.OnDelayedTurnEnteredTyped += HandleDelayedTurnChanged;
+                eventBus.OnDelayedTurnResumedTyped += HandleDelayedTurnChanged;
+                eventBus.OnDelayedTurnExpiredTyped += HandleDelayedTurnChanged;
             }
 
             SetPanelVisible(false);
@@ -86,14 +79,12 @@ namespace PF2e.Presentation
                 eventBus.OnTurnStartedTyped -= HandleTurnStarted;
                 eventBus.OnStrikeResolved  -= HandleStrikeResolved;
                 eventBus.OnEntityDefeated  -= HandleEntityDefeated;
-
-                if (delayEventsSubscribedInternally)
-                {
-                    eventBus.OnDelayPlacementSelectionChangedTyped -= HandleDelayPlacementSelectionChanged;
-                    eventBus.OnDelayReturnWindowOpenedTyped -= HandleDelayReturnWindowOpened;
-                    eventBus.OnDelayReturnWindowClosedTyped -= HandleDelayReturnWindowClosed;
-                    delayEventsSubscribedInternally = false;
-                }
+                eventBus.OnDelayPlacementSelectionChangedTyped -= HandleDelayPlacementSelectionChanged;
+                eventBus.OnDelayReturnWindowOpenedTyped -= HandleDelayReturnWindowOpened;
+                eventBus.OnDelayReturnWindowClosedTyped -= HandleDelayReturnWindowClosed;
+                eventBus.OnDelayedTurnEnteredTyped -= HandleDelayedTurnChanged;
+                eventBus.OnDelayedTurnResumedTyped -= HandleDelayedTurnChanged;
+                eventBus.OnDelayedTurnExpiredTyped -= HandleDelayedTurnChanged;
             }
         }
 
@@ -138,20 +129,41 @@ namespace PF2e.Presentation
 
         private void HandleDelayPlacementSelectionChanged(in DelayPlacementSelectionChangedEvent e)
         {
-            RefreshDelayPlacementUiFromOrchestrator();
+            _ = e;
+            RefreshDelayPlacementUi();
         }
 
         private void HandleDelayReturnWindowOpened(in DelayReturnWindowOpenedEvent e)
         {
-            RefreshDelayReturnWindowUiFromOrchestrator();
+            _ = e;
+            RefreshDelayReturnWindowUi();
         }
 
         private void HandleDelayReturnWindowClosed(in DelayReturnWindowClosedEvent e)
         {
-            RefreshDelayReturnWindowUiFromOrchestrator();
+            _ = e;
+            RefreshDelayReturnWindowUi();
         }
 
-        public void RefreshDelayPlacementUiFromOrchestrator()
+        private void HandleDelayedTurnChanged(in DelayedTurnEnteredEvent e)
+        {
+            _ = e;
+            RefreshDelayedActorsUi();
+        }
+
+        private void HandleDelayedTurnChanged(in DelayedTurnResumedEvent e)
+        {
+            _ = e;
+            RefreshDelayedActorsUi();
+        }
+
+        private void HandleDelayedTurnChanged(in DelayedTurnExpiredEvent e)
+        {
+            _ = e;
+            RefreshDelayedActorsUi();
+        }
+
+        private void RefreshDelayPlacementUi()
         {
             if (turnManager == null)
                 return;
@@ -161,12 +173,12 @@ namespace PF2e.Presentation
             RefreshDelayPlacementHintLabel();
         }
 
-        public void RefreshDelayReturnWindowUiFromOrchestrator()
+        private void RefreshDelayReturnWindowUi()
         {
             UpdateHighlight(); // clears active slot highlight while inter-turn Delay window is open
         }
 
-        public void RefreshDelayedActorsUiFromOrchestrator()
+        private void RefreshDelayedActorsUi()
         {
             if (turnManager == null)
                 return;
@@ -709,11 +721,5 @@ namespace PF2e.Presentation
                 Debug.LogWarning("[InitiativeBarController] CombatEventBus not assigned.", this);
         }
 #endif
-
-        private static bool IsExternalDelayOrchestratorPresent()
-        {
-            var orchestrator = UnityEngine.Object.FindFirstObjectByType<DelayUiOrchestrator>();
-            return orchestrator != null && orchestrator.isActiveAndEnabled;
-        }
     }
 }

@@ -3971,11 +3971,12 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 467295944}
+  - {fileID: 1042445530}
   m_Father: {fileID: 35781847}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -16, y: -16}
+  m_AnchoredPosition: {x: -8, y: -16}
   m_SizeDelta: {x: 400, y: 250}
   m_Pivot: {x: 1, y: 1}
 --- !u!114 &304057471
@@ -4001,8 +4002,8 @@ MonoBehaviour:
   maxLines: 80
   showRetentionNotice: 1
   retentionNoticeLabel: {fileID: 0}
-  showLineNumbers: 1
-  showTimestamps: 1
+  showLineNumbers: 0
+  showTimestamps: 0
 --- !u!225 &304057472
 CanvasGroup:
   m_ObjectHideFlags: 0
@@ -4028,15 +4029,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 1
+  m_Color: {r: 0.04, g: 0.04, b: 0.07, a: 0.55}
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 4b093c85204467b499099e2acaa0009c, type: 3}
-  m_Type: 1
+  m_Sprite: {fileID: 0}
+  m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -5315,12 +5316,6 @@ MonoBehaviour:
   demoralizeButton: {fileID: 279923654}
   escapeButton: {fileID: 539867045}
   aidButton: {fileID: 495451181}
-  readyButton: {fileID: 258169412}
-  readyButtonLabel: {fileID: 1173166415}
-  readyModeSelectorRoot: {fileID: 49445936}
-  readyModeMoveButton: {fileID: 243539455}
-  readyModeAttackButton: {fileID: 224090345}
-  readyModeAnyButton: {fileID: 323781009}
   castSpellButton: {fileID: 185161025}
   castSpellButtonLabel: {fileID: 57144109}
   castSpellModeSelectorRoot: {fileID: 1584989090}
@@ -5328,9 +5323,6 @@ MonoBehaviour:
   castSpellModeGlassButton: {fileID: 424887790}
   raiseShieldButton: {fileID: 1057837297}
   standButton: {fileID: 1143931168}
-  delayButton: {fileID: 679344840}
-  returnNowButton: {fileID: 2090371753}
-  skipDelayWindowButton: {fileID: 1772304277}
   useLauncherLayout: 1
   tacticsLauncherButton: {fileID: 1077444099}
   strikePopupRoot: {fileID: 1795897114}
@@ -5348,7 +5340,6 @@ MonoBehaviour:
   demoralizeHighlight: {fileID: 1567778666}
   escapeHighlight: {fileID: 1978799060}
   aidHighlight: {fileID: 1285052544}
-  readyHighlight: {fileID: 1554459371}
   castSpellHighlight: {fileID: 502999338}
   raiseShieldHighlight: {fileID: 51814010}
   standHighlight: {fileID: 457823806}
@@ -5358,9 +5349,6 @@ MonoBehaviour:
   aidPreparedIndicatorLabelColor: {r: 0, g: 0, b: 0, a: 1}
   aidPreparedSingleText: 
   aidPreparedCountFormat: '{0}'
-  readyModeSelectedColor: {r: 0.95, g: 0.78, b: 0.18, a: 0.95}
-  readyModeUnselectedColor: {r: 0.18, g: 0.23, b: 0.3, a: 0.92}
-  readyModeTextColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
   castSpellModeSelectedColor: {r: 0.95, g: 0.78, b: 0.18, a: 0.95}
   castSpellModeUnselectedColor: {r: 0.18, g: 0.23, b: 0.3, a: 0.92}
   castSpellModeTextColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
@@ -7649,53 +7637,6 @@ Material:
     - _UnderlayColor: {r: 0, g: 0, b: 0, a: 0.5}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
---- !u!1 &747951293
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 747951295}
-  - component: {fileID: 747951294}
-  m_Layer: 0
-  m_Name: DelayUiOrchestrator
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &747951294
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 747951293}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c3fa67e4f15b4e3481984d7995ecfdb0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PF2e::PF2e.Presentation.DelayUiOrchestrator
-  eventBus: {fileID: 939543823}
-  actionBarController: {fileID: 436844932}
-  initiativeBarController: {fileID: 456169794}
---- !u!4 &747951295
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 747951293}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &771869878
 GameObject:
   m_ObjectHideFlags: 0
@@ -9939,6 +9880,81 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1031350068}
   m_CullTransparentMesh: 1
+--- !u!1 &1042445529
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1042445530}
+  - component: {fileID: 1042445532}
+  - component: {fileID: 1042445531}
+  m_Layer: 0
+  m_Name: LogFadeOverlay
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1042445530
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1042445529}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 304057470}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0.6}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 1}
+--- !u!114 &1042445531
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1042445529}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 0.04, g: 0.04, b: 0.07, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 21300000, guid: b56e91d03c0e9e246b6ca0b9a7feda81, type: 3}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &1042445532
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1042445529}
+  m_CullTransparentMesh: 1
 --- !u!1 &1042738508
 GameObject:
   m_ObjectHideFlags: 0
@@ -10044,8 +10060,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 18
-  m_fontSizeBase: 18
+  m_fontSize: 14
+  m_fontSizeBase: 14
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -10057,7 +10073,7 @@ MonoBehaviour:
   m_characterSpacing: 0
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
-  m_lineSpacing: 0
+  m_lineSpacing: 5
   m_lineSpacingMax: 0
   m_paragraphSpacing: 0
   m_charWidthMaxAdj: 0
@@ -11642,7 +11658,6 @@ MonoBehaviour:
   actionExecutor: {fileID: 0}
   targetingController: {fileID: 0}
   initiativeBarController: {fileID: 0}
-  actionBarController: {fileID: 0}
   launcherCanvasGroup: {fileID: 0}
   launcherRoot: {fileID: 0}
   launcherButton: {fileID: 0}
@@ -20462,4 +20477,3 @@ SceneRoots:
   - {fileID: 285386561}
   - {fileID: 939543824}
   - {fileID: 1603683880}
-  - {fileID: 747951295}

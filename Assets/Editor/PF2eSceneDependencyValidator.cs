@@ -82,7 +82,6 @@ public static class PF2eSceneDependencyValidator
         errors += ValidateAll<InitiativeBarController>(ValidateInitiativeBarController);
         errors += ValidateAll<ActionBarController>(ValidateActionBarController);
         errors += ValidateAll<TurnOptionsPresenter>(ValidateTurnOptionsPresenter);
-        errors += ValidateAll<DelayUiOrchestrator>(ValidateDelayUiOrchestrator);
         errors += ValidateAll<ReadyStrikeEventBinder>(ValidateReadyStrikeEventBinder);
         errors += ValidateAll<TargetingHintController>(ValidateTargetingHintController);
         errors += ValidateAll<TargetingFeedbackController>(ValidateTargetingFeedbackController);
@@ -116,7 +115,6 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<InitiativeBarController>();
         errors += ErrorIfMoreThanOne<ActionBarController>();
         errors += ErrorIfMoreThanOne<TurnOptionsPresenter>();
-        errors += ErrorIfMoreThanOne<DelayUiOrchestrator>();
         errors += ErrorIfMoreThanOne<ReadyStrikeEventBinder>();
         errors += ErrorIfMoreThanOne<TargetingHintController>();
         errors += ErrorIfMoreThanOne<TargetingFeedbackController>();
@@ -161,11 +159,6 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnIfNone<EncounterFlowController>();
         warnings += WarnIfNone<ActionBarController>();
         warnings += WarnIfNone<TurnOptionsPresenter>();
-        if (UnityEngine.Object.FindObjectsByType<ActionBarController>(FindObjectsSortMode.None).Length > 0 &&
-            UnityEngine.Object.FindObjectsByType<InitiativeBarController>(FindObjectsSortMode.None).Length > 0)
-        {
-            warnings += WarnIfNone<DelayUiOrchestrator>();
-        }
         if (UnityEngine.Object.FindObjectsByType<TurnManager>(FindObjectsSortMode.None).Length > 0)
         {
             errors += ErrorIfNone<ReadyStrikeEventBinder>();
@@ -440,13 +433,6 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(c, "delayButton", "Button");
         errors += RequireRef(c, "returnNowButton", "Button");
         errors += RequireRef(c, "skipButton", "Button");
-    }
-
-    private static void ValidateDelayUiOrchestrator(DelayUiOrchestrator c, ref int errors, ref int warnings)
-    {
-        errors += RequireRef(c, "eventBus", "CombatEventBus");
-        errors += RequireRef(c, "turnOptionsPresenter", "TurnOptionsPresenter");
-        errors += RequireRef(c, "initiativeBarController", "InitiativeBarController");
     }
 
     private static bool IsActionBarLauncherLayoutEnabled(ActionBarController controller)
@@ -829,23 +815,9 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         TryGetSingleton(out ActionBarController actionBarControllerSingleton, logIfMissing: false);
         TryGetSingleton(out TurnOptionsPresenter turnOptionsPresenterSingleton, logIfMissing: false);
         TryGetSingleton(out InitiativeBarController initiativeBarControllerSingleton, logIfMissing: false);
-        TryGetSingleton(out DelayUiOrchestrator delayUiOrchestratorSingleton, logIfMissing: false);
         TryGetSingleton(out ReadyStrikeEventBinder readyStrikeEventBinderSingleton, logIfMissing: false);
         TryGetSingleton(out TargetingHintController targetingHintControllerSingleton, logIfMissing: false);
         TryGetSingleton(out TargetingFeedbackController targetingFeedbackControllerSingleton, logIfMissing: false);
-
-        if (delayUiOrchestratorSingleton == null &&
-            eventBus != null &&
-            turnOptionsPresenterSingleton != null &&
-            initiativeBarControllerSingleton != null)
-        {
-            var orchestratorGo = new GameObject("DelayUiOrchestrator");
-            Undo.RegisterCreatedObjectUndo(orchestratorGo, "Create DelayUiOrchestrator");
-            delayUiOrchestratorSingleton = orchestratorGo.AddComponent<DelayUiOrchestrator>();
-            EditorUtility.SetDirty(orchestratorGo);
-            fixedCount++;
-            Debug.Log("[PF2eAutoFix] Created DelayUiOrchestrator.");
-        }
 
         if (readyStrikeEventBinderSingleton == null &&
             turnManager != null &&
@@ -1099,14 +1071,6 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
             fixedCount += FixAll<TurnOptionsPresenter>("initiativeBarController", initiativeBarControllerSingleton);
         if (turnOptionsPresenterSingleton != null)
             fixedCount += AutoWireTurnOptionsPresenter(turnOptionsPresenterSingleton);
-
-        // DelayUiOrchestrator (Phase 29j)
-        if (eventBus != null)
-            fixedCount += FixAll<DelayUiOrchestrator>("eventBus", eventBus);
-        if (turnOptionsPresenterSingleton != null)
-            fixedCount += FixAll<DelayUiOrchestrator>("turnOptionsPresenter", turnOptionsPresenterSingleton);
-        if (initiativeBarControllerSingleton != null)
-            fixedCount += FixAll<DelayUiOrchestrator>("initiativeBarController", initiativeBarControllerSingleton);
 
         // TargetingHintController (Phase 23.2)
         if (targetingHintControllerSingleton != null)
