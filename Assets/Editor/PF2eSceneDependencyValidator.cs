@@ -369,6 +369,8 @@ public static class PF2eSceneDependencyValidator
 
     private static void ValidateActionBarController(ActionBarController c, ref int errors, ref int warnings)
     {
+        bool hasTurnOptionsPresenter = IsTurnOptionsPresenterPresent();
+
         errors += RequireRef(c, "eventBus", "CombatEventBus");
         errors += RequireRef(c, "entityManager", "EntityManager");
         errors += RequireRef(c, "turnManager", "TurnManager");
@@ -390,7 +392,7 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(c, "aidPreparedIndicatorLabel", "TMP_Text");
         // When TurnOptionsPresenter exists, it owns Ready/Delay/Return/Skip UX and
         // ActionBar turn-management refs are legacy/optional.
-        if (!IsTurnOptionsPresenterPresent())
+        if (!hasTurnOptionsPresenter)
         {
             errors += RequireRef(c, "readyButton", "Button");
             errors += RequireRef(c, "readyButtonLabel", "TMP_Text");
@@ -408,9 +410,12 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnRef(c, "castSpellHighlight", "Image");
         warnings += WarnRef(c, "raiseShieldButton", "Button");
         warnings += WarnRef(c, "standButton", "Button");
-        warnings += WarnRef(c, "delayButton", "Button");
-        warnings += WarnRef(c, "returnNowButton", "Button");
-        warnings += WarnRef(c, "skipDelayWindowButton", "Button");
+        if (!hasTurnOptionsPresenter)
+        {
+            warnings += WarnRef(c, "delayButton", "Button");
+            warnings += WarnRef(c, "returnNowButton", "Button");
+            warnings += WarnRef(c, "skipDelayWindowButton", "Button");
+        }
 
         warnings += WarnRef(c, "strikeHighlight", "Image");
         warnings += WarnRef(c, "tripHighlight", "Image");

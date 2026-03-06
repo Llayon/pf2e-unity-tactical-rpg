@@ -124,13 +124,16 @@ namespace PF2e.Presentation
             if (aidHighlight == null) Debug.LogWarning("[ActionBar] aidHighlight not assigned", this);
             if (aidPreparedIndicatorRoot == null) Debug.LogWarning("[ActionBar] aidPreparedIndicatorRoot not assigned", this);
             if (aidPreparedIndicatorLabel == null) Debug.LogWarning("[ActionBar] aidPreparedIndicatorLabel not assigned", this);
-            if (readyButton == null) Debug.LogWarning("[ActionBar] readyButton not assigned", this);
-            if (readyButtonLabel == null) Debug.LogWarning("[ActionBar] readyButtonLabel not assigned", this);
-            if (readyHighlight == null) Debug.LogWarning("[ActionBar] readyHighlight not assigned", this);
-            if (readyModeSelectorRoot == null) Debug.LogWarning("[ActionBar] readyModeSelectorRoot not assigned", this);
-            if (readyModeMoveButton == null) Debug.LogWarning("[ActionBar] readyModeMoveButton not assigned", this);
-            if (readyModeAttackButton == null) Debug.LogWarning("[ActionBar] readyModeAttackButton not assigned", this);
-            if (readyModeAnyButton == null) Debug.LogWarning("[ActionBar] readyModeAnyButton not assigned", this);
+            if (!IsTurnOptionsPresenterPresent())
+            {
+                if (readyButton == null) Debug.LogWarning("[ActionBar] readyButton not assigned", this);
+                if (readyButtonLabel == null) Debug.LogWarning("[ActionBar] readyButtonLabel not assigned", this);
+                if (readyHighlight == null) Debug.LogWarning("[ActionBar] readyHighlight not assigned", this);
+                if (readyModeSelectorRoot == null) Debug.LogWarning("[ActionBar] readyModeSelectorRoot not assigned", this);
+                if (readyModeMoveButton == null) Debug.LogWarning("[ActionBar] readyModeMoveButton not assigned", this);
+                if (readyModeAttackButton == null) Debug.LogWarning("[ActionBar] readyModeAttackButton not assigned", this);
+                if (readyModeAnyButton == null) Debug.LogWarning("[ActionBar] readyModeAnyButton not assigned", this);
+            }
             if (castSpellButton == null) Debug.LogWarning("[ActionBar] castSpellButton not assigned", this);
             if (castSpellButtonLabel == null) Debug.LogWarning("[ActionBar] castSpellButtonLabel not assigned", this);
             if (castSpellModeSelectorRoot == null) Debug.LogWarning("[ActionBar] castSpellModeSelectorRoot not assigned", this);
@@ -212,6 +215,9 @@ namespace PF2e.Presentation
 
         private void ValidateReadyUiReferences()
         {
+            if (IsTurnOptionsPresenterPresent())
+                return;
+
             if (readyButton != null && readyButtonLabel != null && readyHighlight != null)
                 return;
 
@@ -227,6 +233,9 @@ namespace PF2e.Presentation
 
         private void ResolveReadyModeSelectorReferences()
         {
+            if (IsTurnOptionsPresenterPresent())
+                return;
+
             if (readyButton == null)
             {
                 WarnMissingReadyModeWiring();
@@ -1460,6 +1469,11 @@ namespace PF2e.Presentation
         {
             var orchestrator = UnityEngine.Object.FindFirstObjectByType<DelayUiOrchestrator>();
             return orchestrator != null && orchestrator.isActiveAndEnabled;
+        }
+
+        private static bool IsTurnOptionsPresenterPresent()
+        {
+            return UnityEngine.Object.FindFirstObjectByType<TurnOptionsPresenter>() != null;
         }
 
     }
