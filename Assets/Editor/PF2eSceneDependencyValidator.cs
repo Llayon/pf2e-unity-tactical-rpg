@@ -369,8 +369,6 @@ public static class PF2eSceneDependencyValidator
 
     private static void ValidateActionBarController(ActionBarController c, ref int errors, ref int warnings)
     {
-        bool hasTurnOptionsPresenter = IsTurnOptionsPresenterPresent();
-
         errors += RequireRef(c, "eventBus", "CombatEventBus");
         errors += RequireRef(c, "entityManager", "EntityManager");
         errors += RequireRef(c, "turnManager", "TurnManager");
@@ -390,18 +388,6 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(c, "aidHighlight", "Image");
         errors += RequireRef(c, "aidPreparedIndicatorRoot", "GameObject");
         errors += RequireRef(c, "aidPreparedIndicatorLabel", "TMP_Text");
-        // When TurnOptionsPresenter exists, it owns Ready/Delay/Return/Skip UX and
-        // ActionBar turn-management refs are legacy/optional.
-        if (!hasTurnOptionsPresenter)
-        {
-            errors += RequireRef(c, "readyButton", "Button");
-            errors += RequireRef(c, "readyButtonLabel", "TMP_Text");
-            errors += RequireRef(c, "readyHighlight", "Image");
-            errors += RequireRef(c, "readyModeSelectorRoot", "RectTransform");
-            errors += RequireRef(c, "readyModeMoveButton", "Button");
-            errors += RequireRef(c, "readyModeAttackButton", "Button");
-            errors += RequireRef(c, "readyModeAnyButton", "Button");
-        }
         errors += RequireRef(c, "castSpellButton", "Button");
         errors += RequireRef(c, "castSpellButtonLabel", "TMP_Text");
         errors += RequireRef(c, "castSpellModeSelectorRoot", "RectTransform");
@@ -410,12 +396,6 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnRef(c, "castSpellHighlight", "Image");
         warnings += WarnRef(c, "raiseShieldButton", "Button");
         warnings += WarnRef(c, "standButton", "Button");
-        if (!hasTurnOptionsPresenter)
-        {
-            warnings += WarnRef(c, "delayButton", "Button");
-            warnings += WarnRef(c, "returnNowButton", "Button");
-            warnings += WarnRef(c, "skipDelayWindowButton", "Button");
-        }
 
         warnings += WarnRef(c, "strikeHighlight", "Image");
         warnings += WarnRef(c, "tripHighlight", "Image");
@@ -443,11 +423,6 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(c, "eventBus", "CombatEventBus");
         errors += RequireRef(c, "actionBarController", "ActionBarController");
         errors += RequireRef(c, "initiativeBarController", "InitiativeBarController");
-    }
-
-    private static bool IsTurnOptionsPresenterPresent()
-    {
-        return UnityEngine.Object.FindFirstObjectByType<TurnOptionsPresenter>() != null;
     }
 
     private static bool IsActionBarLauncherLayoutEnabled(ActionBarController controller)
@@ -1267,13 +1242,9 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "RepositionButton", "repositionButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "DemoralizeButton", "demoralizeButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "EscapeButton", "escapeButton");
-        fixedCount += TryAssignActionBarChild<Button>(bar, root, "ReadyButton", "readyButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "CastSpellButton", "castSpellButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "RaiseShieldButton", "raiseShieldButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "StandButton", "standButton");
-        fixedCount += TryAssignActionBarChild<Button>(bar, root, "DelayButton", "delayButton");
-        fixedCount += TryAssignActionBarChild<Button>(bar, root, "ReturnNowButton", "returnNowButton");
-        fixedCount += TryAssignActionBarChild<Button>(bar, root, "SkipDelayWindowButton", "skipDelayWindowButton");
         fixedCount += TryAssignActionBarChild<Button>(bar, root, "TacticsLauncherButton", "tacticsLauncherButton");
         fixedCount += TryAssignActionBarChild<RectTransform>(bar, root, "StrikePopupRoot", "strikePopupRoot");
         fixedCount += TryAssignActionBarChild<RectTransform>(bar, root, "TacticsPopupRoot", "tacticsPopupRoot");
@@ -1286,12 +1257,10 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "RepositionButton/ActiveHighlight", "repositionHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "DemoralizeButton/ActiveHighlight", "demoralizeHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "EscapeButton/ActiveHighlight", "escapeHighlight");
-        fixedCount += TryAssignActionBarChild<Image>(bar, root, "ReadyButton/ActiveHighlight", "readyHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "CastSpellButton/ActiveHighlight", "castSpellHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "RaiseShieldButton/ActiveHighlight", "raiseShieldHighlight");
         fixedCount += TryAssignActionBarChild<Image>(bar, root, "StandButton/ActiveHighlight", "standHighlight");
         fixedCount += EnsureStrikePopupHeaders(root);
-        fixedCount += EnsureReadyActionBarUi(bar, root);
         fixedCount += EnsureCastSpellActionBarUi(bar, root);
         fixedCount += EnsureLauncherActionBarUi(bar, root);
         fixedCount += EnsureAidActionBarUi(bar, root);
@@ -1391,52 +1360,6 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         EditorUtility.SetDirty(label);
 
         return existing;
-    }
-
-    private static int EnsureReadyActionBarUi(ActionBarController bar, Transform root)
-    {
-        if (bar == null || root == null) return 0;
-
-        int fixedCount = 0;
-
-        var readyButton = FindActionBarButton(root, "ReadyButton");
-        if (readyButton == null)
-            readyButton = TryCreateReadyButtonFromTemplate(root);
-
-        if (readyButton != null)
-            fixedCount += TryAssignIfNull(bar, "readyButton", readyButton);
-
-        var readyButtonLabel = ResolveReadyButtonLabel(readyButton);
-        if (readyButtonLabel != null)
-            fixedCount += TryAssignIfNull(bar, "readyButtonLabel", readyButtonLabel);
-
-        var readyHighlight = readyButton != null ? EnsureAidButtonHighlight(readyButton) : null;
-        if (readyHighlight != null)
-            fixedCount += TryAssignIfNull(bar, "readyHighlight", readyHighlight);
-
-        var readyModeSelectorRoot = readyButton != null ? EnsureReadyModeSelectorRoot(readyButton) : null;
-        if (readyModeSelectorRoot != null)
-            fixedCount += TryAssignIfNull(bar, "readyModeSelectorRoot", readyModeSelectorRoot);
-
-        var readyModeMoveButton = readyModeSelectorRoot != null
-            ? EnsureReadyModeButton(readyModeSelectorRoot, "ReadyModeMoveButton", "M", readyButton)
-            : null;
-        if (readyModeMoveButton != null)
-            fixedCount += TryAssignIfNull(bar, "readyModeMoveButton", readyModeMoveButton);
-
-        var readyModeAttackButton = readyModeSelectorRoot != null
-            ? EnsureReadyModeButton(readyModeSelectorRoot, "ReadyModeAttackButton", "A", readyButton)
-            : null;
-        if (readyModeAttackButton != null)
-            fixedCount += TryAssignIfNull(bar, "readyModeAttackButton", readyModeAttackButton);
-
-        var readyModeAnyButton = readyModeSelectorRoot != null
-            ? EnsureReadyModeButton(readyModeSelectorRoot, "ReadyModeAnyButton", "*", readyButton)
-            : null;
-        if (readyModeAnyButton != null)
-            fixedCount += TryAssignIfNull(bar, "readyModeAnyButton", readyModeAnyButton);
-
-        return fixedCount;
     }
 
     private static int EnsureCastSpellActionBarUi(ActionBarController bar, Transform root)

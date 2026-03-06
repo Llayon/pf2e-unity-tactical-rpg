@@ -23,108 +23,15 @@ namespace PF2e.Tests
             var actor = ctx.RegisterEntity("Fighter", Team.Player);
             ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
             ctx.AddActorToInitiativeOrder(ctx.RegisterEntity("Goblin", Team.Enemy));
-            ctx.SetDelayTurnBeginTriggerOpen(true);
 
             ctx.RefreshAvailability();
 
             Assert.IsTrue(ctx.StrikeButton.interactable);
             Assert.IsTrue(ctx.DemoralizeButton.interactable);
             Assert.IsTrue(ctx.AidButton.interactable);
-            Assert.IsTrue(ctx.ReadyButton.interactable);
-            Assert.IsTrue(ctx.DelayButton.interactable);
             Assert.IsFalse(ctx.TripButton.interactable);
             Assert.IsFalse(ctx.ShoveButton.interactable);
             Assert.IsFalse(ctx.GrappleButton.interactable);
-        }
-
-        [Test]
-        public void RefreshAvailability_OneActionRemaining_DisablesReady()
-        {
-            using var ctx = new ActionBarTestContext();
-            var actor = ctx.RegisterEntity("Fighter", Team.Player);
-            ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 1);
-            ctx.AddActorToInitiativeOrder(ctx.RegisterEntity("Goblin", Team.Enemy));
-            ctx.SetDelayTurnBeginTriggerOpen(true);
-
-            ctx.RefreshAvailability();
-
-            Assert.IsFalse(ctx.ReadyButton.interactable);
-        }
-
-        [Test]
-        public void RefreshAvailability_ReadiedStrikeAlreadyPrepared_DisablesReady()
-        {
-            using var ctx = new ActionBarTestContext();
-            var actor = ctx.RegisterEntity("Fighter", Team.Player);
-            ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
-            ctx.AddActorToInitiativeOrder(ctx.RegisterEntity("Goblin", Team.Enemy));
-            ctx.SetDelayTurnBeginTriggerOpen(true);
-
-            var actorData = ctx.Registry.Get(actor);
-            Assert.IsNotNull(actorData);
-            actorData.ReactionAvailable = true;
-            Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(actor, preparedRound: 1));
-
-            ctx.RefreshAvailability();
-
-            Assert.IsFalse(ctx.ReadyButton.interactable);
-        }
-
-        [Test]
-        public void RefreshAvailability_PlayerTurn_WithActions_ReadyModeButtonsEnabled()
-        {
-            using var ctx = new ActionBarTestContext();
-            var actor = ctx.RegisterEntity("Fighter", Team.Player);
-            ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
-            ctx.AddActorToInitiativeOrder(ctx.RegisterEntity("Goblin", Team.Enemy));
-            ctx.SetDelayTurnBeginTriggerOpen(true);
-
-            ctx.RefreshAvailability();
-
-            Assert.IsNotNull(ctx.ReadyModeMoveButton, "Ready mode Move button must be created/resolved.");
-            Assert.IsNotNull(ctx.ReadyModeAttackButton, "Ready mode Attack button must be created/resolved.");
-            Assert.IsNotNull(ctx.ReadyModeAnyButton, "Ready mode Any button must be created/resolved.");
-            Assert.IsTrue(ctx.ReadyModeMoveButton.interactable);
-            Assert.IsTrue(ctx.ReadyModeAttackButton.interactable);
-            Assert.IsTrue(ctx.ReadyModeAnyButton.interactable);
-        }
-
-        [Test]
-        public void ReadyModeAttackButton_Click_UpdatesTurnManagerMode()
-        {
-            using var ctx = new ActionBarTestContext();
-            var actor = ctx.RegisterEntity("Fighter", Team.Player);
-            ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
-            ctx.AddActorToInitiativeOrder(ctx.RegisterEntity("Goblin", Team.Enemy));
-            ctx.SetDelayTurnBeginTriggerOpen(true);
-            ctx.RefreshAvailability();
-
-            Assert.AreEqual(ReadyTriggerMode.Any, ctx.TurnManager.CurrentReadyTriggerMode);
-
-            ctx.ReadyModeAttackButton.onClick.Invoke();
-
-            Assert.AreEqual(ReadyTriggerMode.Attack, ctx.TurnManager.CurrentReadyTriggerMode);
-        }
-
-        [Test]
-        public void RefreshAvailability_ReadiedStrikeAlreadyPrepared_DisablesReadyModeButtons()
-        {
-            using var ctx = new ActionBarTestContext();
-            var actor = ctx.RegisterEntity("Fighter", Team.Player);
-            ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
-            ctx.AddActorToInitiativeOrder(ctx.RegisterEntity("Goblin", Team.Enemy));
-            ctx.SetDelayTurnBeginTriggerOpen(true);
-
-            var actorData = ctx.Registry.Get(actor);
-            Assert.IsNotNull(actorData);
-            actorData.ReactionAvailable = true;
-            Assert.IsTrue(ctx.TurnManager.TryPrepareReadiedStrike(actor, preparedRound: 1));
-
-            ctx.RefreshAvailability();
-
-            Assert.IsFalse(ctx.ReadyModeMoveButton.interactable);
-            Assert.IsFalse(ctx.ReadyModeAttackButton.interactable);
-            Assert.IsFalse(ctx.ReadyModeAnyButton.interactable);
         }
 
         [Test]
@@ -145,83 +52,10 @@ namespace PF2e.Tests
             using var ctx = new ActionBarTestContext();
             var actor = ctx.RegisterEntity("Fighter", Team.Player);
             ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 0);
-            ctx.SetDelayTurnBeginTriggerOpen(true);
 
             ctx.RefreshAvailability();
 
             ctx.AssertAllButtonsDisabled();
-        }
-
-        [Test]
-        public void RefreshAvailability_DelayReturnWindow_EnablesReturnNowAndSkip_DisablesNormalActions()
-        {
-            using var ctx = new ActionBarTestContext();
-            var player = ctx.RegisterEntity("Fighter", Team.Player);
-            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
-            ctx.SetCurrentActorWithOrder(player, TurnState.PlayerTurn, actionsRemaining: 3, enemy);
-            ctx.SetDelayTurnBeginTriggerOpen(true);
-            ctx.EventBus.PublishCombatStarted();
-
-            Assert.IsTrue(ctx.TurnManager.TryDelayCurrentTurn(), "Setup should enter enemy turn with delayed player.");
-            ctx.TurnManager.EndTurn(); // opens DelayReturnWindow
-
-            Assert.AreEqual(TurnState.DelayReturnWindow, ctx.TurnManager.State);
-            Assert.IsFalse(ctx.StrikeButton.interactable);
-            Assert.IsFalse(ctx.DelayButton.interactable);
-            Assert.IsTrue(ctx.ReturnNowButton.gameObject.activeSelf);
-            Assert.IsTrue(ctx.SkipDelayWindowButton.gameObject.activeSelf);
-            Assert.IsTrue(ctx.ReturnNowButton.interactable);
-            Assert.IsTrue(ctx.SkipDelayWindowButton.interactable);
-        }
-
-        [Test]
-        public void DelayButton_Click_EntersAndCancelsPlacementSelectionMode()
-        {
-            using var ctx = new ActionBarTestContext();
-            var player = ctx.RegisterEntity("Fighter", Team.Player);
-            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
-            ctx.SetCurrentActorWithOrder(player, TurnState.PlayerTurn, actionsRemaining: 3, enemy);
-            ctx.SetDelayTurnBeginTriggerOpen(true);
-            ctx.EventBus.PublishCombatStarted();
-            ctx.RefreshAvailability();
-
-            Assert.IsTrue(ctx.DelayButton.interactable);
-
-            ctx.DelayButton.onClick.Invoke();
-
-            Assert.AreEqual(TurnState.PlayerTurn, ctx.TurnManager.State);
-            Assert.IsTrue(ctx.TurnManager.IsDelayPlacementSelectionOpen);
-            Assert.AreEqual(0, ctx.TurnManager.DelayedActorCount);
-            Assert.IsTrue(ctx.DelayButton.interactable, "Delay remains enabled as cancel toggle while selecting anchor.");
-            Assert.IsFalse(ctx.StrikeButton.interactable, "Normal actions should be disabled during delay placement selection.");
-
-            ctx.DelayButton.onClick.Invoke();
-
-            Assert.IsFalse(ctx.TurnManager.IsDelayPlacementSelectionOpen);
-            Assert.IsTrue(ctx.DelayButton.interactable);
-        }
-
-        [Test]
-        public void PlannedDelay_AutoResume_DoesNotShowReturnOrSkipButtons()
-        {
-            using var ctx = new ActionBarTestContext();
-            var player = ctx.RegisterEntity("Fighter", Team.Player);
-            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
-            ctx.SetCurrentActorWithOrder(player, TurnState.PlayerTurn, actionsRemaining: 3, enemy);
-            ctx.SetDelayTurnBeginTriggerOpen(true);
-            ctx.EventBus.PublishCombatStarted();
-            ctx.RefreshAvailability();
-
-            Assert.IsTrue(ctx.TurnManager.TryBeginDelayPlacementSelection());
-            Assert.IsTrue(ctx.TurnManager.TryDelayCurrentTurnAfterActor(enemy));
-            Assert.AreEqual(TurnState.EnemyTurn, ctx.TurnManager.State);
-
-            ctx.TurnManager.EndTurn(); // enemy end -> planned delay auto-resume
-
-            Assert.AreEqual(TurnState.PlayerTurn, ctx.TurnManager.State);
-            Assert.IsFalse(ctx.TurnManager.IsDelayReturnWindowOpen);
-            Assert.IsFalse(ctx.ReturnNowButton.gameObject.activeSelf);
-            Assert.IsFalse(ctx.SkipDelayWindowButton.gameObject.activeSelf);
         }
 
         [Test]
@@ -617,18 +451,11 @@ namespace PF2e.Tests
             public Button DemoralizeButton { get; }
             public Button EscapeButton { get; }
             public Button AidButton { get; }
-            public Button ReadyButton { get; }
-            public Button ReadyModeMoveButton { get; private set; }
-            public Button ReadyModeAttackButton { get; private set; }
-            public Button ReadyModeAnyButton { get; private set; }
             public Button CastSpellButton { get; }
             public Button CastSpellModeStandardButton { get; private set; }
             public Button CastSpellModeGlassButton { get; private set; }
             public Button RaiseShieldButton { get; }
             public Button StandButton { get; }
-            public Button DelayButton { get; }
-            public Button ReturnNowButton { get; }
-            public Button SkipDelayWindowButton { get; }
 
             public Image StrikeHighlight { get; }
             public Image TripHighlight { get; }
@@ -637,7 +464,6 @@ namespace PF2e.Tests
             public Image DemoralizeHighlight { get; }
             public Image EscapeHighlight { get; }
             public Image AidHighlight { get; }
-            public Image ReadyHighlight { get; }
             public Image CastSpellHighlight { get; }
             public Image RaiseShieldHighlight { get; }
             public Image StandHighlight { get; }
@@ -702,29 +528,6 @@ namespace PF2e.Tests
                 DemoralizeButton = CreateButton("DemoralizeButton", ActionBarGameObject.transform, out var demoralizeHl);
                 EscapeButton = CreateButton("EscapeButton", ActionBarGameObject.transform, out var escapeHl);
                 AidButton = CreateButton("AidButton", ActionBarGameObject.transform, out var aidHl);
-                ReadyButton = CreateButton("ReadyButton", ActionBarGameObject.transform, out var readyHl);
-                var readyModeSelectorRootGo = new GameObject(
-                    "ReadyModeSelector",
-                    typeof(RectTransform),
-                    typeof(HorizontalLayoutGroup));
-                readyModeSelectorRootGo.transform.SetParent(ReadyButton.transform, false);
-                var selectorRect = readyModeSelectorRootGo.GetComponent<RectTransform>();
-                selectorRect.anchorMin = new Vector2(0.5f, 1f);
-                selectorRect.anchorMax = new Vector2(0.5f, 1f);
-                selectorRect.pivot = new Vector2(0.5f, 0f);
-                selectorRect.anchoredPosition = new Vector2(0f, 3f);
-                selectorRect.sizeDelta = new Vector2(96f, 16f);
-                var selectorLayout = readyModeSelectorRootGo.GetComponent<HorizontalLayoutGroup>();
-                selectorLayout.spacing = 2f;
-                selectorLayout.childAlignment = TextAnchor.MiddleCenter;
-                selectorLayout.childControlWidth = false;
-                selectorLayout.childControlHeight = false;
-                selectorLayout.childForceExpandWidth = false;
-                selectorLayout.childForceExpandHeight = false;
-
-                ReadyModeMoveButton = CreateReadyModeSelectorButton("ReadyModeMoveButton", readyModeSelectorRootGo.transform);
-                ReadyModeAttackButton = CreateReadyModeSelectorButton("ReadyModeAttackButton", readyModeSelectorRootGo.transform);
-                ReadyModeAnyButton = CreateReadyModeSelectorButton("ReadyModeAnyButton", readyModeSelectorRootGo.transform);
                 CastSpellButton = CreateButton("CastSpellButton", ActionBarGameObject.transform, out var castSpellHl);
                 CastSpellButtonLabel = CreateLabel("Label", CastSpellButton.transform, "Cast");
                 var castSpellModeSelectorRootGo = new GameObject(
@@ -751,9 +554,6 @@ namespace PF2e.Tests
                 SetMemberValue(ResolveLabelComponent(CastSpellModeGlassButton.transform), "text", "G");
                 RaiseShieldButton = CreateButton("RaiseShieldButton", ActionBarGameObject.transform, out var raiseShieldHl);
                 StandButton = CreateButton("StandButton", ActionBarGameObject.transform, out var standHl);
-                DelayButton = CreateButton("DelayButton", ActionBarGameObject.transform, out _);
-                ReturnNowButton = CreateButton("ReturnNowButton", ActionBarGameObject.transform, out _);
-                SkipDelayWindowButton = CreateButton("SkipDelayWindowButton", ActionBarGameObject.transform, out _);
 
                 StrikeHighlight = strikeHl;
                 TripHighlight = tripHl;
@@ -762,7 +562,6 @@ namespace PF2e.Tests
                 DemoralizeHighlight = demoralizeHl;
                 EscapeHighlight = escapeHl;
                 AidHighlight = aidHl;
-                ReadyHighlight = readyHl;
                 CastSpellHighlight = castSpellHl;
                 RaiseShieldHighlight = raiseShieldHl;
                 StandHighlight = standHl;
@@ -783,11 +582,6 @@ namespace PF2e.Tests
                 SetPrivateField(ActionBar, "demoralizeButton", DemoralizeButton);
                 SetPrivateField(ActionBar, "escapeButton", EscapeButton);
                 SetPrivateField(ActionBar, "aidButton", AidButton);
-                SetPrivateField(ActionBar, "readyButton", ReadyButton);
-                SetPrivateField(ActionBar, "readyModeSelectorRoot", selectorRect);
-                SetPrivateField(ActionBar, "readyModeMoveButton", ReadyModeMoveButton);
-                SetPrivateField(ActionBar, "readyModeAttackButton", ReadyModeAttackButton);
-                SetPrivateField(ActionBar, "readyModeAnyButton", ReadyModeAnyButton);
                 SetPrivateField(ActionBar, "castSpellButton", CastSpellButton);
                 SetPrivateField(ActionBar, "castSpellButtonLabel", CastSpellButtonLabel);
                 SetPrivateField(ActionBar, "castSpellModeSelectorRoot", castSpellSelectorRect);
@@ -795,9 +589,6 @@ namespace PF2e.Tests
                 SetPrivateField(ActionBar, "castSpellModeGlassButton", CastSpellModeGlassButton);
                 SetPrivateField(ActionBar, "raiseShieldButton", RaiseShieldButton);
                 SetPrivateField(ActionBar, "standButton", StandButton);
-                SetPrivateField(ActionBar, "delayButton", DelayButton);
-                SetPrivateField(ActionBar, "returnNowButton", ReturnNowButton);
-                SetPrivateField(ActionBar, "skipDelayWindowButton", SkipDelayWindowButton);
                 SetPrivateField(ActionBar, "strikeHighlight", StrikeHighlight);
                 SetPrivateField(ActionBar, "tripHighlight", TripHighlight);
                 SetPrivateField(ActionBar, "shoveHighlight", ShoveHighlight);
@@ -805,7 +596,6 @@ namespace PF2e.Tests
                 SetPrivateField(ActionBar, "demoralizeHighlight", DemoralizeHighlight);
                 SetPrivateField(ActionBar, "escapeHighlight", EscapeHighlight);
                 SetPrivateField(ActionBar, "aidHighlight", AidHighlight);
-                SetPrivateField(ActionBar, "readyHighlight", ReadyHighlight);
                 SetPrivateField(ActionBar, "castSpellHighlight", CastSpellHighlight);
                 SetPrivateField(ActionBar, "raiseShieldHighlight", RaiseShieldHighlight);
                 SetPrivateField(ActionBar, "standHighlight", StandHighlight);
@@ -1032,18 +822,11 @@ namespace PF2e.Tests
                 Assert.IsFalse(DemoralizeButton.interactable);
                 Assert.IsFalse(EscapeButton.interactable);
                 Assert.IsFalse(AidButton.interactable);
-                Assert.IsFalse(ReadyButton.interactable);
-                Assert.IsFalse(ReadyModeMoveButton.interactable);
-                Assert.IsFalse(ReadyModeAttackButton.interactable);
-                Assert.IsFalse(ReadyModeAnyButton.interactable);
                 Assert.IsFalse(CastSpellButton.interactable);
                 Assert.IsFalse(CastSpellModeStandardButton.interactable);
                 Assert.IsFalse(CastSpellModeGlassButton.interactable);
                 Assert.IsFalse(RaiseShieldButton.interactable);
                 Assert.IsFalse(StandButton.interactable);
-                Assert.IsFalse(DelayButton.interactable);
-                Assert.IsFalse(ReturnNowButton.interactable);
-                Assert.IsFalse(SkipDelayWindowButton.interactable);
             }
 
             public void AssertNoHighlights()
@@ -1055,7 +838,6 @@ namespace PF2e.Tests
                 Assert.IsFalse(DemoralizeHighlight.gameObject.activeSelf);
                 Assert.IsFalse(EscapeHighlight.gameObject.activeSelf);
                 Assert.IsFalse(AidHighlight.gameObject.activeSelf);
-                Assert.IsFalse(ReadyHighlight.gameObject.activeSelf);
                 Assert.IsFalse(CastSpellHighlight.gameObject.activeSelf);
                 Assert.IsFalse(RaiseShieldHighlight.gameObject.activeSelf);
                 Assert.IsFalse(StandHighlight.gameObject.activeSelf);

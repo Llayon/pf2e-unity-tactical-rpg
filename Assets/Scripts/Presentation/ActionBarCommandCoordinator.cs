@@ -11,7 +11,6 @@ namespace PF2e.Presentation
     /// </summary>
     public sealed class ActionBarCommandCoordinator
     {
-        private TurnManager turnManager;
         private TargetingController targetingController;
         private PlayerActionExecutor actionExecutor;
         private Action refreshAvailability;
@@ -20,12 +19,10 @@ namespace PF2e.Presentation
         public RaiseShieldSpellMode CurrentCastShieldSpellMode => castShieldSpellMode;
 
         public void Bind(
-            TurnManager turnManager,
             TargetingController targetingController,
             PlayerActionExecutor actionExecutor,
             Action refreshAvailability)
         {
-            this.turnManager = turnManager;
             this.targetingController = targetingController;
             this.actionExecutor = actionExecutor;
             this.refreshAvailability = refreshAvailability;
@@ -69,50 +66,6 @@ namespace PF2e.Presentation
         public void OnAidClicked()
         {
             ToggleOrBeginTargeting(TargetingMode.Aid, h => actionExecutor.TryExecuteAid(h));
-        }
-
-        public void OnReadyClicked()
-        {
-            if (turnManager == null || actionExecutor == null)
-                return;
-
-            var kb = Keyboard.current;
-            bool shiftPressed = kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed);
-            if (shiftPressed)
-            {
-                turnManager.CycleReadyTriggerMode();
-                refreshAvailability?.Invoke();
-                return;
-            }
-
-            actionExecutor.TryExecuteReadyStrike();
-        }
-
-        public void OnReadyModeMoveClicked()
-        {
-            if (turnManager == null)
-                return;
-
-            if (turnManager.SetReadyTriggerMode(ReadyTriggerMode.Movement))
-                refreshAvailability?.Invoke();
-        }
-
-        public void OnReadyModeAttackClicked()
-        {
-            if (turnManager == null)
-                return;
-
-            if (turnManager.SetReadyTriggerMode(ReadyTriggerMode.Attack))
-                refreshAvailability?.Invoke();
-        }
-
-        public void OnReadyModeAnyClicked()
-        {
-            if (turnManager == null)
-                return;
-
-            if (turnManager.SetReadyTriggerMode(ReadyTriggerMode.Any))
-                refreshAvailability?.Invoke();
         }
 
         public void OnRaiseShieldClicked()
@@ -171,48 +124,6 @@ namespace PF2e.Presentation
                 return;
 
             actionExecutor.TryExecuteStand();
-        }
-
-        public void OnDelayClicked()
-        {
-            if (turnManager == null)
-                return;
-
-            if (targetingController != null && targetingController.ActiveMode != TargetingMode.None)
-                targetingController.CancelTargeting();
-
-            if (turnManager.IsDelayPlacementSelectionOpen)
-            {
-                turnManager.CancelDelayPlacementSelection();
-                refreshAvailability?.Invoke();
-                return;
-            }
-
-            if (turnManager.TryBeginDelayPlacementSelection())
-                refreshAvailability?.Invoke();
-        }
-
-        public void OnReturnNowClicked()
-        {
-            if (turnManager == null)
-                return;
-            if (!turnManager.TryGetFirstDelayedPlayerActor(out var actor))
-                return;
-
-            if (turnManager.TryReturnDelayedActor(actor))
-                refreshAvailability?.Invoke();
-        }
-
-        public void OnSkipDelayWindowClicked()
-        {
-            if (turnManager == null)
-                return;
-
-            if (turnManager.IsDelayReturnWindowOpen)
-            {
-                turnManager.SkipDelayReturnWindow();
-                refreshAvailability?.Invoke();
-            }
         }
 
         private void ToggleOrBeginTargeting(TargetingMode mode, Action<EntityHandle> onConfirm)

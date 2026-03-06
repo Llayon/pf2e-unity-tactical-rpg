@@ -117,53 +117,6 @@ namespace PF2e.Tests
         }
 
         [Test]
-        public void SampleScene_ReadyModeUi_Wired()
-        {
-            Assert.IsTrue(System.IO.File.Exists(SampleScenePath), $"Missing scene: {SampleScenePath}");
-
-            EditorSceneManager.OpenScene(SampleScenePath, OpenSceneMode.Single);
-
-            var actionBar = UnityEngine.Object.FindFirstObjectByType<ActionBarController>();
-            Assert.IsNotNull(actionBar, "SampleScene must contain ActionBarController.");
-
-            SetPrivateField(actionBar, "readyButtonLabel", null);
-            SetPrivateField(actionBar, "readyModeSelectorRoot", null);
-            SetPrivateField(actionBar, "readyModeMoveButton", null);
-            SetPrivateField(actionBar, "readyModeAttackButton", null);
-            SetPrivateField(actionBar, "readyModeAnyButton", null);
-
-            var readyButton = GetPrivateField<Button>(actionBar, "readyButton");
-            if (readyButton != null)
-            {
-                var staleSelector = readyButton.transform.Find("ReadyModeSelector");
-                if (staleSelector != null)
-                    UnityEngine.Object.DestroyImmediate(staleSelector.gameObject);
-            }
-
-            InvokePrivateValidatorMethodWithBoolArg("RunAutoFix", false);
-
-            var selectorRoot = GetPrivateField<RectTransform>(actionBar, "readyModeSelectorRoot");
-            var moveButton = GetPrivateField<Button>(actionBar, "readyModeMoveButton");
-            var attackButton = GetPrivateField<Button>(actionBar, "readyModeAttackButton");
-            var anyButton = GetPrivateField<Button>(actionBar, "readyModeAnyButton");
-            var readyLabel = GetPrivateField<Component>(actionBar, "readyButtonLabel");
-
-            Assert.IsNotNull(readyLabel, "ActionBarController must have Ready button label wired by scene/autofix.");
-            Assert.IsNotNull(selectorRoot, "ActionBarController must have Ready mode selector root wired by scene/autofix.");
-            Assert.IsNotNull(moveButton, "ActionBarController must have Ready mode Move button wired by scene/autofix.");
-            Assert.IsNotNull(attackButton, "ActionBarController must have Ready mode Attack button wired by scene/autofix.");
-            Assert.IsNotNull(anyButton, "ActionBarController must have Ready mode Any button wired by scene/autofix.");
-            Assert.IsTrue(readyLabel.transform.IsChildOf(readyButton.transform), "Ready label must remain under ReadyButton hierarchy.");
-            Assert.AreEqual("ReadyModeSelector", selectorRoot.gameObject.name);
-            Assert.AreEqual("ReadyModeMoveButton", moveButton.gameObject.name);
-            Assert.AreEqual("ReadyModeAttackButton", attackButton.gameObject.name);
-            Assert.AreEqual("ReadyModeAnyButton", anyButton.gameObject.name);
-            Assert.AreSame(selectorRoot, moveButton.transform.parent);
-            Assert.AreSame(selectorRoot, attackButton.transform.parent);
-            Assert.AreSame(selectorRoot, anyButton.transform.parent);
-        }
-
-        [Test]
         public void SampleScene_CastSpellModeUi_Wired()
         {
             Assert.IsTrue(System.IO.File.Exists(SampleScenePath), $"Missing scene: {SampleScenePath}");
@@ -305,124 +258,6 @@ namespace PF2e.Tests
 
         [Test]
         [TestMustExpectAllLogs(false)]
-        public void ValidateActionBarController_ReadyButtonAssigned_MissingReadyModeRefs_EmitsErrors()
-        {
-            bool oldIgnoreFailingLogs = LogAssert.ignoreFailingMessages;
-            LogAssert.ignoreFailingMessages = true;
-            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            var root = new GameObject("ActionBarValidatorReadyModeContractTest");
-            try
-            {
-                var eventBus = root.AddComponent<CombatEventBus>();
-                var turnManager = root.AddComponent<TurnManager>();
-                var actionExecutor = root.AddComponent<PlayerActionExecutor>();
-                var targetingController = root.AddComponent<TargetingController>();
-                var canvasGroup = root.AddComponent<CanvasGroup>();
-                var actionBar = root.AddComponent<ActionBarController>();
-
-                var readyButtonGo = new GameObject("ReadyButton", typeof(RectTransform), typeof(Image), typeof(Button));
-                readyButtonGo.transform.SetParent(root.transform, false);
-                var readyButton = readyButtonGo.GetComponent<Button>();
-
-                SetPrivateField(actionBar, "eventBus", eventBus);
-                SetPrivateField(actionBar, "turnManager", turnManager);
-                SetPrivateField(actionBar, "actionExecutor", actionExecutor);
-                SetPrivateField(actionBar, "targetingController", targetingController);
-                SetPrivateField(actionBar, "canvasGroup", canvasGroup);
-                SetPrivateField(actionBar, "readyButton", readyButton);
-                SetPrivateField(actionBar, "readyModeSelectorRoot", null);
-                SetPrivateField(actionBar, "readyModeMoveButton", null);
-                SetPrivateField(actionBar, "readyModeAttackButton", null);
-                SetPrivateField(actionBar, "readyModeAnyButton", null);
-
-                InvokePrivateValidateActionBarController(actionBar, out int errors, out int warnings);
-
-                Assert.GreaterOrEqual(
-                    errors,
-                    6,
-                    "When ReadyButton is assigned, missing Ready wiring refs (label/highlight/mode selector) must be validator errors.");
-                Assert.GreaterOrEqual(warnings, 1, "Optional missing action-bar slots should still report warnings.");
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(root);
-                LogAssert.ignoreFailingMessages = oldIgnoreFailingLogs;
-            }
-        }
-
-        [Test]
-        [TestMustExpectAllLogs(false)]
-        public void ValidateActionBarController_TurnOptionsPresenterPresent_MissingReadyModeRefs_DoNotEmitErrors()
-        {
-            bool oldIgnoreFailingLogs = LogAssert.ignoreFailingMessages;
-            LogAssert.ignoreFailingMessages = true;
-            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            var root = new GameObject("ActionBarValidatorTurnOptionsContractTest");
-            try
-            {
-                var eventBus = root.AddComponent<CombatEventBus>();
-                var turnManager = root.AddComponent<TurnManager>();
-                var entityManager = root.AddComponent<EntityManager>();
-                var actionExecutor = root.AddComponent<PlayerActionExecutor>();
-                var targetingController = root.AddComponent<TargetingController>();
-                var canvasGroup = root.AddComponent<CanvasGroup>();
-                var actionBar = root.AddComponent<ActionBarController>();
-                root.AddComponent<TurnOptionsPresenter>();
-
-                var aidButton = CreateButton("AidButton", root.transform);
-                var aidHighlight = CreateImage("AidHighlight", aidButton.transform);
-                var aidBadgeRoot = new GameObject("AidPreparedBadge", typeof(RectTransform));
-                aidBadgeRoot.transform.SetParent(aidButton.transform, false);
-                var aidBadgeLabel = CreateTmpLabel("Label", aidBadgeRoot.transform, string.Empty);
-
-                var castButton = CreateButton("CastSpellButton", root.transform);
-                var castButtonLabel = CreateTmpLabel("Label", castButton.transform, "Cast");
-                var castSelector = new GameObject("CastSpellModeSelector", typeof(RectTransform)).GetComponent<RectTransform>();
-                castSelector.transform.SetParent(castButton.transform, false);
-                var castStandard = CreateButton("CastSpellModeStandardButton", castSelector);
-                var castGlass = CreateButton("CastSpellModeGlassButton", castSelector);
-
-                SetPrivateField(actionBar, "eventBus", eventBus);
-                SetPrivateField(actionBar, "entityManager", entityManager);
-                SetPrivateField(actionBar, "turnManager", turnManager);
-                SetPrivateField(actionBar, "actionExecutor", actionExecutor);
-                SetPrivateField(actionBar, "targetingController", targetingController);
-                SetPrivateField(actionBar, "canvasGroup", canvasGroup);
-
-                SetPrivateField(actionBar, "aidButton", aidButton);
-                SetPrivateField(actionBar, "aidHighlight", aidHighlight);
-                SetPrivateField(actionBar, "aidPreparedIndicatorRoot", aidBadgeRoot);
-                SetPrivateField(actionBar, "aidPreparedIndicatorLabel", aidBadgeLabel);
-
-                // Intentionally keep Ready refs null: TurnOptionsPresenter owns turn-management UI.
-                SetPrivateField(actionBar, "readyButton", null);
-                SetPrivateField(actionBar, "readyButtonLabel", null);
-                SetPrivateField(actionBar, "readyHighlight", null);
-                SetPrivateField(actionBar, "readyModeSelectorRoot", null);
-                SetPrivateField(actionBar, "readyModeMoveButton", null);
-                SetPrivateField(actionBar, "readyModeAttackButton", null);
-                SetPrivateField(actionBar, "readyModeAnyButton", null);
-
-                SetPrivateField(actionBar, "castSpellButton", castButton);
-                SetPrivateField(actionBar, "castSpellButtonLabel", castButtonLabel);
-                SetPrivateField(actionBar, "castSpellModeSelectorRoot", castSelector);
-                SetPrivateField(actionBar, "castSpellModeStandardButton", castStandard);
-                SetPrivateField(actionBar, "castSpellModeGlassButton", castGlass);
-
-                InvokePrivateValidateActionBarController(actionBar, out int errors, out int warnings);
-
-                Assert.AreEqual(0, errors, "With TurnOptionsPresenter present, missing Ready refs must not be validator errors.");
-                Assert.GreaterOrEqual(warnings, 1, "Optional non-turn-management slots may still emit warnings.");
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(root);
-                LogAssert.ignoreFailingMessages = oldIgnoreFailingLogs;
-            }
-        }
-
-        [Test]
-        [TestMustExpectAllLogs(false)]
         public void ValidateActionBarController_AidButtonAssigned_MissingAidRefs_EmitsErrors()
         {
             bool oldIgnoreFailingLogs = LogAssert.ignoreFailingMessages;
@@ -439,14 +274,6 @@ namespace PF2e.Tests
                 var actionBar = root.AddComponent<ActionBarController>();
 
                 var aidButton = CreateButton("AidButton", root.transform);
-                var readyButton = CreateButton("ReadyButton", root.transform);
-                var readyLabel = CreateTmpLabel("Label", readyButton.transform, "Ready");
-                var readyHighlight = CreateImage("ActiveHighlight", readyButton.transform);
-                var selectorRoot = new GameObject("ReadyModeSelector", typeof(RectTransform)).GetComponent<RectTransform>();
-                selectorRoot.transform.SetParent(readyButton.transform, false);
-                var moveButton = CreateButton("ReadyModeMoveButton", selectorRoot);
-                var attackButton = CreateButton("ReadyModeAttackButton", selectorRoot);
-                var anyButton = CreateButton("ReadyModeAnyButton", selectorRoot);
 
                 SetPrivateField(actionBar, "eventBus", eventBus);
                 SetPrivateField(actionBar, "turnManager", turnManager);
@@ -458,14 +285,6 @@ namespace PF2e.Tests
                 SetPrivateField(actionBar, "aidHighlight", null);
                 SetPrivateField(actionBar, "aidPreparedIndicatorRoot", null);
                 SetPrivateField(actionBar, "aidPreparedIndicatorLabel", null);
-
-                SetPrivateField(actionBar, "readyButton", readyButton);
-                SetPrivateField(actionBar, "readyButtonLabel", readyLabel);
-                SetPrivateField(actionBar, "readyHighlight", readyHighlight);
-                SetPrivateField(actionBar, "readyModeSelectorRoot", selectorRoot);
-                SetPrivateField(actionBar, "readyModeMoveButton", moveButton);
-                SetPrivateField(actionBar, "readyModeAttackButton", attackButton);
-                SetPrivateField(actionBar, "readyModeAnyButton", anyButton);
 
                 InvokePrivateValidateActionBarController(actionBar, out int errors, out int warnings);
 

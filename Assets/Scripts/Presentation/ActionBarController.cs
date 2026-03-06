@@ -32,12 +32,6 @@ namespace PF2e.Presentation
         [SerializeField] private Button demoralizeButton;
         [SerializeField] private Button escapeButton;
         [SerializeField] private Button aidButton;
-        [SerializeField] private Button readyButton;
-        [SerializeField] private TMP_Text readyButtonLabel;
-        [SerializeField] private RectTransform readyModeSelectorRoot;
-        [SerializeField] private Button readyModeMoveButton;
-        [SerializeField] private Button readyModeAttackButton;
-        [SerializeField] private Button readyModeAnyButton;
         [SerializeField] private Button castSpellButton;
         [SerializeField] private TMP_Text castSpellButtonLabel;
         [SerializeField] private RectTransform castSpellModeSelectorRoot;
@@ -45,9 +39,6 @@ namespace PF2e.Presentation
         [SerializeField] private Button castSpellModeGlassButton;
         [SerializeField] private Button raiseShieldButton;
         [SerializeField] private Button standButton;
-        [SerializeField] private Button delayButton;
-        [SerializeField] private Button returnNowButton;
-        [SerializeField] private Button skipDelayWindowButton;
 
         [Header("Launcher Layout (Step 5, optional)")]
         [SerializeField] private bool useLauncherLayout;
@@ -69,7 +60,6 @@ namespace PF2e.Presentation
         [SerializeField] private Image demoralizeHighlight;
         [SerializeField] private Image escapeHighlight;
         [SerializeField] private Image aidHighlight;
-        [SerializeField] private Image readyHighlight;
         [SerializeField] private Image castSpellHighlight;
         [SerializeField] private Image raiseShieldHighlight;
         [SerializeField] private Image standHighlight;
@@ -81,24 +71,16 @@ namespace PF2e.Presentation
         [SerializeField] private Color aidPreparedIndicatorLabelColor = Color.black;
         [SerializeField] private string aidPreparedSingleText = string.Empty;
         [SerializeField] private string aidPreparedCountFormat = "{0}";
-        [SerializeField] private Color readyModeSelectedColor = new Color(0.95f, 0.78f, 0.18f, 0.95f);
-        [SerializeField] private Color readyModeUnselectedColor = new Color(0.18f, 0.23f, 0.30f, 0.92f);
-        [SerializeField] private Color readyModeTextColor = new Color(0.92f, 0.92f, 0.95f, 1f);
         [SerializeField] private Color castSpellModeSelectedColor = new Color(0.95f, 0.78f, 0.18f, 0.95f);
         [SerializeField] private Color castSpellModeUnselectedColor = new Color(0.18f, 0.23f, 0.30f, 0.92f);
         [SerializeField] private Color castSpellModeTextColor = new Color(0.92f, 0.92f, 0.95f, 1f);
 
         private bool buttonListenersBound;
-        private bool delayEventsSubscribedInternally;
-        private bool turnManagementButtonsExternallyHidden;
         private readonly ActionBarAvailabilityPolicy actionBarAvailabilityPolicy = new();
         private readonly ActionBarLauncherPresenter actionBarLauncherPresenter = new();
         private readonly AidPreparedIndicatorPresenter aidPreparedIndicatorPresenter = new();
-        private readonly DelayActionBarStatePresenter delayActionBarStatePresenter = new();
         private readonly ActionBarCommandCoordinator actionBarCommandCoordinator = new();
         private bool aidUiWiringWarned;
-        private bool readyUiWiringWarned;
-        private bool readyModeWiringWarned;
         private bool castSpellUiWiringWarned;
         private bool launcherLayoutWiringWarned;
         private bool strikePopupHeaderWiringWarned;
@@ -124,16 +106,6 @@ namespace PF2e.Presentation
             if (aidHighlight == null) Debug.LogWarning("[ActionBar] aidHighlight not assigned", this);
             if (aidPreparedIndicatorRoot == null) Debug.LogWarning("[ActionBar] aidPreparedIndicatorRoot not assigned", this);
             if (aidPreparedIndicatorLabel == null) Debug.LogWarning("[ActionBar] aidPreparedIndicatorLabel not assigned", this);
-            if (!IsTurnOptionsPresenterPresent())
-            {
-                if (readyButton == null) Debug.LogWarning("[ActionBar] readyButton not assigned", this);
-                if (readyButtonLabel == null) Debug.LogWarning("[ActionBar] readyButtonLabel not assigned", this);
-                if (readyHighlight == null) Debug.LogWarning("[ActionBar] readyHighlight not assigned", this);
-                if (readyModeSelectorRoot == null) Debug.LogWarning("[ActionBar] readyModeSelectorRoot not assigned", this);
-                if (readyModeMoveButton == null) Debug.LogWarning("[ActionBar] readyModeMoveButton not assigned", this);
-                if (readyModeAttackButton == null) Debug.LogWarning("[ActionBar] readyModeAttackButton not assigned", this);
-                if (readyModeAnyButton == null) Debug.LogWarning("[ActionBar] readyModeAnyButton not assigned", this);
-            }
             if (castSpellButton == null) Debug.LogWarning("[ActionBar] castSpellButton not assigned", this);
             if (castSpellButtonLabel == null) Debug.LogWarning("[ActionBar] castSpellButtonLabel not assigned", this);
             if (castSpellModeSelectorRoot == null) Debug.LogWarning("[ActionBar] castSpellModeSelectorRoot not assigned", this);
@@ -141,7 +113,6 @@ namespace PF2e.Presentation
             if (castSpellModeGlassButton == null) Debug.LogWarning("[ActionBar] castSpellModeGlassButton not assigned", this);
             if (raiseShieldButton == null) Debug.LogWarning("[ActionBar] raiseShieldButton not assigned", this);
             if (standButton == null) Debug.LogWarning("[ActionBar] standButton not assigned", this);
-            // delay/return/skip buttons are optional in older scenes; no warning spam.
             if (useLauncherLayout && tacticsLauncherButton == null) Debug.LogWarning("[ActionBar] useLauncherLayout=true but tacticsLauncherButton is not assigned (run scene validator autofix or assign in scene).", this);
             if (useLauncherLayout && strikePopupRoot == null) Debug.LogWarning("[ActionBar] useLauncherLayout=true but strikePopupRoot is not assigned (run scene validator autofix or assign in scene).", this);
             if (useLauncherLayout && tacticsPopupRoot == null) Debug.LogWarning("[ActionBar] useLauncherLayout=true but tacticsPopupRoot is not assigned (run scene validator autofix or assign in scene).", this);
@@ -158,12 +129,8 @@ namespace PF2e.Presentation
             SetCombatVisible(false);
             SetCastSpellUiVisible(false);
             SetAllInteractable(false);
-            ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
-            SetReadyModeButtonsInteractable(false);
             SetCastSpellModeButtonsInteractable(false);
-            RefreshReadyModeButtonsVisual();
             RefreshCastSpellModeButtonsVisual();
-            RefreshReadyButtonLabel();
             RefreshCastSpellButtonLabel();
             ClearAllHighlights();
             SetStrikePopupVisible(false);
@@ -175,8 +142,6 @@ namespace PF2e.Presentation
         {
             ValidateAidUiReferences();
             ApplyAidPreparedIndicatorStyle();
-            ValidateReadyUiReferences();
-            ResolveReadyModeSelectorReferences();
             ResolveCastSpellUiReferences();
             EnsureLauncherLayoutFallback();
             ConfigureLauncherPresenter();
@@ -211,54 +176,6 @@ namespace PF2e.Presentation
 
             if (aidPreparedIndicatorLabel != null)
                 aidPreparedIndicatorLabel.color = aidPreparedIndicatorLabelColor;
-        }
-
-        private void ValidateReadyUiReferences()
-        {
-            if (IsTurnOptionsPresenterPresent())
-                return;
-
-            if (readyButton != null && readyButtonLabel != null && readyHighlight != null)
-                return;
-
-            if (readyUiWiringWarned)
-                return;
-
-            readyUiWiringWarned = true;
-            Debug.LogWarning(
-                "[ActionBar] Ready UI is not fully wired (readyButton/readyButtonLabel/readyHighlight). " +
-                "Assign references in scene or run scene validator autofix.",
-                this);
-        }
-
-        private void ResolveReadyModeSelectorReferences()
-        {
-            if (IsTurnOptionsPresenterPresent())
-                return;
-
-            if (readyButton == null)
-            {
-                WarnMissingReadyModeWiring();
-                return;
-            }
-
-            if (readyModeSelectorRoot == null
-                || readyModeMoveButton == null
-                || readyModeAttackButton == null
-                || readyModeAnyButton == null)
-                WarnMissingReadyModeWiring();
-        }
-
-        private void WarnMissingReadyModeWiring()
-        {
-            if (readyModeWiringWarned)
-                return;
-
-            readyModeWiringWarned = true;
-            Debug.LogWarning(
-                "[ActionBar] Ready mode selector is not fully wired (root/mode buttons missing). " +
-                "Run scene validator autofix or assign references in scene.",
-                this);
         }
 
         private void ResolveCastSpellUiReferences()
@@ -625,12 +542,8 @@ namespace PF2e.Presentation
                 return;
             }
 
-            actionBarCommandCoordinator.Bind(turnManager, targetingController, actionExecutor, RefreshAvailability);
+            actionBarCommandCoordinator.Bind(targetingController, actionExecutor, RefreshAvailability);
             SubscribeCoreEvents();
-            SubscribeDelayEventsIfNeeded();
-            // Turn-management visibility is now driven explicitly by TurnOptionsPresenter
-            // (OnEnable/OnDisable), not by ActionBar self-discovery.
-            SetTurnManagementButtonsVisible(true);
 
             targetingController.OnModeChanged += HandleModeChanged;
 
@@ -644,7 +557,6 @@ namespace PF2e.Presentation
             if (eventBus != null)
             {
                 UnsubscribeCoreEvents();
-                UnsubscribeDelayEvents();
             }
 
             if (targetingController != null)
@@ -706,18 +618,11 @@ namespace PF2e.Presentation
             boundCount += BindButton(demoralizeButton, useLauncherLayout ? HandleDemoralizePopupClicked : actionBarCommandCoordinator.OnDemoralizeClicked);
             boundCount += BindButton(escapeButton, useLauncherLayout ? HandleEscapePopupClicked : actionBarCommandCoordinator.OnEscapeClicked);
             boundCount += BindButton(aidButton, useLauncherLayout ? HandleAidPopupClicked : actionBarCommandCoordinator.OnAidClicked);
-            boundCount += BindButton(readyButton, actionBarCommandCoordinator.OnReadyClicked);
-            boundCount += BindButton(readyModeMoveButton, actionBarCommandCoordinator.OnReadyModeMoveClicked);
-            boundCount += BindButton(readyModeAttackButton, actionBarCommandCoordinator.OnReadyModeAttackClicked);
-            boundCount += BindButton(readyModeAnyButton, actionBarCommandCoordinator.OnReadyModeAnyClicked);
             boundCount += BindButton(castSpellButton, useLauncherLayout ? ToggleCastPopup : actionBarCommandCoordinator.OnCastSpellClicked);
             boundCount += BindButton(castSpellModeStandardButton, useLauncherLayout ? HandleCastStandardPopupClicked : actionBarCommandCoordinator.OnCastSpellModeStandardClicked);
             boundCount += BindButton(castSpellModeGlassButton, useLauncherLayout ? HandleCastGlassPopupClicked : actionBarCommandCoordinator.OnCastSpellModeGlassClicked);
             boundCount += BindButton(raiseShieldButton, actionBarCommandCoordinator.OnRaiseShieldClicked);
             boundCount += BindButton(standButton, actionBarCommandCoordinator.OnStandClicked);
-            boundCount += BindButton(delayButton, actionBarCommandCoordinator.OnDelayClicked);
-            boundCount += BindButton(returnNowButton, actionBarCommandCoordinator.OnReturnNowClicked);
-            boundCount += BindButton(skipDelayWindowButton, actionBarCommandCoordinator.OnSkipDelayWindowClicked);
             boundCount += BindButton(tacticsLauncherButton, ToggleTacticsPopup);
             boundCount += BindButton(strikePopupStrikeButton, HandleStrikePopupStrikeClicked);
 
@@ -835,7 +740,6 @@ namespace PF2e.Presentation
             eventBus.OnShieldRaisedTyped += HandleShieldRaised;
             eventBus.OnAidPreparedTyped += HandleAidPrepared;
             eventBus.OnAidClearedTyped += HandleAidCleared;
-            eventBus.OnReadyTriggerModeChangedTyped += HandleReadyTriggerModeChanged;
         }
 
         private void UnsubscribeCoreEvents()
@@ -849,40 +753,6 @@ namespace PF2e.Presentation
             eventBus.OnShieldRaisedTyped -= HandleShieldRaised;
             eventBus.OnAidPreparedTyped -= HandleAidPrepared;
             eventBus.OnAidClearedTyped -= HandleAidCleared;
-            eventBus.OnReadyTriggerModeChangedTyped -= HandleReadyTriggerModeChanged;
-        }
-
-        private void SubscribeDelayEventsIfNeeded()
-        {
-            if (IsExternalDelayOrchestratorPresent())
-            {
-                delayEventsSubscribedInternally = false;
-                return;
-            }
-
-            eventBus.OnDelayTurnBeginTriggerChangedTyped += HandleDelayTurnBeginTriggerChanged;
-            eventBus.OnDelayPlacementSelectionChangedTyped += HandleDelayPlacementSelectionChanged;
-            eventBus.OnDelayReturnWindowOpenedTyped += HandleDelayReturnWindowOpened;
-            eventBus.OnDelayReturnWindowClosedTyped += HandleDelayReturnWindowClosed;
-            eventBus.OnDelayedTurnEnteredTyped += HandleDelayedTurnEntered;
-            eventBus.OnDelayedTurnResumedTyped += HandleDelayedTurnResumed;
-            eventBus.OnDelayedTurnExpiredTyped += HandleDelayedTurnExpired;
-            delayEventsSubscribedInternally = true;
-        }
-
-        private void UnsubscribeDelayEvents()
-        {
-            if (!delayEventsSubscribedInternally)
-                return;
-
-            eventBus.OnDelayTurnBeginTriggerChangedTyped -= HandleDelayTurnBeginTriggerChanged;
-            eventBus.OnDelayPlacementSelectionChangedTyped -= HandleDelayPlacementSelectionChanged;
-            eventBus.OnDelayReturnWindowOpenedTyped -= HandleDelayReturnWindowOpened;
-            eventBus.OnDelayReturnWindowClosedTyped -= HandleDelayReturnWindowClosed;
-            eventBus.OnDelayedTurnEnteredTyped -= HandleDelayedTurnEntered;
-            eventBus.OnDelayedTurnResumedTyped -= HandleDelayedTurnResumed;
-            eventBus.OnDelayedTurnExpiredTyped -= HandleDelayedTurnExpired;
-            delayEventsSubscribedInternally = false;
         }
 
         private void HandleCombatStarted(in CombatStartedEvent e)
@@ -900,12 +770,8 @@ namespace PF2e.Presentation
             SetCombatVisible(false);
             SetCastSpellUiVisible(false);
             SetAllInteractable(false);
-            ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
-            SetReadyModeButtonsInteractable(false);
             SetCastSpellModeButtonsInteractable(false);
-            RefreshReadyModeButtonsVisual();
             RefreshCastSpellModeButtonsVisual();
-            RefreshReadyButtonLabel();
             RefreshCastSpellButtonLabel();
             ClearAllHighlights();
             aidPreparedIndicatorPresenter.Clear();
@@ -923,10 +789,7 @@ namespace PF2e.Presentation
                 targetingController.CancelTargeting();
 
             SetAllInteractable(false);
-            ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
-            SetReadyModeButtonsInteractable(false);
             SetCastSpellModeButtonsInteractable(false);
-            RefreshReadyModeButtonsVisual();
             RefreshCastSpellModeButtonsVisual();
             RefreshCastSpellButtonLabel();
             ClearAllHighlights();
@@ -959,52 +822,6 @@ namespace PF2e.Presentation
             RefreshAvailability();
         }
 
-        private void HandleReadyTriggerModeChanged(in ReadyTriggerModeChangedEvent e)
-        {
-            _ = e;
-            RefreshAvailability();
-        }
-
-        private void HandleDelayTurnBeginTriggerChanged(in DelayTurnBeginTriggerChangedEvent e)
-        {
-            RefreshDelayUiFromOrchestrator();
-        }
-
-        private void HandleDelayPlacementSelectionChanged(in DelayPlacementSelectionChangedEvent e)
-        {
-            RefreshDelayUiFromOrchestrator();
-        }
-
-        private void HandleDelayReturnWindowOpened(in DelayReturnWindowOpenedEvent e)
-        {
-            RefreshDelayUiFromOrchestrator();
-        }
-
-        private void HandleDelayReturnWindowClosed(in DelayReturnWindowClosedEvent e)
-        {
-            RefreshDelayUiFromOrchestrator();
-        }
-
-        private void HandleDelayedTurnEntered(in DelayedTurnEnteredEvent e)
-        {
-            RefreshDelayUiFromOrchestrator();
-        }
-
-        private void HandleDelayedTurnResumed(in DelayedTurnResumedEvent e)
-        {
-            RefreshDelayUiFromOrchestrator();
-        }
-
-        private void HandleDelayedTurnExpired(in DelayedTurnExpiredEvent e)
-        {
-            RefreshDelayUiFromOrchestrator();
-        }
-
-        public void RefreshDelayUiFromOrchestrator()
-        {
-            RefreshAvailability();
-        }
-
         private void HandleModeChanged(TargetingMode mode)
         {
             SetHighlight(strikeHighlight, mode == TargetingMode.Strike);
@@ -1015,7 +832,6 @@ namespace PF2e.Presentation
             SetHighlight(demoralizeHighlight, mode == TargetingMode.Demoralize);
             SetHighlight(escapeHighlight, mode == TargetingMode.Escape);
             SetHighlight(aidHighlight, mode == TargetingMode.Aid);
-            SetHighlight(readyHighlight, !turnManagementButtonsExternallyHidden && mode == TargetingMode.ReadyStrike);
             SetHighlight(castSpellHighlight, false);
             SetHighlight(raiseShieldHighlight, false);
             SetHighlight(standHighlight, false);
@@ -1030,12 +846,8 @@ namespace PF2e.Presentation
                 CloseAllPopups();
                 SetCastSpellUiVisible(false);
                 SetAllInteractable(false);
-                if (!turnManagementButtonsExternallyHidden)
-                    ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
                 aidPreparedIndicatorPresenter.Clear();
-                SetReadyModeButtonsInteractable(false);
                 SetCastSpellModeButtonsInteractable(false);
-                RefreshReadyModeButtonsVisual();
                 RefreshCastSpellModeButtonsVisual();
                 RefreshCastSpellButtonLabel();
                 RefreshAidPreparedIndicator();
@@ -1046,39 +858,12 @@ namespace PF2e.Presentation
             var actorData = entityManager.Registry.Get(actor);
             SetCastSpellUiVisible(ShouldShowCastSpellUi(actorData));
 
-            if (turnManager.IsDelayReturnWindowOpen)
+            if (turnManager.IsDelayReturnWindowOpen || turnManager.IsDelayPlacementSelectionOpen)
             {
                 CloseAllPopups();
                 SetAllInteractable(false);
-
-                if (!turnManagementButtonsExternallyHidden)
-                {
-                    bool canReturnNow = turnManager.TryGetFirstDelayedPlayerActor(out _);
-                    ApplyDelayControls(delayActionBarStatePresenter.BuildReturnWindowState(canReturnNow));
-                }
-                SetReadyModeButtonsInteractable(false);
                 SetCastSpellModeButtonsInteractable(false);
-                RefreshReadyModeButtonsVisual();
                 RefreshCastSpellModeButtonsVisual();
-                if (!turnManagementButtonsExternallyHidden)
-                    RefreshReadyButtonLabel();
-                RefreshCastSpellButtonLabel();
-                RefreshAidPreparedIndicator();
-                return;
-            }
-
-            if (turnManager.IsDelayPlacementSelectionOpen)
-            {
-                CloseAllPopups();
-                SetAllInteractable(false);
-                if (!turnManagementButtonsExternallyHidden)
-                    ApplyDelayControls(delayActionBarStatePresenter.BuildPlacementSelectionState());
-                SetReadyModeButtonsInteractable(false);
-                SetCastSpellModeButtonsInteractable(false);
-                RefreshReadyModeButtonsVisual();
-                RefreshCastSpellModeButtonsVisual();
-                if (!turnManagementButtonsExternallyHidden)
-                    RefreshReadyButtonLabel();
                 RefreshCastSpellButtonLabel();
                 RefreshAidPreparedIndicator();
                 return;
@@ -1092,38 +877,14 @@ namespace PF2e.Presentation
             {
                 CloseAllPopups();
                 SetAllInteractable(false);
-                if (!turnManagementButtonsExternallyHidden)
-                    ApplyDelayControls(delayActionBarStatePresenter.BuildInactiveState());
-                SetReadyModeButtonsInteractable(false);
                 SetCastSpellModeButtonsInteractable(false);
-                RefreshReadyModeButtonsVisual();
                 RefreshCastSpellModeButtonsVisual();
-                if (!turnManagementButtonsExternallyHidden)
-                    RefreshReadyButtonLabel();
                 RefreshCastSpellButtonLabel();
                 RefreshAidPreparedIndicator();
                 return;
             }
 
             ApplyActionAvailability(in availability);
-            if (!turnManagementButtonsExternallyHidden)
-            {
-                ApplyDelayControls(delayActionBarStatePresenter.BuildNormalState(turnManager.CanDelayCurrentTurn()));
-
-                bool canAdjustReadyMode =
-                    actor.IsValid &&
-                    turnManager.IsPlayerTurn &&
-                    !actionExecutor.IsBusy &&
-                    !turnManager.IsDelayPlacementSelectionOpen &&
-                    !turnManager.IsDelayReturnWindowOpen &&
-                    !turnManager.HasReadiedStrike(actor);
-                SetReadyModeButtonsInteractable(canAdjustReadyMode);
-                RefreshReadyModeButtonsVisual();
-            }
-            else
-            {
-                SetReadyModeButtonsInteractable(false);
-            }
 
             bool canAdjustCastSpellMode =
                 actorData != null &&
@@ -1136,8 +897,6 @@ namespace PF2e.Presentation
             SetCastSpellModeButtonsInteractable(canAdjustCastSpellMode);
             RefreshCastSpellModeButtonsVisual();
 
-            if (!turnManagementButtonsExternallyHidden)
-                RefreshReadyButtonLabel();
             RefreshCastSpellButtonLabel();
             RefreshAidPreparedIndicator();
             ApplyStaticButtonLabels();
@@ -1150,6 +909,16 @@ namespace PF2e.Presentation
             canvasGroup.alpha = visible ? 1f : 0f;
             canvasGroup.blocksRaycasts = visible;
             canvasGroup.interactable = visible;
+        }
+
+        /// <summary>
+        /// Backward-compatible hook for DelayUiOrchestrator.
+        /// Delay controls moved out of ActionBar, but delay window transitions
+        /// still require ActionBar availability refresh.
+        /// </summary>
+        public void RefreshDelayUiFromOrchestrator()
+        {
+            RefreshAvailability();
         }
 
         private void SetAllInteractable(bool enabled)
@@ -1190,10 +959,6 @@ namespace PF2e.Presentation
                 SetInteractable(demoralizeButton, enabled);
                 SetInteractable(escapeButton, enabled);
                 SetInteractable(aidButton, enabled);
-                SetInteractable(readyButton, !turnManagementButtonsExternallyHidden && enabled);
-                SetInteractable(readyModeMoveButton, enabled);
-                SetInteractable(readyModeAttackButton, enabled);
-                SetInteractable(readyModeAnyButton, enabled);
                 SetInteractable(castSpellButton, enabled);
                 SetInteractable(castSpellModeStandardButton, enabled);
                 SetInteractable(castSpellModeGlassButton, enabled);
@@ -1248,39 +1013,11 @@ namespace PF2e.Presentation
                 SetInteractable(demoralizeButton, availability.demoralizeInteractable);
                 SetInteractable(escapeButton, availability.escapeInteractable);
                 SetInteractable(aidButton, availability.aidInteractable);
-                SetInteractable(readyButton, !turnManagementButtonsExternallyHidden && availability.readyInteractable);
                 SetInteractable(castSpellButton, availability.castSpellInteractable);
                 SetInteractable(raiseShieldButton, availability.raiseShieldInteractable);
                 SetButtonVisible(raiseShieldButton, availability.guardVisible);
                 SetInteractable(standButton, availability.standInteractable);
                 SetButtonVisible(standButton, availability.standVisible);
-            }
-        }
-
-        private void ApplyDelayControls(in DelayActionBarState state)
-        {
-            if (turnManagementButtonsExternallyHidden)
-            {
-                SetButtonVisible(delayButton, false);
-                SetButtonVisible(returnNowButton, false);
-                SetButtonVisible(skipDelayWindowButton, false);
-                return;
-            }
-
-            delayActionBarStatePresenter.Apply(in state, delayButton, returnNowButton, skipDelayWindowButton);
-        }
-
-        public void SetTurnManagementButtonsVisible(bool visible)
-        {
-            turnManagementButtonsExternallyHidden = !visible;
-            SetButtonVisible(readyButton, visible);
-            SetButtonVisible(delayButton, visible);
-            if (!visible)
-            {
-                SetButtonVisible(returnNowButton, false);
-                SetButtonVisible(skipDelayWindowButton, false);
-                SetReadyModeButtonsInteractable(false);
-                SetHighlight(readyHighlight, false);
             }
         }
 
@@ -1320,7 +1057,6 @@ namespace PF2e.Presentation
             SetHighlight(demoralizeHighlight, false);
             SetHighlight(escapeHighlight, false);
             SetHighlight(aidHighlight, false);
-            SetHighlight(readyHighlight, false);
             SetHighlight(castSpellHighlight, false);
             SetHighlight(raiseShieldHighlight, false);
             SetHighlight(standHighlight, false);
@@ -1347,30 +1083,6 @@ namespace PF2e.Presentation
                 aidPreparedIndicatorLabel,
                 aidPreparedSingleText,
                 aidPreparedCountFormat);
-        }
-
-        private void RefreshReadyButtonLabel()
-        {
-            if (readyButtonLabel == null)
-                return;
-
-            var mode = turnManager != null ? turnManager.CurrentReadyTriggerMode : ReadyTriggerMode.Any;
-            readyButtonLabel.text = $"Ready [{mode.ToShortToken()}]";
-        }
-
-        private void SetReadyModeButtonsInteractable(bool enabled)
-        {
-            if (readyModeSelectorRoot != null)
-            {
-                bool visible = !useLauncherLayout
-                    && readyButton != null
-                    && readyButton.gameObject.activeInHierarchy;
-                readyModeSelectorRoot.gameObject.SetActive(visible);
-            }
-
-            SetInteractable(readyModeMoveButton, enabled);
-            SetInteractable(readyModeAttackButton, enabled);
-            SetInteractable(readyModeAnyButton, enabled);
         }
 
         private void SetCastSpellModeButtonsInteractable(bool enabled)
@@ -1407,33 +1119,11 @@ namespace PF2e.Presentation
                 && (actorData.KnowsStandardShieldCantrip || actorData.KnowsGlassShieldCantrip);
         }
 
-        private void RefreshReadyModeButtonsVisual()
-        {
-            var mode = turnManager != null ? turnManager.CurrentReadyTriggerMode : ReadyTriggerMode.Any;
-            ApplyReadyModeButtonVisual(readyModeMoveButton, mode == ReadyTriggerMode.Movement);
-            ApplyReadyModeButtonVisual(readyModeAttackButton, mode == ReadyTriggerMode.Attack);
-            ApplyReadyModeButtonVisual(readyModeAnyButton, mode == ReadyTriggerMode.Any);
-        }
-
         private void RefreshCastSpellModeButtonsVisual()
         {
             var mode = actionBarCommandCoordinator.CurrentCastShieldSpellMode;
             ApplyCastSpellModeButtonVisual(castSpellModeStandardButton, mode == RaiseShieldSpellMode.Standard);
             ApplyCastSpellModeButtonVisual(castSpellModeGlassButton, mode == RaiseShieldSpellMode.Glass);
-        }
-
-        private void ApplyReadyModeButtonVisual(Button button, bool selected)
-        {
-            if (button == null)
-                return;
-
-            var image = button.GetComponent<Image>();
-            if (image != null)
-                image.color = selected ? readyModeSelectedColor : readyModeUnselectedColor;
-
-            var label = button.GetComponentInChildren<TMP_Text>(true);
-            if (label != null)
-                label.color = selected ? Color.black : readyModeTextColor;
         }
 
         private void ApplyCastSpellModeButtonVisual(Button button, bool selected)
@@ -1463,17 +1153,6 @@ namespace PF2e.Presentation
 
             string token = actionBarCommandCoordinator.CurrentCastShieldSpellMode.ToShortToken();
             castSpellButtonLabel.text = $"Cast [{token}]";
-        }
-
-        private static bool IsExternalDelayOrchestratorPresent()
-        {
-            var orchestrator = UnityEngine.Object.FindFirstObjectByType<DelayUiOrchestrator>();
-            return orchestrator != null && orchestrator.isActiveAndEnabled;
-        }
-
-        private static bool IsTurnOptionsPresenterPresent()
-        {
-            return UnityEngine.Object.FindFirstObjectByType<TurnOptionsPresenter>() != null;
         }
 
     }

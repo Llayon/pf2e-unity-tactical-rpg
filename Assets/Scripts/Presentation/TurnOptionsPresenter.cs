@@ -29,7 +29,6 @@ namespace PF2e.Presentation
         [SerializeField] private PlayerActionExecutor actionExecutor;
         [SerializeField] private TargetingController targetingController;
         [SerializeField] private InitiativeBarController initiativeBarController;
-        [SerializeField] private ActionBarController actionBarController;
 
         [Header("UI")]
         [SerializeField] private CanvasGroup launcherCanvasGroup;
@@ -91,7 +90,6 @@ namespace PF2e.Presentation
             eventBus.OnDelayedTurnExpiredTyped += HandleDelayedTurnChanged;
 
             BindButtons();
-            actionBarController?.SetTurnManagementButtonsVisible(false);
             RefreshUiState();
         }
 
@@ -117,7 +115,6 @@ namespace PF2e.Presentation
                 eventBus.OnDelayedTurnExpiredTyped -= HandleDelayedTurnChanged;
             }
 
-            actionBarController?.SetTurnManagementButtonsVisible(true);
             panelOpen = false;
             SetPanelVisible(false);
             SetLauncherVisible(false);
@@ -471,8 +468,6 @@ namespace PF2e.Presentation
                 targetingController = FindFirstObjectByType<TargetingController>();
             if (initiativeBarController == null)
                 initiativeBarController = FindFirstObjectByType<InitiativeBarController>();
-            if (actionBarController == null)
-                actionBarController = FindFirstObjectByType<ActionBarController>();
         }
 
         private void EnsureUiFallback()
