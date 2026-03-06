@@ -81,6 +81,7 @@ public static class PF2eSceneDependencyValidator
         errors += ValidateAll<FloatingDamageUI>(ValidateFloatingDamageUI);
         errors += ValidateAll<InitiativeBarController>(ValidateInitiativeBarController);
         errors += ValidateAll<ActionBarController>(ValidateActionBarController);
+        errors += ValidateAll<TurnOptionsPresenter>(ValidateTurnOptionsPresenter);
         errors += ValidateAll<DelayUiOrchestrator>(ValidateDelayUiOrchestrator);
         errors += ValidateAll<ReadyStrikeEventBinder>(ValidateReadyStrikeEventBinder);
         errors += ValidateAll<TargetingHintController>(ValidateTargetingHintController);
@@ -114,6 +115,7 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<EncounterFlowController>();
         errors += ErrorIfMoreThanOne<InitiativeBarController>();
         errors += ErrorIfMoreThanOne<ActionBarController>();
+        errors += ErrorIfMoreThanOne<TurnOptionsPresenter>();
         errors += ErrorIfMoreThanOne<DelayUiOrchestrator>();
         errors += ErrorIfMoreThanOne<ReadyStrikeEventBinder>();
         errors += ErrorIfMoreThanOne<TargetingHintController>();
@@ -158,6 +160,7 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnIfNone<EncounterEndPanelController>();
         warnings += WarnIfNone<EncounterFlowController>();
         warnings += WarnIfNone<ActionBarController>();
+        warnings += WarnIfNone<TurnOptionsPresenter>();
         if (UnityEngine.Object.FindObjectsByType<ActionBarController>(FindObjectsSortMode.None).Length > 0 &&
             UnityEngine.Object.FindObjectsByType<InitiativeBarController>(FindObjectsSortMode.None).Length > 0)
         {
@@ -416,6 +419,27 @@ public static class PF2eSceneDependencyValidator
             warnings += WarnMissingActionBarChild(c, "StrikePopupRoot/AttacksHeader", "Strike popup AttacksHeader");
             warnings += WarnMissingActionBarChild(c, "StrikePopupRoot/ManeuversHeader", "Strike popup ManeuversHeader");
         }
+    }
+
+    private static void ValidateTurnOptionsPresenter(TurnOptionsPresenter c, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(c, "eventBus", "CombatEventBus");
+        errors += RequireRef(c, "turnManager", "TurnManager");
+        errors += RequireRef(c, "entityManager", "EntityManager");
+        errors += RequireRef(c, "actionExecutor", "PlayerActionExecutor");
+        errors += RequireRef(c, "targetingController", "TargetingController");
+        errors += RequireRef(c, "initiativeBarController", "InitiativeBarController");
+
+        errors += RequireRef(c, "launcherCanvasGroup", "CanvasGroup");
+        errors += RequireRef(c, "launcherRoot", "RectTransform");
+        errors += RequireRef(c, "launcherButton", "Button");
+        errors += RequireRef(c, "panelRoot", "RectTransform");
+        errors += RequireRef(c, "readyMoveButton", "Button");
+        errors += RequireRef(c, "readyAttackButton", "Button");
+        errors += RequireRef(c, "readyAnyButton", "Button");
+        errors += RequireRef(c, "delayButton", "Button");
+        errors += RequireRef(c, "returnNowButton", "Button");
+        errors += RequireRef(c, "skipButton", "Button");
     }
 
     private static void ValidateDelayUiOrchestrator(DelayUiOrchestrator c, ref int errors, ref int warnings)
@@ -803,6 +827,7 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         TryGetSingleton(out ReactionPromptController reactionPromptControllerSingleton, logIfMissing: false);
         TryGetSingleton(out GrappleLifecycleController grappleLifecycleSingleton, logIfMissing: false);
         TryGetSingleton(out ActionBarController actionBarControllerSingleton, logIfMissing: false);
+        TryGetSingleton(out TurnOptionsPresenter turnOptionsPresenterSingleton, logIfMissing: false);
         TryGetSingleton(out InitiativeBarController initiativeBarControllerSingleton, logIfMissing: false);
         TryGetSingleton(out DelayUiOrchestrator delayUiOrchestratorSingleton, logIfMissing: false);
         TryGetSingleton(out ReadyStrikeEventBinder readyStrikeEventBinderSingleton, logIfMissing: false);
@@ -1061,6 +1086,20 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         if (actionBarControllerSingleton != null)
             fixedCount += AutoWireActionBarController(actionBarControllerSingleton);
 
+        // TurnOptionsPresenter (Step 4 turn-management owner)
+        if (eventBus != null)
+            fixedCount += FixAll<TurnOptionsPresenter>("eventBus", eventBus);
+        fixedCount += FixAll<TurnOptionsPresenter>("turnManager", turnManager);
+        fixedCount += FixAll<TurnOptionsPresenter>("entityManager", entityManager);
+        if (actionExecutor != null)
+            fixedCount += FixAll<TurnOptionsPresenter>("actionExecutor", actionExecutor);
+        if (targetingController != null)
+            fixedCount += FixAll<TurnOptionsPresenter>("targetingController", targetingController);
+        if (initiativeBarControllerSingleton != null)
+            fixedCount += FixAll<TurnOptionsPresenter>("initiativeBarController", initiativeBarControllerSingleton);
+        if (turnOptionsPresenterSingleton != null)
+            fixedCount += AutoWireTurnOptionsPresenter(turnOptionsPresenterSingleton);
+
         // DelayUiOrchestrator (Phase 29j)
         if (eventBus != null)
             fixedCount += FixAll<DelayUiOrchestrator>("eventBus", eventBus);
@@ -1266,6 +1305,218 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         fixedCount += EnsureAidActionBarUi(bar, root);
 
         return fixedCount;
+    }
+
+    private static int AutoWireTurnOptionsPresenter(TurnOptionsPresenter presenter)
+    {
+        if (presenter == null)
+            return 0;
+
+        int fixedCount = 0;
+        var root = presenter.transform;
+        if (root == null)
+            return 0;
+
+        var canvasGroup = presenter.GetComponent<CanvasGroup>();
+        if (canvasGroup == null)
+        {
+            Undo.RecordObject(presenter.gameObject, "Add TurnOptions CanvasGroup");
+            canvasGroup = presenter.gameObject.AddComponent<CanvasGroup>();
+            EditorUtility.SetDirty(presenter.gameObject);
+            PrefabUtility.RecordPrefabInstancePropertyModifications(presenter);
+            fixedCount++;
+            Debug.Log($"[PF2eAutoFix] Added CanvasGroup to {GetPath(root)}.", presenter);
+        }
+
+        fixedCount += TryAssignIfNull(presenter, "launcherCanvasGroup", canvasGroup);
+
+        var launcherRoot = EnsureTurnOptionsLauncherRoot(root);
+        if (launcherRoot != null)
+        {
+            fixedCount += TryAssignIfNull(presenter, "launcherRoot", launcherRoot);
+            var launcherButton = launcherRoot.GetComponent<Button>();
+            if (launcherButton != null)
+                fixedCount += TryAssignIfNull(presenter, "launcherButton", launcherButton);
+        }
+
+        var panelRoot = EnsureTurnOptionsPanelRoot(root);
+        if (panelRoot != null)
+        {
+            fixedCount += TryAssignIfNull(presenter, "panelRoot", panelRoot);
+            fixedCount += TryAssignIfNull(presenter, "readyMoveButton", EnsureTurnOptionsButton(panelRoot, "ReadyMoveButton"));
+            fixedCount += TryAssignIfNull(presenter, "readyAttackButton", EnsureTurnOptionsButton(panelRoot, "ReadyAttackButton"));
+            fixedCount += TryAssignIfNull(presenter, "readyAnyButton", EnsureTurnOptionsButton(panelRoot, "ReadyAnyButton"));
+            fixedCount += TryAssignIfNull(presenter, "delayButton", EnsureTurnOptionsButton(panelRoot, "DelayButton"));
+            fixedCount += TryAssignIfNull(presenter, "returnNowButton", EnsureTurnOptionsButton(panelRoot, "ReturnNowButton"));
+            fixedCount += TryAssignIfNull(presenter, "skipButton", EnsureTurnOptionsButton(panelRoot, "SkipButton"));
+        }
+
+        return fixedCount;
+    }
+
+    private static RectTransform EnsureTurnOptionsLauncherRoot(Transform root)
+    {
+        if (root == null)
+            return null;
+
+        var launcherRoot = root.Find("TurnOptionsLauncher") as RectTransform;
+        if (launcherRoot == null)
+        {
+            var go = new GameObject("TurnOptionsLauncher", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            go.transform.SetParent(root, false);
+            launcherRoot = go.GetComponent<RectTransform>();
+            launcherRoot.sizeDelta = new Vector2(20f, 20f);
+            Undo.RegisterCreatedObjectUndo(go, "Create TurnOptionsLauncher");
+            EditorUtility.SetDirty(go);
+            Debug.Log($"[PF2eAutoFix] Created TurnOptionsLauncher under {GetPath(root)}.", go);
+        }
+
+        EnsureComponent<Image>(launcherRoot.gameObject);
+        EnsureComponent<Button>(launcherRoot.gameObject);
+
+        var image = launcherRoot.GetComponent<Image>();
+        image.color = new Color(0.18f, 0.23f, 0.30f, 0.96f);
+        EditorUtility.SetDirty(image);
+
+        EnsureTurnOptionsButtonLabel(launcherRoot, "...");
+        return launcherRoot;
+    }
+
+    private static RectTransform EnsureTurnOptionsPanelRoot(Transform root)
+    {
+        if (root == null)
+            return null;
+
+        var panelRoot = root.Find("TurnOptionsPanel") as RectTransform;
+        if (panelRoot == null)
+        {
+            var go = new GameObject(
+                "TurnOptionsPanel",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(HorizontalLayoutGroup),
+                typeof(ContentSizeFitter));
+            go.transform.SetParent(root, false);
+            panelRoot = go.GetComponent<RectTransform>();
+            Undo.RegisterCreatedObjectUndo(go, "Create TurnOptionsPanel");
+            EditorUtility.SetDirty(go);
+            Debug.Log($"[PF2eAutoFix] Created TurnOptionsPanel under {GetPath(root)}.", go);
+        }
+
+        panelRoot.sizeDelta = new Vector2(400f, 28f);
+        EditorUtility.SetDirty(panelRoot);
+
+        var panelImage = EnsureComponent<Image>(panelRoot.gameObject);
+        panelImage.color = new Color(0.08f, 0.09f, 0.12f, 0.96f);
+        EditorUtility.SetDirty(panelImage);
+
+        var layout = EnsureComponent<HorizontalLayoutGroup>(panelRoot.gameObject);
+        layout.padding = new RectOffset(6, 6, 4, 4);
+        layout.spacing = 4f;
+        layout.childControlWidth = false;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+        EditorUtility.SetDirty(layout);
+
+        var fitter = EnsureComponent<ContentSizeFitter>(panelRoot.gameObject);
+        fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        EditorUtility.SetDirty(fitter);
+
+        return panelRoot;
+    }
+
+    private static Button EnsureTurnOptionsButton(RectTransform panelRoot, string buttonName)
+    {
+        if (panelRoot == null || string.IsNullOrWhiteSpace(buttonName))
+            return null;
+
+        var existing = panelRoot.Find(buttonName) as RectTransform;
+        Button button = existing != null ? existing.GetComponent<Button>() : null;
+        if (button == null)
+        {
+            var go = new GameObject(
+                buttonName,
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(Button),
+                typeof(LayoutElement));
+            go.transform.SetParent(panelRoot, false);
+            existing = go.GetComponent<RectTransform>();
+            button = go.GetComponent<Button>();
+            Undo.RegisterCreatedObjectUndo(go, $"Create {buttonName}");
+            EditorUtility.SetDirty(go);
+            Debug.Log($"[PF2eAutoFix] Created {buttonName} under {GetPath(panelRoot)}.", go);
+        }
+
+        existing.sizeDelta = new Vector2(104f, 22f);
+        EditorUtility.SetDirty(existing);
+
+        var layout = EnsureComponent<LayoutElement>(existing.gameObject);
+        layout.preferredWidth = 104f;
+        layout.preferredHeight = 22f;
+        layout.minWidth = 90f;
+        layout.minHeight = 22f;
+        EditorUtility.SetDirty(layout);
+
+        var image = EnsureComponent<Image>(existing.gameObject);
+        image.color = new Color(0.18f, 0.23f, 0.30f, 0.92f);
+        EditorUtility.SetDirty(image);
+
+        EnsureTurnOptionsButtonLabel(existing, buttonName);
+        return button;
+    }
+
+    private static TMPro.TextMeshProUGUI EnsureTurnOptionsButtonLabel(RectTransform buttonRoot, string text)
+    {
+        if (buttonRoot == null)
+            return null;
+
+        var labelTransform = buttonRoot.Find("Label") as RectTransform;
+        TMPro.TextMeshProUGUI label = labelTransform != null ? labelTransform.GetComponent<TMPro.TextMeshProUGUI>() : null;
+        if (label == null)
+        {
+            var go = new GameObject("Label", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
+            go.transform.SetParent(buttonRoot, false);
+            label = go.GetComponent<TMPro.TextMeshProUGUI>();
+            labelTransform = go.GetComponent<RectTransform>();
+            Undo.RegisterCreatedObjectUndo(go, "Create TurnOptions Label");
+            EditorUtility.SetDirty(go);
+        }
+
+        labelTransform.anchorMin = Vector2.zero;
+        labelTransform.anchorMax = Vector2.one;
+        labelTransform.offsetMin = Vector2.zero;
+        labelTransform.offsetMax = Vector2.zero;
+        EditorUtility.SetDirty(labelTransform);
+
+        label.text = text;
+        label.fontSize = 12f;
+        label.alignment = TMPro.TextAlignmentOptions.Center;
+        label.color = new Color(0.92f, 0.92f, 0.95f, 1f);
+        label.enableWordWrapping = false;
+        label.raycastTarget = false;
+        EditorUtility.SetDirty(label);
+
+        return label;
+    }
+
+    private static T EnsureComponent<T>(GameObject target) where T : Component
+    {
+        if (target == null)
+            return null;
+
+        var component = target.GetComponent<T>();
+        if (component != null)
+            return component;
+
+        Undo.RecordObject(target, $"Add {typeof(T).Name}");
+        component = target.AddComponent<T>();
+        EditorUtility.SetDirty(target);
+        return component;
     }
 
     private static int EnsureStrikePopupHeaders(Transform root)

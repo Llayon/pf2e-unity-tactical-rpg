@@ -117,6 +117,94 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void SampleScene_TurnOptionsUiAndDeps_Wired()
+        {
+            Assert.IsTrue(System.IO.File.Exists(SampleScenePath), $"Missing scene: {SampleScenePath}");
+
+            EditorSceneManager.OpenScene(SampleScenePath, OpenSceneMode.Single);
+
+            var eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
+            var turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();
+            var entityManager = UnityEngine.Object.FindFirstObjectByType<EntityManager>();
+            var actionExecutor = UnityEngine.Object.FindFirstObjectByType<PlayerActionExecutor>();
+            var targetingController = UnityEngine.Object.FindFirstObjectByType<TargetingController>();
+            var initiativeBar = UnityEngine.Object.FindFirstObjectByType<InitiativeBarController>();
+            var presenter = UnityEngine.Object.FindFirstObjectByType<TurnOptionsPresenter>();
+
+            Assert.IsNotNull(eventBus, "SampleScene must contain CombatEventBus.");
+            Assert.IsNotNull(turnManager, "SampleScene must contain TurnManager.");
+            Assert.IsNotNull(entityManager, "SampleScene must contain EntityManager.");
+            Assert.IsNotNull(actionExecutor, "SampleScene must contain PlayerActionExecutor.");
+            Assert.IsNotNull(targetingController, "SampleScene must contain TargetingController.");
+            Assert.IsNotNull(initiativeBar, "SampleScene must contain InitiativeBarController.");
+            Assert.IsNotNull(presenter, "SampleScene must contain TurnOptionsPresenter.");
+
+            SetPrivateField(presenter, "eventBus", null);
+            SetPrivateField(presenter, "turnManager", null);
+            SetPrivateField(presenter, "entityManager", null);
+            SetPrivateField(presenter, "actionExecutor", null);
+            SetPrivateField(presenter, "targetingController", null);
+            SetPrivateField(presenter, "initiativeBarController", null);
+            SetPrivateField(presenter, "launcherCanvasGroup", null);
+            SetPrivateField(presenter, "launcherRoot", null);
+            SetPrivateField(presenter, "launcherButton", null);
+            SetPrivateField(presenter, "panelRoot", null);
+            SetPrivateField(presenter, "readyMoveButton", null);
+            SetPrivateField(presenter, "readyAttackButton", null);
+            SetPrivateField(presenter, "readyAnyButton", null);
+            SetPrivateField(presenter, "delayButton", null);
+            SetPrivateField(presenter, "returnNowButton", null);
+            SetPrivateField(presenter, "skipButton", null);
+
+            var staleLauncher = presenter.transform.Find("TurnOptionsLauncher");
+            if (staleLauncher != null)
+                UnityEngine.Object.DestroyImmediate(staleLauncher.gameObject);
+            var stalePanel = presenter.transform.Find("TurnOptionsPanel");
+            if (stalePanel != null)
+                UnityEngine.Object.DestroyImmediate(stalePanel.gameObject);
+
+            InvokePrivateValidatorMethodWithBoolArg("RunAutoFix", false);
+
+            Assert.AreSame(eventBus, GetPrivateField<CombatEventBus>(presenter, "eventBus"));
+            Assert.AreSame(turnManager, GetPrivateField<TurnManager>(presenter, "turnManager"));
+            Assert.AreSame(entityManager, GetPrivateField<EntityManager>(presenter, "entityManager"));
+            Assert.AreSame(actionExecutor, GetPrivateField<PlayerActionExecutor>(presenter, "actionExecutor"));
+            Assert.AreSame(targetingController, GetPrivateField<TargetingController>(presenter, "targetingController"));
+            Assert.AreSame(initiativeBar, GetPrivateField<InitiativeBarController>(presenter, "initiativeBarController"));
+
+            var launcherCanvasGroup = GetPrivateField<CanvasGroup>(presenter, "launcherCanvasGroup");
+            var launcherRoot = GetPrivateField<RectTransform>(presenter, "launcherRoot");
+            var launcherButton = GetPrivateField<Button>(presenter, "launcherButton");
+            var panelRoot = GetPrivateField<RectTransform>(presenter, "panelRoot");
+            var readyMoveButton = GetPrivateField<Button>(presenter, "readyMoveButton");
+            var readyAttackButton = GetPrivateField<Button>(presenter, "readyAttackButton");
+            var readyAnyButton = GetPrivateField<Button>(presenter, "readyAnyButton");
+            var delayButton = GetPrivateField<Button>(presenter, "delayButton");
+            var returnNowButton = GetPrivateField<Button>(presenter, "returnNowButton");
+            var skipButton = GetPrivateField<Button>(presenter, "skipButton");
+
+            Assert.AreSame(presenter.GetComponent<CanvasGroup>(), launcherCanvasGroup, "launcherCanvasGroup must reference presenter CanvasGroup.");
+            Assert.AreEqual("TurnOptionsLauncher", launcherRoot.gameObject.name);
+            Assert.AreEqual("TurnOptionsPanel", panelRoot.gameObject.name);
+            Assert.AreSame(presenter.transform, launcherRoot.transform.parent);
+            Assert.AreSame(presenter.transform, panelRoot.transform.parent);
+            Assert.AreSame(launcherRoot, launcherButton.transform);
+
+            Assert.AreEqual("ReadyMoveButton", readyMoveButton.gameObject.name);
+            Assert.AreEqual("ReadyAttackButton", readyAttackButton.gameObject.name);
+            Assert.AreEqual("ReadyAnyButton", readyAnyButton.gameObject.name);
+            Assert.AreEqual("DelayButton", delayButton.gameObject.name);
+            Assert.AreEqual("ReturnNowButton", returnNowButton.gameObject.name);
+            Assert.AreEqual("SkipButton", skipButton.gameObject.name);
+            Assert.AreSame(panelRoot, readyMoveButton.transform.parent);
+            Assert.AreSame(panelRoot, readyAttackButton.transform.parent);
+            Assert.AreSame(panelRoot, readyAnyButton.transform.parent);
+            Assert.AreSame(panelRoot, delayButton.transform.parent);
+            Assert.AreSame(panelRoot, returnNowButton.transform.parent);
+            Assert.AreSame(panelRoot, skipButton.transform.parent);
+        }
+
+        [Test]
         public void SampleScene_CastSpellModeUi_Wired()
         {
             Assert.IsTrue(System.IO.File.Exists(SampleScenePath), $"Missing scene: {SampleScenePath}");
@@ -293,6 +381,54 @@ namespace PF2e.Tests
                     3,
                     "When AidButton is assigned, missing aidHighlight/aidPreparedIndicatorRoot/aidPreparedIndicatorLabel must be validator errors.");
                 Assert.GreaterOrEqual(warnings, 1, "Optional missing action-bar slots should still report warnings.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                LogAssert.ignoreFailingMessages = oldIgnoreFailingLogs;
+            }
+        }
+
+        [Test]
+        [TestMustExpectAllLogs(false)]
+        public void ValidateTurnOptionsPresenter_MissingUiRefs_EmitsErrors()
+        {
+            bool oldIgnoreFailingLogs = LogAssert.ignoreFailingMessages;
+            LogAssert.ignoreFailingMessages = true;
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("TurnOptionsValidatorContractTest");
+            try
+            {
+                var eventBus = root.AddComponent<CombatEventBus>();
+                var turnManager = root.AddComponent<TurnManager>();
+                var entityManager = root.AddComponent<EntityManager>();
+                var actionExecutor = root.AddComponent<PlayerActionExecutor>();
+                var targetingController = root.AddComponent<TargetingController>();
+                var initiativeBar = root.AddComponent<InitiativeBarController>();
+                var presenter = root.AddComponent<TurnOptionsPresenter>();
+
+                SetPrivateField(presenter, "eventBus", eventBus);
+                SetPrivateField(presenter, "turnManager", turnManager);
+                SetPrivateField(presenter, "entityManager", entityManager);
+                SetPrivateField(presenter, "actionExecutor", actionExecutor);
+                SetPrivateField(presenter, "targetingController", targetingController);
+                SetPrivateField(presenter, "initiativeBarController", initiativeBar);
+
+                SetPrivateField(presenter, "launcherCanvasGroup", null);
+                SetPrivateField(presenter, "launcherRoot", null);
+                SetPrivateField(presenter, "launcherButton", null);
+                SetPrivateField(presenter, "panelRoot", null);
+                SetPrivateField(presenter, "readyMoveButton", null);
+                SetPrivateField(presenter, "readyAttackButton", null);
+                SetPrivateField(presenter, "readyAnyButton", null);
+                SetPrivateField(presenter, "delayButton", null);
+                SetPrivateField(presenter, "returnNowButton", null);
+                SetPrivateField(presenter, "skipButton", null);
+
+                InvokePrivateValidateTurnOptionsPresenter(presenter, out int errors, out int warnings);
+
+                Assert.GreaterOrEqual(errors, 10, "Missing TurnOptions UI refs must be validator errors.");
+                Assert.AreEqual(0, warnings, "TurnOptions validator currently treats all required refs as errors.");
             }
             finally
             {
@@ -589,6 +725,21 @@ namespace PF2e.Tests
             Assert.IsNotNull(method, "ValidateActionBarController not found on PF2eSceneDependencyValidator.");
 
             object[] args = { actionBar, 0, 0 };
+            method.Invoke(null, args);
+
+            errors = (int)args[1];
+            warnings = (int)args[2];
+        }
+
+        private static void InvokePrivateValidateTurnOptionsPresenter(TurnOptionsPresenter presenter, out int errors, out int warnings)
+        {
+            var validatorType = FindTypeByName("PF2eSceneDependencyValidator");
+            Assert.IsNotNull(validatorType, "PF2eSceneDependencyValidator type not found.");
+
+            var method = validatorType.GetMethod("ValidateTurnOptionsPresenter", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.IsNotNull(method, "ValidateTurnOptionsPresenter not found on PF2eSceneDependencyValidator.");
+
+            object[] args = { presenter, 0, 0 };
             method.Invoke(null, args);
 
             errors = (int)args[1];
