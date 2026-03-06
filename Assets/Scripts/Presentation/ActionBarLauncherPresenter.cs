@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace PF2e.Presentation
 {
@@ -7,6 +8,7 @@ namespace PF2e.Presentation
     /// </summary>
     public sealed class ActionBarLauncherPresenter
     {
+        private const float DefaultPopupVerticalOffset = 10f;
         private readonly Vector3[] popupCornersBuffer = new Vector3[4];
         private readonly Vector3[] canvasCornersBuffer = new Vector3[4];
 
@@ -106,9 +108,83 @@ namespace PF2e.Presentation
             float minY = canvasCornersBuffer[0].y + padding;
             float maxY = canvasCornersBuffer[1].y - padding;
 
-            ClampPopupRect(strikePopupRect, minX, maxX, minY, maxY);
-            ClampPopupRect(tacticsPopupRect, minX, maxX, minY, maxY);
-            ClampPopupRect(castPopupRect, minX, maxX, minY, maxY);
+            LayoutAndClampPopupRect(strikePopupRect, strikeLauncherRect, minX, maxX, minY, maxY);
+            LayoutAndClampPopupRect(tacticsPopupRect, tacticsLauncherRect, minX, maxX, minY, maxY);
+            LayoutAndClampPopupRect(castPopupRect, castLauncherRect, minX, maxX, minY, maxY);
+        }
+
+        private void LayoutAndClampPopupRect(
+            RectTransform popupRect,
+            RectTransform launcherRect,
+            float minX,
+            float maxX,
+            float minY,
+            float maxY)
+        {
+            if (popupRect == null || !popupRect.gameObject.activeInHierarchy)
+                return;
+
+            if (launcherRect != null)
+            {
+                EnsurePopupLayoutReady(popupRect);
+                bool placeAbove = SelectBestVerticalPlacement(popupRect, minY, maxY);
+                ApplyVerticalPlacement(popupRect, placeAbove, DefaultPopupVerticalOffset);
+            }
+
+            ClampPopupRect(popupRect, minX, maxX, minY, maxY);
+        }
+
+        private bool SelectBestVerticalPlacement(RectTransform popupRect, float minY, float maxY)
+        {
+            ApplyVerticalPlacement(popupRect, placeAbove: true, DefaultPopupVerticalOffset);
+            float overflowAbove = ComputeVerticalOverflow(popupRect, minY, maxY);
+            if (overflowAbove <= 0f)
+                return true;
+
+            ApplyVerticalPlacement(popupRect, placeAbove: false, DefaultPopupVerticalOffset);
+            float overflowBelow = ComputeVerticalOverflow(popupRect, minY, maxY);
+            if (overflowBelow <= 0f)
+                return false;
+
+            return overflowAbove <= overflowBelow;
+        }
+
+        private float ComputeVerticalOverflow(RectTransform popupRect, float minY, float maxY)
+        {
+            popupRect.GetWorldCorners(popupCornersBuffer);
+            float bottom = popupCornersBuffer[0].y;
+            float top = popupCornersBuffer[1].y;
+            float overflowBottom = Mathf.Max(0f, minY - bottom);
+            float overflowTop = Mathf.Max(0f, top - maxY);
+            return overflowBottom + overflowTop;
+        }
+
+        private static void ApplyVerticalPlacement(RectTransform popupRect, bool placeAbove, float verticalOffset)
+        {
+            if (popupRect == null)
+                return;
+
+            if (placeAbove)
+            {
+                popupRect.anchorMin = new Vector2(0.5f, 1f);
+                popupRect.anchorMax = new Vector2(0.5f, 1f);
+                popupRect.pivot = new Vector2(0.5f, 0f);
+                popupRect.anchoredPosition = new Vector2(0f, verticalOffset);
+                return;
+            }
+
+            popupRect.anchorMin = new Vector2(0.5f, 0f);
+            popupRect.anchorMax = new Vector2(0.5f, 0f);
+            popupRect.pivot = new Vector2(0.5f, 1f);
+            popupRect.anchoredPosition = new Vector2(0f, -verticalOffset);
+        }
+
+        private static void EnsurePopupLayoutReady(RectTransform popupRect)
+        {
+            if (popupRect == null)
+                return;
+
+            LayoutRebuilder.ForceRebuildLayoutImmediate(popupRect);
         }
 
         private void ClampPopupRect(RectTransform popupRect, float minX, float maxX, float minY, float maxY)
