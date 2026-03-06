@@ -51,6 +51,9 @@ namespace PF2e.TurnSystem
 #if UNITY_EDITOR
         private void OnValidate()
         {
+            if (UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode)
+                return;
+
             if (turnManager == null) Debug.LogError("[Executor] Missing TurnManager", this);
             if (entityManager == null) Debug.LogError("[Executor] Missing EntityManager", this);
             if (eventBus == null) Debug.LogWarning("[Executor] Missing CombatEventBus", this);

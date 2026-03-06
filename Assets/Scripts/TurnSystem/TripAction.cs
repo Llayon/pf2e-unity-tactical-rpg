@@ -29,6 +29,9 @@ namespace PF2e.TurnSystem
 #if UNITY_EDITOR
         private void OnValidate()
         {
+            if (UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode)
+                return;
+
             if (entityManager == null) Debug.LogError("[TripAction] Missing EntityManager", this);
             if (eventBus == null) Debug.LogWarning("[TripAction] Missing CombatEventBus", this);
             if (turnManager == null) Debug.LogWarning("[TripAction] Missing TurnManager (generic damage reactions disabled).", this);

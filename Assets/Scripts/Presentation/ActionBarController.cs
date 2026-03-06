@@ -1266,8 +1266,20 @@ namespace PF2e.Presentation
             if (button == null)
                 return;
 
-            if (button.gameObject.activeSelf != visible)
-                button.gameObject.SetActive(visible);
+            var go = button.gameObject;
+            if (go == null || go.activeSelf == visible)
+                return;
+
+            try
+            {
+                go.SetActive(visible);
+            }
+            catch (System.IndexOutOfRangeException)
+            {
+                // Unity UI Selectable can throw transient IndexOutOfRange during scene activation/
+                // teardown races (especially in EditMode scene-validation tests). Visibility is
+                // best-effort here; skip this frame and allow next refresh to reconcile.
+            }
         }
 
         private void ClearAllHighlights()
