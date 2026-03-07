@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace PF2e.Presentation
 {
@@ -10,6 +11,8 @@ namespace PF2e.Presentation
         [SerializeField] private TextMeshProUGUI bodyText;
         [SerializeField] private CanvasGroup canvasGroup;
         [SerializeField] private Canvas rootCanvas;
+        [SerializeField] private float maxWidth = 300f;
+        [SerializeField] private Vector2 cursorOffset = new Vector2(14f, 14f);
 
         private RectTransform parentRect;
         private bool isVisible;
@@ -57,6 +60,7 @@ namespace PF2e.Presentation
             canvasGroup.interactable = false;
             canvasGroup.blocksRaycasts = false;
 
+            ApplyMaxWidth();
             UpdatePosition(screenPosition);
         }
 
@@ -98,6 +102,8 @@ namespace PF2e.Presentation
                 return;
             }
 
+            localPoint.x += pivotX < 0.5f ? cursorOffset.x : -cursorOffset.x;
+            localPoint.y += pivotY < 0.5f ? cursorOffset.y : -cursorOffset.y;
             panelRect.anchoredPosition = localPoint;
             ClampToParentBounds();
         }
@@ -181,6 +187,27 @@ namespace PF2e.Presentation
             pos.x = Mathf.Clamp(pos.x, minX, maxX);
             pos.y = Mathf.Clamp(pos.y, minY, maxY);
             panelRect.anchoredPosition = pos;
+        }
+
+        private void ApplyMaxWidth()
+        {
+            if (panelRect == null || titleText == null || bodyText == null || maxWidth <= 0f)
+            {
+                return;
+            }
+
+            float titleWidth = titleText.GetPreferredValues(titleText.text, maxWidth, 0f).x;
+            float bodyWidth = bodyText.GetPreferredValues(bodyText.text, maxWidth, 0f).x;
+            float contentWidth = Mathf.Min(maxWidth, Mathf.Max(titleWidth, bodyWidth));
+            float horizontalPadding = 0f;
+
+            if (panelRect.TryGetComponent<VerticalLayoutGroup>(out var layout))
+            {
+                horizontalPadding = layout.padding.left + layout.padding.right;
+            }
+
+            panelRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, contentWidth + horizontalPadding);
+            LayoutRebuilder.ForceRebuildLayoutImmediate(panelRect);
         }
     }
 }
