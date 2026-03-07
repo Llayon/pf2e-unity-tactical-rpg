@@ -11811,7 +11811,7 @@ MonoBehaviour:
   returnNowButton: {fileID: 0}
   skipButton: {fileID: 0}
   launcherOffset: {x: -10, y: -10}
-  panelOffset: {x: 0, y: 30}
+  panelOffset: {x: 0, y: -30}
   selectedReadyColor: {r: 0.95, g: 0.78, b: 0.18, a: 0.95}
   unselectedReadyColor: {r: 0.18, g: 0.23, b: 0.3, a: 0.92}
   buttonTextColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}

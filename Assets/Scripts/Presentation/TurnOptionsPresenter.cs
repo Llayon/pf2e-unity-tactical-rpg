@@ -44,7 +44,7 @@ namespace PF2e.Presentation
 
         [Header("Layout")]
         [SerializeField] private Vector2 launcherOffset = new(-10f, -10f);
-        [SerializeField] private Vector2 panelOffset = new(0f, 30f);
+        [SerializeField] private Vector2 panelOffset = new(0f, -30f);
 
         [Header("Visual")]
         [SerializeField] private Color selectedReadyColor = new(0.95f, 0.78f, 0.18f, 0.95f);
@@ -447,9 +447,12 @@ namespace PF2e.Presentation
 
             var corners = new Vector3[4];
             anchorRect.GetWorldCorners(corners);
-            Vector3 topRight = corners[2];
+            // Use slot bounds to anchor launcher to lower-right corner regardless corner index ordering.
+            float minY = Mathf.Min(corners[0].y, corners[1].y, corners[2].y, corners[3].y);
+            float maxX = Mathf.Max(corners[0].x, corners[1].x, corners[2].x, corners[3].x);
+            Vector3 bottomRight = new(maxX, minY, 0f);
 
-            launcherRoot.position = topRight + new Vector3(launcherOffset.x, launcherOffset.y, 0f);
+            launcherRoot.position = bottomRight + new Vector3(launcherOffset.x, launcherOffset.y, 0f);
             if (panelRoot != null)
                 panelRoot.position = launcherRoot.position + new Vector3(panelOffset.x, panelOffset.y, 0f);
         }
