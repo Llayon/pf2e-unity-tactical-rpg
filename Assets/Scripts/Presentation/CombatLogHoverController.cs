@@ -69,6 +69,11 @@ namespace PF2e.Presentation
                 return;
             }
 
+            ProcessPointer(mousePosition);
+        }
+
+        private void ProcessPointer(Vector2 mousePosition)
+        {
             lastMousePosition = mousePosition;
 
             if (!IsPointerInsideViewport(mousePosition))
