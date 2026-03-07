@@ -74,7 +74,6 @@ namespace PF2e.TurnSystem
 
         private void HandleCellClicked(Vector3Int cell)
         {
-            Debug.Log($"[TurnInput] HandleCellClicked: {cell}, mode={targetingController?.ActiveMode}, isRepoSelectCell={targetingController?.IsRepositionSelectingCell}, isBusy={actionExecutor?.IsBusy}, isPlayerTurn={turnManager?.IsPlayerTurn}");
             if (!CanProcessTargetingClick())
                 return;
             if (actionExecutor.IsBusy && (targetingController == null || !targetingController.IsRepositionSelectingCell))
@@ -84,7 +83,6 @@ namespace PF2e.TurnSystem
 
         private void HandleEntityClicked(EntityHandle handle)
         {
-            Debug.Log($"[TurnInput] HandleEntityClicked: handle={handle.Id}, mode={targetingController?.ActiveMode}, isRepoSelectCell={targetingController?.IsRepositionSelectingCell}, isBusy={actionExecutor?.IsBusy}");
             if (!CanProcessTargetingClick())
                 return;
 
@@ -93,7 +91,6 @@ namespace PF2e.TurnSystem
             if (targetingController != null && targetingController.IsRepositionSelectingCell)
             {
                 var data = entityManager?.Registry?.Get(handle);
-                Debug.Log($"[TurnInput] EntityClick→CellClick: handle={handle.Id}, gridPos={data?.GridPosition}");
                 if (data != null)
                     targetingController.TryConfirmCell(data.GridPosition);
                 return;

@@ -41,6 +41,7 @@ namespace PF2e.Grid
         private PointerEventData pointerEventData;
         private EventSystem pointerEventSystem;
         private readonly List<RaycastResult> uiRaycastResults = new List<RaycastResult>(8);
+        private RaycastHit[] raycastHitsBuffer = new RaycastHit[64];
 
         private void OnEnable()
         {
@@ -124,39 +125,44 @@ namespace PF2e.Grid
 
             Ray ray = mainCamera.ScreenPointToRay(new Vector3(mousePos.x, mousePos.y, 0));
 
-            var hits = Physics.RaycastAll(ray, maxRayDistance, gridLayerMask);
-            if (hits.Length == 0)
+            int hitCount = Physics.RaycastNonAlloc(ray, raycastHitsBuffer, maxRayDistance, gridLayerMask);
+            if (hitCount <= 0)
             {
                 ClearHover();
                 gridManager.SetHoveredEntity(null);
                 return;
             }
 
-            // RaycastAll does NOT guarantee order by distance
-            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+            if (hitCount == raycastHitsBuffer.Length)
+            {
+                // Rare overflow path: grow once to avoid per-frame allocations with dense collider setups.
+                System.Array.Resize(ref raycastHitsBuffer, raycastHitsBuffer.Length * 2);
+                hitCount = Physics.RaycastNonAlloc(ray, raycastHitsBuffer, maxRayDistance, gridLayerMask);
+            }
 
             RaycastHit? floorHit = null;
+            float nearestFloorDistance = float.MaxValue;
             EntityView entityView = null;
+            float nearestEntityDistance = float.MaxValue;
 
-            for (int i = 0; i < hits.Length; i++)
+            for (int i = 0; i < hitCount; i++)
             {
-                if (!floorHit.HasValue)
+                var hit = raycastHitsBuffer[i];
+
+                var floor = hit.collider.GetComponent<FloorLevel>();
+                if (floor != null && hit.distance < nearestFloorDistance)
                 {
-                    var floor = hits[i].collider.GetComponent<FloorLevel>();
-                    if (floor != null)
-                        floorHit = hits[i];
+                    floorHit = hit;
+                    nearestFloorDistance = hit.distance;
                 }
 
-                if (entityView == null)
+                // GetComponentInParent for future-proofing (child colliders)
+                var ev = hit.collider.GetComponentInParent<EntityView>();
+                if (ev != null && hit.distance < nearestEntityDistance)
                 {
-                    // GetComponentInParent for future-proofing (child colliders)
-                    var ev = hits[i].collider.GetComponentInParent<EntityView>();
-                    if (ev != null)
-                        entityView = ev;
+                    entityView = ev;
+                    nearestEntityDistance = hit.distance;
                 }
-
-                if (floorHit.HasValue && entityView != null)
-                    break;
             }
 
             if (!floorHit.HasValue)

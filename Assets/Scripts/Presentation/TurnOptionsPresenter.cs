@@ -53,6 +53,9 @@ namespace PF2e.Presentation
 
         private bool inCombat;
         private bool panelOpen;
+        private bool hasCachedUiPosition;
+        private Vector3 cachedLauncherWorldPosition;
+        private Vector3 cachedPanelWorldPosition;
 
         private void Awake()
         {
@@ -452,9 +455,21 @@ namespace PF2e.Presentation
             float maxX = Mathf.Max(corners[0].x, corners[1].x, corners[2].x, corners[3].x);
             Vector3 bottomRight = new(maxX, minY, 0f);
 
-            launcherRoot.position = bottomRight + new Vector3(launcherOffset.x, launcherOffset.y, 0f);
-            if (panelRoot != null)
-                panelRoot.position = launcherRoot.position + new Vector3(panelOffset.x, panelOffset.y, 0f);
+            Vector3 desiredLauncherPosition = bottomRight + new Vector3(launcherOffset.x, launcherOffset.y, 0f);
+            Vector3 desiredPanelPosition = desiredLauncherPosition + new Vector3(panelOffset.x, panelOffset.y, 0f);
+
+            if (!hasCachedUiPosition || (desiredLauncherPosition - cachedLauncherWorldPosition).sqrMagnitude > 0.0001f)
+            {
+                launcherRoot.position = desiredLauncherPosition;
+                cachedLauncherWorldPosition = desiredLauncherPosition;
+                hasCachedUiPosition = true;
+            }
+
+            if (panelRoot != null && (!hasCachedUiPosition || (desiredPanelPosition - cachedPanelWorldPosition).sqrMagnitude > 0.0001f))
+            {
+                panelRoot.position = desiredPanelPosition;
+                cachedPanelWorldPosition = desiredPanelPosition;
+            }
         }
 
         private void ResolveDependencies()
