@@ -48,16 +48,22 @@ namespace PF2e.Presentation
             string projectionToken = e.hasOpposedProjection
                 ? CombatLogRichText.Verb($" (cmp {RollBreakdownFormatter.FormatSigned(e.opposedProjection.margin)})")
                 : string.Empty;
-            string aidToken = e.aidCircumstanceBonus != 0
-                ? CombatLogRichText.Verb($" + AID({RollBreakdownFormatter.FormatSigned(e.aidCircumstanceBonus)})")
-                : string.Empty;
+            string rollTotalLink = CombatLogLinkHelper.Link(CombatLogLinkTokens.SkillRoll, e.roll.total.ToString());
+            var tooltipPayload = new CombatLogTooltipPayload(new[]
+            {
+                new TooltipEntry(
+                    CombatLogLinkTokens.SkillRoll,
+                    "Skill Check Breakdown",
+                    TooltipTextBuilder.SkillCheckBreakdown(e.roll, e.aidCircumstanceBonus))
+            });
 
             eventBus.Publish(
                 e.actor,
                 $"{CombatLogRichText.ActionCost(1)} {CombatLogRichText.Verb("uses")} {CombatLogRichText.Weapon(actionLabel)} {CombatLogRichText.Verb("on")} {targetName} {CombatLogRichText.Verb("—")} " +
-                $"{CombatLogRichText.Verb(RollBreakdownFormatter.FormatVsDc(e.roll, e.defenseSource, e.dc))}{aidToken}" +
+                $"{CombatLogRichText.Verb($"d20({e.roll.naturalRoll})")} {CombatLogRichText.Verb("=")} {rollTotalLink} {CombatLogRichText.Verb($"vs {e.defenseSource.ToShortLabel()} DC {e.dc}")}" +
                 $" → {CombatLogRichText.Degree(e.degree)}{projectionToken}",
-                CombatLogCategory.Attack);
+                CombatLogCategory.Attack,
+                tooltipPayload);
         }
     }
 }

@@ -24,24 +24,38 @@ namespace PF2e.Tests
             var ev = CreateStrikeEvent(attacker, target, rangePenalty: -2);
 
             CombatLogEntry first = default;
+            CombatLogTooltipPayload? firstPayload = null;
             int count = 0;
             ctx.EventBus.OnLogEntry += HandleLog;
+            ctx.EventBus.OnLogEntryWithTooltip += HandleTooltip;
             try
             {
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 1);
-                StringAssert.Contains("RNG(-2)", first.Message);
+                var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.AttackTotal);
+                StringAssert.Contains("RNG(-2)", atkEntry.body);
             }
             finally
             {
                 ctx.EventBus.OnLogEntry -= HandleLog;
+                ctx.EventBus.OnLogEntryWithTooltip -= HandleTooltip;
             }
 
             void HandleLog(CombatLogEntry entry)
             {
                 count++;
                 if (count == 1) first = entry;
+            }
+
+            void HandleTooltip(CombatLogEntry entry, CombatLogTooltipPayload? payload)
+            {
+                if (firstPayload.HasValue || count != 0)
+                {
+                    return;
+                }
+
+                firstPayload = payload;
             }
         }
 
@@ -55,27 +69,41 @@ namespace PF2e.Tests
             var ev = CreateStrikeEvent(attacker, target, rangePenalty: 0);
 
             CombatLogEntry first = default;
+            CombatLogTooltipPayload? firstPayload = null;
             int count = 0;
             ctx.EventBus.OnLogEntry += HandleLog;
+            ctx.EventBus.OnLogEntryWithTooltip += HandleTooltip;
             try
             {
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 1);
                 var stripped = Strip(first.Message);
-                StringAssert.Contains("ATK d20(12)", stripped);
+                StringAssert.Contains("d20(12) = 16", stripped);
                 StringAssert.Contains("vs AC 18", stripped);
-                StringAssert.DoesNotContain("RNG(", stripped);
+                var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.AttackTotal);
+                StringAssert.DoesNotContain("RNG(", atkEntry.body);
             }
             finally
             {
                 ctx.EventBus.OnLogEntry -= HandleLog;
+                ctx.EventBus.OnLogEntryWithTooltip -= HandleTooltip;
             }
 
             void HandleLog(CombatLogEntry entry)
             {
                 count++;
                 if (count == 1) first = entry;
+            }
+
+            void HandleTooltip(CombatLogEntry entry, CombatLogTooltipPayload? payload)
+            {
+                if (firstPayload.HasValue || count != 0)
+                {
+                    return;
+                }
+
+                firstPayload = payload;
             }
         }
 
@@ -89,24 +117,38 @@ namespace PF2e.Tests
             var ev = CreateStrikeEvent(attacker, target);
 
             CombatLogEntry first = default;
+            CombatLogTooltipPayload? firstPayload = null;
             int count = 0;
             ctx.EventBus.OnLogEntry += HandleLog;
+            ctx.EventBus.OnLogEntryWithTooltip += HandleTooltip;
             try
             {
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 1);
-                StringAssert.DoesNotContain("RNG(", first.Message);
+                var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.AttackTotal);
+                StringAssert.DoesNotContain("RNG(", atkEntry.body);
             }
             finally
             {
                 ctx.EventBus.OnLogEntry -= HandleLog;
+                ctx.EventBus.OnLogEntryWithTooltip -= HandleTooltip;
             }
 
             void HandleLog(CombatLogEntry entry)
             {
                 count++;
                 if (count == 1) first = entry;
+            }
+
+            void HandleTooltip(CombatLogEntry entry, CombatLogTooltipPayload? payload)
+            {
+                if (firstPayload.HasValue || count != 0)
+                {
+                    return;
+                }
+
+                firstPayload = payload;
             }
         }
 
@@ -120,24 +162,38 @@ namespace PF2e.Tests
             var ev = CreateStrikeEvent(attacker, target, volleyPenalty: -2);
 
             CombatLogEntry first = default;
+            CombatLogTooltipPayload? firstPayload = null;
             int count = 0;
             ctx.EventBus.OnLogEntry += HandleLog;
+            ctx.EventBus.OnLogEntryWithTooltip += HandleTooltip;
             try
             {
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 1);
-                StringAssert.Contains("VOLLEY(-2)", first.Message);
+                var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.AttackTotal);
+                StringAssert.Contains("VOLLEY(-2)", atkEntry.body);
             }
             finally
             {
                 ctx.EventBus.OnLogEntry -= HandleLog;
+                ctx.EventBus.OnLogEntryWithTooltip -= HandleTooltip;
             }
 
             void HandleLog(CombatLogEntry entry)
             {
                 count++;
                 if (count == 1) first = entry;
+            }
+
+            void HandleTooltip(CombatLogEntry entry, CombatLogTooltipPayload? payload)
+            {
+                if (firstPayload.HasValue || count != 0)
+                {
+                    return;
+                }
+
+                firstPayload = payload;
             }
         }
 
@@ -151,24 +207,38 @@ namespace PF2e.Tests
             var ev = CreateStrikeEvent(attacker, target, aidCircumstanceBonus: 2);
 
             CombatLogEntry first = default;
+            CombatLogTooltipPayload? firstPayload = null;
             int count = 0;
             ctx.EventBus.OnLogEntry += HandleLog;
+            ctx.EventBus.OnLogEntryWithTooltip += HandleTooltip;
             try
             {
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 1);
-                StringAssert.Contains("AID(+2)", first.Message);
+                var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.AttackTotal);
+                StringAssert.Contains("AID(+2)", atkEntry.body);
             }
             finally
             {
                 ctx.EventBus.OnLogEntry -= HandleLog;
+                ctx.EventBus.OnLogEntryWithTooltip -= HandleTooltip;
             }
 
             void HandleLog(CombatLogEntry entry)
             {
                 count++;
                 if (count == 1) first = entry;
+            }
+
+            void HandleTooltip(CombatLogEntry entry, CombatLogTooltipPayload? payload)
+            {
+                if (firstPayload.HasValue || count != 0)
+                {
+                    return;
+                }
+
+                firstPayload = payload;
             }
         }
 
@@ -182,24 +252,38 @@ namespace PF2e.Tests
             var ev = CreateStrikeEvent(attacker, target, volleyPenalty: 0);
 
             CombatLogEntry first = default;
+            CombatLogTooltipPayload? firstPayload = null;
             int count = 0;
             ctx.EventBus.OnLogEntry += HandleLog;
+            ctx.EventBus.OnLogEntryWithTooltip += HandleTooltip;
             try
             {
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 1);
-                StringAssert.DoesNotContain("VOLLEY(", first.Message);
+                var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.AttackTotal);
+                StringAssert.DoesNotContain("VOLLEY(", atkEntry.body);
             }
             finally
             {
                 ctx.EventBus.OnLogEntry -= HandleLog;
+                ctx.EventBus.OnLogEntryWithTooltip -= HandleTooltip;
             }
 
             void HandleLog(CombatLogEntry entry)
             {
                 count++;
                 if (count == 1) first = entry;
+            }
+
+            void HandleTooltip(CombatLogEntry entry, CombatLogTooltipPayload? payload)
+            {
+                if (firstPayload.HasValue || count != 0)
+                {
+                    return;
+                }
+
+                firstPayload = payload;
             }
         }
 
@@ -213,24 +297,39 @@ namespace PF2e.Tests
             var ev = CreateStrikeEvent(attacker, target, coverAcBonus: 2);
 
             CombatLogEntry first = default;
+            CombatLogTooltipPayload? firstPayload = null;
             int count = 0;
             ctx.EventBus.OnLogEntry += HandleLog;
+            ctx.EventBus.OnLogEntryWithTooltip += HandleTooltip;
             try
             {
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 1);
-                StringAssert.Contains("vs AC 18 + COVER(+2)", Strip(first.Message));
+                StringAssert.Contains("vs AC 20", Strip(first.Message));
+                var acEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.DefenseTotal);
+                StringAssert.Contains("COVER(+2)", acEntry.body);
             }
             finally
             {
                 ctx.EventBus.OnLogEntry -= HandleLog;
+                ctx.EventBus.OnLogEntryWithTooltip -= HandleTooltip;
             }
 
             void HandleLog(CombatLogEntry entry)
             {
                 count++;
                 if (count == 1) first = entry;
+            }
+
+            void HandleTooltip(CombatLogEntry entry, CombatLogTooltipPayload? payload)
+            {
+                if (firstPayload.HasValue || count != 0)
+                {
+                    return;
+                }
+
+                firstPayload = payload;
             }
         }
 
@@ -244,24 +343,38 @@ namespace PF2e.Tests
             var ev = CreateStrikeEvent(attacker, target, coverAcBonus: 0);
 
             CombatLogEntry first = default;
+            CombatLogTooltipPayload? firstPayload = null;
             int count = 0;
             ctx.EventBus.OnLogEntry += HandleLog;
+            ctx.EventBus.OnLogEntryWithTooltip += HandleTooltip;
             try
             {
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 1);
-                StringAssert.DoesNotContain("COVER(", first.Message);
+                var acEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.DefenseTotal);
+                StringAssert.DoesNotContain("COVER(", acEntry.body);
             }
             finally
             {
                 ctx.EventBus.OnLogEntry -= HandleLog;
+                ctx.EventBus.OnLogEntryWithTooltip -= HandleTooltip;
             }
 
             void HandleLog(CombatLogEntry entry)
             {
                 count++;
                 if (count == 1) first = entry;
+            }
+
+            void HandleTooltip(CombatLogEntry entry, CombatLogTooltipPayload? payload)
+            {
+                if (firstPayload.HasValue || count != 0)
+                {
+                    return;
+                }
+
+                firstPayload = payload;
             }
         }
 
@@ -501,6 +614,23 @@ namespace PF2e.Tests
                 concealmentCheckRequired: concealmentCheckRequired,
                 concealmentFlatCheckRoll: concealmentFlatCheckRoll,
                 concealmentFlatCheckPassed: concealmentFlatCheckPassed);
+        }
+
+        private static TooltipEntry FindTooltipEntry(CombatLogTooltipPayload? payload, string token)
+        {
+            Assert.IsTrue(payload.HasValue, "Expected tooltip payload on first strike summary line.");
+            Assert.IsNotNull(payload.Value.entries, "Tooltip payload must contain entries.");
+
+            for (int i = 0; i < payload.Value.entries.Length; i++)
+            {
+                if (payload.Value.entries[i].token == token)
+                {
+                    return payload.Value.entries[i];
+                }
+            }
+
+            Assert.Fail($"Tooltip payload missing token '{token}'.");
+            return default;
         }
 
         private sealed class StrikeLogContext : System.IDisposable

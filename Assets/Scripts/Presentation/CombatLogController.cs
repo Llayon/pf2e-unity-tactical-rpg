@@ -39,6 +39,7 @@ namespace PF2e.Presentation
 
         private readonly Queue<TextMeshProUGUI> activeLines = new Queue<TextMeshProUGUI>(128);
         private readonly Stack<TextMeshProUGUI> pooledLines = new Stack<TextMeshProUGUI>(128);
+        private readonly Dictionary<TextMeshProUGUI, TooltipEntry[]> lineTooltips = new Dictionary<TextMeshProUGUI, TooltipEntry[]>(128);
         private readonly StringBuilder sb = new StringBuilder(256);
 
         private int lineCounter = 0;
@@ -88,7 +89,7 @@ namespace PF2e.Presentation
             UpdateRetentionNoticeLabelText();
             RefreshRetentionNoticeVisibility();
 
-            eventBus.OnLogEntry += HandleBusLogEntry;
+            eventBus.OnLogEntryWithTooltip += HandleBusLogEntry;
             Canvas.willRenderCanvases += HandleWillRenderCanvases;
 
             // Hide initially
@@ -100,7 +101,7 @@ namespace PF2e.Presentation
             isTearingDown = true;
 
             if (eventBus != null)
-                eventBus.OnLogEntry -= HandleBusLogEntry;
+                eventBus.OnLogEntryWithTooltip -= HandleBusLogEntry;
 
             Canvas.willRenderCanvases -= HandleWillRenderCanvases;
         }
@@ -112,7 +113,7 @@ namespace PF2e.Presentation
             Canvas.willRenderCanvases -= HandleWillRenderCanvases;
         }
 
-        private void HandleBusLogEntry(CombatLogEntry entry)
+        private void HandleBusLogEntry(CombatLogEntry entry, CombatLogTooltipPayload? tooltipPayload)
         {
             // Handle combat start/end by category (not by string matching)
             if (entry.Category == CombatLogCategory.CombatStart)
@@ -127,6 +128,12 @@ namespace PF2e.Presentation
                 SetInCombat(false);
             }
 
+            TooltipEntry[] tooltipEntries = null;
+            if (tooltipPayload.HasValue && tooltipPayload.Value.HasEntries)
+            {
+                tooltipEntries = tooltipPayload.Value.entries;
+            }
+
             // Add line to log with colored actor name
             if (entry.Actor.IsValid)
             {
@@ -134,15 +141,15 @@ namespace PF2e.Presentation
                 string rawName = data?.Name ?? entry.Actor.ToString();
                 var team = data?.Team ?? Team.Neutral;
                 string coloredName = CombatLogRichText.EntityName(rawName, team);
-                AddLineRaw($"{coloredName} {entry.Message}");
+                AddLineRaw($"{coloredName} {entry.Message}", tooltipEntries);
             }
             else
             {
-                AddLineRaw(entry.Message);
+                AddLineRaw(entry.Message, tooltipEntries);
             }
         }
 
-        private void AddLineRaw(string text)
+        private void AddLineRaw(string text, TooltipEntry[] entries)
         {
             if (string.IsNullOrEmpty(text)) return;
             if (!CanRenderLines()) return;
@@ -158,6 +165,13 @@ namespace PF2e.Presentation
             line.text = FormatLine(text);
             RefreshLinePreferredHeight(line);
             line.gameObject.SetActive(true);
+
+            // Safety against stale tooltip data when pooled line instances are reused.
+            lineTooltips.Remove(line);
+            if (entries != null && entries.Length > 0)
+            {
+                lineTooltips[line] = entries;
+            }
 
             activeLines.Enqueue(line);
 
@@ -207,6 +221,7 @@ namespace PF2e.Presentation
             var inst = Instantiate(lineTemplate, content);
             inst.gameObject.name = "CombatLogLine";
             inst.gameObject.SetActive(false);
+            inst.raycastTarget = false;
             return inst;
         }
 
@@ -301,6 +316,7 @@ namespace PF2e.Presentation
             var old = activeLines.Dequeue();
             if (old == null) return;
 
+            lineTooltips.Remove(old);
             old.text = string.Empty;
             old.gameObject.SetActive(false);
             pooledLines.Push(old);
@@ -310,6 +326,8 @@ namespace PF2e.Presentation
         {
             while (activeLines.Count > 0)
                 RecycleOldestLine();
+
+            lineTooltips.Clear();
         }
 
         private void RequestScrollToBottom()
@@ -395,6 +413,39 @@ namespace PF2e.Presentation
             canvasGroup.alpha = inCombat ? 1f : 0f;
             canvasGroup.blocksRaycasts = inCombat;
             canvasGroup.interactable = inCombat;
+        }
+
+        public Queue<TextMeshProUGUI> GetActiveLines()
+        {
+            return activeLines;
+        }
+
+        public bool TryGetTooltip(TextMeshProUGUI line, string token, out string title, out string body)
+        {
+            title = string.Empty;
+            body = string.Empty;
+
+            if (line == null || string.IsNullOrEmpty(token))
+            {
+                return false;
+            }
+
+            if (!lineTooltips.TryGetValue(line, out var entries) || entries == null || entries.Length == 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < entries.Length; i++)
+            {
+                if (entries[i].token == token)
+                {
+                    title = entries[i].title ?? string.Empty;
+                    body = entries[i].body ?? string.Empty;
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

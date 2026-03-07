@@ -35,7 +35,9 @@ namespace PF2e.Tests
 
             int count = 0;
             CombatLogEntry last = default;
+            CombatLogTooltipPayload? lastPayload = null;
             ctx.EventBus.OnLogEntry += HandleLog;
+            ctx.EventBus.OnLogEntryWithTooltip += HandleTooltip;
 
             try
             {
@@ -46,19 +48,27 @@ namespace PF2e.Tests
                 Assert.AreEqual(CombatLogCategory.Attack, last.Category);
                 var stripped = Strip(last.Message);
                 StringAssert.Contains("uses Trip on Goblin_1", stripped);
-                StringAssert.Contains("ATHLETICS d20(13) +7 = 20", stripped);
+                StringAssert.Contains("d20(13) = 20", stripped);
                 StringAssert.Contains("vs FORTITUDE DC 17", stripped);
                 StringAssert.Contains("Success", stripped);
+                var entry = FindTooltipEntry(lastPayload, CombatLogLinkTokens.SkillRoll);
+                StringAssert.Contains("ATHLETICS d20(13) +7 = 20", entry.body);
             }
             finally
             {
                 ctx.EventBus.OnLogEntry -= HandleLog;
+                ctx.EventBus.OnLogEntryWithTooltip -= HandleTooltip;
             }
 
             void HandleLog(CombatLogEntry entry)
             {
                 count++;
                 last = entry;
+            }
+
+            void HandleTooltip(CombatLogEntry entry, CombatLogTooltipPayload? payload)
+            {
+                lastPayload = payload;
             }
         }
 
@@ -168,18 +178,22 @@ namespace PF2e.Tests
 
             int count = 0;
             CombatLogEntry last = default;
+            CombatLogTooltipPayload? lastPayload = null;
             ctx.EventBus.OnLogEntry += HandleLog;
+            ctx.EventBus.OnLogEntryWithTooltip += HandleTooltip;
 
             try
             {
                 ctx.EventBus.PublishSkillCheckResolved(in ev);
 
                 Assert.AreEqual(1, count);
-                StringAssert.Contains("AID(+2)", last.Message);
+                var entry = FindTooltipEntry(lastPayload, CombatLogLinkTokens.SkillRoll);
+                StringAssert.Contains("AID(+2)", entry.body);
             }
             finally
             {
                 ctx.EventBus.OnLogEntry -= HandleLog;
+                ctx.EventBus.OnLogEntryWithTooltip -= HandleTooltip;
             }
 
             void HandleLog(CombatLogEntry entry)
@@ -187,6 +201,28 @@ namespace PF2e.Tests
                 count++;
                 last = entry;
             }
+
+            void HandleTooltip(CombatLogEntry entry, CombatLogTooltipPayload? payload)
+            {
+                lastPayload = payload;
+            }
+        }
+
+        private static TooltipEntry FindTooltipEntry(CombatLogTooltipPayload? payload, string token)
+        {
+            Assert.IsTrue(payload.HasValue, "Expected tooltip payload for skill check summary line.");
+            Assert.IsNotNull(payload.Value.entries, "Tooltip payload must contain entries.");
+
+            for (int i = 0; i < payload.Value.entries.Length; i++)
+            {
+                if (payload.Value.entries[i].token == token)
+                {
+                    return payload.Value.entries[i];
+                }
+            }
+
+            Assert.Fail($"Tooltip payload missing token '{token}'.");
+            return default;
         }
 
         private sealed class SkillCheckLogContext : System.IDisposable

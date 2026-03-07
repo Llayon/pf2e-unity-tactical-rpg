@@ -57,8 +57,10 @@ namespace PF2e.Core
         public delegate void DelayedTurnResumedHandler(in DelayedTurnResumedEvent e);
         public delegate void DelayedTurnExpiredHandler(in DelayedTurnExpiredEvent e);
         public delegate void ReadyTriggerModeChangedHandler(in ReadyTriggerModeChangedEvent e);
+        public delegate void LogEntryWithTooltipHandler(CombatLogEntry entry, CombatLogTooltipPayload? tooltipPayload);
 
         public event Action<CombatLogEntry> OnLogEntry;
+        public event LogEntryWithTooltipHandler OnLogEntryWithTooltip;
         public event StrikePreDamageHandler OnStrikePreDamageTyped;
         public event StrikeResolvedHandler OnStrikeResolved;
         public event DamageAppliedHandler OnDamageAppliedTyped;
@@ -81,6 +83,12 @@ namespace PF2e.Core
 
         public void Publish(CombatLogEntry entry)
         {
+            Publish(entry, null);
+        }
+
+        public void Publish(CombatLogEntry entry, CombatLogTooltipPayload? tooltipPayload)
+        {
+            OnLogEntryWithTooltip?.Invoke(entry, tooltipPayload);
             OnLogEntry?.Invoke(entry);
         }
 
@@ -91,6 +99,17 @@ namespace PF2e.Core
         /// Bad:  "Fighter strides x2 → (3,0,5)"
         /// </summary>
         public void Publish(EntityHandle actor, string message, CombatLogCategory category = CombatLogCategory.Debug)
+        {
+            Publish(actor, message, category, null);
+        }
+
+        /// <summary>
+        /// IMPORTANT CONTRACT:
+        /// Message must NOT include actor name; the log consumer adds it.
+        /// Good: "strides x2 → (3,0,5)"
+        /// Bad:  "Fighter strides x2 → (3,0,5)"
+        /// </summary>
+        public void Publish(EntityHandle actor, string message, CombatLogCategory category, CombatLogTooltipPayload? tooltipPayload)
         {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             // Dev-guard: warn if publishers violate contract
@@ -105,17 +124,22 @@ namespace PF2e.Core
             }
 #endif
 
-            OnLogEntry?.Invoke(new CombatLogEntry(actor, message, category));
+            Publish(new CombatLogEntry(actor, message, category), tooltipPayload);
         }
 
         public void PublishSystem(string message)
         {
-            PublishSystem(message, CombatLogCategory.System);
+            PublishSystem(message, CombatLogCategory.System, null);
         }
 
         public void PublishSystem(string message, CombatLogCategory category)
         {
-            OnLogEntry?.Invoke(new CombatLogEntry(EntityHandle.None, message, category));
+            PublishSystem(message, category, null);
+        }
+
+        public void PublishSystem(string message, CombatLogCategory category, CombatLogTooltipPayload? tooltipPayload)
+        {
+            Publish(new CombatLogEntry(EntityHandle.None, message, category), tooltipPayload);
         }
 
         /// <summary>

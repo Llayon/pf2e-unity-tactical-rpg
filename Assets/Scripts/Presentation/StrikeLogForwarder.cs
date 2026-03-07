@@ -52,15 +52,35 @@ namespace PF2e.Presentation
             string rawTargetName = targetData?.Name ?? "Unknown";
             var targetTeam = targetData?.Team ?? Team.Neutral;
             string targetName = CombatLogRichText.EntityName(rawTargetName, targetTeam);
+            int effectiveAc = e.dc + e.coverAcBonus;
+            string attackTotalLink = CombatLogLinkHelper.Link(CombatLogLinkTokens.AttackTotal, e.attackRoll.total.ToString());
+            string defenseTotalLink = CombatLogLinkHelper.Link(CombatLogLinkTokens.DefenseTotal, effectiveAc.ToString());
+            var tooltipPayload = new CombatLogTooltipPayload(new[]
+            {
+                new TooltipEntry(
+                    CombatLogLinkTokens.AttackTotal,
+                    "Attack Roll Breakdown",
+                    TooltipTextBuilder.StrikeAttackBreakdown(
+                        e.attackRoll.naturalRoll,
+                        e.attackBonus,
+                        e.mapPenalty,
+                        e.rangePenalty,
+                        e.volleyPenalty,
+                        e.aidCircumstanceBonus,
+                        e.attackRoll.total)),
+                new TooltipEntry(
+                    CombatLogLinkTokens.DefenseTotal,
+                    "Defense Breakdown",
+                    TooltipTextBuilder.StrikeDefenseBreakdown(e.dc, e.coverAcBonus))
+            });
 
             // 1. Attack roll line (always published)
             eventBus.Publish(e.attacker,
                 $"{CombatLogRichText.ActionCost(1)} {CombatLogRichText.Verb("strikes")} {targetName} {CombatLogRichText.Verb("with")} {CombatLogRichText.Weapon(e.weaponName)}{CombatLogRichText.Verb(",")} " +
-                $"{CombatLogRichText.Verb(RollBreakdownFormatter.FormatRoll(e.attackRoll))} " +
-                $"{CombatLogRichText.Verb("[" + RollBreakdownFormatter.FormatStrikeAttackBreakdown(e.attackBonus, e.mapPenalty, e.rangePenalty, e.volleyPenalty, e.aidCircumstanceBonus) + "]")} " +
-                $"{CombatLogRichText.Verb("vs")} {CombatLogRichText.Verb(RollBreakdownFormatter.FormatDefenseWithCover(e.defenseSource, e.dc, e.coverAcBonus))}" +
+                $"{CombatLogRichText.Verb($"d20({e.attackRoll.naturalRoll})")} {CombatLogRichText.Verb("=")} {attackTotalLink} {CombatLogRichText.Verb("vs AC")} {defenseTotalLink}" +
                 $" → {CombatLogRichText.Degree(e.acDegree)}",
-                CombatLogCategory.Attack);
+                CombatLogCategory.Attack,
+                tooltipPayload);
 
             // 2. Hit/miss determination: use degree, NOT damage
             bool isHit = (e.degree == DegreeOfSuccess.Success || e.degree == DegreeOfSuccess.CriticalSuccess);
