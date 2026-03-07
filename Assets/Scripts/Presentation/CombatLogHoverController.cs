@@ -1,6 +1,9 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 namespace PF2e.Presentation
 {
@@ -15,8 +18,8 @@ namespace PF2e.Presentation
         private readonly Vector3[] lineCorners = new Vector3[4];
 
         private Canvas rootCanvas;
-        private Camera uiCamera;
-        private Vector3 lastMousePosition = new Vector3(float.NaN, float.NaN, float.NaN);
+        private UnityEngine.Camera uiCamera;
+        private Vector2 lastMousePosition = new Vector2(float.NaN, float.NaN);
         private TextMeshProUGUI currentLine;
         private int currentLinkIndex = -1;
 
@@ -56,7 +59,11 @@ namespace PF2e.Presentation
 
         private void Update()
         {
-            Vector3 mousePosition = Input.mousePosition;
+            if (!TryGetMousePosition(out var mousePosition))
+            {
+                return;
+            }
+
             if (mousePosition == lastMousePosition)
             {
                 return;
@@ -125,6 +132,25 @@ namespace PF2e.Presentation
         private bool IsPointerInsideViewport(Vector3 mousePosition)
         {
             return RectTransformUtility.RectangleContainsScreenPoint(viewportRect, mousePosition, uiCamera);
+        }
+
+        private static bool TryGetMousePosition(out Vector2 mousePosition)
+        {
+#if ENABLE_INPUT_SYSTEM
+            var mouse = Mouse.current;
+            if (mouse != null)
+            {
+                mousePosition = mouse.position.ReadValue();
+                return true;
+            }
+#endif
+#if ENABLE_LEGACY_INPUT_MANAGER
+            mousePosition = Input.mousePosition;
+            return true;
+#else
+            mousePosition = default;
+            return false;
+#endif
         }
 
         private bool TryFindHoveredLink(Vector3 mousePosition, out TextMeshProUGUI hoveredLine, out int hoveredLinkIndex)

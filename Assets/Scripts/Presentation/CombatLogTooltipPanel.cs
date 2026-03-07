@@ -92,7 +92,7 @@ namespace PF2e.Presentation
             float pivotY = screenPosition.y < halfScreenHeight ? 0f : 1f;
             panelRect.pivot = new Vector2(pivotX, pivotY);
 
-            Camera uiCamera = ResolveCamera();
+            UnityEngine.Camera uiCamera = ResolveCamera();
             if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(parentRect, screenPosition, uiCamera, out var localPoint))
             {
                 return;
@@ -132,7 +132,7 @@ namespace PF2e.Presentation
             return panelRect != null && titleText != null && bodyText != null && canvasGroup != null && parentRect != null;
         }
 
-        private Camera ResolveCamera()
+        private UnityEngine.Camera ResolveCamera()
         {
             if (rootCanvas == null)
             {
