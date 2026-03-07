@@ -173,24 +173,12 @@ namespace PF2e.Presentation
         private void ResolveJumpUiReferences()
         {
             if (jumpButton == null)
-            {
                 jumpButton = FindButtonByName("JumpButton");
-                if (jumpButton == null)
-                    jumpButton = FindButtonByName("JumpButton_Auto");
-            }
-
-            if (jumpButton == null
-                && Application.isPlaying
-                && useLauncherLayout
-                && strikeButton != null
-                && strikeButton.transform.parent != null)
-            {
-                jumpButton = CreateJumpButtonFromTemplate(strikeButton);
-            }
 
             if (jumpButton != null && jumpHighlight == null)
             {
-                var highlightTf = jumpButton.transform.Find("Highlight");
+                var highlightTf = jumpButton.transform.Find("ActiveHighlight")
+                    ?? jumpButton.transform.Find("Highlight");
                 if (highlightTf != null)
                     jumpHighlight = highlightTf.GetComponent<Image>();
             }
@@ -209,29 +197,6 @@ namespace PF2e.Presentation
             }
 
             return null;
-        }
-
-        private static Button CreateJumpButtonFromTemplate(Button template)
-        {
-            if (template == null || template.transform.parent == null)
-                return null;
-
-            var cloneGo = Instantiate(template.gameObject, template.transform.parent);
-            cloneGo.name = "JumpButton_Auto";
-
-            var cloneButton = cloneGo.GetComponent<Button>();
-            if (cloneButton == null)
-                return null;
-
-            cloneButton.onClick.RemoveAllListeners();
-
-            // Popup roots are not needed on the direct Jump launcher copy.
-            var strikePopupChild = cloneGo.transform.Find("StrikePopupRoot");
-            if (strikePopupChild != null)
-                Destroy(strikePopupChild.gameObject);
-
-            cloneGo.transform.SetSiblingIndex(template.transform.GetSiblingIndex() + 1);
-            return cloneButton;
         }
 
         private void ApplyAidPreparedIndicatorStyle()
