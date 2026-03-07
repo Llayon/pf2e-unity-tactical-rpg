@@ -1,5 +1,9 @@
 # Project Memory
-Last updated: 2026-03-06
+Last updated: 2026-03-08
+
+## Session Handoff Pointers
+- Active handoff snapshot: `Docs/SESSION_HANDOFF_2026-03-08.md`
+- Use this file as the first read when starting a fresh chat session with low remaining context.
 
 ## Vision
 Build a small, playable, turn-based tactical PF2e combat slice in Unity where one player-controlled party can move on a grid, spend 3 actions, strike enemies, and finish encounters with clear visual feedback. Prioritize correctness of core turn/action/combat flow, maintainable architecture, and incremental delivery over full PF2e coverage.
@@ -26,6 +30,8 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 
 ### B) Gameplay Loop Status (Current)
 - Scene boots to `SampleScene`; test grid and test entities spawn from inspector-wired managers.
+- Combat log interactive tooltip stack is implemented through Phase 31d: typed tooltip payload on `CombatEventBus`, per-line tooltip storage in `CombatLogController`, TMP `<link>` tokens from strike/skill forwarders, `CombatLogHoverController` hover detection, and styled `CombatLogTooltipPanel` in `SampleScene`.
+- Phase 31d regression fix is applied: tooltip now correctly shows when the tooltip object is reactivated from inactive state (`CombatLogTooltipPanel.OnEnable` no longer immediately hides panel).
 - `EncounterFlowPrefabScene` validates cross-scene reuse of `EncounterFlowPanel.prefab` via runtime auto-create path.
 - Controls currently in code: encounter flow buttons (`Start Encounter` / `End Encounter`) as primary path, `C`/`X` as editor/development fallback, left-click cell/entity, action bar buttons (bottom-center), `Space` end turn, `Esc` cancel targeting, `R` Raise Shield, `T` Trip, `Y` Demoralize, `H` Shove, `J` Grapple, `K` Escape, `V` Reposition, `Delay` action button (turn-begin trigger only; opens initiative insertion markers between portraits), `WASD/QE/Scroll` camera, `G` grid toggle, `PageUp/PageDown` floor.
 - Input/UI boundaries are hardened: grid hover/click handlers and camera wheel-zoom are ignored when pointer is over UI, preventing button click-through movement and accidental zoom while scrolling UI.
@@ -240,6 +246,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Input System package exists, but most gameplay input is polled directly from keyboard/mouse.
 - CI requires repository-level `UNITY_LICENSE` secret; workflow fails fast when missing.
 - PlayMode regression now covers multi-round movement/AI/condition-tick flow, blocked-turn recovery, sticky-target lock behavior, ranged concealment/cover logic, Shield Block reaction prompts, and Delay planned/manual + full-round expiry + pointer-level UI click flows (including pointer-driven Skip-loop expiry); full matrix coverage for spells/visibility states is still pending.
+- PlayMode now also includes dedicated combat-log hover coverage: hide-on-scroll, hide-on-viewport-exit, link-scan/token-resolution, and show-from-inactive regression guard for tooltip panel activation.
 - Ranged strike MVP is implemented (bow path, range increment penalties, grid LoS + simple cover AC, concealment flat-check misses via `Concealed`, `Volley` penalty, weapon-aware strike targeting, and crit math support for `Deadly`/`Fatal`), but advanced ranged rules remain deferred: ammo, reload, hidden/undetected and richer visibility states, volley-info preview UX, striking-rune scaling for crit traits, and crit specialization effects.
 - Delay UX is currently hybrid by design: Owlcat-style planned insertion is primary, while manual inter-turn `Return`/`Skip` controls are retained as fallback for non-planned delayed actors.
 - `DelayUiOrchestrator` has been removed (`phase 29g.8`); any reintroduction requires explicit architecture decision and validator/test contract updates.
