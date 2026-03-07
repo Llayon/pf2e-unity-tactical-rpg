@@ -20,6 +20,7 @@ namespace PF2e.TurnSystem
         [SerializeField] private EntityManager entityManager;
         [SerializeField] private CombatEventBus eventBus;
         [SerializeField] private StrideAction strideAction;
+        [SerializeField] private JumpAction jumpAction;
         [SerializeField] private StrikeAction strikeAction;
         [SerializeField] private ReadyStrikeAction readyStrikeAction;
         [SerializeField] private StandAction standAction;
@@ -58,6 +59,7 @@ namespace PF2e.TurnSystem
             if (entityManager == null) Debug.LogError("[Executor] Missing EntityManager", this);
             if (eventBus == null) Debug.LogWarning("[Executor] Missing CombatEventBus", this);
             if (strideAction == null) Debug.LogError("[Executor] Missing StrideAction", this);
+            if (jumpAction == null) Debug.LogWarning("[Executor] Missing JumpAction", this);
             if (strikeAction == null) Debug.LogError("[Executor] Missing StrikeAction", this);
             if (readyStrikeAction == null) Debug.LogWarning("[Executor] Missing ReadyStrikeAction", this);
             if (tripAction == null) Debug.LogWarning("[Executor] Missing TripAction", this);
@@ -107,6 +109,13 @@ namespace PF2e.TurnSystem
                     readyStrikeAction = gameObject.AddComponent<ReadyStrikeAction>();
             }
 
+            if (jumpAction == null)
+            {
+                jumpAction = GetComponent<JumpAction>();
+                if (jumpAction == null && entityManager != null)
+                    jumpAction = gameObject.AddComponent<JumpAction>();
+            }
+
             if (glassShieldAction == null)
             {
                 glassShieldAction = GetComponent<GlassShieldAction>();
@@ -125,6 +134,7 @@ namespace PF2e.TurnSystem
                 eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
 
             aidAction?.InjectDependencies(entityManager, eventBus);
+            jumpAction?.InjectDependencies(entityManager, eventBus);
             readyStrikeAction?.InjectDependencies(turnManager, entityManager, strikeAction, eventBus);
             glassShieldAction?.InjectDependencies(entityManager, eventBus);
             standardShieldAction?.InjectDependencies(entityManager, eventBus);
@@ -240,6 +250,66 @@ namespace PF2e.TurnSystem
                 turnManager.ActionCompleted(); // rollback ExecutingAction
                 return false;
             }
+
+            return true;
+        }
+
+        public bool TryExecuteJumpToCell(Vector3Int targetCell)
+        {
+            if (turnManager == null || entityManager == null || jumpAction == null)
+                return false;
+            if (!CanActNow())
+                return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return false;
+
+            if (!jumpAction.TryPreviewJump(actor, targetCell, out var preview))
+                return false;
+            if (preview.actionCost <= 0 || preview.actionCost > turnManager.ActionsRemaining)
+                return false;
+
+            executingActor = actor;
+            turnManager.BeginActionExecution(actor, "Player.Jump");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = Time.time;
+#endif
+
+            bool performed = jumpAction.TryExecuteJump(actor, targetCell, UnityRng.Shared, out _);
+            if (!performed)
+            {
+                executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                executionStartTime = -1f;
+#endif
+                turnManager.ActionCompleted();
+                return false;
+            }
+
+            executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = -1f;
+#endif
+            turnManager.CompleteActionWithCost(preview.actionCost);
+            return true;
+        }
+
+        public bool TryPreviewJumpToCell(Vector3Int targetCell, out JumpPreviewResult preview)
+        {
+            preview = JumpPreviewResult.Invalid(JumpFailureReason.InvalidState, targetCell);
+
+            if (turnManager == null || jumpAction == null)
+                return false;
+            if (!CanActNow())
+                return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return false;
+
+            if (!jumpAction.TryPreviewJump(actor, targetCell, out preview))
+                return false;
 
             return true;
         }

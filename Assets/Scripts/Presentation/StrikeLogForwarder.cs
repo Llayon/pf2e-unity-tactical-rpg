@@ -55,7 +55,7 @@ namespace PF2e.Presentation
 
             // 1. Attack roll line (always published)
             eventBus.Publish(e.attacker,
-                $"{CombatLogRichText.Verb("strikes")} {targetName} {CombatLogRichText.Verb("with")} {CombatLogRichText.Weapon(e.weaponName)}{CombatLogRichText.Verb(",")} " +
+                $"{CombatLogRichText.ActionCost(1)} {CombatLogRichText.Verb("strikes")} {targetName} {CombatLogRichText.Verb("with")} {CombatLogRichText.Weapon(e.weaponName)}{CombatLogRichText.Verb(",")} " +
                 $"{CombatLogRichText.Verb(RollBreakdownFormatter.FormatRoll(e.attackRoll))} " +
                 $"{CombatLogRichText.Verb("[" + RollBreakdownFormatter.FormatStrikeAttackBreakdown(e.attackBonus, e.mapPenalty, e.rangePenalty, e.volleyPenalty, e.aidCircumstanceBonus) + "]")} " +
                 $"{CombatLogRichText.Verb("vs")} {CombatLogRichText.Verb(RollBreakdownFormatter.FormatDefenseWithCover(e.defenseSource, e.dc, e.coverAcBonus))}" +
@@ -92,11 +92,11 @@ namespace PF2e.Presentation
             }
             else
             {
-                eventBus.Publish(e.attacker,
+                eventBus.Publish(
+                    e.attacker,
                     $"{CombatLogRichText.Verb("misses")} {targetName}.",
                     CombatLogCategory.Attack);
             }
-
             // 3. Defeat notification (if applicable)
             if (e.targetDefeated)
             {

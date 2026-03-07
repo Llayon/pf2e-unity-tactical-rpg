@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using TMPro;
+using System;
 using PF2e.Core;
 using PF2e.Managers;
 using PF2e.TurnSystem;
@@ -25,6 +26,7 @@ namespace PF2e.Presentation
         [Header("UI")]
         [SerializeField] private CanvasGroup canvasGroup;
         [SerializeField] private Button strikeButton;
+        [SerializeField] private Button jumpButton;
         [SerializeField] private Button tripButton;
         [SerializeField] private Button shoveButton;
         [SerializeField] private Button grappleButton;
@@ -53,6 +55,7 @@ namespace PF2e.Presentation
 
         [Header("Highlights (optional overlays)")]
         [SerializeField] private Image strikeHighlight;
+        [SerializeField] private Image jumpHighlight;
         [SerializeField] private Image tripHighlight;
         [SerializeField] private Image shoveHighlight;
         [SerializeField] private Image grappleHighlight;
@@ -96,6 +99,7 @@ namespace PF2e.Presentation
             if (canvasGroup == null) Debug.LogWarning("[ActionBar] Missing CanvasGroup", this);
 
             if (strikeButton == null) Debug.LogWarning("[ActionBar] strikeButton not assigned", this);
+            if (jumpButton == null) Debug.LogWarning("[ActionBar] jumpButton not assigned", this);
             if (tripButton == null) Debug.LogWarning("[ActionBar] tripButton not assigned", this);
             if (shoveButton == null) Debug.LogWarning("[ActionBar] shoveButton not assigned", this);
             if (grappleButton == null) Debug.LogWarning("[ActionBar] grappleButton not assigned", this);
@@ -140,6 +144,7 @@ namespace PF2e.Presentation
 
         private void ValidateAndApplyUiWiring()
         {
+            ResolveJumpUiReferences();
             ValidateAidUiReferences();
             ApplyAidPreparedIndicatorStyle();
             ResolveCastSpellUiReferences();
@@ -163,6 +168,70 @@ namespace PF2e.Presentation
                 "[ActionBar] Aid UI is not fully wired (aidButton/aidHighlight/aidPreparedIndicatorRoot/aidPreparedIndicatorLabel). " +
                 "Assign references in scene or run scene validator autofix.",
                 this);
+        }
+
+        private void ResolveJumpUiReferences()
+        {
+            if (jumpButton == null)
+            {
+                jumpButton = FindButtonByName("JumpButton");
+                if (jumpButton == null)
+                    jumpButton = FindButtonByName("JumpButton_Auto");
+            }
+
+            if (jumpButton == null
+                && Application.isPlaying
+                && useLauncherLayout
+                && strikeButton != null
+                && strikeButton.transform.parent != null)
+            {
+                jumpButton = CreateJumpButtonFromTemplate(strikeButton);
+            }
+
+            if (jumpButton != null && jumpHighlight == null)
+            {
+                var highlightTf = jumpButton.transform.Find("Highlight");
+                if (highlightTf != null)
+                    jumpHighlight = highlightTf.GetComponent<Image>();
+            }
+        }
+
+        private Button FindButtonByName(string buttonName)
+        {
+            if (string.IsNullOrWhiteSpace(buttonName))
+                return null;
+
+            var buttons = GetComponentsInChildren<Button>(true);
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                if (buttons[i] != null && string.Equals(buttons[i].name, buttonName, StringComparison.OrdinalIgnoreCase))
+                    return buttons[i];
+            }
+
+            return null;
+        }
+
+        private static Button CreateJumpButtonFromTemplate(Button template)
+        {
+            if (template == null || template.transform.parent == null)
+                return null;
+
+            var cloneGo = Instantiate(template.gameObject, template.transform.parent);
+            cloneGo.name = "JumpButton_Auto";
+
+            var cloneButton = cloneGo.GetComponent<Button>();
+            if (cloneButton == null)
+                return null;
+
+            cloneButton.onClick.RemoveAllListeners();
+
+            // Popup roots are not needed on the direct Jump launcher copy.
+            var strikePopupChild = cloneGo.transform.Find("StrikePopupRoot");
+            if (strikePopupChild != null)
+                Destroy(strikePopupChild.gameObject);
+
+            cloneGo.transform.SetSiblingIndex(template.transform.GetSiblingIndex() + 1);
+            return cloneButton;
         }
 
         private void ApplyAidPreparedIndicatorStyle()
@@ -470,6 +539,8 @@ namespace PF2e.Presentation
 
             if (strikeButton != null)
                 SetButtonLabelText(strikeButton, "Strike v");
+            if (jumpButton != null)
+                SetButtonLabelText(jumpButton, "Jump [1/2]");
 
             if (tacticsLauncherButton != null)
                 SetButtonLabelText(tacticsLauncherButton, "Tactics v");
@@ -611,6 +682,7 @@ namespace PF2e.Presentation
 
             int boundCount = 0;
             boundCount += BindButton(strikeButton, useLauncherLayout ? ToggleStrikePopup : actionBarCommandCoordinator.OnStrikeClicked);
+            boundCount += BindButton(jumpButton, actionBarCommandCoordinator.OnJumpClicked);
             boundCount += BindButton(tripButton, useLauncherLayout ? HandleTripPopupClicked : actionBarCommandCoordinator.OnTripClicked);
             boundCount += BindButton(shoveButton, useLauncherLayout ? HandleShovePopupClicked : actionBarCommandCoordinator.OnShoveClicked);
             boundCount += BindButton(grappleButton, useLauncherLayout ? HandleGrapplePopupClicked : actionBarCommandCoordinator.OnGrappleClicked);
@@ -825,6 +897,7 @@ namespace PF2e.Presentation
         private void HandleModeChanged(TargetingMode mode)
         {
             SetHighlight(strikeHighlight, mode == TargetingMode.Strike);
+            SetHighlight(jumpHighlight, mode == TargetingMode.Jump);
             SetHighlight(tripHighlight, mode == TargetingMode.Trip);
             SetHighlight(shoveHighlight, mode == TargetingMode.Shove);
             SetHighlight(grappleHighlight, mode == TargetingMode.Grapple);
@@ -924,6 +997,7 @@ namespace PF2e.Presentation
             if (useLauncherLayout)
             {
                 SetInteractable(strikeButton, enabled);
+                SetInteractable(jumpButton, enabled);
                 SetInteractable(tacticsLauncherButton, enabled);
                 SetInteractable(castSpellButton, enabled);
                 SetInteractable(raiseShieldButton, enabled);
@@ -942,6 +1016,7 @@ namespace PF2e.Presentation
             else
             {
                 SetInteractable(strikeButton, enabled);
+                SetInteractable(jumpButton, enabled);
                 SetInteractable(tripButton, enabled);
                 SetInteractable(shoveButton, enabled);
                 SetInteractable(grappleButton, enabled);
@@ -971,6 +1046,7 @@ namespace PF2e.Presentation
                                       || availability.aidInteractable;
 
                 SetInteractable(strikeButton, anyStrikeOptions);
+                SetInteractable(jumpButton, availability.jumpInteractable);
                 SetInteractable(strikePopupStrikeButton, availability.strikeInteractable);
                 SetInteractable(tripButton, availability.tripInteractable);
                 SetInteractable(shoveButton, availability.shoveInteractable);
@@ -996,6 +1072,7 @@ namespace PF2e.Presentation
             else
             {
                 SetInteractable(strikeButton, availability.strikeInteractable);
+                SetInteractable(jumpButton, availability.jumpInteractable);
                 SetInteractable(tripButton, availability.tripInteractable);
                 SetInteractable(shoveButton, availability.shoveInteractable);
                 SetInteractable(grappleButton, availability.grappleInteractable);
@@ -1040,6 +1117,7 @@ namespace PF2e.Presentation
         private void ClearAllHighlights()
         {
             SetHighlight(strikeHighlight, false);
+            SetHighlight(jumpHighlight, false);
             SetHighlight(tripHighlight, false);
             SetHighlight(shoveHighlight, false);
             SetHighlight(grappleHighlight, false);

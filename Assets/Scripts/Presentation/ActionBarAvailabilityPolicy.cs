@@ -50,6 +50,7 @@ namespace PF2e.Presentation
 
             return new ActionBarAvailabilityState(
                 strikeInteractable: true,
+                jumpInteractable: true,
                 tripInteractable: HasWeaponTrait(actorData, WeaponTraitFlags.Trip),
                 shoveInteractable: HasWeaponTrait(actorData, WeaponTraitFlags.Shove),
                 grappleInteractable: HasWeaponTrait(actorData, WeaponTraitFlags.Grapple),

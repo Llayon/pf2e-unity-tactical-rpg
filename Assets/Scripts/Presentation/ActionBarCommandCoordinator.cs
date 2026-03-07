@@ -68,6 +68,22 @@ namespace PF2e.Presentation
             ToggleOrBeginTargeting(TargetingMode.Aid, h => actionExecutor.TryExecuteAid(h));
         }
 
+        public void OnJumpClicked()
+        {
+            if (targetingController == null || actionExecutor == null)
+                return;
+
+            if (targetingController.ActiveMode == TargetingMode.Jump)
+            {
+                targetingController.CancelTargeting();
+                return;
+            }
+
+            targetingController.BeginCellTargeting(
+                TargetingMode.Jump,
+                onCellConfirmed: c => actionExecutor.TryExecuteJumpToCell(c));
+        }
+
         public void OnRaiseShieldClicked()
         {
             if (actionExecutor == null)

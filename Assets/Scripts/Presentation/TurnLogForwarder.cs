@@ -41,8 +41,7 @@ namespace PF2e.Presentation
             eventBus.OnInitiativeRolledTyped += OnInitiativeRolledTyped;
             eventBus.OnRoundStartedTyped += OnRoundStartedTyped;
             eventBus.OnTurnStartedTyped += OnTurnStartedTyped;
-            eventBus.OnTurnEndedTyped += OnTurnEndedTyped;
-            eventBus.OnActionsChangedTyped += OnActionsChangedTyped;
+            eventBus.OnJumpResolvedTyped += OnJumpResolvedTyped;
         }
 
         private void OnDisable()
@@ -53,8 +52,7 @@ namespace PF2e.Presentation
             eventBus.OnInitiativeRolledTyped -= OnInitiativeRolledTyped;
             eventBus.OnRoundStartedTyped -= OnRoundStartedTyped;
             eventBus.OnTurnStartedTyped -= OnTurnStartedTyped;
-            eventBus.OnTurnEndedTyped -= OnTurnEndedTyped;
-            eventBus.OnActionsChangedTyped -= OnActionsChangedTyped;
+            eventBus.OnJumpResolvedTyped -= OnJumpResolvedTyped;
         }
 
         private void OnCombatStartedTyped(in CombatStartedEvent e)
@@ -104,48 +102,36 @@ namespace PF2e.Presentation
             string rawName = data?.Name ?? e.actor.ToString();
             var team = data?.Team ?? Team.Neutral;
 
+            int actions = Mathf.Clamp(e.actionsAtStart, 0, 3);
+            string diamonds = CombatLogRichText.ActionCost(actions);
             eventBus.PublishSystem(
-                $"{CombatLogRichText.EntityName(rawName, team)} {CombatLogRichText.Verb($"({team}) starts turn. Actions: {Mathf.Clamp(e.actionsAtStart, 0, 3)}/3")}",
+                $"{CombatLogRichText.Round("—")} {CombatLogRichText.EntityName(rawName, team)} {diamonds} {CombatLogRichText.Round("—")}",
                 CombatLogCategory.Turn);
         }
 
-        private void OnTurnEndedTyped(in TurnEndedEvent e)
+        private void OnJumpResolvedTyped(in JumpResolvedEvent e)
         {
-            var data = entityManager.Registry.Get(e.actor);
-            string rawName = data?.Name ?? e.actor.ToString();
-            var team = data?.Team ?? Team.Neutral;
-
-            eventBus.PublishSystem(
-                $"{CombatLogRichText.EntityName(rawName, team)} {CombatLogRichText.Verb($"({team}) ends turn.")}",
-                CombatLogCategory.Turn);
-
-            if (e.actor == lastActor)
+            string jumpKind = e.jumpType switch
             {
-                lastActor = EntityHandle.None;
-                lastActions = -1;
-            }
-        }
+                JumpType.Leap => "Leap",
+                JumpType.LongJump => "Long Jump",
+                JumpType.HighJump => "High Jump",
+                _ => "Jump"
+            };
 
-        private void OnActionsChangedTyped(in ActionsChangedEvent e)
-        {
-            if (!e.actor.IsValid) return;
+            string checkPart = e.hasCheck
+                ? $" ({RollBreakdownFormatter.FormatRoll(e.checkRoll)} vs DC {e.dc} -> {e.degree})"
+                : string.Empty;
 
-            if (e.actor != lastActor)
-            {
-                lastActor = e.actor;
-                lastActions = e.remaining;
-                return;
-            }
+            string outcome = e.movedToLanding
+                ? $"to {e.landingCell}"
+                : "but fails to reach the destination";
 
-            if (lastActions >= 0 && e.remaining < lastActions)
-            {
-                int spent = lastActions - e.remaining;
-                eventBus.Publish(e.actor,
-                    CombatLogRichText.Verb($"spends {spent} action(s). Remaining {Mathf.Clamp(e.remaining, 0, 3)}/3"),
-                    CombatLogCategory.Turn);
-            }
-
-            lastActions = e.remaining;
+            string pronePart = e.becameProne ? ", falls prone" : string.Empty;
+            eventBus.Publish(
+                e.actor,
+                $"{CombatLogRichText.Verb($"{jumpKind} {outcome}{checkPart}{pronePart}.")}",
+                CombatLogCategory.Movement);
         }
     }
 }

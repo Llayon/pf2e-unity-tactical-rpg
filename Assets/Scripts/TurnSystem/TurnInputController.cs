@@ -10,7 +10,7 @@ namespace PF2e.TurnSystem
     /// Thin router between input and TargetingController / TurnManager.
     /// - Space → EndTurn (PlayerTurn only, not while executor busy)
     /// - Escape → CancelTargeting
-    /// - T / H / J / K / Y / V / B → Begin explicit targeting for Trip / Shove / Grapple / Escape / Demoralize / Reposition / Aid
+    /// - T / H / J / K / Y / V / B / L → Begin explicit targeting for Trip / Shove / Grapple / Escape / Demoralize / Reposition / Aid / Jump
     /// - N → execute Ready Strike prepare (no target selection)
     /// - M → cycle Ready Strike trigger mode (Movement -> Attack -> Any)
     /// - Cell click → targetingController.TryConfirmCell (after guards)
@@ -187,6 +187,12 @@ namespace PF2e.TurnSystem
             {
                 if (turnManager.IsPlayerTurn && !actionExecutor.IsBusy)
                     targetingController.BeginTargeting(TargetingMode.Aid, h => actionExecutor.TryExecuteAid(h));
+            }
+
+            if (kb.lKey.wasPressedThisFrame)
+            {
+                if (turnManager.IsPlayerTurn && !actionExecutor.IsBusy)
+                    targetingController.BeginCellTargeting(TargetingMode.Jump, c => actionExecutor.TryExecuteJumpToCell(c));
             }
 
             if (kb.nKey.wasPressedThisFrame)

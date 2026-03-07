@@ -32,6 +32,38 @@ namespace PF2e.Presentation
             return new TargetingHintMessage(TargetingHintTone.Invalid, GetInvalidMessage(mode, evaluation.failureReason, strikeIsRanged));
         }
 
+        public static TargetingHintMessage ForJumpPreview(in JumpPreviewResult preview, int actionsRemaining)
+        {
+            if (!preview.isValid)
+            {
+                string invalidText = preview.failureReason switch
+                {
+                    JumpFailureReason.InvalidLanding => "Jump: invalid landing cell",
+                    JumpFailureReason.MissingRunUp => "Jump: need a 10 ft run-up",
+                    JumpFailureReason.Unreachable => "Jump: destination is unreachable",
+                    JumpFailureReason.InvalidState => "Jump: action unavailable",
+                    _ => "Jump: choose a reachable landing cell"
+                };
+
+                return new TargetingHintMessage(TargetingHintTone.Invalid, invalidText);
+            }
+
+            if (preview.actionCost > actionsRemaining)
+            {
+                return new TargetingHintMessage(
+                    TargetingHintTone.Invalid,
+                    $"Jump: needs {preview.actionCost} action(s), only {actionsRemaining} left");
+            }
+
+            return preview.jumpType switch
+            {
+                JumpType.Leap => new TargetingHintMessage(TargetingHintTone.Valid, $"Jump: Leap [1] ({preview.jumpDistanceFeet} ft)"),
+                JumpType.LongJump => new TargetingHintMessage(TargetingHintTone.Valid, $"Jump: Long Jump [2], Athletics vs DC {preview.dc}"),
+                JumpType.HighJump => new TargetingHintMessage(TargetingHintTone.Valid, $"Jump: High Jump [2], Athletics vs DC {preview.dc}"),
+                _ => new TargetingHintMessage(TargetingHintTone.Valid, "Jump: valid destination")
+            };
+        }
+
         private static string GetModePrompt(TargetingMode mode, bool strikeIsRanged)
         {
             return mode switch
@@ -47,6 +79,7 @@ namespace PF2e.Presentation
                 TargetingMode.Demoralize => "Demoralize: choose an enemy within 30 ft",
                 TargetingMode.Escape => "Escape: choose the creature grappling you",
                 TargetingMode.Aid => "Aid: choose an ally in reach",
+                TargetingMode.Jump => "Jump: choose a landing cell",
                 _ => "Choose a target"
             };
         }
@@ -63,6 +96,7 @@ namespace PF2e.Presentation
                 TargetingMode.Escape => "Escape: valid target (best of Athletics/Acrobatics)",
                 TargetingMode.Strike => "Strike: valid target",
                 TargetingMode.Aid => "Aid: valid ally target",
+                TargetingMode.Jump => "Jump: valid destination",
                 TargetingMode.ReadyStrike => "Ready Strike: valid target",
                 _ => "Valid target"
             };
@@ -157,6 +191,7 @@ namespace PF2e.Presentation
                 TargetingMode.Escape => "Escape",
                 TargetingMode.Demoralize => "Demoralize",
                 TargetingMode.Aid => "Aid",
+                TargetingMode.Jump => "Jump",
                 _ => "Action"
             };
         }

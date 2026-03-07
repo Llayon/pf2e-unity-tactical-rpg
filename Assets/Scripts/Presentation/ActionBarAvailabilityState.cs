@@ -3,6 +3,7 @@ namespace PF2e.Presentation
     public readonly struct ActionBarAvailabilityState
     {
         public readonly bool strikeInteractable;
+        public readonly bool jumpInteractable;
         public readonly bool tripInteractable;
         public readonly bool shoveInteractable;
         public readonly bool grappleInteractable;
@@ -19,6 +20,7 @@ namespace PF2e.Presentation
 
         public ActionBarAvailabilityState(
             bool strikeInteractable,
+            bool jumpInteractable,
             bool tripInteractable,
             bool shoveInteractable,
             bool grappleInteractable,
@@ -34,6 +36,7 @@ namespace PF2e.Presentation
             bool standVisible)
         {
             this.strikeInteractable = strikeInteractable;
+            this.jumpInteractable = jumpInteractable;
             this.tripInteractable = tripInteractable;
             this.shoveInteractable = shoveInteractable;
             this.grappleInteractable = grappleInteractable;

@@ -38,6 +38,7 @@ namespace PF2e.Tests
                 var state = policy.BuildForActor(actor);
 
                 Assert.IsTrue(state.strikeInteractable);
+                Assert.IsTrue(state.jumpInteractable);
                 Assert.IsTrue(state.tripInteractable);
                 Assert.IsFalse(state.shoveInteractable);
                 Assert.IsTrue(state.grappleInteractable);
@@ -104,6 +105,7 @@ namespace PF2e.Tests
             Assert.IsFalse(state.raiseShieldInteractable);
             Assert.IsTrue(state.castSpellInteractable);
             Assert.IsTrue(state.guardVisible);
+            Assert.IsTrue(state.jumpInteractable);
             Assert.IsFalse(state.standVisible);
         }
 
@@ -124,6 +126,7 @@ namespace PF2e.Tests
             Assert.IsFalse(state.raiseShieldInteractable);
             Assert.IsTrue(state.castSpellInteractable);
             Assert.IsTrue(state.guardVisible);
+            Assert.IsTrue(state.jumpInteractable);
             Assert.IsFalse(state.standVisible);
         }
 
@@ -145,6 +148,7 @@ namespace PF2e.Tests
             Assert.IsFalse(state.castSpellInteractable);
             Assert.IsFalse(state.raiseShieldInteractable);
             Assert.IsTrue(state.guardVisible);
+            Assert.IsTrue(state.jumpInteractable);
             Assert.IsFalse(state.standVisible);
         }
 
@@ -164,6 +168,7 @@ namespace PF2e.Tests
 
             var state = policy.BuildForActor(actor);
             Assert.IsFalse(state.guardVisible);
+            Assert.IsTrue(state.jumpInteractable);
             Assert.IsFalse(state.standVisible);
         }
 

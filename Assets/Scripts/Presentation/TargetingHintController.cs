@@ -19,6 +19,7 @@ namespace PF2e.Presentation
         [SerializeField] private TurnManager turnManager;
         [SerializeField] private GridManager gridManager;
         [SerializeField] private TargetingController targetingController;
+        [SerializeField] private PlayerActionExecutor actionExecutor;
 
         [Header("UI")]
         [SerializeField] private CanvasGroup canvasGroup;
@@ -33,6 +34,7 @@ namespace PF2e.Presentation
         [SerializeField] private bool hideWhenModeNone = true;
 
         private EntityHandle? hoveredEntity;
+        private Vector3Int? hoveredCell;
 
 #if UNITY_EDITOR
         private void OnValidate()
@@ -41,6 +43,7 @@ namespace PF2e.Presentation
             if (turnManager == null) Debug.LogWarning("[TargetingHint] Missing TurnManager", this);
             if (gridManager == null) Debug.LogWarning("[TargetingHint] Missing GridManager", this);
             if (targetingController == null) Debug.LogWarning("[TargetingHint] Missing TargetingController", this);
+            if (actionExecutor == null) Debug.LogWarning("[TargetingHint] Missing PlayerActionExecutor", this);
             if (canvasGroup == null) Debug.LogWarning("[TargetingHint] Missing CanvasGroup", this);
             if (hintText == null) Debug.LogWarning("[TargetingHint] Missing hintText", this);
         }
@@ -61,8 +64,11 @@ namespace PF2e.Presentation
             }
 
             hoveredEntity = gridManager.HoveredEntity;
+            hoveredCell = gridManager.HoveredCell;
 
             targetingController.OnModeChanged += HandleModeChanged;
+            gridManager.OnCellHovered += HandleCellHovered;
+            gridManager.OnCellUnhovered += HandleCellUnhovered;
             gridManager.OnEntityHovered += HandleEntityHovered;
             gridManager.OnEntityUnhovered += HandleEntityUnhovered;
 
@@ -84,6 +90,8 @@ namespace PF2e.Presentation
 
             if (gridManager != null)
             {
+                gridManager.OnCellHovered -= HandleCellHovered;
+                gridManager.OnCellUnhovered -= HandleCellUnhovered;
                 gridManager.OnEntityHovered -= HandleEntityHovered;
                 gridManager.OnEntityUnhovered -= HandleEntityUnhovered;
             }
@@ -113,9 +121,21 @@ namespace PF2e.Presentation
             RefreshHint();
         }
 
+        private void HandleCellHovered(Vector3Int cell)
+        {
+            hoveredCell = cell;
+            RefreshHint();
+        }
+
         private void HandleEntityUnhovered()
         {
             hoveredEntity = null;
+            RefreshHint();
+        }
+
+        private void HandleCellUnhovered()
+        {
+            hoveredCell = null;
             RefreshHint();
         }
 
@@ -127,6 +147,7 @@ namespace PF2e.Presentation
         private void HandleCombatEnded(in CombatEndedEvent e)
         {
             hoveredEntity = null;
+            hoveredCell = null;
             HidePanel();
         }
 
@@ -138,6 +159,7 @@ namespace PF2e.Presentation
         private void HandleTurnEnded(in TurnEndedEvent e)
         {
             hoveredEntity = null;
+            hoveredCell = null;
             HidePanel();
         }
 
@@ -182,6 +204,24 @@ namespace PF2e.Presentation
             if (mode == TargetingMode.Reposition && targetingController.IsRepositionSelectingCell)
             {
                 ApplyMessage(new TargetingHintMessage(TargetingHintTone.Info, "Reposition: choose destination (Esc = skip move, action spent)"));
+                return;
+            }
+
+            if (mode == TargetingMode.Jump)
+            {
+                if (hoveredCell.HasValue && actionExecutor != null && actionExecutor.TryPreviewJumpToCell(hoveredCell.Value, out var jumpPreview))
+                {
+                    ApplyMessage(TargetingReasonFormatter.ForJumpPreview(in jumpPreview, turnManager != null ? turnManager.ActionsRemaining : 0));
+                }
+                else if (hoveredCell.HasValue)
+                {
+                    ApplyMessage(new TargetingHintMessage(TargetingHintTone.Invalid, "Jump: choose a reachable landing cell"));
+                }
+                else
+                {
+                    ApplyMessage(TargetingReasonFormatter.ForModeNoHover(mode));
+                }
+
                 return;
             }
 

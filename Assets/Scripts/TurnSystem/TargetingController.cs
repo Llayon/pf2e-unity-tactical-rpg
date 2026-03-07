@@ -19,7 +19,8 @@ namespace PF2e.TurnSystem
         SpellAoE = 9,    // future: cell + template
         HealSingle = 10, // future: ally
         Aid = 11,        // explicit mode: choose ally in reach
-        ReadyStrike = 12 // explicit mode: choose enemy for readied strike trigger
+        ReadyStrike = 12, // explicit mode: choose enemy for readied strike trigger
+        Jump = 13        // explicit mode: choose landing cell
     }
 
     public enum TargetingResult
@@ -69,6 +70,7 @@ namespace PF2e.TurnSystem
         // NOTE: closures acceptable (called once per action, not per-frame).
         // Defer zero-alloc optimization to Phase 17 if needed.
         private Action<EntityHandle> _onEntityConfirmed;
+        private Func<Vector3Int, bool> _onCellConfirmed;
         private Action _onCancelled;
         private Func<EntityHandle, RepositionTargetSelectionResult> _onRepositionTargetConfirmed;
         private Func<Vector3Int, bool> _onRepositionCellConfirmed;
@@ -120,11 +122,28 @@ namespace PF2e.TurnSystem
         {
             ActiveMode         = mode;
             _onEntityConfirmed = onConfirmed;
+            _onCellConfirmed = null;
             _onCancelled       = onCancelled;
             _onRepositionTargetConfirmed = null;
             _onRepositionCellConfirmed = null;
             _onRepositionCellCancelled = null;
             _repositionPhase = mode == TargetingMode.Reposition ? RepositionPhase.SelectTarget : RepositionPhase.None;
+            OnModeChanged?.Invoke(ActiveMode);
+        }
+
+        public void BeginCellTargeting(
+            TargetingMode mode,
+            Func<Vector3Int, bool> onCellConfirmed,
+            Action onCancelled = null)
+        {
+            ActiveMode = mode;
+            _onEntityConfirmed = null;
+            _onCellConfirmed = onCellConfirmed;
+            _onCancelled = onCancelled;
+            _onRepositionTargetConfirmed = null;
+            _onRepositionCellConfirmed = null;
+            _onRepositionCellCancelled = null;
+            _repositionPhase = RepositionPhase.None;
             OnModeChanged?.Invoke(ActiveMode);
         }
 
@@ -229,6 +248,7 @@ namespace PF2e.TurnSystem
                 case TargetingMode.Demoralize:
                 case TargetingMode.Reposition:
                 case TargetingMode.Aid:
+                case TargetingMode.Jump:
                     if (ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectCell)
                         return TargetingEvaluationResult.FromFailure(TargetingFailureReason.ModeNotSupported);
 
@@ -362,6 +382,14 @@ namespace PF2e.TurnSystem
 
                     return TargetingResult.InvalidTarget;
 
+                case TargetingMode.Jump:
+                    if (_onCellConfirmed != null && _onCellConfirmed.Invoke(cell))
+                    {
+                        ClearTargeting();
+                        return TargetingResult.Success;
+                    }
+                    return TargetingResult.InvalidTarget;
+
                 // future: SpellAoE (place template at cell)
                 default:
                     return TargetingResult.ModeNotSupported;
@@ -436,6 +464,7 @@ namespace PF2e.TurnSystem
             bool modeChanged = ActiveMode != TargetingMode.None;
             ActiveMode         = TargetingMode.None;
             _onEntityConfirmed = null;
+            _onCellConfirmed = null;
             _onCancelled       = null;
             _onRepositionTargetConfirmed = null;
             _onRepositionCellConfirmed = null;

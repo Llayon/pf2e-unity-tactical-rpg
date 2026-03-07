@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using PF2e.Core;
 using PF2e.Presentation;
 using PF2e.TurnSystem;
 
@@ -205,6 +206,53 @@ namespace PF2e.Tests
 
             Assert.AreEqual(TargetingHintTone.Invalid, msg.Tone);
             Assert.AreEqual("Ready Strike: choose an enemy", msg.Text);
+        }
+
+        [Test]
+        public void Jump_NoHover_ReturnsLandingPrompt()
+        {
+            var msg = TargetingReasonFormatter.ForModeNoHover(TargetingMode.Jump);
+
+            Assert.AreEqual(TargetingHintTone.Info, msg.Tone);
+            Assert.AreEqual("Jump: choose a landing cell", msg.Text);
+        }
+
+        [Test]
+        public void JumpPreview_LongJumpWithEnoughActions_ReturnsValidDcMessage()
+        {
+            var preview = JumpPreviewResult.Valid(
+                jumpType: JumpType.LongJump,
+                actionCost: 2,
+                requiresCheck: true,
+                dc: 15,
+                requiresRunUp: true,
+                runUpFeet: 10,
+                jumpDistanceFeet: 15,
+                takeoffCell: new UnityEngine.Vector3Int(1, 0, 0),
+                landingCell: new UnityEngine.Vector3Int(4, 0, 0));
+
+            var msg = TargetingReasonFormatter.ForJumpPreview(in preview, actionsRemaining: 2);
+            Assert.AreEqual(TargetingHintTone.Valid, msg.Tone);
+            Assert.AreEqual("Jump: Long Jump [2], Athletics vs DC 15", msg.Text);
+        }
+
+        [Test]
+        public void JumpPreview_ValidButNotEnoughActions_ReturnsInvalidCostMessage()
+        {
+            var preview = JumpPreviewResult.Valid(
+                jumpType: JumpType.HighJump,
+                actionCost: 2,
+                requiresCheck: true,
+                dc: 30,
+                requiresRunUp: true,
+                runUpFeet: 10,
+                jumpDistanceFeet: 5,
+                takeoffCell: new UnityEngine.Vector3Int(1, 0, 0),
+                landingCell: new UnityEngine.Vector3Int(1, 1, 0));
+
+            var msg = TargetingReasonFormatter.ForJumpPreview(in preview, actionsRemaining: 1);
+            Assert.AreEqual(TargetingHintTone.Invalid, msg.Tone);
+            Assert.AreEqual("Jump: needs 2 action(s), only 1 left", msg.Text);
         }
 
         [Test]

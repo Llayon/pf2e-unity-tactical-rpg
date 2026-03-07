@@ -34,17 +34,17 @@ namespace PF2e.Presentation
             string msg = e.changeType switch
             {
                 ConditionChangeType.Added => valued && e.newValue > 0
-                    ? $"{CombatLogRichText.Verb("gains")} {CombatLogRichText.ConditionGain(rawName)} {e.newValue}"
-                    : $"{CombatLogRichText.Verb("gains")} {CombatLogRichText.ConditionGain(rawName)}",
+                    ? $"gains {rawName} {e.newValue}"
+                    : $"gains {rawName}",
                 ConditionChangeType.Removed =>
-                    $"{CombatLogRichText.Verb("loses")} {CombatLogRichText.ConditionLose(rawName)}",
+                    $"loses {rawName}",
                 ConditionChangeType.ValueChanged => e.newValue < e.oldValue
-                    ? $"{CombatLogRichText.ConditionGain(rawName)} {CombatLogRichText.Verb("decreases to")} {e.newValue}"
-                    : $"{CombatLogRichText.ConditionGain(rawName)} {CombatLogRichText.Verb("increases to")} {e.newValue}",
+                    ? $"{rawName} decreases to {e.newValue}"
+                    : $"{rawName} increases to {e.newValue}",
                 ConditionChangeType.DurationChanged => e.newRemainingRounds >= 0
-                    ? $"{CombatLogRichText.ConditionGain(rawName)} {CombatLogRichText.Verb($"duration decreases to {e.newRemainingRounds}")}"
-                    : $"{CombatLogRichText.ConditionGain(rawName)} {CombatLogRichText.Verb("duration changed")}",
-                _ => $"{CombatLogRichText.ConditionGain(rawName)} {CombatLogRichText.Verb("changed")}"
+                    ? $"{rawName} duration decreases to {e.newRemainingRounds}"
+                    : $"{rawName} duration changed",
+                _ => $"{rawName} changed"
             };
 
             eventBus.Publish(e.entity, msg, CombatLogCategory.Condition);
