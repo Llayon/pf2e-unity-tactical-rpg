@@ -48,5 +48,38 @@ namespace PF2e.Presentation
                 aid +
                 $" = {roll.total}";
         }
+
+        public static string StrikeDamageBreakdown(
+            int totalDamage,
+            DamageType damageType,
+            int fatalBonusDamage = 0,
+            int deadlyBonusDamage = 0)
+        {
+            int traitBonus = 0;
+            if (fatalBonusDamage > 0)
+            {
+                traitBonus += fatalBonusDamage;
+            }
+
+            if (deadlyBonusDamage > 0)
+            {
+                traitBonus += deadlyBonusDamage;
+            }
+
+            int baseDamage = totalDamage - traitBonus;
+            if (baseDamage < 0)
+            {
+                baseDamage = 0;
+            }
+
+            string fatal = fatalBonusDamage > 0
+                ? $" + FATAL({RollBreakdownFormatter.FormatSigned(fatalBonusDamage)})"
+                : string.Empty;
+            string deadly = deadlyBonusDamage > 0
+                ? $" + DEADLY({RollBreakdownFormatter.FormatSigned(deadlyBonusDamage)})"
+                : string.Empty;
+
+            return $"BASE({baseDamage}){fatal}{deadly} = {totalDamage} {damageType.ToString().ToUpperInvariant()}";
+        }
     }
 }

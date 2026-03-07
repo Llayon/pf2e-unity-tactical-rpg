@@ -60,5 +60,27 @@ namespace PF2e.Tests
             string text = TooltipTextBuilder.SkillCheckBreakdown(roll, aidCircumstanceBonus: 2);
             Assert.AreEqual("ATHLETICS d20(14) +8 + AID(+2) = 22", text);
         }
+
+        [Test]
+        public void StrikeDamageBreakdown_NoCritTraits()
+        {
+            string text = TooltipTextBuilder.StrikeDamageBreakdown(
+                totalDamage: 8,
+                damageType: DamageType.Slashing);
+
+            Assert.AreEqual("BASE(8) = 8 SLASHING", text);
+        }
+
+        [Test]
+        public void StrikeDamageBreakdown_WithFatalAndDeadly()
+        {
+            string text = TooltipTextBuilder.StrikeDamageBreakdown(
+                totalDamage: 19,
+                damageType: DamageType.Piercing,
+                fatalBonusDamage: 4,
+                deadlyBonusDamage: 6);
+
+            Assert.AreEqual("BASE(9) + FATAL(+4) + DEADLY(+6) = 19 PIERCING", text);
+        }
     }
 }

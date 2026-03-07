@@ -17,5 +17,6 @@ namespace PF2e.Presentation
         public const string AttackTotal = "atk";
         public const string DefenseTotal = "ac";
         public const string SkillRoll = "roll";
+        public const string DamageTotal = "dmg";
     }
 }

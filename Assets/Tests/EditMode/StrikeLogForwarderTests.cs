@@ -472,24 +472,42 @@ namespace PF2e.Tests
                 hpAfter: 6);
 
             CombatLogEntry second = default;
+            CombatLogTooltipPayload? secondPayload = null;
             int count = 0;
+            int tooltipCount = 0;
             ctx.EventBus.OnLogEntry += HandleLog;
+            ctx.EventBus.OnLogEntryWithTooltip += HandleTooltip;
             try
             {
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 2);
+                Assert.GreaterOrEqual(tooltipCount, 2);
+                StringAssert.Contains("link=\"dmg\"", second.Message);
                 StringAssert.Contains("DEADLY+6", second.Message);
+                var dmgEntry = FindTooltipEntry(secondPayload, CombatLogLinkTokens.DamageTotal);
+                Assert.AreEqual("Damage Breakdown", dmgEntry.title);
+                StringAssert.Contains("DEADLY(+6)", dmgEntry.body);
             }
             finally
             {
                 ctx.EventBus.OnLogEntry -= HandleLog;
+                ctx.EventBus.OnLogEntryWithTooltip -= HandleTooltip;
             }
 
             void HandleLog(CombatLogEntry entry)
             {
                 count++;
                 if (count == 2) second = entry;
+            }
+
+            void HandleTooltip(CombatLogEntry entry, CombatLogTooltipPayload? payload)
+            {
+                tooltipCount++;
+                if (tooltipCount == 2)
+                {
+                    secondPayload = payload;
+                }
             }
         }
 
@@ -510,24 +528,42 @@ namespace PF2e.Tests
                 hpAfter: 8);
 
             CombatLogEntry second = default;
+            CombatLogTooltipPayload? secondPayload = null;
             int count = 0;
+            int tooltipCount = 0;
             ctx.EventBus.OnLogEntry += HandleLog;
+            ctx.EventBus.OnLogEntryWithTooltip += HandleTooltip;
             try
             {
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 2);
+                Assert.GreaterOrEqual(tooltipCount, 2);
+                StringAssert.Contains("link=\"dmg\"", second.Message);
                 StringAssert.Contains("FATAL+4", second.Message);
+                var dmgEntry = FindTooltipEntry(secondPayload, CombatLogLinkTokens.DamageTotal);
+                Assert.AreEqual("Damage Breakdown", dmgEntry.title);
+                StringAssert.Contains("FATAL(+4)", dmgEntry.body);
             }
             finally
             {
                 ctx.EventBus.OnLogEntry -= HandleLog;
+                ctx.EventBus.OnLogEntryWithTooltip -= HandleTooltip;
             }
 
             void HandleLog(CombatLogEntry entry)
             {
                 count++;
                 if (count == 2) second = entry;
+            }
+
+            void HandleTooltip(CombatLogEntry entry, CombatLogTooltipPayload? payload)
+            {
+                tooltipCount++;
+                if (tooltipCount == 2)
+                {
+                    secondPayload = payload;
+                }
             }
         }
 
@@ -549,25 +585,44 @@ namespace PF2e.Tests
                 hpAfter: 1);
 
             CombatLogEntry second = default;
+            CombatLogTooltipPayload? secondPayload = null;
             int count = 0;
+            int tooltipCount = 0;
             ctx.EventBus.OnLogEntry += HandleLog;
+            ctx.EventBus.OnLogEntryWithTooltip += HandleTooltip;
             try
             {
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 2);
+                Assert.GreaterOrEqual(tooltipCount, 2);
+                StringAssert.Contains("link=\"dmg\"", second.Message);
                 StringAssert.Contains("FATAL+4", second.Message);
                 StringAssert.Contains("DEADLY+6", second.Message);
+                var dmgEntry = FindTooltipEntry(secondPayload, CombatLogLinkTokens.DamageTotal);
+                Assert.AreEqual("Damage Breakdown", dmgEntry.title);
+                StringAssert.Contains("FATAL(+4)", dmgEntry.body);
+                StringAssert.Contains("DEADLY(+6)", dmgEntry.body);
             }
             finally
             {
                 ctx.EventBus.OnLogEntry -= HandleLog;
+                ctx.EventBus.OnLogEntryWithTooltip -= HandleTooltip;
             }
 
             void HandleLog(CombatLogEntry entry)
             {
                 count++;
                 if (count == 2) second = entry;
+            }
+
+            void HandleTooltip(CombatLogEntry entry, CombatLogTooltipPayload? payload)
+            {
+                tooltipCount++;
+                if (tooltipCount == 2)
+                {
+                    secondPayload = payload;
+                }
             }
         }
 
@@ -618,7 +673,7 @@ namespace PF2e.Tests
 
         private static TooltipEntry FindTooltipEntry(CombatLogTooltipPayload? payload, string token)
         {
-            Assert.IsTrue(payload.HasValue, "Expected tooltip payload on first strike summary line.");
+            Assert.IsTrue(payload.HasValue, "Expected tooltip payload.");
             Assert.IsNotNull(payload.Value.entries, "Tooltip payload must contain entries.");
 
             for (int i = 0; i < payload.Value.entries.Length; i++)

@@ -97,11 +97,25 @@ namespace PF2e.Presentation
             {
                 if (e.damage > 0)
                 {
+                    string damageTotalLink = CombatLogLinkHelper.Link(CombatLogLinkTokens.DamageTotal, e.damage.ToString());
+                    var damageTooltipPayload = new CombatLogTooltipPayload(new[]
+                    {
+                        new TooltipEntry(
+                            CombatLogLinkTokens.DamageTotal,
+                            "Damage Breakdown",
+                            TooltipTextBuilder.StrikeDamageBreakdown(
+                                e.damage,
+                                e.damageType,
+                                e.fatalBonusDamage,
+                                e.deadlyBonusDamage))
+                    });
+
                     eventBus.Publish(e.attacker,
-                        $"{CombatLogRichText.Verb("deals")} {CombatLogRichText.Damage(e.damage)} {CombatLogRichText.DmgType(e.damageType)} {CombatLogRichText.Verb("damage to")} {targetName}" +
+                        $"{CombatLogRichText.Verb("deals")} {damageTotalLink} {CombatLogRichText.DmgType(e.damageType)} {CombatLogRichText.Verb("damage to")} {targetName}" +
                         BuildCritTraitBreakdown(e) +
                         $" {CombatLogRichText.Hp(e.hpBefore, e.hpAfter)}",
-                        CombatLogCategory.Attack);
+                        CombatLogCategory.Attack,
+                        damageTooltipPayload);
                 }
                 else
                 {
