@@ -37,8 +37,10 @@ namespace PF2e.Presentation
         [SerializeField] private Button endEncounterButton;
         [SerializeField] private RectTransform encounterFlowPanelPrefab;
         [SerializeField] private bool autoCreateRuntimeButtons = false;
+        [SerializeField, Min(0.05f)] private float idleRefreshIntervalSeconds = 0.25f;
 
         private RectTransform runtimePanel;
+        private float nextIdleRefreshAt;
 
 #if UNITY_EDITOR
         private void OnValidate()
@@ -91,12 +93,22 @@ namespace PF2e.Presentation
             eventBus.OnCombatStartedTyped += HandleCombatStarted;
             eventBus.OnCombatEndedTyped += HandleCombatEnded;
 
+            nextIdleRefreshAt = 0f;
             RefreshButtons();
         }
 
         private void Update()
         {
-            // Team availability can change during scene startup before any combat events fire.
+            // Keep lightweight background refresh only while encounter is inactive.
+            // This covers startup/spawn edge cases without per-frame polling.
+            if (turnManager == null || turnManager.State != TurnState.Inactive)
+                return;
+
+            float now = Time.unscaledTime;
+            if (now < nextIdleRefreshAt)
+                return;
+
+            nextIdleRefreshAt = now + idleRefreshIntervalSeconds;
             RefreshButtons();
         }
 
