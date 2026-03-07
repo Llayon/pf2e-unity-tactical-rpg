@@ -9,24 +9,24 @@ namespace PF2e.Presentation
     public static class CombatLogRichText
     {
         // Entity names
-        public const string PlayerColor = "#7ED9FF";
-        public const string EnemyColor = "#E6A23C";
+        public const string PlayerColor = "#8CBFD8";
+        public const string EnemyColor = "#D98A5B";
         public const string NeutralColor = "#D6D0C4";
 
         // Elements
         public const string WeaponColor = "#E8DCC0";
         public const string VerbColor = "#E8E4DA";
         public const string RoundColor = "#A09A8E";
-        public const string ConditionGainColor = "#E8A0A0";
+        public const string ConditionGainColor = "#D9A0A0";
         public const string ConditionLoseColor = "#A0D8D8";
-        public const string DefeatedColor = "#E04A4A";
+        public const string DefeatedColor = "#D15A5A";
         public const string HealColor = "#4AE04A";
 
         // Degree of success
         public const string SuccessColor = "#4AE04A";
-        public const string FailureColor = "#E04A4A";
+        public const string FailureColor = "#D15A5A";
         public const string CritSuccessColor = "#FFD700";
-        public const string CritFailureColor = "#CC3333";
+        public const string CritFailureColor = "#B84040";
 
         // Damage types
         public const string SlashingColor = "#E05050";
