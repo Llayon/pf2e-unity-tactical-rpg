@@ -32,7 +32,11 @@ namespace PF2e.Presentation
         private void OnEnable()
         {
             EnsureReferences();
-            Hide();
+
+            if (canvasGroup != null)
+            {
+                canvasGroup.blocksRaycasts = false;
+            }
         }
 
         private void OnDisable()

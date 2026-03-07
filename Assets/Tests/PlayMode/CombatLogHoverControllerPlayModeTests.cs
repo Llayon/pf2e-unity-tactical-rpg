@@ -157,6 +157,19 @@ namespace PF2e.Tests
         }
 
         [UnityTest]
+        public IEnumerator Show_WhenTooltipObjectInactive_ActivatesAndBecomesVisible()
+        {
+            tooltipPanel.Hide();
+            Assert.IsFalse(tooltipPanel.gameObject.activeSelf, "Tooltip object should be inactive after Hide.");
+
+            tooltipPanel.Show("Attack Roll Breakdown", "Body", new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
+            yield return null;
+
+            Assert.IsTrue(tooltipPanel.gameObject.activeSelf, "Show must reactivate tooltip object.");
+            Assert.IsTrue(tooltipPanel.IsVisible, "Show must mark tooltip as visible.");
+        }
+
+        [UnityTest]
         public IEnumerator PointerOutsideViewport_HidesTooltip()
         {
             tooltipPanel.Show("Attack Roll Breakdown", "Body", new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
