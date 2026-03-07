@@ -1,3 +1,4 @@
+using UnityEngine;
 using PF2e.Core;
 
 namespace PF2e.Presentation
@@ -8,14 +9,14 @@ namespace PF2e.Presentation
     public static class CombatLogRichText
     {
         // Entity names
-        public const string PlayerColor = "#7CB8D4";
-        public const string EnemyColor = "#E8A050";
-        public const string NeutralColor = "#B0B0B0";
+        public const string PlayerColor = "#7ED9FF";
+        public const string EnemyColor = "#E6A23C";
+        public const string NeutralColor = "#D6D0C4";
 
         // Elements
         public const string WeaponColor = "#E8DCC0";
-        public const string VerbColor = "#B0B0B0";
-        public const string RoundColor = "#7A776F";
+        public const string VerbColor = "#E8E4DA";
+        public const string RoundColor = "#A09A8E";
         public const string ConditionGainColor = "#E8A0A0";
         public const string ConditionLoseColor = "#A0D8D8";
         public const string DefeatedColor = "#E04A4A";
@@ -108,6 +109,14 @@ namespace PF2e.Presentation
                 OpposedCheckWinner.Defender => $"<color={FailureColor}><b>Defender wins</b></color>",
                 _ => $"<color={VerbColor}><b>Tie</b></color>"
             };
+        }
+
+        public const string ActionDiamondColor = "#F0C860";
+
+        public static string ActionCost(int cost)
+        {
+            int n = Mathf.Clamp(cost, 1, 3);
+            return $"<color={ActionDiamondColor}><b>{new string('>', n)}</b></color>";
         }
 
         public static string Hp(int before, int after)

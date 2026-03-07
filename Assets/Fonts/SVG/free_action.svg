@@ -1,0 +1,6 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- PF2e Free Action: diamond outline with gap at top-left -->
+  <path d="M 32,4 L 60,32 L 32,60 L 4,32 Z" fill="none" stroke="white" stroke-width="5"/>
+  <!-- Small notch/opening at top-left to distinguish from plain diamond -->
+  <path d="M 18,18 L 14,14" stroke="black" stroke-width="7" stroke-linecap="round"/>
+</svg>

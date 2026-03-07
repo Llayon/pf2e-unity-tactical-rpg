@@ -30,7 +30,7 @@ namespace PF2e.Presentation
         [SerializeField] private CanvasGroup canvasGroup;
         [SerializeField] private bool autoScrollToBottom = true;
         [SerializeField] private int maxLines = 300;
-        [SerializeField] private bool showRetentionNotice = true;
+        [SerializeField] private bool showRetentionNotice = false;
         [SerializeField] private TextMeshProUGUI retentionNoticeLabel;
 
         [Header("Formatting")]

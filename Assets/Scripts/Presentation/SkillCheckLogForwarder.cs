@@ -54,7 +54,7 @@ namespace PF2e.Presentation
 
             eventBus.Publish(
                 e.actor,
-                $"{CombatLogRichText.Verb("uses")} {CombatLogRichText.Weapon(actionLabel)} {CombatLogRichText.Verb("on")} {targetName} {CombatLogRichText.Verb("—")} " +
+                $"{CombatLogRichText.ActionCost(1)} {CombatLogRichText.Verb("uses")} {CombatLogRichText.Weapon(actionLabel)} {CombatLogRichText.Verb("on")} {targetName} {CombatLogRichText.Verb("—")} " +
                 $"{CombatLogRichText.Verb(RollBreakdownFormatter.FormatVsDc(e.roll, e.defenseSource, e.dc))}{aidToken}" +
                 $" → {CombatLogRichText.Degree(e.degree)}{projectionToken}",
                 CombatLogCategory.Attack);

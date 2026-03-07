@@ -1,0 +1,5 @@
+<svg viewBox="0 0 100 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- PF2e Two Actions: two overlapping chevrons -->
+  <path d="M 6,4 L 50,32 L 6,60 L 22,32 Z" fill="white"/>
+  <path d="M 42,4 L 86,32 L 42,60 L 58,32 Z" fill="white"/>
+</svg>
