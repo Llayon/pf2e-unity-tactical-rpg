@@ -48,11 +48,9 @@ namespace PF2e.Tests
                 Assert.AreEqual(CombatLogCategory.Attack, last.Category);
                 var stripped = Strip(last.Message);
                 StringAssert.Contains("uses Trip on Goblin_1", stripped);
-                StringAssert.Contains("d20(13) = 20", stripped);
-                StringAssert.Contains("vs FORTITUDE DC 17", stripped);
-                StringAssert.Contains("Success", stripped);
-                var entry = FindTooltipEntry(lastPayload, CombatLogLinkTokens.SkillRoll);
-                StringAssert.Contains("ATHLETICS d20(13) +7 = 20", entry.body);
+                StringAssert.Contains("rolls 13+7 = 20 - Success!", stripped);
+                var entry = FindTooltipEntry(lastPayload, CombatLogLinkTokens.Result);
+                StringAssert.Contains("ATHLETICS Check vs FORTITUDE DC 17", entry.body);
             }
             finally
             {
@@ -99,6 +97,48 @@ namespace PF2e.Tests
 
                 Assert.AreEqual(1, count);
                 StringAssert.Contains("Unknown", last.Message);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry)
+            {
+                count++;
+                last = entry;
+            }
+        }
+
+        [Test]
+        public void SkillCheckResolved_NegativeModifier_DoesNotUsePlusMinusInSummary()
+        {
+            using var ctx = new SkillCheckLogContext();
+
+            var actor = ctx.RegisterEntity("Fighter", Team.Player);
+            var target = ctx.RegisterEntity("Goblin_1", Team.Enemy);
+
+            var ev = new SkillCheckResolvedEvent(
+                actor,
+                target,
+                SkillType.Athletics,
+                roll: new CheckRoll(10, -2, CheckSource.Skill(SkillType.Athletics)),
+                defenseSource: CheckSource.Save(SaveType.Reflex),
+                dc: 18,
+                degree: DegreeOfSuccess.Failure,
+                actionName: "Trip");
+
+            CombatLogEntry last = default;
+            int count = 0;
+            ctx.EventBus.OnLogEntry += HandleLog;
+            try
+            {
+                ctx.EventBus.PublishSkillCheckResolved(in ev);
+
+                Assert.AreEqual(1, count);
+                var stripped = Strip(last.Message);
+                StringAssert.Contains("rolls 10-2 = 8 - Failure", stripped);
+                StringAssert.DoesNotContain("+-", stripped);
             }
             finally
             {
@@ -187,8 +227,8 @@ namespace PF2e.Tests
                 ctx.EventBus.PublishSkillCheckResolved(in ev);
 
                 Assert.AreEqual(1, count);
-                var entry = FindTooltipEntry(lastPayload, CombatLogLinkTokens.SkillRoll);
-                StringAssert.Contains("AID(+2)", entry.body);
+                var entry = FindTooltipEntry(lastPayload, CombatLogLinkTokens.Result);
+                StringAssert.Contains("Aid: +2", entry.body);
             }
             finally
             {

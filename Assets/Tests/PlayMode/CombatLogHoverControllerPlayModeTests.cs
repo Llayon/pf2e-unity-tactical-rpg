@@ -33,10 +33,11 @@ namespace PF2e.Tests
             var scrollGo = new GameObject("CombatLogScroll", typeof(RectTransform), typeof(ScrollRect));
             scrollGo.transform.SetParent(canvasGo.transform, false);
             var scrollRectTransform = scrollGo.GetComponent<RectTransform>();
-            scrollRectTransform.anchorMin = Vector2.zero;
-            scrollRectTransform.anchorMax = Vector2.one;
-            scrollRectTransform.offsetMin = Vector2.zero;
-            scrollRectTransform.offsetMax = Vector2.zero;
+            scrollRectTransform.anchorMin = new Vector2(1f, 1f);
+            scrollRectTransform.anchorMax = new Vector2(1f, 1f);
+            scrollRectTransform.pivot = new Vector2(1f, 1f);
+            scrollRectTransform.anchoredPosition = new Vector2(-8f, -16f);
+            scrollRectTransform.sizeDelta = new Vector2(400f, 250f);
             scrollRect = scrollGo.GetComponent<ScrollRect>();
 
             var viewportGo = new GameObject("Viewport", typeof(RectTransform));
@@ -65,7 +66,7 @@ namespace PF2e.Tests
             lineText.alignment = TextAlignmentOptions.Center;
             lineText.fontSize = 36f;
             lineText.raycastTarget = false;
-            lineText.text = "Strike total " + CombatLogLinkHelper.Link(CombatLogLinkTokens.AttackTotal, "16");
+            lineText.text = "Strike total " + CombatLogLinkHelper.Link(CombatLogLinkTokens.Result, "16 - Success!");
             var lineRect = lineText.rectTransform;
             lineRect.anchorMin = new Vector2(0.5f, 0.5f);
             lineRect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -105,6 +106,8 @@ namespace PF2e.Tests
             SetPrivateField(tooltipPanel, "bodyText", bodyText);
             SetPrivateField(tooltipPanel, "canvasGroup", tooltipGo.GetComponent<CanvasGroup>());
             SetPrivateField(tooltipPanel, "rootCanvas", canvas);
+            SetPrivateField(tooltipPanel, "dockTarget", scrollRectTransform);
+            SetPrivateField(tooltipPanel, "dockViewport", viewportRect);
             tooltipGo.SetActive(true);
 
             var hoverGo = new GameObject("CombatLogHoverController");
@@ -125,7 +128,10 @@ namespace PF2e.Tests
             lineTooltips.Clear();
             lineTooltips[lineText] = new[]
             {
-                new TooltipEntry(CombatLogLinkTokens.AttackTotal, "Attack Roll Breakdown", "d20(12) + ATK(+9) + MAP(-5) = 16")
+                new TooltipEntry(
+                    CombatLogLinkTokens.Result,
+                    "16 vs AC 18 - Success!",
+                    "Attack Roll vs AC 18\nD20 Roll: 12\nAttack Bonus: +9\nMAP: -5\nTotal: 16\nDegree: Success!\n\nArmor Class\nBase AC: 18\nTotal: 18")
             };
 
             yield return null;
@@ -198,10 +204,12 @@ namespace PF2e.Tests
                 "Expected line to be considered visible in viewport.");
             int linkIndex = TMP_TextUtilities.FindIntersectingLink(lineText, linkScreenPoint, null);
             Assert.GreaterOrEqual(linkIndex, 0, "Expected helper point to intersect TMP link.");
-            Assert.AreEqual(CombatLogLinkTokens.AttackTotal, lineText.textInfo.linkInfo[linkIndex].GetLinkID());
+            Assert.AreEqual(CombatLogLinkTokens.Result, lineText.textInfo.linkInfo[linkIndex].GetLinkID());
             Assert.IsTrue(
-                logController.TryGetTooltip(lineText, CombatLogLinkTokens.AttackTotal, out _, out _),
+                logController.TryGetTooltip(lineText, CombatLogLinkTokens.Result, out _, out string mappedBody),
                 "Expected tooltip mapping for attack token.");
+            StringAssert.Contains("Attack Roll vs AC", mappedBody);
+            StringAssert.Contains("Armor Class", mappedBody);
             Assert.AreEqual(1, logController.GetActiveLines().Count, "Expected one active combat log line in test setup.");
 
             var tryFindMethod = FindMethod(hoverController.GetType(), "TryFindHoveredLink");
@@ -231,7 +239,10 @@ namespace PF2e.Tests
             lineTooltips.Clear();
             lineTooltips[lineText] = new[]
             {
-                new TooltipEntry(CombatLogLinkTokens.DamageTotal, "Damage Breakdown", "BASE(8) + DEADLY(+6) = 14 PIERCING")
+                new TooltipEntry(
+                    CombatLogLinkTokens.DamageTotal,
+                    "Damage Breakdown",
+                    "Damage Roll\nBase Damage: 8\nDeadly Bonus: +6\nTotal: 14 PIERCING")
             };
 
             yield return null;
@@ -253,7 +264,28 @@ namespace PF2e.Tests
             Assert.AreEqual(CombatLogLinkTokens.DamageTotal, foundToken);
             Assert.IsTrue(logController.TryGetTooltip((TextMeshProUGUI)findArgs[1], foundToken, out string title, out string body));
             Assert.AreEqual("Damage Breakdown", title);
-            StringAssert.Contains("DEADLY(+6)", body);
+            StringAssert.Contains("Deadly Bonus: +6", body);
+        }
+
+        [UnityTest]
+        public IEnumerator Show_DockedLeftOfTarget_PlacesPanelLeftOfLog()
+        {
+            var panelRect = GetPrivateField<RectTransform>(tooltipPanel, "panelRect");
+            var dockTargetRect = GetPrivateField<RectTransform>(tooltipPanel, "dockTarget");
+            tooltipPanel.Show("16 vs AC 18 - Success!", "Attack Roll vs AC 18\nTotal: 16", new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
+            yield return null;
+            Canvas.ForceUpdateCanvases();
+
+            var panelCorners = new Vector3[4];
+            panelRect.GetWorldCorners(panelCorners);
+            float panelRight = panelCorners[2].x;
+
+            var targetCorners = new Vector3[4];
+            dockTargetRect.GetWorldCorners(targetCorners);
+            float targetLeft = targetCorners[0].x;
+
+            Assert.That(panelRect.pivot.x, Is.EqualTo(1f).Within(0.001f));
+            Assert.LessOrEqual(panelRight, targetLeft + 0.5f, "Dock-left panel must stay on the left side of combat log target.");
         }
 
         private static Vector2 GetFirstLinkScreenPoint(TextMeshProUGUI text)

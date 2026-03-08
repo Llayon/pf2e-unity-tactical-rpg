@@ -14,9 +14,7 @@ namespace PF2e.Presentation
 
     public static class CombatLogLinkTokens
     {
-        public const string AttackTotal = "atk";
-        public const string DefenseTotal = "ac";
-        public const string SkillRoll = "roll";
+        public const string Result = "result";
         public const string DamageTotal = "dmg";
     }
 }

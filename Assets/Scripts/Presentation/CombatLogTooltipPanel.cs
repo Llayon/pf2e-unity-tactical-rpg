@@ -11,11 +11,20 @@ namespace PF2e.Presentation
         [SerializeField] private TextMeshProUGUI bodyText;
         [SerializeField] private CanvasGroup canvasGroup;
         [SerializeField] private Canvas rootCanvas;
-        [SerializeField] private float maxWidth = 300f;
+        [SerializeField] private float minWidth = 280f;
+        [SerializeField] private float maxWidth = 360f;
+        [SerializeField] private float edgePadding = 8f;
+        [SerializeField] private float dockGap = 14f;
+        [SerializeField] private RectTransform dockTarget;
+        [SerializeField] private RectTransform dockViewport;
         [SerializeField] private Vector2 cursorOffset = new Vector2(14f, 14f);
 
+        private readonly Vector3[] viewportCorners = new Vector3[4];
+        private readonly Vector3[] targetCorners = new Vector3[4];
         private RectTransform parentRect;
+        private LayoutElement panelLayoutElement;
         private bool isVisible;
+        private bool loggedMissingDockTarget;
 
         public bool IsVisible => isVisible;
 
@@ -64,7 +73,7 @@ namespace PF2e.Presentation
             canvasGroup.interactable = false;
             canvasGroup.blocksRaycasts = false;
 
-            ApplyMaxWidth();
+            ApplyWidthConstraints();
             UpdatePosition(screenPosition);
         }
 
@@ -94,6 +103,75 @@ namespace PF2e.Presentation
                 return;
             }
 
+            if (TryUpdateDockedPosition(screenPosition))
+            {
+                return;
+            }
+
+            UpdatePositionLegacy(screenPosition);
+        }
+
+        private bool TryUpdateDockedPosition(Vector2 screenPosition)
+        {
+            if (dockTarget == null)
+            {
+                if (!loggedMissingDockTarget)
+                {
+                    Debug.LogWarning("[CombatLogTooltipPanel] dockTarget is not assigned. Falling back to cursor positioning.", this);
+                    loggedMissingDockTarget = true;
+                }
+
+                return false;
+            }
+
+            loggedMissingDockTarget = false;
+
+            RectTransform viewport = dockViewport != null ? dockViewport : parentRect;
+            if (viewport == null)
+            {
+                return false;
+            }
+
+            panelRect.pivot = new Vector2(1f, 0.5f);
+            dockTarget.GetWorldCorners(targetCorners);
+            float targetLeftX = targetCorners[0].x < targetCorners[1].x ? targetCorners[0].x : targetCorners[1].x;
+            float targetCenterY = (targetCorners[0].y + targetCorners[1].y) * 0.5f;
+            Vector3 targetLeftWorld = new Vector3(targetLeftX, targetCenterY, targetCorners[0].z);
+            Vector3 targetLeftLocal = parentRect.InverseTransformPoint(targetLeftWorld);
+            float anchoredX = targetLeftLocal.x - dockGap;
+
+            UnityEngine.Camera uiCamera = ResolveCamera();
+            float desiredY = targetLeftLocal.y;
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(parentRect, screenPosition, uiCamera, out var localMouse))
+            {
+                desiredY = localMouse.y;
+            }
+
+            viewport.GetWorldCorners(viewportCorners);
+            float viewportBottom = parentRect.InverseTransformPoint(viewportCorners[0]).y;
+            float viewportTop = parentRect.InverseTransformPoint(viewportCorners[1]).y;
+            float panelHeight = Mathf.Max(panelRect.rect.height, LayoutUtility.GetPreferredHeight(panelRect));
+            float halfHeight = panelHeight * 0.5f;
+
+            float minY = viewportBottom + edgePadding + halfHeight;
+            float maxY = viewportTop - edgePadding - halfHeight;
+            float anchoredY;
+            if (minY > maxY)
+            {
+                anchoredY = (viewportBottom + viewportTop) * 0.5f;
+            }
+            else
+            {
+                anchoredY = Mathf.Clamp(desiredY, minY, maxY);
+            }
+
+            panelRect.anchoredPosition = new Vector2(anchoredX, anchoredY);
+            ClampToParentBounds();
+            return true;
+        }
+
+        private void UpdatePositionLegacy(Vector2 screenPosition)
+        {
             float halfScreenWidth = Screen.width * 0.5f;
             float halfScreenHeight = Screen.height * 0.5f;
             float pivotX = screenPosition.x < halfScreenWidth ? 0f : 1f;
@@ -132,6 +210,16 @@ namespace PF2e.Presentation
             if (panelRect != null && parentRect == null)
             {
                 parentRect = panelRect.parent as RectTransform;
+            }
+
+            if (panelRect != null && panelLayoutElement == null)
+            {
+                panelLayoutElement = panelRect.GetComponent<LayoutElement>();
+                if (panelLayoutElement == null)
+                {
+                    panelLayoutElement = panelRect.gameObject.AddComponent<LayoutElement>();
+                    panelLayoutElement.layoutPriority = 1;
+                }
             }
 
             if (canvasGroup != null)
@@ -193,16 +281,17 @@ namespace PF2e.Presentation
             panelRect.anchoredPosition = pos;
         }
 
-        private void ApplyMaxWidth()
+        private void ApplyWidthConstraints()
         {
-            if (panelRect == null || titleText == null || bodyText == null || maxWidth <= 0f)
+            if (panelRect == null || titleText == null || bodyText == null)
             {
                 return;
             }
 
-            float titleWidth = titleText.GetPreferredValues(titleText.text, maxWidth, 0f).x;
-            float bodyWidth = bodyText.GetPreferredValues(bodyText.text, maxWidth, 0f).x;
-            float contentWidth = Mathf.Min(maxWidth, Mathf.Max(titleWidth, bodyWidth));
+            float clampedMaxWidth = Mathf.Max(minWidth, maxWidth);
+            float titleWidth = titleText.GetPreferredValues(titleText.text, clampedMaxWidth, 0f).x;
+            float bodyWidth = bodyText.GetPreferredValues(bodyText.text, clampedMaxWidth, 0f).x;
+            float contentWidth = Mathf.Max(titleWidth, bodyWidth);
             float horizontalPadding = 0f;
 
             if (panelRect.TryGetComponent<VerticalLayoutGroup>(out var layout))
@@ -210,7 +299,15 @@ namespace PF2e.Presentation
                 horizontalPadding = layout.padding.left + layout.padding.right;
             }
 
-            panelRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, contentWidth + horizontalPadding);
+            float targetWidth = Mathf.Clamp(contentWidth + horizontalPadding, minWidth, clampedMaxWidth);
+            if (panelLayoutElement != null)
+            {
+                panelLayoutElement.minWidth = minWidth;
+                panelLayoutElement.preferredWidth = targetWidth;
+                panelLayoutElement.flexibleWidth = 0f;
+            }
+
+            panelRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, targetWidth);
             LayoutRebuilder.ForceRebuildLayoutImmediate(panelRect);
         }
     }

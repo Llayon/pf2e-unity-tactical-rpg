@@ -7817,7 +7817,12 @@ MonoBehaviour:
   bodyText: {fileID: 919883805}
   canvasGroup: {fileID: 714389453}
   rootCanvas: {fileID: 35781846}
-  maxWidth: 300
+  minWidth: 280
+  maxWidth: 360
+  edgePadding: 8
+  dockGap: 14
+  dockTarget: {fileID: 304057470}
+  dockViewport: {fileID: 1130307509}
   cursorOffset: {x: 14, y: 14}
 --- !u!225 &714389453
 CanvasGroup:

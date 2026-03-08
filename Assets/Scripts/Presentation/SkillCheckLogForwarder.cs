@@ -48,20 +48,26 @@ namespace PF2e.Presentation
             string projectionToken = e.hasOpposedProjection
                 ? CombatLogRichText.Verb($" (cmp {RollBreakdownFormatter.FormatSigned(e.opposedProjection.margin)})")
                 : string.Empty;
-            string rollTotalLink = CombatLogLinkHelper.Link(CombatLogLinkTokens.SkillRoll, e.roll.total.ToString());
+            string degreeLabel = TooltipTextBuilder.FormatDegreeLabel(e.degree);
+            string signedModifier = RollBreakdownFormatter.FormatSigned(e.roll.modifier);
+            string rollTotalLink = CombatLogLinkHelper.Link(CombatLogLinkTokens.Result, $"{e.roll.total} - {degreeLabel}");
             var tooltipPayload = new CombatLogTooltipPayload(new[]
             {
                 new TooltipEntry(
-                    CombatLogLinkTokens.SkillRoll,
-                    "Skill Check Breakdown",
-                    TooltipTextBuilder.SkillCheckBreakdown(e.roll, e.aidCircumstanceBonus))
+                    CombatLogLinkTokens.Result,
+                    $"{e.roll.total} vs {e.defenseSource.ToShortLabel()} DC {e.dc} - {degreeLabel}",
+                    TooltipTextBuilder.SkillCheckResultBreakdown(
+                        e.roll,
+                        e.defenseSource,
+                        e.dc,
+                        e.degree,
+                        e.aidCircumstanceBonus))
             });
 
             eventBus.Publish(
                 e.actor,
                 $"{CombatLogRichText.ActionCost(1)} {CombatLogRichText.Verb("uses")} {CombatLogRichText.Weapon(actionLabel)} {CombatLogRichText.Verb("on")} {targetName} {CombatLogRichText.Verb("—")} " +
-                $"{CombatLogRichText.Verb($"d20({e.roll.naturalRoll})")} {CombatLogRichText.Verb("=")} {rollTotalLink} {CombatLogRichText.Verb($"vs {e.defenseSource.ToShortLabel()} DC {e.dc}")}" +
-                $" → {CombatLogRichText.Degree(e.degree)}{projectionToken}",
+                $"{CombatLogRichText.Verb($"rolls {e.roll.naturalRoll}{signedModifier}")} {CombatLogRichText.Verb("=")} {rollTotalLink}{projectionToken}",
                 CombatLogCategory.Attack,
                 tooltipPayload);
         }

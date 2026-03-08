@@ -3,6 +3,7 @@
     "rootNamespace": "PF2e.Tests",
     "references": [
         "GUID:03dfa6625a4da7f49853e56458760ba6",
+        "Unity.TextMeshPro",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

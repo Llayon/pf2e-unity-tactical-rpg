@@ -4,49 +4,49 @@ namespace PF2e.Presentation
 {
     public static class TooltipTextBuilder
     {
-        public static string StrikeAttackBreakdown(
+        public static string StrikeResultBreakdown(
             int naturalRoll,
             int attackBonus,
             int mapPenalty,
             int rangePenalty,
             int volleyPenalty,
             int aidCircumstanceBonus,
-            int total)
+            int total,
+            DegreeOfSuccess degree,
+            int baseAc,
+            int coverBonus)
         {
-            string rng = rangePenalty != 0 ? $" + RNG({RollBreakdownFormatter.FormatSigned(rangePenalty)})" : string.Empty;
-            string volley = volleyPenalty != 0 ? $" + VOLLEY({RollBreakdownFormatter.FormatSigned(volleyPenalty)})" : string.Empty;
-            string aid = aidCircumstanceBonus != 0 ? $" + AID({RollBreakdownFormatter.FormatSigned(aidCircumstanceBonus)})" : string.Empty;
+            int effectiveAc = baseAc + coverBonus;
+            string map = mapPenalty != 0
+                ? $"MAP: {RollBreakdownFormatter.FormatSigned(mapPenalty)}\n"
+                : string.Empty;
+            string range = rangePenalty != 0
+                ? $"Range Penalty: {RollBreakdownFormatter.FormatSigned(rangePenalty)}\n"
+                : string.Empty;
+            string volley = volleyPenalty != 0
+                ? $"Volley Penalty: {RollBreakdownFormatter.FormatSigned(volleyPenalty)}\n"
+                : string.Empty;
+            string aid = aidCircumstanceBonus != 0
+                ? $"Aid: {RollBreakdownFormatter.FormatSigned(aidCircumstanceBonus)}\n"
+                : string.Empty;
+            string cover = coverBonus != 0
+                ? $"Cover: {RollBreakdownFormatter.FormatSigned(coverBonus)}\n"
+                : string.Empty;
+
             return
-                $"d20({naturalRoll})" +
-                $" + ATK({RollBreakdownFormatter.FormatSigned(attackBonus)})" +
-                $" + MAP({RollBreakdownFormatter.FormatSigned(mapPenalty)})" +
-                rng +
+                $"Attack Roll vs AC {effectiveAc}\n" +
+                $"D20 Roll: {naturalRoll}\n" +
+                $"Attack Bonus: {RollBreakdownFormatter.FormatSigned(attackBonus)}\n" +
+                map +
+                range +
                 volley +
                 aid +
-                $" = {total}";
-        }
-
-        public static string StrikeDefenseBreakdown(int baseAc, int coverBonus)
-        {
-            if (coverBonus == 0)
-            {
-                return $"AC {baseAc} = {baseAc}";
-            }
-
-            int effectiveAc = baseAc + coverBonus;
-            return $"AC {baseAc} + COVER({RollBreakdownFormatter.FormatSigned(coverBonus)}) = {effectiveAc}";
-        }
-
-        public static string SkillCheckBreakdown(in CheckRoll roll, int aidCircumstanceBonus = 0)
-        {
-            string aid = aidCircumstanceBonus != 0
-                ? $" + AID({RollBreakdownFormatter.FormatSigned(aidCircumstanceBonus)})"
-                : string.Empty;
-            return
-                $"{roll.source.ToShortLabel()} d20({roll.naturalRoll})" +
-                $" {RollBreakdownFormatter.FormatSigned(roll.modifier)}" +
-                aid +
-                $" = {roll.total}";
+                $"Total: {total}\n" +
+                $"Degree: {FormatDegreeLabel(degree)}\n\n" +
+                "Armor Class\n" +
+                $"Base AC: {baseAc}\n" +
+                cover +
+                $"Total: {effectiveAc}";
         }
 
         public static string StrikeDamageBreakdown(
@@ -73,13 +73,54 @@ namespace PF2e.Presentation
             }
 
             string fatal = fatalBonusDamage > 0
-                ? $" + FATAL({RollBreakdownFormatter.FormatSigned(fatalBonusDamage)})"
+                ? $"Fatal Bonus: {RollBreakdownFormatter.FormatSigned(fatalBonusDamage)}\n"
                 : string.Empty;
             string deadly = deadlyBonusDamage > 0
-                ? $" + DEADLY({RollBreakdownFormatter.FormatSigned(deadlyBonusDamage)})"
+                ? $"Deadly Bonus: {RollBreakdownFormatter.FormatSigned(deadlyBonusDamage)}\n"
                 : string.Empty;
 
-            return $"BASE({baseDamage}){fatal}{deadly} = {totalDamage} {damageType.ToString().ToUpperInvariant()}";
+            return
+                "Damage Roll\n" +
+                $"Base Damage: {baseDamage}\n" +
+                fatal +
+                deadly +
+                $"Total: {totalDamage} {damageType.ToString().ToUpperInvariant()}";
+        }
+
+        public static string SkillCheckResultBreakdown(
+            in CheckRoll roll,
+            in CheckSource defenseSource,
+            int dc,
+            DegreeOfSuccess degree,
+            int aidCircumstanceBonus = 0)
+        {
+            string aid = aidCircumstanceBonus != 0
+                ? $"Aid: {RollBreakdownFormatter.FormatSigned(aidCircumstanceBonus)}\n"
+                : string.Empty;
+
+            string defenseLabel = defenseSource.ToShortLabel();
+            return
+                $"{roll.source.ToShortLabel()} Check vs {defenseLabel} DC {dc}\n" +
+                $"D20 Roll: {roll.naturalRoll}\n" +
+                $"Modifier: {RollBreakdownFormatter.FormatSigned(roll.modifier)}\n" +
+                aid +
+                $"Total: {roll.total}\n" +
+                $"Degree: {FormatDegreeLabel(degree)}\n\n" +
+                "Defense\n" +
+                $"{defenseLabel} DC: {dc}\n" +
+                $"Total: {dc}";
+        }
+
+        public static string FormatDegreeLabel(DegreeOfSuccess degree)
+        {
+            return degree switch
+            {
+                DegreeOfSuccess.CriticalSuccess => "Critical Success!",
+                DegreeOfSuccess.Success => "Success!",
+                DegreeOfSuccess.Failure => "Failure",
+                DegreeOfSuccess.CriticalFailure => "Critical Failure!",
+                _ => degree.ToString()
+            };
         }
     }
 }

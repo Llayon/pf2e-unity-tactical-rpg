@@ -33,8 +33,8 @@ namespace PF2e.Tests
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 1);
-                var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.AttackTotal);
-                StringAssert.Contains("RNG(-2)", atkEntry.body);
+                var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.Result);
+                StringAssert.Contains("Range Penalty: -2", atkEntry.body);
             }
             finally
             {
@@ -60,6 +60,39 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void StrikeLog_NegativeEffectiveModifier_DoesNotUsePlusMinusInSummary()
+        {
+            using var ctx = new StrikeLogContext();
+            var attacker = ctx.RegisterEntity("Archer", Team.Player);
+            var target = ctx.RegisterEntity("Goblin_1", Team.Enemy);
+
+            var ev = CreateStrikeEvent(attacker, target, rangePenalty: -6);
+
+            CombatLogEntry first = default;
+            int count = 0;
+            ctx.EventBus.OnLogEntry += HandleLog;
+            try
+            {
+                ctx.EventBus.PublishStrikeResolved(in ev);
+
+                Assert.GreaterOrEqual(count, 1);
+                var stripped = Strip(first.Message);
+                StringAssert.Contains("rolls 12-2 = 10 - Failure", stripped);
+                StringAssert.DoesNotContain("+-", stripped);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry)
+            {
+                count++;
+                if (count == 1) first = entry;
+            }
+        }
+
+        [Test]
         public void StrikeLog_RangedFirstIncrement_DoesNotShowRngZero()
         {
             using var ctx = new StrikeLogContext();
@@ -79,10 +112,9 @@ namespace PF2e.Tests
 
                 Assert.GreaterOrEqual(count, 1);
                 var stripped = Strip(first.Message);
-                StringAssert.Contains("d20(12) = 16", stripped);
-                StringAssert.Contains("vs AC 18", stripped);
-                var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.AttackTotal);
-                StringAssert.DoesNotContain("RNG(", atkEntry.body);
+                StringAssert.Contains("rolls 12+4 = 16 - Failure", stripped);
+                var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.Result);
+                StringAssert.DoesNotContain("Range Penalty:", atkEntry.body);
             }
             finally
             {
@@ -126,8 +158,8 @@ namespace PF2e.Tests
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 1);
-                var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.AttackTotal);
-                StringAssert.DoesNotContain("RNG(", atkEntry.body);
+                var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.Result);
+                StringAssert.DoesNotContain("Range Penalty:", atkEntry.body);
             }
             finally
             {
@@ -171,8 +203,8 @@ namespace PF2e.Tests
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 1);
-                var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.AttackTotal);
-                StringAssert.Contains("VOLLEY(-2)", atkEntry.body);
+                var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.Result);
+                StringAssert.Contains("Volley Penalty: -2", atkEntry.body);
             }
             finally
             {
@@ -216,8 +248,8 @@ namespace PF2e.Tests
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 1);
-                var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.AttackTotal);
-                StringAssert.Contains("AID(+2)", atkEntry.body);
+                var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.Result);
+                StringAssert.Contains("Aid: +2", atkEntry.body);
             }
             finally
             {
@@ -261,8 +293,8 @@ namespace PF2e.Tests
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 1);
-                var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.AttackTotal);
-                StringAssert.DoesNotContain("VOLLEY(", atkEntry.body);
+                var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.Result);
+                StringAssert.DoesNotContain("Volley Penalty:", atkEntry.body);
             }
             finally
             {
@@ -306,9 +338,8 @@ namespace PF2e.Tests
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 1);
-                StringAssert.Contains("vs AC 20", Strip(first.Message));
-                var acEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.DefenseTotal);
-                StringAssert.Contains("COVER(+2)", acEntry.body);
+                var acEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.Result);
+                StringAssert.Contains("Cover: +2", acEntry.body);
             }
             finally
             {
@@ -352,8 +383,8 @@ namespace PF2e.Tests
                 ctx.EventBus.PublishStrikeResolved(in ev);
 
                 Assert.GreaterOrEqual(count, 1);
-                var acEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.DefenseTotal);
-                StringAssert.DoesNotContain("COVER(", acEntry.body);
+                var acEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.Result);
+                StringAssert.DoesNotContain("Cover:", acEntry.body);
             }
             finally
             {
@@ -487,7 +518,7 @@ namespace PF2e.Tests
                 StringAssert.Contains("DEADLY+6", second.Message);
                 var dmgEntry = FindTooltipEntry(secondPayload, CombatLogLinkTokens.DamageTotal);
                 Assert.AreEqual("Damage Breakdown", dmgEntry.title);
-                StringAssert.Contains("DEADLY(+6)", dmgEntry.body);
+                StringAssert.Contains("Deadly Bonus: +6", dmgEntry.body);
             }
             finally
             {
@@ -543,7 +574,7 @@ namespace PF2e.Tests
                 StringAssert.Contains("FATAL+4", second.Message);
                 var dmgEntry = FindTooltipEntry(secondPayload, CombatLogLinkTokens.DamageTotal);
                 Assert.AreEqual("Damage Breakdown", dmgEntry.title);
-                StringAssert.Contains("FATAL(+4)", dmgEntry.body);
+                StringAssert.Contains("Fatal Bonus: +4", dmgEntry.body);
             }
             finally
             {
@@ -601,8 +632,8 @@ namespace PF2e.Tests
                 StringAssert.Contains("DEADLY+6", second.Message);
                 var dmgEntry = FindTooltipEntry(secondPayload, CombatLogLinkTokens.DamageTotal);
                 Assert.AreEqual("Damage Breakdown", dmgEntry.title);
-                StringAssert.Contains("FATAL(+4)", dmgEntry.body);
-                StringAssert.Contains("DEADLY(+6)", dmgEntry.body);
+                StringAssert.Contains("Fatal Bonus: +4", dmgEntry.body);
+                StringAssert.Contains("Deadly Bonus: +6", dmgEntry.body);
             }
             finally
             {
