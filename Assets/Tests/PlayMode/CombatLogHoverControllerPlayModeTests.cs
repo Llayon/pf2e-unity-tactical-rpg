@@ -218,6 +218,44 @@ namespace PF2e.Tests
             yield break;
         }
 
+        [UnityTest]
+        public IEnumerator PointerOnDamageLink_HoverScanFindsDamageTooltip()
+        {
+            var activeLines = GetPrivateField<Queue<TextMeshProUGUI>>(logController, "activeLines");
+            var lineTooltips = GetPrivateField<Dictionary<TextMeshProUGUI, TooltipEntry[]>>(logController, "lineTooltips");
+
+            lineText.text = "Damage " + CombatLogLinkHelper.Link(CombatLogLinkTokens.DamageTotal, "14");
+            lineText.ForceMeshUpdate();
+            activeLines.Clear();
+            activeLines.Enqueue(lineText);
+            lineTooltips.Clear();
+            lineTooltips[lineText] = new[]
+            {
+                new TooltipEntry(CombatLogLinkTokens.DamageTotal, "Damage Breakdown", "BASE(8) + DEADLY(+6) = 14 PIERCING")
+            };
+
+            yield return null;
+            Canvas.ForceUpdateCanvases();
+            lineText.ForceMeshUpdate();
+
+            Vector2 linkScreenPoint = GetFirstLinkScreenPoint(lineText);
+            int linkIndex = TMP_TextUtilities.FindIntersectingLink(lineText, linkScreenPoint, null);
+            Assert.GreaterOrEqual(linkIndex, 0, "Expected helper point to intersect damage TMP link.");
+            Assert.AreEqual(CombatLogLinkTokens.DamageTotal, lineText.textInfo.linkInfo[linkIndex].GetLinkID());
+
+            var tryFindMethod = FindMethod(hoverController.GetType(), "TryFindHoveredLink");
+            Assert.IsNotNull(tryFindMethod, "Missing method 'TryFindHoveredLink' on CombatLogHoverController");
+            object[] findArgs = { (Vector3)linkScreenPoint, null, -1 };
+            bool foundByController = (bool)tryFindMethod.Invoke(hoverController, findArgs);
+            Assert.IsTrue(foundByController, "Expected controller hover scan to find the damage link.");
+
+            string foundToken = ((TextMeshProUGUI)findArgs[1]).textInfo.linkInfo[(int)findArgs[2]].GetLinkID();
+            Assert.AreEqual(CombatLogLinkTokens.DamageTotal, foundToken);
+            Assert.IsTrue(logController.TryGetTooltip((TextMeshProUGUI)findArgs[1], foundToken, out string title, out string body));
+            Assert.AreEqual("Damage Breakdown", title);
+            StringAssert.Contains("DEADLY(+6)", body);
+        }
+
         private static Vector2 GetFirstLinkScreenPoint(TextMeshProUGUI text)
         {
             text.ForceMeshUpdate();
