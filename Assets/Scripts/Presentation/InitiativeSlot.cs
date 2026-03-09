@@ -14,6 +14,9 @@ namespace PF2e.Presentation
         [SerializeField] private TMP_Text nameText;
         [SerializeField] private Image hpBarFill;
         [SerializeField] private Image background;
+        [SerializeField] private Image portraitImage;
+        [SerializeField] private Image damageOverlay;
+        [SerializeField] private Image frameImage;
         [SerializeField] private GameObject activeHighlight;
         [SerializeField] private GameObject delayedBadgeRoot;
         [SerializeField] private Image delayedBadgeBackground;
@@ -24,13 +27,16 @@ namespace PF2e.Presentation
         [SerializeField] private Color enemyColor   = new Color(1f, 0.3f, 0.3f, 1f);
         [SerializeField] private Color neutralColor = new Color(0.85f, 0.85f, 0.2f, 1f);
         [SerializeField] private Color defeatedColor = new Color(0.3f, 0.3f, 0.3f, 1f);
+        [SerializeField] private Color activeFrameColor = new Color(1f, 0.92f, 0.7f, 1f);
+        [SerializeField] private float activeScaleFactor = 1.15f;
+        [SerializeField] private Color damageOverlayColor = new Color(0.7f, 0.05f, 0.05f, 0.75f);
         [SerializeField] private Color delayedBadgeBackgroundColor = new Color(0.95f, 0.85f, 0.25f, 0.95f);
         [SerializeField] private Color delayedBadgeTextColor = new Color(0.1f, 0.08f, 0.03f, 1f);
 
         [Header("Layout Stability")]
         [SerializeField] private bool enforceFixedLayoutSize = true;
-        [SerializeField] private float fixedPreferredWidth = 70f;
-        [SerializeField] private float fixedPreferredHeight = 80f;
+        [SerializeField] private float fixedPreferredWidth = 60f;
+        [SerializeField] private float fixedPreferredHeight = 90f;
 
         [Header("Delayed State")]
         [SerializeField] private bool appendDelayedNameSuffixFallback;
@@ -40,6 +46,7 @@ namespace PF2e.Presentation
         private Color baseColor;
         private bool defeated;
         private bool delayed;
+        private bool highlighted;
         private string baseDisplayName = string.Empty;
         private LayoutElement layoutElement;
 
@@ -68,17 +75,33 @@ namespace PF2e.Presentation
                 nameText.overflowMode = TextOverflowModes.Truncate;
             }
 
+            EnsurePortraitHierarchy();
+            InitDamageOverlay();
             EnsureDelayedBadgeFallback();
             ApplyDelayedBadgeVisual();
         }
 
         public void SetupStatic(EntityHandle handle, string displayName, Team team)
         {
+            SetupStatic(handle, displayName, team, null, null);
+        }
+
+        public void SetupStatic(EntityHandle handle, string displayName, Team team, Sprite portrait)
+        {
+            SetupStatic(handle, displayName, team, portrait, null);
+        }
+
+        public void SetupStatic(EntityHandle handle, string displayName, Team team, Sprite portrait, Sprite frame)
+        {
             Handle = handle;
             baseDisplayName = displayName ?? string.Empty;
             delayed = false;
+            highlighted = false;
+            transform.localScale = Vector3.one;
             ApplyNameVisual();
             ApplyDelayedBadgeVisual();
+            ApplyPortrait(portrait);
+            ApplyFrame(frame);
 
             baseColor = team == Team.Player ? playerColor :
                         team == Team.Enemy  ? enemyColor  : neutralColor;
@@ -91,15 +114,45 @@ namespace PF2e.Presentation
         public void RefreshHP(int currentHP, int maxHP, bool isAlive)
         {
             float fill = (maxHP > 0) ? Mathf.Clamp01((float)currentHP / maxHP) : 0f;
-            if (hpBarFill != null) hpBarFill.fillAmount = fill;
+
+            // Legacy green HP bar (only when no portrait)
+            if (!hasPortrait && hpBarFill != null)
+                hpBarFill.fillAmount = fill;
+
+            // BG3-style: damage overlay fills from bottom as HP drops
+            if (damageOverlay != null)
+            {
+                float damageFraction = 1f - fill;
+                damageOverlay.fillAmount = damageFraction;
+                damageOverlay.gameObject.SetActive(damageFraction > 0f);
+            }
 
             if (!isAlive) SetDefeated(true);
         }
 
         public void SetHighlight(bool active)
         {
-            if (activeHighlight != null)
-                activeHighlight.SetActive(active);
+            highlighted = active;
+
+            if (hasPortrait)
+            {
+                // BG3-style: scale up + bright frame instead of yellow overlay
+                transform.localScale = active ? Vector3.one * activeScaleFactor : Vector3.one;
+
+                if (!hasFrame && background != null && !defeated)
+                    background.color = active ? activeFrameColor : baseColor;
+
+                // Hide legacy yellow overlay in portrait mode
+                if (activeHighlight != null)
+                    activeHighlight.SetActive(false);
+            }
+            else
+            {
+                // Legacy mode (no portrait): use yellow overlay
+                transform.localScale = Vector3.one;
+                if (activeHighlight != null)
+                    activeHighlight.SetActive(active);
+            }
         }
 
         public void SetDefeated(bool value)
@@ -118,10 +171,167 @@ namespace PF2e.Presentation
             ApplyDelayedBadgeVisual();
         }
 
+        private void EnsurePortraitHierarchy()
+        {
+            if (portraitImage != null && damageOverlay != null && frameImage != null)
+                return;
+
+            // Portrait image — stretches behind name text, on top of background
+            if (portraitImage == null)
+            {
+                var portraitGo = new GameObject("Portrait", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                var portraitRect = portraitGo.GetComponent<RectTransform>();
+                portraitRect.SetParent(transform, false);
+                portraitRect.anchorMin = Vector2.zero;
+                portraitRect.anchorMax = Vector2.one;
+                portraitRect.offsetMin = new Vector2(4f, 4f);
+                portraitRect.offsetMax = new Vector2(-4f, -4f);
+                portraitRect.SetSiblingIndex(0);
+
+                portraitImage = portraitGo.GetComponent<Image>();
+                portraitImage.preserveAspect = false;
+                portraitImage.raycastTarget = false;
+                portraitImage.color = Color.white;
+                portraitGo.SetActive(false);
+            }
+
+            // Damage overlay — same rect as portrait, red fill from bottom
+            if (damageOverlay == null)
+            {
+                var overlayGo = new GameObject("DamageOverlay", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                var overlayRect = overlayGo.GetComponent<RectTransform>();
+                overlayRect.SetParent(transform, false);
+                overlayRect.anchorMin = Vector2.zero;
+                overlayRect.anchorMax = Vector2.one;
+                overlayRect.offsetMin = new Vector2(4f, 4f);
+                overlayRect.offsetMax = new Vector2(-4f, -4f);
+                overlayRect.SetSiblingIndex(portraitImage.transform.GetSiblingIndex() + 1);
+
+                damageOverlay = overlayGo.GetComponent<Image>();
+                damageOverlay.raycastTarget = false;
+                overlayGo.SetActive(false);
+            }
+
+            // Frame overlay — on top of portrait + damage, provides team-colored border
+            // Extends beyond slot bounds so the frame's visual border overlaps portrait edges
+            if (frameImage == null)
+            {
+                var frameGo = new GameObject("Frame", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                var frameRect = frameGo.GetComponent<RectTransform>();
+                frameRect.SetParent(transform, false);
+                frameRect.anchorMin = Vector2.zero;
+                frameRect.anchorMax = Vector2.one;
+                frameRect.offsetMin = new Vector2(-4f, -4f);
+                frameRect.offsetMax = new Vector2(4f, 4f);
+                if (damageOverlay != null)
+                    frameRect.SetSiblingIndex(damageOverlay.transform.GetSiblingIndex() + 1);
+
+                frameImage = frameGo.GetComponent<Image>();
+                frameImage.type = Image.Type.Sliced;
+                frameImage.pixelsPerUnitMultiplier = 15f;
+                frameImage.preserveAspect = false;
+                frameImage.raycastTarget = false;
+                frameImage.color = Color.white;
+                frameGo.SetActive(false);
+            }
+        }
+
+        private void InitDamageOverlay()
+        {
+            if (damageOverlay == null) return;
+
+            damageOverlay.type = Image.Type.Filled;
+            damageOverlay.fillMethod = Image.FillMethod.Vertical;
+            damageOverlay.fillOrigin = (int)Image.OriginVertical.Bottom;
+            damageOverlay.fillAmount = 0f;
+            damageOverlay.color = damageOverlayColor;
+            damageOverlay.raycastTarget = false;
+            damageOverlay.gameObject.SetActive(false);
+        }
+
+        private bool hasPortrait;
+        private bool hasFrame;
+
+        private void ApplyPortrait(Sprite portrait)
+        {
+            hasPortrait = portrait != null;
+
+            if (portraitImage != null)
+            {
+                if (hasPortrait)
+                {
+                    portraitImage.sprite = portrait;
+                    portraitImage.color = Color.white;
+                    portraitImage.gameObject.SetActive(true);
+                }
+                else
+                {
+                    portraitImage.gameObject.SetActive(false);
+                }
+            }
+
+            // When portrait is present: hide name, HP bar, and background (portrait + frame only)
+            if (nameText != null)
+                nameText.gameObject.SetActive(!hasPortrait);
+
+            HideHpBar(hasPortrait);
+        }
+
+        private void HideHpBar(bool hide)
+        {
+            if (hpBarFill == null) return;
+
+            // Hide the fill and its parent (HPBarBackground)
+            hpBarFill.gameObject.SetActive(!hide);
+            var hpBarParent = hpBarFill.transform.parent;
+            if (hpBarParent != null && hpBarParent != transform)
+                hpBarParent.gameObject.SetActive(!hide);
+        }
+
+        private void ApplyFrame(Sprite frame)
+        {
+            hasFrame = frame != null;
+            // When frame present: transparent fill (frame + portrait cover everything). When no frame: normal color.
+            if (background != null && hasFrame)
+                background.color = Color.clear;
+
+            if (frameImage != null)
+            {
+                if (hasFrame)
+                {
+                    frameImage.sprite = frame;
+                    frameImage.color = Color.white;
+                    frameImage.gameObject.SetActive(true);
+                }
+                else
+                {
+                    frameImage.gameObject.SetActive(false);
+                }
+            }
+        }
+
         private void ApplyColors()
         {
             if (background != null)
-                background.color = defeated ? defeatedColor : baseColor;
+            {
+                if (hasFrame)
+                    background.color = Color.clear;
+                else
+                {
+                    if (defeated)
+                        background.color = defeatedColor;
+                    else if (highlighted && hasPortrait)
+                        background.color = activeFrameColor;
+                    else
+                        background.color = baseColor;
+                }
+            }
+
+            if (frameImage != null && frameImage.gameObject.activeSelf)
+                frameImage.color = defeated ? new Color(0.4f, 0.4f, 0.4f, 1f) : Color.white;
+
+            if (defeated && portraitImage != null && portraitImage.gameObject.activeSelf)
+                portraitImage.color = new Color(0.4f, 0.4f, 0.4f, 1f);
 
             ApplyAlphaVisual();
         }
@@ -130,6 +340,14 @@ namespace PF2e.Presentation
         {
             if (nameText == null) return;
 
+            // Hide name when portrait is displayed (BG3-style)
+            if (hasPortrait)
+            {
+                nameText.gameObject.SetActive(false);
+                return;
+            }
+
+            nameText.gameObject.SetActive(true);
             if (delayed && appendDelayedNameSuffixFallback && !HasDelayedBadgeVisual())
                 nameText.SetText($"{baseDisplayName} (Delayed)");
             else
@@ -243,18 +461,35 @@ namespace PF2e.Presentation
                 background.color = c;
             }
 
-            if (hpBarFill != null)
+            if (portraitImage != null && portraitImage.gameObject.activeSelf)
             {
-                var c = hpBarFill.color;
+                var c = portraitImage.color;
                 c.a = alpha;
-                hpBarFill.color = c;
+                portraitImage.color = c;
             }
 
-            if (nameText != null)
+            if (frameImage != null && frameImage.gameObject.activeSelf)
             {
-                var c = nameText.color;
+                var c = frameImage.color;
                 c.a = alpha;
-                nameText.color = c;
+                frameImage.color = c;
+            }
+
+            if (!hasPortrait)
+            {
+                if (hpBarFill != null)
+                {
+                    var c = hpBarFill.color;
+                    c.a = alpha;
+                    hpBarFill.color = c;
+                }
+
+                if (nameText != null)
+                {
+                    var c = nameText.color;
+                    c.a = alpha;
+                    nameText.color = c;
+                }
             }
         }
 
