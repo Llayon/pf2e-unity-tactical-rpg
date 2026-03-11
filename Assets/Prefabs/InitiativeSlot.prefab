@@ -309,8 +309,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Name
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 963951fba879b2d45a41ff44f563e6e7, type: 2}
+  m_sharedMaterial: {fileID: -7282970135425176950, guid: 963951fba879b2d45a41ff44f563e6e7, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -523,8 +523,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: DLY
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 963951fba879b2d45a41ff44f563e6e7, type: 2}
+  m_sharedMaterial: {fileID: -7282970135425176950, guid: 963951fba879b2d45a41ff44f563e6e7, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -649,7 +649,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: -683, y: -384}
-  m_SizeDelta: {x: 70, y: 80}
+  m_SizeDelta: {x: 60, y: 90}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1554444519399477666
 CanvasRenderer:
@@ -704,6 +704,9 @@ MonoBehaviour:
   nameText: {fileID: 3458814795592616971}
   hpBarFill: {fileID: 3454425042248959990}
   background: {fileID: 8768109951140494645}
+  portraitImage: {fileID: 0}
+  damageOverlay: {fileID: 0}
+  frameImage: {fileID: 0}
   activeHighlight: {fileID: 2403177608707124742}
   delayedBadgeRoot: {fileID: 6709829966542908903}
   delayedBadgeBackground: {fileID: 8633064796702365112}
@@ -712,11 +715,14 @@ MonoBehaviour:
   enemyColor: {r: 1, g: 0.3, b: 0.3, a: 1}
   neutralColor: {r: 0.85, g: 0.85, b: 0.2, a: 1}
   defeatedColor: {r: 0.3, g: 0.3, b: 0.3, a: 1}
+  activeFrameColor: {r: 1, g: 0.92, b: 0.7, a: 1}
+  activeScaleFactor: 1.15
+  damageOverlayColor: {r: 0.7, g: 0.05, b: 0.05, a: 0.75}
   delayedBadgeBackgroundColor: {r: 0.95, g: 0.85, b: 0.25, a: 0.95}
   delayedBadgeTextColor: {r: 0.1, g: 0.08, b: 0.03, a: 1}
   enforceFixedLayoutSize: 1
-  fixedPreferredWidth: 70
-  fixedPreferredHeight: 80
+  fixedPreferredWidth: 60
+  fixedPreferredHeight: 90
   appendDelayedNameSuffixFallback: 0
 --- !u!114 &2366287827705239320
 MonoBehaviour:

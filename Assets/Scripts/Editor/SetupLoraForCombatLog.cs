@@ -1,54 +1,23 @@
 using UnityEditor;
 using UnityEngine;
 using TMPro;
-using UnityEngine.TextCore.LowLevel;
 
 public static class SetupLoraForCombatLog
 {
-    private const string FontTTFPath = "Assets/Fonts/Lora/Lora-VariableFont_wght.ttf";
-    private const string FontAssetPath = "Assets/Fonts/Lora SDF.asset";
+    private const string FontAssetPath = "Assets/TextMesh Pro/Resources/Fonts & Materials/Lora SDF.asset";
     private const string OutlineMatPath = "Assets/Fonts/Lora SDF Outline.mat";
 
     [MenuItem("Tools/PF2e/Setup Lora for Combat Log")]
     public static void Setup()
     {
+        LoraFontAssetCreator.CreateOrUpdate();
+
         // Step 1: Create or load Lora SDF font asset
         var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontAssetPath);
         if (fontAsset == null)
         {
-            var font = AssetDatabase.LoadAssetAtPath<Font>(FontTTFPath);
-            if (font == null)
-            {
-                Debug.LogError($"[SetupLora] Font not found at {FontTTFPath}");
-                return;
-            }
-
-            fontAsset = TMP_FontAsset.CreateFontAsset(font, 90, 9, GlyphRenderMode.SDFAA, 1024, 1024);
-            if (fontAsset == null)
-            {
-                Debug.LogError("[SetupLora] Failed to create TMP_FontAsset.");
-                return;
-            }
-
-            AssetDatabase.CreateAsset(fontAsset, FontAssetPath);
-
-            if (fontAsset.atlasTexture != null)
-            {
-                fontAsset.atlasTexture.name = "Lora SDF Atlas";
-                AssetDatabase.AddObjectToAsset(fontAsset.atlasTexture, fontAsset);
-            }
-            if (fontAsset.material != null)
-            {
-                fontAsset.material.name = "Lora SDF Material";
-                AssetDatabase.AddObjectToAsset(fontAsset.material, fontAsset);
-            }
-
-            AssetDatabase.SaveAssets();
-            Debug.Log($"[SetupLora] Created font asset: {FontAssetPath}");
-        }
-        else
-        {
-            Debug.Log($"[SetupLora] Font asset already exists: {FontAssetPath}");
+            Debug.LogError($"[SetupLora] Missing font asset at {FontAssetPath} after LoraFontAssetCreator pass.");
+            return;
         }
 
         // Step 2: Create outline + shadow material preset
