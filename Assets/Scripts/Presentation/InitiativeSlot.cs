@@ -49,6 +49,7 @@ namespace PF2e.Presentation
         private bool highlighted;
         private string baseDisplayName = string.Empty;
         private LayoutElement layoutElement;
+        private RectTransform portraitMaskRect;
 
         public event Action<InitiativeSlot> OnClicked;
 
@@ -176,17 +177,29 @@ namespace PF2e.Presentation
             if (portraitImage != null && damageOverlay != null && frameImage != null)
                 return;
 
-            // Portrait image — stretches behind name text, on top of background
+            // Mask container — clips portrait + overlay to inset rect
+            if (portraitMaskRect == null)
+            {
+                var maskGo = new GameObject("PortraitMask", typeof(RectTransform), typeof(RectMask2D));
+                portraitMaskRect = maskGo.GetComponent<RectTransform>();
+                portraitMaskRect.SetParent(transform, false);
+                portraitMaskRect.anchorMin = Vector2.zero;
+                portraitMaskRect.anchorMax = Vector2.one;
+                portraitMaskRect.offsetMin = new Vector2(6f, 6f);
+                portraitMaskRect.offsetMax = new Vector2(-6f, -6f);
+                portraitMaskRect.SetSiblingIndex(0);
+            }
+
+            // Portrait — child of mask, fills mask rect
             if (portraitImage == null)
             {
                 var portraitGo = new GameObject("Portrait", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
                 var portraitRect = portraitGo.GetComponent<RectTransform>();
-                portraitRect.SetParent(transform, false);
+                portraitRect.SetParent(portraitMaskRect, false);
                 portraitRect.anchorMin = Vector2.zero;
                 portraitRect.anchorMax = Vector2.one;
-                portraitRect.offsetMin = new Vector2(4f, 4f);
-                portraitRect.offsetMax = new Vector2(-4f, -4f);
-                portraitRect.SetSiblingIndex(0);
+                portraitRect.offsetMin = Vector2.zero;
+                portraitRect.offsetMax = Vector2.zero;
 
                 portraitImage = portraitGo.GetComponent<Image>();
                 portraitImage.preserveAspect = false;
@@ -195,16 +208,16 @@ namespace PF2e.Presentation
                 portraitGo.SetActive(false);
             }
 
-            // Damage overlay — same rect as portrait, red fill from bottom
+            // Damage overlay — child of mask, fills mask rect
             if (damageOverlay == null)
             {
                 var overlayGo = new GameObject("DamageOverlay", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
                 var overlayRect = overlayGo.GetComponent<RectTransform>();
-                overlayRect.SetParent(transform, false);
+                overlayRect.SetParent(portraitMaskRect, false);
                 overlayRect.anchorMin = Vector2.zero;
                 overlayRect.anchorMax = Vector2.one;
-                overlayRect.offsetMin = new Vector2(4f, 4f);
-                overlayRect.offsetMax = new Vector2(-4f, -4f);
+                overlayRect.offsetMin = Vector2.zero;
+                overlayRect.offsetMax = Vector2.zero;
                 overlayRect.SetSiblingIndex(portraitImage.transform.GetSiblingIndex() + 1);
 
                 damageOverlay = overlayGo.GetComponent<Image>();
@@ -212,7 +225,7 @@ namespace PF2e.Presentation
                 overlayGo.SetActive(false);
             }
 
-            // Frame overlay — on top of portrait + damage, provides team-colored border
+            // Frame overlay — direct child of slot (NOT inside mask)
             // Extends beyond slot bounds so the frame's visual border overlaps portrait edges
             if (frameImage == null)
             {
@@ -223,8 +236,8 @@ namespace PF2e.Presentation
                 frameRect.anchorMax = Vector2.one;
                 frameRect.offsetMin = new Vector2(-4f, -4f);
                 frameRect.offsetMax = new Vector2(4f, 4f);
-                if (damageOverlay != null)
-                    frameRect.SetSiblingIndex(damageOverlay.transform.GetSiblingIndex() + 1);
+                // Place frame after mask in sibling order so it renders on top
+                frameRect.SetSiblingIndex(portraitMaskRect.GetSiblingIndex() + 1);
 
                 frameImage = frameGo.GetComponent<Image>();
                 frameImage.type = Image.Type.Sliced;

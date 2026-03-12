@@ -15,6 +15,7 @@ namespace PF2e.Core
         public string EncounterActorId;
         public CreatureSize Size;
         public Team Team;
+        public Sprite Portrait;
 
         // ─── Grid Position ───
         public Vector3Int GridPosition;

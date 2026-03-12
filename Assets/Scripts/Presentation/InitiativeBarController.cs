@@ -26,6 +26,10 @@ namespace PF2e.Presentation
         [SerializeField] private InitiativeSlot slotPrefab;
         [SerializeField] private InitiativeInsertionMarker insertionMarkerPrefab;
 
+        [Header("Frame Sprites")]
+        [SerializeField] private Sprite playerFrameSprite;
+        [SerializeField] private Sprite enemyFrameSprite;
+
         [Header("Panel Layout")]
         [SerializeField] private bool autoSizePanelToSlotsContent = true;
         [SerializeField] private float minPanelWidth = 180f;
@@ -569,7 +573,9 @@ namespace PF2e.Presentation
             slot.OnClicked -= HandleSlotClicked;
             slot.OnClicked += HandleSlotClicked;
 
-            slot.SetupStatic(data.Handle, data.Name, data.Team);
+            var frameSprite = data.Team == Team.Player ? playerFrameSprite :
+                              data.Team == Team.Enemy  ? enemyFrameSprite  : null;
+            slot.SetupStatic(data.Handle, data.Name, data.Team, data.Portrait, frameSprite);
             slot.RefreshHP(data.CurrentHP, data.MaxHP, data.IsAlive);
             slot.SetDelayed(isDelayed);
 

@@ -25,6 +25,11 @@ namespace PF2e.Managers
         [SerializeField] private WeaponDefinition goblinWeaponDef;
         [SerializeField] private ArmorDefinition goblinArmorDef;
 
+        [Header("Portraits")]
+        [SerializeField] private Sprite fighterPortrait;
+        [SerializeField] private Sprite wizardPortrait;
+        [SerializeField] private Sprite goblinPortrait;
+
         [Header("Reaction Preferences (Test Setup)")]
         [SerializeField] private ReactionPreference fighterShieldBlockPreference = ReactionPreference.AutoBlock;
 
@@ -189,6 +194,7 @@ private void OnValidate()
                 fighter.EquippedShield = ShieldInstance.CreateEquipped(fighterShieldDef);
             }
             fighter.ShieldBlockPreference = fighterShieldBlockPreference;
+            fighter.Portrait = fighterPortrait;
             CreateEntity(fighter, new Vector3Int(1, 0, 1));
 
             // Wizard with dagger and armor (from inspector defs)
@@ -222,6 +228,7 @@ private void OnValidate()
             };
             wizard.KnowsGlassShieldCantrip = true;
             wizard.KnowsStandardShieldCantrip = true;
+            wizard.Portrait = wizardPortrait;
             CreateEntity(wizard, new Vector3Int(1, 0, 5));
 
             // Goblin_1 (from inspector defs)
@@ -253,6 +260,7 @@ private void OnValidate()
                 resilient = ResilientRuneRank.None,
                 broken = false
             };
+            goblin1.Portrait = goblinPortrait;
             CreateEntity(goblin1, new Vector3Int(6, 0, 2));
 
             // Goblin_2 (from inspector defs)
@@ -284,6 +292,7 @@ private void OnValidate()
                 resilient = ResilientRuneRank.None,
                 broken = false
             };
+            goblin2.Portrait = goblinPortrait;
             CreateEntity(goblin2, new Vector3Int(6, 0, 5));
 
             Debug.Log($"[EntityManager] Spawned {Registry.Count} test entities");
