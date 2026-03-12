@@ -68,7 +68,7 @@ public static class AutoSetupPhase10
         }
 
         // Check if CombatLogHUD exists
-        var canvas = Object.FindAnyObjectByType<Canvas>();
+        var canvas = CombatLogUIBuilder.FindAuthoringCanvas();
         if (canvas != null)
         {
             var existingLogHUD = canvas.transform.Find("CombatLogHUD");

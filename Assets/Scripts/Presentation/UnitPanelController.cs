@@ -132,15 +132,15 @@ namespace PF2e.Presentation
                 canvasGroup = gameObject.AddComponent<CanvasGroup>();
 
             if (nameText == null)
-                nameText = CreateTextChild("NameText", 20, FontStyles.Bold);
+                nameText = CreateTextChild("NameText", 22, FontStyles.Bold, 0.2f);
             if (levelText == null)
-                levelText = CreateTextChild("LevelText", 14, FontStyles.Normal);
+                levelText = CreateTextChild("LevelText", 14, FontStyles.Normal, 0.1f);
             if (hpText == null)
-                hpText = CreateTextChild("HPText", 14, FontStyles.Normal);
+                hpText = CreateTextChild("HPText", 14, FontStyles.Normal, 0.1f);
             if (acText == null)
-                acText = CreateTextChild("ACText", 14, FontStyles.Normal);
+                acText = CreateTextChild("ACText", 14, FontStyles.Normal, 0.1f);
             if (conditionsText == null)
-                conditionsText = CreateTextChild("ConditionsText", 13, FontStyles.Normal);
+                conditionsText = CreateTextChild("ConditionsText", 13, FontStyles.Normal, 0.1f);
 
             if (hpFillImage == null)
             {
@@ -187,16 +187,18 @@ namespace PF2e.Presentation
             }
         }
 
-        private TMP_Text CreateTextChild(string objectName, float fontSize, FontStyles style)
+        private TMP_Text CreateTextChild(string objectName, float fontSize, FontStyles style, float characterSpacing)
         {
             var go = new GameObject(objectName, typeof(RectTransform));
             go.transform.SetParent(transform, false);
             var text = go.AddComponent<TextMeshProUGUI>();
             text.fontSize = fontSize;
             text.fontStyle = style;
+            text.characterSpacing = characterSpacing;
             text.color = new Color(0.92f, 0.92f, 0.95f, 1f);
             text.raycastTarget = false;
             text.enableAutoSizing = false;
+            text.enableKerning = true;
             text.overflowMode = TextOverflowModes.Truncate;
             return text;
         }

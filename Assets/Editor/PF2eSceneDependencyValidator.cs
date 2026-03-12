@@ -21,6 +21,16 @@ public static class PF2eSceneDependencyValidator
 
     private const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
     private const string SampleScenePath = "Assets/Scenes/SampleScene.unity";
+    private static readonly string[] CriticalUniqueUiObjectNames =
+    {
+        "CombatLogHUD",
+        "CombatLogTooltip",
+        "InitiativeBarPanel",
+        "TurnOptionsUI",
+        "TurnEconomyHUD",
+        "TargetingHintPanel",
+        "ReactionPromptPanel",
+    };
 
     [MenuItem("Tools/PF2e/Validate Scene Dependencies")]
     public static void Validate_WithDialog()
@@ -56,48 +66,49 @@ public static class PF2eSceneDependencyValidator
         Debug.Log($"[PF2eValidator] Validating scene: {SceneManager.GetActiveScene().name}");
 
         // ---- Required field checks (all instances in scene) ----
-        errors += ValidateAll<GridManager>(ValidateGridManager);
-        errors += ValidateAll<EntityManager>(ValidateEntityManager);
-        errors += ValidateAll<TurnManager>(ValidateTurnManager);
-        errors += ValidateAll<CombatEventBus>(ValidateCombatEventBus);
-        errors += ValidateAll<TurnLogForwarder>(ValidateTurnLogForwarder);
-        errors += ValidateAll<StrideLogForwarder>(ValidateStrideLogForwarder);
-        errors += ValidateAll<StrikeLogForwarder>(ValidateStrikeLogForwarder);
-        errors += ValidateAll<SkillCheckLogForwarder>(ValidateSkillCheckLogForwarder);
-        errors += ValidateAll<DamageLogForwarder>(ValidateDamageLogForwarder);
-        errors += ValidateAll<PlayerActionExecutor>(ValidatePlayerActionExecutor);
-        errors += ValidateAll<StrideAction>(ValidateStrideAction);
-        errors += ValidateAll<StrikeAction>(ValidateStrikeAction);
-        errors += ValidateAll<TargetingController>(ValidateTargetingController);
-        errors += ValidateAll<TurnInputController>(ValidateTurnInputController);
-        errors += ValidateAll<EntityMover>(ValidateEntityMover);
-        errors += ValidateAll<MovementZoneVisualizer>(ValidateMovementZoneVisualizer);
-        errors += ValidateAll<GridInteraction>(ValidateGridInteraction);
-        errors += ValidateAll<CombatStarter>(ValidateCombatStarter);
-        errors += ValidateAll<TurnUIController>(ValidateTurnUIController);
-        errors += ValidateAll<EncounterEndPanelController>(ValidateEncounterEndPanelController);
-        errors += ValidateAll<EncounterFlowController>(ValidateEncounterFlowController);
-        errors += ValidateAll<CombatLogController>(ValidateCombatLogController);
-        errors += ValidateAll<FloatingDamageUI>(ValidateFloatingDamageUI);
-        errors += ValidateAll<InitiativeBarController>(ValidateInitiativeBarController);
-        errors += ValidateAll<ActionBarController>(ValidateActionBarController);
-        errors += ValidateAll<TurnOptionsPresenter>(ValidateTurnOptionsPresenter);
-        errors += ValidateAll<ReadyStrikeEventBinder>(ValidateReadyStrikeEventBinder);
-        errors += ValidateAll<TargetingHintController>(ValidateTargetingHintController);
-        errors += ValidateAll<TargetingFeedbackController>(ValidateTargetingFeedbackController);
-        errors += ValidateAll<ConditionLogForwarder>(ValidateConditionLogForwarder);
-        errors += ValidateAll<StandAction>(ValidateStandAction);
-                errors += ValidateAll<TripAction>(ValidateTripAction);
-        errors += ValidateAll<ShoveAction>(ValidateShoveAction);
-        errors += ValidateAll<GrappleAction>(ValidateGrappleAction);
-        errors += ValidateAll<RepositionAction>(ValidateRepositionAction);
-        errors += ValidateAll<DemoralizeAction>(ValidateDemoralizeAction);
-        errors += ValidateAll<RaiseShieldAction>(ValidateRaiseShieldAction);
-        errors += ValidateAll<ShieldBlockAction>(ValidateShieldBlockAction);
-        errors += ValidateAll<GrappleLifecycleController>(ValidateGrappleLifecycleController);
-        errors += ValidateAll<EscapeAction>(ValidateEscapeAction);
-        errors += ValidateAll<AITurnController>(ValidateAITurnController);
-        errors += ValidateAll<ReactionPromptController>(ValidateReactionPromptController);
+        errors += ValidateAll<GridManager>(ValidateGridManager, ref warnings);
+        errors += ValidateAll<EntityManager>(ValidateEntityManager, ref warnings);
+        errors += ValidateAll<TurnManager>(ValidateTurnManager, ref warnings);
+        errors += ValidateAll<CombatEventBus>(ValidateCombatEventBus, ref warnings);
+        errors += ValidateAll<TurnLogForwarder>(ValidateTurnLogForwarder, ref warnings);
+        errors += ValidateAll<StrideLogForwarder>(ValidateStrideLogForwarder, ref warnings);
+        errors += ValidateAll<StrikeLogForwarder>(ValidateStrikeLogForwarder, ref warnings);
+        errors += ValidateAll<SkillCheckLogForwarder>(ValidateSkillCheckLogForwarder, ref warnings);
+        errors += ValidateAll<DamageLogForwarder>(ValidateDamageLogForwarder, ref warnings);
+        errors += ValidateAll<PlayerActionExecutor>(ValidatePlayerActionExecutor, ref warnings);
+        errors += ValidateAll<StrideAction>(ValidateStrideAction, ref warnings);
+        errors += ValidateAll<StrikeAction>(ValidateStrikeAction, ref warnings);
+        errors += ValidateAll<TargetingController>(ValidateTargetingController, ref warnings);
+        errors += ValidateAll<TurnInputController>(ValidateTurnInputController, ref warnings);
+        errors += ValidateAll<EntityMover>(ValidateEntityMover, ref warnings);
+        errors += ValidateAll<MovementZoneVisualizer>(ValidateMovementZoneVisualizer, ref warnings);
+        errors += ValidateAll<GridInteraction>(ValidateGridInteraction, ref warnings);
+        errors += ValidateAll<CombatStarter>(ValidateCombatStarter, ref warnings);
+        errors += ValidateAll<TurnUIController>(ValidateTurnUIController, ref warnings);
+        errors += ValidateAll<EncounterEndPanelController>(ValidateEncounterEndPanelController, ref warnings);
+        errors += ValidateAll<EncounterFlowController>(ValidateEncounterFlowController, ref warnings);
+        errors += ValidateAll<CombatLogController>(ValidateCombatLogController, ref warnings);
+        errors += ValidateAll<FloatingDamageUI>(ValidateFloatingDamageUI, ref warnings);
+        errors += ValidateAll<InitiativeBarController>(ValidateInitiativeBarController, ref warnings);
+        errors += ValidateAll<TurnEconomyController>(ValidateTurnEconomyController, ref warnings);
+        errors += ValidateAll<ActionBarController>(ValidateActionBarController, ref warnings);
+        errors += ValidateAll<TurnOptionsPresenter>(ValidateTurnOptionsPresenter, ref warnings);
+        errors += ValidateAll<ReadyStrikeEventBinder>(ValidateReadyStrikeEventBinder, ref warnings);
+        errors += ValidateAll<TargetingHintController>(ValidateTargetingHintController, ref warnings);
+        errors += ValidateAll<TargetingFeedbackController>(ValidateTargetingFeedbackController, ref warnings);
+        errors += ValidateAll<ConditionLogForwarder>(ValidateConditionLogForwarder, ref warnings);
+        errors += ValidateAll<StandAction>(ValidateStandAction, ref warnings);
+                errors += ValidateAll<TripAction>(ValidateTripAction, ref warnings);
+        errors += ValidateAll<ShoveAction>(ValidateShoveAction, ref warnings);
+        errors += ValidateAll<GrappleAction>(ValidateGrappleAction, ref warnings);
+        errors += ValidateAll<RepositionAction>(ValidateRepositionAction, ref warnings);
+        errors += ValidateAll<DemoralizeAction>(ValidateDemoralizeAction, ref warnings);
+        errors += ValidateAll<RaiseShieldAction>(ValidateRaiseShieldAction, ref warnings);
+        errors += ValidateAll<ShieldBlockAction>(ValidateShieldBlockAction, ref warnings);
+        errors += ValidateAll<GrappleLifecycleController>(ValidateGrappleLifecycleController, ref warnings);
+        errors += ValidateAll<EscapeAction>(ValidateEscapeAction, ref warnings);
+        errors += ValidateAll<AITurnController>(ValidateAITurnController, ref warnings);
+        errors += ValidateAll<ReactionPromptController>(ValidateReactionPromptController, ref warnings);
 
         // Strict singletons for core managers (combat scene expectation)
         errors += ErrorIfMoreThanOne<GridManager>();
@@ -113,6 +124,7 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<EncounterEndPanelController>();
         errors += ErrorIfMoreThanOne<EncounterFlowController>();
         errors += ErrorIfMoreThanOne<InitiativeBarController>();
+        errors += ErrorIfMoreThanOne<TurnEconomyController>();
         errors += ErrorIfMoreThanOne<ActionBarController>();
         errors += ErrorIfMoreThanOne<TurnOptionsPresenter>();
         errors += ErrorIfMoreThanOne<ReadyStrikeEventBinder>();
@@ -140,6 +152,12 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<TurnInputController>();
         errors += ErrorIfMoreThanOne<AITurnController>();
 
+        // Critical authored UI roots must remain unique even if multiple components are not present.
+        for (int i = 0; i < CriticalUniqueUiObjectNames.Length; i++)
+        {
+            errors += ErrorIfMoreThanOneNamedObject(CriticalUniqueUiObjectNames[i]);
+        }
+
         // Presence warnings (scene might be incomplete / wrong setup)
         warnings += WarnIfNone<GridManager>();
         warnings += WarnIfNone<EntityManager>();
@@ -157,6 +175,7 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnIfNone<ReactionPromptController>();
         warnings += WarnIfNone<EncounterEndPanelController>();
         warnings += WarnIfNone<EncounterFlowController>();
+        warnings += WarnIfNone<TurnEconomyController>();
         warnings += WarnIfNone<ActionBarController>();
         warnings += WarnIfNone<TurnOptionsPresenter>();
         if (UnityEngine.Object.FindObjectsByType<TurnManager>(FindObjectsSortMode.None).Length > 0)
@@ -363,6 +382,16 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(c, "slotPrefab",     "InitiativeSlot");
     }
 
+    private static void ValidateTurnEconomyController(TurnEconomyController c, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(c, "eventBus", "CombatEventBus");
+        errors += RequireRef(c, "entityManager", "EntityManager");
+        errors += RequireRef(c, "turnManager", "TurnManager");
+        errors += RequireRef(c, "turnInputController", "TurnInputController");
+
+        warnings += WarnRef(c, "canvasGroup", "CanvasGroup");
+    }
+
     private static void ValidateActionBarController(ActionBarController c, ref int errors, ref int warnings)
     {
         errors += RequireRef(c, "eventBus", "CombatEventBus");
@@ -494,6 +523,7 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(c, "turnManager", "TurnManager");
         errors += RequireRef(c, "gridManager", "GridManager");
         errors += RequireRef(c, "targetingController", "TargetingController");
+        errors += RequireRef(c, "actionExecutor", "PlayerActionExecutor");
         errors += RequireRef(c, "canvasGroup", "CanvasGroup");
         errors += RequireRef(c, "hintText", "TMP_Text");
         warnings += WarnRef(c, "backgroundImage", "Image");
@@ -602,16 +632,18 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
 
     // ----------------- Helpers -----------------
 
-    private static int ValidateAll<T>(ValidatorDelegate<T> validate) where T : UnityEngine.Object
+    private static int ValidateAll<T>(ValidatorDelegate<T> validate, ref int warnings) where T : UnityEngine.Object
     {
         var all = UnityEngine.Object.FindObjectsByType<T>(FindObjectsSortMode.None);
         int errors = 0;
-        int warnings = 0;
+        int localWarnings = 0;
 
         foreach (var obj in all)
         {
-            validate(obj, ref errors, ref warnings);
+            validate(obj, ref errors, ref localWarnings);
         }
+
+        warnings += localWarnings;
         return errors;
     }
 
@@ -630,6 +662,41 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
             else
                 Debug.LogError($"[PF2eValidator]   {typeof(T).Name} #{i + 1}: {all[i].name}", all[i]);
         }
+        return 1;
+    }
+
+    private static int ErrorIfMoreThanOneNamedObject(string objectName)
+    {
+        if (string.IsNullOrWhiteSpace(objectName))
+            return 0;
+
+        var all = UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        if (all == null || all.Length == 0)
+            return 0;
+
+        List<Transform> matches = null;
+        for (int i = 0; i < all.Length; i++)
+        {
+            var transform = all[i];
+            if (transform == null || !string.Equals(transform.name, objectName, StringComparison.Ordinal))
+                continue;
+
+            matches ??= new List<Transform>(2);
+            matches.Add(transform);
+        }
+
+        if (matches == null || matches.Count <= 1)
+            return 0;
+
+        Debug.LogError(
+            $"[PF2eValidator] More than one critical UI object named '{objectName}' found in scene ({matches.Count}). " +
+            "This project expects exactly one authored subtree for each critical HUD root.");
+
+        for (int i = 0; i < matches.Count; i++)
+        {
+            Debug.LogError($"[PF2eValidator]   {objectName} #{i + 1}: {GetPath(matches[i])}", matches[i]);
+        }
+
         return 1;
     }
 
@@ -809,7 +876,7 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         TryGetSingleton(out TargetingController targetingController, logIfMissing: false);
         TryGetSingleton(out TurnInputController turnInputController, logIfMissing: false);
         TryGetSingleton(out CellHighlightPool highlightPool, logIfMissing: false);
-        TryGetSingleton(out Canvas rootCanvas, logIfMissing: false);
+        TryGetRootCanvas(out Canvas rootCanvas, logIfMissing: false);
         TryGetSingleton(out ReactionPromptController reactionPromptControllerSingleton, logIfMissing: false);
         TryGetSingleton(out GrappleLifecycleController grappleLifecycleSingleton, logIfMissing: false);
         TryGetSingleton(out ActionBarController actionBarControllerSingleton, logIfMissing: false);
@@ -1046,6 +1113,15 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         if (eventBus != null)
             fixedCount += FixAll<InitiativeBarController>("eventBus", eventBus);
 
+        // TurnEconomyController
+        fixedCount += FixAll<TurnEconomyController>("entityManager", entityManager);
+        fixedCount += FixAll<TurnEconomyController>("turnManager", turnManager);
+        if (eventBus != null)
+            fixedCount += FixAll<TurnEconomyController>("eventBus", eventBus);
+        if (turnInputController != null)
+            fixedCount += FixAll<TurnEconomyController>("turnInputController", turnInputController);
+        fixedCount += AutoWireTurnEconomyController();
+
         // ActionBarController (Phase 23)
         fixedCount += FixAll<ActionBarController>("entityManager", entityManager);
         fixedCount += FixAll<ActionBarController>("turnManager", turnManager);
@@ -1081,6 +1157,8 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
             fixedCount += FixAll<TargetingHintController>("gridManager", gridManager);
             if (targetingController != null)
                 fixedCount += FixAll<TargetingHintController>("targetingController", targetingController);
+            if (actionExecutor != null)
+                fixedCount += FixAll<TargetingHintController>("actionExecutor", actionExecutor);
             fixedCount += AutoWireTargetingHintController(targetingHintControllerSingleton);
         }
 
@@ -1176,6 +1254,50 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         return true;
     }
 
+    private static bool TryGetRootCanvas(out Canvas instance, bool logIfMissing = true)
+    {
+        instance = null;
+        var all = UnityEngine.Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None);
+
+        if (all == null || all.Length == 0)
+        {
+            if (logIfMissing)
+                Debug.LogError("[PF2eAutoFix] Missing required root Canvas.");
+            return false;
+        }
+
+        List<Canvas> roots = null;
+        for (int i = 0; i < all.Length; i++)
+        {
+            var canvas = all[i];
+            if (canvas == null || canvas.rootCanvas != canvas)
+                continue;
+
+            roots ??= new List<Canvas>(1);
+            roots.Add(canvas);
+        }
+
+        if (roots == null || roots.Count == 0)
+        {
+            if (logIfMissing)
+                Debug.LogError("[PF2eAutoFix] Missing required root Canvas.");
+            return false;
+        }
+
+        if (roots.Count > 1)
+        {
+            Debug.LogError($"[PF2eAutoFix] More than one root Canvas found ({roots.Count}). Auto-fix requires exactly one top-level HUD canvas.");
+            for (int i = 0; i < roots.Count; i++)
+            {
+                Debug.LogError($"[PF2eAutoFix]   Root Canvas #{i + 1}: {GetPath(roots[i].transform)}", roots[i]);
+            }
+            return false;
+        }
+
+        instance = roots[0];
+        return true;
+    }
+
     private static int FixAll<TTarget>(string fieldName, UnityEngine.Object value) where TTarget : Component
     {
         if (value == null) return 0;
@@ -1267,6 +1389,24 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         fixedCount += EnsureCastSpellActionBarUi(bar, root);
         fixedCount += EnsureLauncherActionBarUi(bar, root);
         fixedCount += EnsureAidActionBarUi(bar, root);
+
+        return fixedCount;
+    }
+
+    private static int AutoWireTurnEconomyController()
+    {
+        var all = UnityEngine.Object.FindObjectsByType<TurnEconomyController>(FindObjectsSortMode.None);
+        if (all == null || all.Length == 0)
+            return 0;
+
+        int fixedCount = 0;
+        foreach (var hud in all)
+        {
+            if (hud == null)
+                continue;
+
+            fixedCount += TryAssignIfNull(hud, "canvasGroup", hud.GetComponent<CanvasGroup>());
+        }
 
         return fixedCount;
     }

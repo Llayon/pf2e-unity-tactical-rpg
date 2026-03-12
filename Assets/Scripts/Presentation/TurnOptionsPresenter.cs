@@ -545,10 +545,12 @@ namespace PF2e.Presentation
             var label = labelGo.AddComponent<TextMeshProUGUI>();
             label.text = "...";
             label.alignment = TextAlignmentOptions.Center;
-            label.fontSize = 15f;
+            label.fontSize = 16f;
+            label.characterSpacing = 0.25f;
             label.color = buttonTextColor;
             label.raycastTarget = false;
             label.enableWordWrapping = false;
+            label.enableKerning = true;
 
             var labelRect = label.GetComponent<RectTransform>();
             labelRect.anchorMin = Vector2.zero;
@@ -627,10 +629,12 @@ namespace PF2e.Presentation
             var label = labelGo.AddComponent<TextMeshProUGUI>();
             label.text = name;
             label.alignment = TextAlignmentOptions.Center;
-            label.fontSize = 12f;
+            label.fontSize = 15f;
+            label.characterSpacing = 0.2f;
             label.color = buttonTextColor;
             label.raycastTarget = false;
             label.enableWordWrapping = false;
+            label.enableKerning = true;
 
             var labelRect = label.GetComponent<RectTransform>();
             labelRect.anchorMin = Vector2.zero;

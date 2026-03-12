@@ -13,21 +13,49 @@ using PF2e.Presentation;
 /// </summary>
 public static class CombatLogUIBuilder
 {
+    internal static Canvas FindAuthoringCanvas()
+    {
+        var canvases = Object.FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        if (canvases == null || canvases.Length == 0)
+            return null;
+
+        Canvas fallbackRootCanvas = null;
+        for (int i = 0; i < canvases.Length; i++)
+        {
+            var canvas = canvases[i];
+            if (canvas == null || canvas.rootCanvas != canvas)
+                continue;
+
+            if (canvas.name == "Canvas")
+                return canvas;
+
+            fallbackRootCanvas ??= canvas;
+        }
+
+        return fallbackRootCanvas;
+    }
+
+    internal static Canvas FindOrCreateAuthoringCanvas()
+    {
+        var canvas = FindAuthoringCanvas();
+        if (canvas != null)
+            return canvas;
+
+        var canvasGO = new GameObject("Canvas");
+        canvas = canvasGO.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvasGO.AddComponent<CanvasScaler>();
+        canvasGO.AddComponent<GraphicRaycaster>();
+        Undo.RegisterCreatedObjectUndo(canvasGO, "Create Canvas");
+        Debug.Log("[CombatLogUIBuilder] Created Canvas");
+        return canvas;
+    }
+
     [MenuItem("Tools/PF2e/Build Combat Log UI")]
     public static void BuildCombatLogUI()
     {
-        // 1. Find or create Canvas
-        Canvas canvas = Object.FindAnyObjectByType<Canvas>();
-        if (canvas == null)
-        {
-            var canvasGO = new GameObject("Canvas");
-            canvas = canvasGO.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvasGO.AddComponent<CanvasScaler>();
-            canvasGO.AddComponent<GraphicRaycaster>();
-            Undo.RegisterCreatedObjectUndo(canvasGO, "Create Canvas");
-            Debug.Log("[CombatLogUIBuilder] Created Canvas");
-        }
+        // 1. Find or create the authored top-level HUD canvas.
+        Canvas canvas = FindOrCreateAuthoringCanvas();
 
         // 2. Check if CombatLogHUD already exists
         var existing = canvas.transform.Find("CombatLogHUD");

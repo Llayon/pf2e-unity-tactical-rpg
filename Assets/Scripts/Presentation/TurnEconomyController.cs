@@ -243,10 +243,12 @@ namespace PF2e.Presentation
 
             tmp.text = "End Turn";
             tmp.alignment = TextAlignmentOptions.Center;
-            tmp.fontSize = 14f;
+            tmp.fontSize = 20f;
+            tmp.characterSpacing = 0.35f;
             tmp.color = new Color(0.93f, 0.95f, 0.99f, 1f);
             tmp.raycastTarget = false;
             tmp.enableWordWrapping = false;
+            tmp.enableKerning = true;
 
             return button;
         }

@@ -379,10 +379,12 @@ namespace PF2e.Presentation
 
             var tmp = labelGo.GetComponent<TextMeshProUGUI>();
             tmp.text = label;
-            tmp.fontSize = 24f;
+            tmp.fontSize = 20f;
+            tmp.characterSpacing = 0.35f;
             tmp.color = Color.white;
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.enableAutoSizing = false;
+            tmp.enableKerning = true;
 
             return buttonGo.GetComponent<Button>();
         }
