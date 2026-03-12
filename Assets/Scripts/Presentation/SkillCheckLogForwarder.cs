@@ -50,7 +50,10 @@ namespace PF2e.Presentation
                 : string.Empty;
             string degreeLabel = TooltipTextBuilder.FormatDegreeLabel(e.degree);
             string signedModifier = RollBreakdownFormatter.FormatSigned(e.roll.modifier);
-            string rollTotalLink = CombatLogLinkHelper.Link(CombatLogLinkTokens.Result, $"{e.roll.total} - {degreeLabel}");
+            string rollTotalLink = CombatLogLinkHelper.Link(
+                CombatLogLinkTokens.Result,
+                CombatLogRichText.OutcomeSummary(e.roll.total, e.degree),
+                CombatLogRichText.DegreeColor(e.degree));
             var tooltipPayload = new CombatLogTooltipPayload(new[]
             {
                 new TooltipEntry(
@@ -61,7 +64,8 @@ namespace PF2e.Presentation
                         e.defenseSource,
                         e.dc,
                         e.degree,
-                        e.aidCircumstanceBonus))
+                        e.aidCircumstanceBonus),
+                    TooltipLayoutProfile.Standard)
             });
 
             eventBus.Publish(

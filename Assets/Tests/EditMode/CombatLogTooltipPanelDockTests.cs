@@ -3,6 +3,7 @@ using NUnit.Framework;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using PF2e.Core;
 using PF2e.Presentation;
 
 namespace PF2e.Tests
@@ -93,10 +94,14 @@ namespace PF2e.Tests
             SetPrivateField(panel, "rootCanvas", canvas);
             SetPrivateField(panel, "dockTarget", dockTargetRect);
             SetPrivateField(panel, "dockViewport", viewportRect);
-            SetPrivateField(panel, "minWidth", 280f);
-            SetPrivateField(panel, "maxWidth", 360f);
-            SetPrivateField(panel, "edgePadding", 8f);
-            SetPrivateField(panel, "dockGap", 14f);
+            SetPrivateField(panel, "minWidth", 420f);
+            SetPrivateField(panel, "maxWidth", 560f);
+            SetPrivateField(panel, "compactMinWidth", 360f);
+            SetPrivateField(panel, "compactMaxWidth", 500f);
+            SetPrivateField(panel, "extendedMinWidth", 480f);
+            SetPrivateField(panel, "extendedMaxWidth", 640f);
+            SetPrivateField(panel, "edgePadding", 24f);
+            SetPrivateField(panel, "dockGap", 20f);
         }
 
         [TearDown]
@@ -116,6 +121,13 @@ namespace PF2e.Tests
             Canvas.ForceUpdateCanvases();
 
             Assert.That(panelRect.pivot.x, Is.EqualTo(1f).Within(0.001f));
+
+            var panelCorners = new Vector3[4];
+            panelRect.GetWorldCorners(panelCorners);
+            var rootCorners = new Vector3[4];
+            rootRect.GetWorldCorners(rootCorners);
+
+            Assert.GreaterOrEqual(panelCorners[0].x, rootCorners[0].x + 23.5f);
         }
 
         [Test]
@@ -139,8 +151,8 @@ namespace PF2e.Tests
             float rootBottom = rootCorners[0].y;
             float rootTop = rootCorners[1].y;
 
-            Assert.GreaterOrEqual(panelBottom, rootBottom - 0.5f);
-            Assert.LessOrEqual(panelTop, rootTop + 0.5f);
+            Assert.GreaterOrEqual(panelBottom, rootBottom + 23.5f);
+            Assert.LessOrEqual(panelTop, rootTop - 23.5f);
         }
 
         [Test]
@@ -148,14 +160,64 @@ namespace PF2e.Tests
         {
             panel.Show("Short", "Body", new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
             Canvas.ForceUpdateCanvases();
-            Assert.GreaterOrEqual(panelRect.rect.width, 279.5f);
+            Assert.GreaterOrEqual(panelRect.rect.width, 419.5f);
 
             panel.Show(
                 "Very Long Tooltip Title",
                 "Body with long text that should drive preferred width above maximum and force clamp to max width value for readability.",
                 new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
             Canvas.ForceUpdateCanvases();
-            Assert.LessOrEqual(panelRect.rect.width, 360.5f);
+            Assert.LessOrEqual(panelRect.rect.width, 560.5f);
+        }
+
+        [Test]
+        public void Show_CompactProfile_UsesCompactWidthRange()
+        {
+            panel.Show(
+                "Damage Breakdown",
+                "Damage Roll\n<mspace=0.60em>   8</mspace> Base Damage\nTotal: 8 SLASHING",
+                new Vector2(Screen.width * 0.5f, Screen.height * 0.5f),
+                TooltipLayoutProfile.Compact);
+            Canvas.ForceUpdateCanvases();
+
+            Assert.GreaterOrEqual(panelRect.rect.width, 359.5f);
+            Assert.LessOrEqual(panelRect.rect.width, 500.5f);
+        }
+
+        [Test]
+        public void Show_ProfileAppliesTypographyAndLayoutPresets()
+        {
+            panel.Show(
+                "Standard",
+                "Result body",
+                new Vector2(Screen.width * 0.5f, Screen.height * 0.5f),
+                TooltipLayoutProfile.Standard);
+            Canvas.ForceUpdateCanvases();
+
+            var layout = panelRect.GetComponent<VerticalLayoutGroup>();
+            Assert.NotNull(layout);
+            Assert.That(titleText.fontSize, Is.EqualTo(20f).Within(0.01f));
+            Assert.That(bodyText.fontSize, Is.EqualTo(18f).Within(0.01f));
+            Assert.That(bodyText.characterSpacing, Is.EqualTo(2f).Within(0.01f));
+            Assert.That(titleText.characterSpacing, Is.EqualTo(2f).Within(0.01f));
+            Assert.That(bodyText.lineSpacing, Is.EqualTo(5f).Within(0.01f));
+            Assert.AreEqual(16, layout.padding.left);
+            Assert.That(layout.spacing, Is.EqualTo(7f).Within(0.01f));
+
+            panel.Show(
+                "Compact",
+                "Damage body",
+                new Vector2(Screen.width * 0.5f, Screen.height * 0.5f),
+                TooltipLayoutProfile.Compact);
+            Canvas.ForceUpdateCanvases();
+
+            Assert.That(titleText.fontSize, Is.EqualTo(18f).Within(0.01f));
+            Assert.That(bodyText.fontSize, Is.EqualTo(16f).Within(0.01f));
+            Assert.That(bodyText.characterSpacing, Is.EqualTo(2f).Within(0.01f));
+            Assert.That(titleText.characterSpacing, Is.EqualTo(2f).Within(0.01f));
+            Assert.That(bodyText.lineSpacing, Is.EqualTo(4f).Within(0.01f));
+            Assert.AreEqual(14, layout.padding.left);
+            Assert.That(layout.spacing, Is.EqualTo(6f).Within(0.01f));
         }
 
         [Test]

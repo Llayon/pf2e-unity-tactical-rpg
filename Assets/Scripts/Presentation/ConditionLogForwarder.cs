@@ -28,26 +28,34 @@ namespace PF2e.Presentation
 
         private void Handle(in ConditionChangedEvent e)
         {
-            string rawName = ConditionRules.DisplayName(e.conditionType);
+            string conditionName = ConditionRules.DisplayName(e.conditionType);
             bool valued = ConditionRules.IsValued(e.conditionType);
 
             string msg = e.changeType switch
             {
-                ConditionChangeType.Added => valued && e.newValue > 0
-                    ? $"gains {rawName} {e.newValue}"
-                    : $"gains {rawName}",
+                ConditionChangeType.Added => CombatLogRichText.StatusAppliedSuffix(
+                    BuildConditionLabel(conditionName, valued, e.newValue)),
                 ConditionChangeType.Removed =>
-                    $"loses {rawName}",
-                ConditionChangeType.ValueChanged => e.newValue < e.oldValue
-                    ? $"{rawName} decreases to {e.newValue}"
-                    : $"{rawName} increases to {e.newValue}",
+                    CombatLogRichText.StatusRemovedSuffix(conditionName),
+                ConditionChangeType.ValueChanged => CombatLogRichText.StatusAppliedSuffix(
+                    BuildConditionLabel(conditionName, valued, e.newValue)),
                 ConditionChangeType.DurationChanged => e.newRemainingRounds >= 0
-                    ? $"{rawName} duration decreases to {e.newRemainingRounds}"
-                    : $"{rawName} duration changed",
-                _ => $"{rawName} changed"
+                    ? $"{conditionName} duration decreases to {e.newRemainingRounds}"
+                    : $"{conditionName} duration changed",
+                _ => $"{conditionName} changed"
             };
 
             eventBus.Publish(e.entity, msg, CombatLogCategory.Condition);
+        }
+
+        private static string BuildConditionLabel(string conditionName, bool valued, int value)
+        {
+            if (valued && value > 0)
+            {
+                return $"{conditionName} {value}";
+            }
+
+            return conditionName;
         }
     }
 }

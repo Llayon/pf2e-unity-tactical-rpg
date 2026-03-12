@@ -415,15 +415,30 @@ namespace PF2e.Presentation
             canvasGroup.interactable = inCombat;
         }
 
-        public Queue<TextMeshProUGUI> GetActiveLines()
+        /// <summary>
+        /// Returns a read-only view of current active line instances.
+        /// Ownership stays in CombatLogController.
+        /// </summary>
+        public IReadOnlyCollection<TextMeshProUGUI> GetActiveLines()
         {
             return activeLines;
         }
 
         public bool TryGetTooltip(TextMeshProUGUI line, string token, out string title, out string body)
         {
+            return TryGetTooltip(line, token, out title, out body, out _);
+        }
+
+        public bool TryGetTooltip(
+            TextMeshProUGUI line,
+            string token,
+            out string title,
+            out string body,
+            out TooltipLayoutProfile layoutProfile)
+        {
             title = string.Empty;
             body = string.Empty;
+            layoutProfile = TooltipLayoutProfile.Standard;
 
             if (line == null || string.IsNullOrEmpty(token))
             {
@@ -441,6 +456,7 @@ namespace PF2e.Presentation
                 {
                     title = entries[i].title ?? string.Empty;
                     body = entries[i].body ?? string.Empty;
+                    layoutProfile = entries[i].layoutProfile;
                     return true;
                 }
             }

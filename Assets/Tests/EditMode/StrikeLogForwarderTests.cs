@@ -34,7 +34,9 @@ namespace PF2e.Tests
 
                 Assert.GreaterOrEqual(count, 1);
                 var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.Result);
-                StringAssert.Contains("Range Penalty: -2", atkEntry.body);
+                Assert.AreEqual(TooltipLayoutProfile.Standard, atkEntry.layoutProfile);
+                StringAssert.Contains("Range Penalty", atkEntry.body);
+                StringAssert.Contains("-2", atkEntry.body);
             }
             finally
             {
@@ -77,7 +79,7 @@ namespace PF2e.Tests
 
                 Assert.GreaterOrEqual(count, 1);
                 var stripped = Strip(first.Message);
-                StringAssert.Contains("rolls 12-2 = 10 - Failure", stripped);
+                StringAssert.Contains("rolls 12-2 = 10 Failure", stripped);
                 StringAssert.DoesNotContain("+-", stripped);
             }
             finally
@@ -112,8 +114,9 @@ namespace PF2e.Tests
 
                 Assert.GreaterOrEqual(count, 1);
                 var stripped = Strip(first.Message);
-                StringAssert.Contains("rolls 12+4 = 16 - Failure", stripped);
+                StringAssert.Contains("rolls 12+4 = 16 Failure", stripped);
                 var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.Result);
+                Assert.AreEqual(TooltipLayoutProfile.Standard, atkEntry.layoutProfile);
                 StringAssert.DoesNotContain("Range Penalty:", atkEntry.body);
             }
             finally
@@ -159,6 +162,7 @@ namespace PF2e.Tests
 
                 Assert.GreaterOrEqual(count, 1);
                 var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.Result);
+                Assert.AreEqual(TooltipLayoutProfile.Standard, atkEntry.layoutProfile);
                 StringAssert.DoesNotContain("Range Penalty:", atkEntry.body);
             }
             finally
@@ -204,7 +208,9 @@ namespace PF2e.Tests
 
                 Assert.GreaterOrEqual(count, 1);
                 var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.Result);
-                StringAssert.Contains("Volley Penalty: -2", atkEntry.body);
+                Assert.AreEqual(TooltipLayoutProfile.Standard, atkEntry.layoutProfile);
+                StringAssert.Contains("Volley Penalty", atkEntry.body);
+                StringAssert.Contains("-2", atkEntry.body);
             }
             finally
             {
@@ -249,7 +255,9 @@ namespace PF2e.Tests
 
                 Assert.GreaterOrEqual(count, 1);
                 var atkEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.Result);
-                StringAssert.Contains("Aid: +2", atkEntry.body);
+                Assert.AreEqual(TooltipLayoutProfile.Standard, atkEntry.layoutProfile);
+                StringAssert.Contains("Aid", atkEntry.body);
+                StringAssert.Contains("+2", atkEntry.body);
             }
             finally
             {
@@ -339,7 +347,9 @@ namespace PF2e.Tests
 
                 Assert.GreaterOrEqual(count, 1);
                 var acEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.Result);
-                StringAssert.Contains("Cover: +2", acEntry.body);
+                Assert.AreEqual(TooltipLayoutProfile.Standard, acEntry.layoutProfile);
+                StringAssert.Contains("Cover", acEntry.body);
+                StringAssert.Contains("+2", acEntry.body);
             }
             finally
             {
@@ -515,10 +525,15 @@ namespace PF2e.Tests
                 Assert.GreaterOrEqual(count, 2);
                 Assert.GreaterOrEqual(tooltipCount, 2);
                 StringAssert.Contains("link=\"dmg\"", second.Message);
+                Assert.IsFalse(Regex.IsMatch(second.Message, "<link=\"dmg\">.*damage.*</link>"));
+                Assert.IsTrue(Regex.IsMatch(second.Message, "<link=\"dmg\">.*Piercing.*</link>"));
                 StringAssert.Contains("DEADLY+6", second.Message);
+                StringAssert.Contains("14 Piercing damage", Strip(second.Message));
                 var dmgEntry = FindTooltipEntry(secondPayload, CombatLogLinkTokens.DamageTotal);
                 Assert.AreEqual("Damage Breakdown", dmgEntry.title);
-                StringAssert.Contains("Deadly Bonus: +6", dmgEntry.body);
+                Assert.AreEqual(TooltipLayoutProfile.Compact, dmgEntry.layoutProfile);
+                StringAssert.Contains("Deadly Bonus", dmgEntry.body);
+                StringAssert.Contains("+6", dmgEntry.body);
             }
             finally
             {
@@ -571,10 +586,15 @@ namespace PF2e.Tests
                 Assert.GreaterOrEqual(count, 2);
                 Assert.GreaterOrEqual(tooltipCount, 2);
                 StringAssert.Contains("link=\"dmg\"", second.Message);
+                Assert.IsFalse(Regex.IsMatch(second.Message, "<link=\"dmg\">.*damage.*</link>"));
+                Assert.IsTrue(Regex.IsMatch(second.Message, "<link=\"dmg\">.*Piercing.*</link>"));
                 StringAssert.Contains("FATAL+4", second.Message);
+                StringAssert.Contains("12 Piercing damage", Strip(second.Message));
                 var dmgEntry = FindTooltipEntry(secondPayload, CombatLogLinkTokens.DamageTotal);
                 Assert.AreEqual("Damage Breakdown", dmgEntry.title);
-                StringAssert.Contains("Fatal Bonus: +4", dmgEntry.body);
+                Assert.AreEqual(TooltipLayoutProfile.Compact, dmgEntry.layoutProfile);
+                StringAssert.Contains("Fatal Bonus", dmgEntry.body);
+                StringAssert.Contains("+4", dmgEntry.body);
             }
             finally
             {
@@ -628,12 +648,18 @@ namespace PF2e.Tests
                 Assert.GreaterOrEqual(count, 2);
                 Assert.GreaterOrEqual(tooltipCount, 2);
                 StringAssert.Contains("link=\"dmg\"", second.Message);
+                Assert.IsFalse(Regex.IsMatch(second.Message, "<link=\"dmg\">.*damage.*</link>"));
+                Assert.IsTrue(Regex.IsMatch(second.Message, "<link=\"dmg\">.*Piercing.*</link>"));
                 StringAssert.Contains("FATAL+4", second.Message);
                 StringAssert.Contains("DEADLY+6", second.Message);
+                StringAssert.Contains("19 Piercing damage", Strip(second.Message));
                 var dmgEntry = FindTooltipEntry(secondPayload, CombatLogLinkTokens.DamageTotal);
                 Assert.AreEqual("Damage Breakdown", dmgEntry.title);
-                StringAssert.Contains("Fatal Bonus: +4", dmgEntry.body);
-                StringAssert.Contains("Deadly Bonus: +6", dmgEntry.body);
+                Assert.AreEqual(TooltipLayoutProfile.Compact, dmgEntry.layoutProfile);
+                StringAssert.Contains("Fatal Bonus", dmgEntry.body);
+                StringAssert.Contains("+4", dmgEntry.body);
+                StringAssert.Contains("Deadly Bonus", dmgEntry.body);
+                StringAssert.Contains("+6", dmgEntry.body);
             }
             finally
             {
@@ -657,6 +683,48 @@ namespace PF2e.Tests
             }
         }
 
+        [Test]
+        public void StrikeLog_TargetDefeated_PublishesStatusStyleDeathLine()
+        {
+            using var ctx = new StrikeLogContext();
+            var attacker = ctx.RegisterEntity("Fighter", Team.Player);
+            var target = ctx.RegisterEntity("Goblin_1", Team.Enemy);
+
+            var ev = CreateStrikeEvent(
+                attacker,
+                target,
+                degree: DegreeOfSuccess.Success,
+                damage: 12,
+                hpBefore: 6,
+                hpAfter: 0,
+                targetDefeated: true);
+
+            CombatLogEntry third = default;
+            int count = 0;
+            ctx.EventBus.OnLogEntry += HandleLog;
+            try
+            {
+                ctx.EventBus.PublishStrikeResolved(in ev);
+
+                Assert.AreEqual(3, count);
+                Assert.AreEqual(target, third.Actor);
+                Assert.AreEqual(CombatLogCategory.Condition, third.Category);
+                StringAssert.Contains("is now", Strip(third.Message));
+                StringAssert.Contains("Dead", Strip(third.Message));
+                StringAssert.DoesNotContain("defeated", Strip(third.Message));
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry)
+            {
+                count++;
+                if (count == 3) third = entry;
+            }
+        }
+
         private static StrikeResolvedEvent CreateStrikeEvent(
             EntityHandle attacker,
             EntityHandle target,
@@ -673,7 +741,8 @@ namespace PF2e.Tests
             int fatalBonusDamage = 0,
             int deadlyBonusDamage = 0,
             int hpBefore = 20,
-            int hpAfter = 20)
+            int hpAfter = 20,
+            bool targetDefeated = false)
         {
             return new StrikeResolvedEvent(
                 attacker,
@@ -689,7 +758,7 @@ namespace PF2e.Tests
                 damageType: DamageType.Piercing,
                 hpBefore: hpBefore,
                 hpAfter: hpAfter,
-                targetDefeated: false,
+                targetDefeated: targetDefeated,
                 rangePenalty: rangePenalty,
                 volleyPenalty: volleyPenalty,
                 aidCircumstanceBonus: aidCircumstanceBonus,

@@ -59,7 +59,17 @@ namespace PF2e.Core
         public delegate void ReadyTriggerModeChangedHandler(in ReadyTriggerModeChangedEvent e);
         public delegate void LogEntryWithTooltipHandler(CombatLogEntry entry, CombatLogTooltipPayload? tooltipPayload);
 
+        /// <summary>
+        /// Legacy/plain combat-log stream.
+        /// Every Publish call also fires <see cref="OnLogEntryWithTooltip"/>.
+        /// Subscribe to one stream unless you intentionally handle duplicates.
+        /// </summary>
         public event Action<CombatLogEntry> OnLogEntry;
+        /// <summary>
+        /// Tooltip-capable combat-log stream (entry + optional payload).
+        /// Every Publish call also fires <see cref="OnLogEntry"/>.
+        /// Subscribe to one stream unless you intentionally handle duplicates.
+        /// </summary>
         public event LogEntryWithTooltipHandler OnLogEntryWithTooltip;
         public event StrikePreDamageHandler OnStrikePreDamageTyped;
         public event StrikeResolvedHandler OnStrikeResolved;
@@ -86,6 +96,10 @@ namespace PF2e.Core
             Publish(entry, null);
         }
 
+        /// <summary>
+        /// Dual-fire invariant: every publish emits BOTH streams in this order:
+        /// <see cref="OnLogEntryWithTooltip"/> then <see cref="OnLogEntry"/>.
+        /// </summary>
         public void Publish(CombatLogEntry entry, CombatLogTooltipPayload? tooltipPayload)
         {
             OnLogEntryWithTooltip?.Invoke(entry, tooltipPayload);

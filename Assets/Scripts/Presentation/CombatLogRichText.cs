@@ -8,30 +8,33 @@ namespace PF2e.Presentation
     /// </summary>
     public static class CombatLogRichText
     {
+        private const string AccentFont = "Lora SDF";
+
         // Entity names
-        public const string PlayerColor = "#8CBFD8";
-        public const string EnemyColor = "#D98A5B";
-        public const string NeutralColor = "#D6D0C4";
+        public const string PlayerColor = CombatUiPalette.PlayerNameHex;
+        public const string EnemyColor = CombatUiPalette.EnemyNameHex;
+        public const string NeutralColor = CombatUiPalette.NeutralTextHex;
 
         // Elements
-        public const string WeaponColor = "#E8DCC0";
-        public const string VerbColor = "#E8E4DA";
-        public const string RoundColor = "#A09A8E";
-        public const string ConditionGainColor = "#D9A0A0";
-        public const string ConditionLoseColor = "#A0D8D8";
-        public const string DefeatedColor = "#D15A5A";
-        public const string HealColor = "#4AE04A";
+        public const string WeaponColor = CombatUiPalette.WeaponTextHex;
+        public const string VerbColor = CombatUiPalette.NarrativeTextHex;
+        public const string RoundColor = CombatUiPalette.RoundHex;
+        public const string ConditionGainColor = CombatUiPalette.ConditionGainHex;
+        public const string ConditionLoseColor = CombatUiPalette.ConditionLoseHex;
+        public const string DefeatedColor = CombatUiPalette.DefeatedHex;
+        public const string StatusTokenColor = CombatUiPalette.StatusTokenHex;
+        public const string HealColor = CombatUiPalette.HealHex;
 
         // Degree of success
-        public const string SuccessColor = "#4AE04A";
-        public const string FailureColor = "#D15A5A";
-        public const string CritSuccessColor = "#FFD700";
-        public const string CritFailureColor = "#B84040";
+        public const string SuccessColor = CombatUiPalette.SuccessHex;
+        public const string FailureColor = CombatUiPalette.FailureHex;
+        public const string CritSuccessColor = CombatUiPalette.CritSuccessHex;
+        public const string CritFailureColor = CombatUiPalette.CritFailureHex;
 
         // Damage types
-        public const string SlashingColor = "#E05050";
-        public const string PiercingColor = "#6090D0";
-        public const string BludgeoningColor = "#D0D0D0";
+        public const string SlashingColor = CombatUiPalette.SlashingHex;
+        public const string PiercingColor = CombatUiPalette.PiercingHex;
+        public const string BludgeoningColor = CombatUiPalette.BludgeoningHex;
 
         public static string EntityName(string name, Team team)
         {
@@ -41,14 +44,42 @@ namespace PF2e.Presentation
                 Team.Enemy => EnemyColor,
                 _ => NeutralColor
             };
-            return $"<color={c}><b>{name}</b></color>";
+            return $"<font=\"{AccentFont}\"><size=104%><color={c}><b>{name}</b></color></size></font>";
         }
 
         public static string Weapon(string name) =>
-            $"<b><color={WeaponColor}>{name}</color></b>";
+            $"<font=\"{AccentFont}\"><size=104%><cspace=0.55><b><color={WeaponColor}>{name}</color></b></cspace></size></font>";
+
+        public static string Narrative(string text) =>
+            $"<size=104%><cspace=0.12><color={VerbColor}>{text}</color></cspace></size>";
+
+        public static string NarrativeAccent(string text, string colorHex) =>
+            $"<size=104%><cspace=0.12><color={colorHex}>{text}</color></cspace></size>";
+
+        public static string StatusToken(string text) =>
+            $"<size=104%><cspace=0.12><color={StatusTokenColor}>{text}</color></cspace></size>";
+
+        public static string StatusAppliedSuffix(string statusLabel) =>
+            $"{Verb("is now")} {StatusToken(statusLabel)}.";
+
+        public static string StatusRemovedSuffix(string statusLabel) =>
+            $"{Verb("is no longer")} {StatusToken(statusLabel)}.";
 
         public static string Verb(string text) =>
-            $"<color={VerbColor}>{text}</color>";
+            Narrative(text);
+
+        public static string Secondary(string text) =>
+            $"<color={CombatUiPalette.SecondaryNoteHex}>{text}</color>";
+
+        public static string MinorNote(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return string.Empty;
+            }
+
+            return $"<size=92%><color={CombatUiPalette.SecondaryNoteHex}>{text}</color></size>";
+        }
 
         public static string Round(string text) =>
             $"<color={RoundColor}>{text}</color>";
@@ -57,10 +88,10 @@ namespace PF2e.Presentation
         {
             return degree switch
             {
-                DegreeOfSuccess.CriticalSuccess => $"<color={CritSuccessColor}><b><u>Critical Success!</u></b></color>",
-                DegreeOfSuccess.Success => $"<color={SuccessColor}><b><u>Success!</u></b></color>",
-                DegreeOfSuccess.Failure => $"<color={FailureColor}><b><u>Failure</u></b></color>",
-                DegreeOfSuccess.CriticalFailure => $"<color={CritFailureColor}><b><u>Critical Failure!</u></b></color>",
+                DegreeOfSuccess.CriticalSuccess => $"<size=110%><color={CritSuccessColor}><b><u>Critical Success!</u></b></color></size>",
+                DegreeOfSuccess.Success => $"<size=110%><color={SuccessColor}><b><u>Success!</u></b></color></size>",
+                DegreeOfSuccess.Failure => $"<size=110%><color={FailureColor}><b><u>Failure</u></b></color></size>",
+                DegreeOfSuccess.CriticalFailure => $"<size=110%><color={CritFailureColor}><b><u>Critical Failure!</u></b></color></size>",
                 _ => degree.ToString()
             };
         }
@@ -69,37 +100,69 @@ namespace PF2e.Presentation
         {
             return degree switch
             {
-                DegreeOfSuccess.CriticalSuccess => $"<color={CritSuccessColor}><b>Critical!</b></color>",
-                DegreeOfSuccess.Success => $"<color={SuccessColor}><b>Success</b></color>",
-                DegreeOfSuccess.Failure => $"<color={FailureColor}><b>Failure</b></color>",
-                DegreeOfSuccess.CriticalFailure => $"<color={CritFailureColor}><b>Crit Fail!</b></color>",
+                DegreeOfSuccess.CriticalSuccess => $"<size=110%><color={CritSuccessColor}><b>Critical!</b></color></size>",
+                DegreeOfSuccess.Success => $"<size=110%><color={SuccessColor}><b>Success</b></color></size>",
+                DegreeOfSuccess.Failure => $"<size=110%><color={FailureColor}><b>Failure</b></color></size>",
+                DegreeOfSuccess.CriticalFailure => $"<size=110%><color={CritFailureColor}><b>Crit Fail!</b></color></size>",
                 _ => degree.ToString()
             };
         }
 
         public static string Damage(int amount) =>
-            $"<b>{amount}</b>";
+            $"<size=110%><color={CombatUiPalette.TooltipValueHex}><b>{amount}</b></color></size>";
+
+        public static string DamageAmountAndType(int amount, DamageType type)
+        {
+            return $"<size=108%><cspace=0.08><color={CombatUiPalette.DamageAccentHex}><nobr>{amount} {type}</nobr></color></cspace></size>";
+        }
+
+        public static string OutcomeTotal(int total)
+        {
+            return $"<size=110%><color={CombatUiPalette.TooltipValueHex}><b>{total}</b></color></size>";
+        }
+
+        public static string DegreeSummary(DegreeOfSuccess degree)
+        {
+            return degree switch
+            {
+                DegreeOfSuccess.CriticalSuccess => $"<size=110%><color={CritSuccessColor}><b>Critical Success!</b></color></size>",
+                DegreeOfSuccess.Success => $"<size=110%><color={SuccessColor}><b>Success!</b></color></size>",
+                DegreeOfSuccess.Failure => $"<size=110%><color={FailureColor}><b>Failure</b></color></size>",
+                DegreeOfSuccess.CriticalFailure => $"<size=110%><color={CritFailureColor}><b>Critical Failure!</b></color></size>",
+                _ => degree.ToString()
+            };
+        }
+
+        public static string OutcomeSummary(int total, DegreeOfSuccess degree)
+        {
+            return $"<font=\"{AccentFont}\"><size=110%><nobr>{total} {TooltipTextBuilder.FormatDegreeLabel(degree)}</nobr></size></font>";
+        }
+
+        public static string DegreeColor(DegreeOfSuccess degree)
+        {
+            return degree switch
+            {
+                DegreeOfSuccess.CriticalSuccess => CritSuccessColor,
+                DegreeOfSuccess.Success => SuccessColor,
+                DegreeOfSuccess.Failure => FailureColor,
+                DegreeOfSuccess.CriticalFailure => CritFailureColor,
+                _ => CombatUiPalette.TooltipBodyHex
+            };
+        }
 
         public static string DmgType(DamageType type)
         {
-            string c = type switch
-            {
-                DamageType.Slashing => SlashingColor,
-                DamageType.Piercing => PiercingColor,
-                DamageType.Bludgeoning => BludgeoningColor,
-                _ => "#FFFFFF"
-            };
-            return $"<color={c}>{type}</color>";
+            return $"<b><color={GetDamageTypeColor(type)}>{type}</color></b>";
         }
 
         public static string ConditionGain(string name) =>
-            $"<color={ConditionGainColor}>{name}</color>";
+            StatusToken(name);
 
         public static string ConditionLose(string name) =>
-            $"<color={ConditionLoseColor}>{name}</color>";
+            StatusToken(name);
 
-        public static string Defeated(string name) =>
-            $"<color={DefeatedColor}><b>{name}</b></color> {Verb("is")} <color={DefeatedColor}><b>defeated</b></color>.";
+        public static string Defeated() =>
+            StatusAppliedSuffix("Dead");
 
         public static string OpposedWinner(OpposedCheckWinner winner)
         {
@@ -111,7 +174,7 @@ namespace PF2e.Presentation
             };
         }
 
-        public const string ActionDiamondColor = "#F0C860";
+        public const string ActionDiamondColor = CombatUiPalette.ActionDiamondHex;
 
         public static string ActionCost(int cost)
         {
@@ -121,10 +184,23 @@ namespace PF2e.Presentation
 
         public static string Hp(int before, int after)
         {
-            string afterStr = after <= 0
-                ? $"<color={DefeatedColor}><b>{after}</b></color>"
-                : after.ToString();
-            return $"{Verb("(HP")} {before}→{afterStr}{Verb(")")}";
+            if (after <= 0)
+            {
+                return $"<size=92%><color={CombatUiPalette.SecondaryNoteHex}>(HP {before}→</color><color={DefeatedColor}><b>{after}</b></color><color={CombatUiPalette.SecondaryNoteHex}>)</color></size>";
+            }
+
+            return $"<size=92%><color={CombatUiPalette.SecondaryNoteHex}>(HP {before}→{after})</color></size>";
+        }
+
+        private static string GetDamageTypeColor(DamageType type)
+        {
+            return type switch
+            {
+                DamageType.Slashing => SlashingColor,
+                DamageType.Piercing => PiercingColor,
+                DamageType.Bludgeoning => BludgeoningColor,
+                _ => CombatUiPalette.TooltipBodyHex
+            };
         }
     }
 }

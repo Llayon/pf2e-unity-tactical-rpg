@@ -45,8 +45,8 @@ namespace PF2e.Tests
                 Assert.AreEqual(source, last.Actor);
                 Assert.AreEqual(CombatLogCategory.Attack, last.Category);
                 var stripped = Strip(last.Message);
-                StringAssert.Contains("Trip deals 4", stripped);
-                StringAssert.Contains("Bludgeoning", stripped);
+                StringAssert.Contains("Trip deals 4 Bludgeoning", stripped);
+                StringAssert.Contains("damage to Goblin_1", stripped);
                 StringAssert.Contains("Goblin_1", stripped);
                 StringAssert.Contains("HP 20→16", stripped);
             }
@@ -89,8 +89,11 @@ namespace PF2e.Tests
                 ctx.EventBus.PublishDamageApplied(in ev);
 
                 Assert.AreEqual(2, count);
-                Assert.AreEqual(EntityHandle.None, second.Actor);
-                StringAssert.Contains("is defeated", Strip(second.Message));
+                Assert.AreEqual(target, second.Actor);
+                Assert.AreEqual(CombatLogCategory.Condition, second.Category);
+                StringAssert.Contains("is now", Strip(second.Message));
+                StringAssert.Contains("Dead", Strip(second.Message));
+                StringAssert.DoesNotContain("defeated", Strip(second.Message));
             }
             finally
             {

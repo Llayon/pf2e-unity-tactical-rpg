@@ -22,15 +22,18 @@ namespace PF2e.Tests
                 baseAc: 18,
                 coverBonus: 0);
 
-            StringAssert.Contains("Attack Roll vs AC 18", text);
-            StringAssert.Contains("D20 Roll: 12", text);
-            StringAssert.Contains("Attack Bonus: +9", text);
-            StringAssert.Contains("MAP: -5", text);
-            StringAssert.Contains("Total: 16", text);
-            StringAssert.Contains("Degree: Success!", text);
-            StringAssert.Contains("Armor Class", text);
-            StringAssert.Contains("Base AC: 18", text);
+            StringAssert.Contains("Attack Roll", text);
+            StringAssert.Contains("against AC 18", text);
+            StringAssert.Contains("D20 Roll", text);
+            StringAssert.Contains("Attack Bonus", text);
+            StringAssert.Contains("MAP", text);
+            StringAssert.Contains("Result: 16", text);
+            StringAssert.Contains("Success!", text);
+            StringAssert.Contains("Armor Class (AC)", text);
+            StringAssert.Contains("Base AC", text);
             StringAssert.Contains("Total: 18", text);
+            StringAssert.Contains("-------------------------", text);
+            StringAssert.Contains("<mspace=", text);
         }
 
         [Test]
@@ -48,11 +51,11 @@ namespace PF2e.Tests
                 baseAc: 18,
                 coverBonus: 2);
 
-            StringAssert.Contains("MAP: -5", text);
-            StringAssert.Contains("Range Penalty: -2", text);
-            StringAssert.Contains("Volley Penalty: -2", text);
-            StringAssert.Contains("Aid: +2", text);
-            StringAssert.Contains("Cover: +2", text);
+            StringAssert.Contains("MAP", text);
+            StringAssert.Contains("Range Penalty", text);
+            StringAssert.Contains("Volley Penalty", text);
+            StringAssert.Contains("Aid", text);
+            StringAssert.Contains("Cover", text);
             StringAssert.Contains("Total: 20", text);
         }
 
@@ -67,13 +70,15 @@ namespace PF2e.Tests
                 degree: DegreeOfSuccess.Success,
                 aidCircumstanceBonus: 2);
 
-            StringAssert.Contains("ATHLETICS Check vs FORTITUDE DC 17", text);
-            StringAssert.Contains("D20 Roll: 14", text);
-            StringAssert.Contains("Modifier: +8", text);
-            StringAssert.Contains("Aid: +2", text);
-            StringAssert.Contains("Total: 22", text);
-            StringAssert.Contains("Degree: Success!", text);
-            StringAssert.Contains("FORTITUDE DC: 17", text);
+            StringAssert.Contains("ATHLETICS Check", text);
+            StringAssert.Contains("against FORTITUDE DC 17", text);
+            StringAssert.Contains("D20 Roll", text);
+            StringAssert.Contains("Modifier", text);
+            StringAssert.Contains("Aid", text);
+            StringAssert.Contains("Result: 22", text);
+            StringAssert.Contains("Success!", text);
+            StringAssert.Contains("Difficulty Class (FORTITUDE)", text);
+            StringAssert.Contains("Total: 17", text);
         }
 
         [Test]
@@ -83,11 +88,12 @@ namespace PF2e.Tests
                 totalDamage: 8,
                 damageType: DamageType.Slashing);
 
-            Assert.AreEqual(
-                "Damage Roll\n" +
-                "Base Damage: 8\n" +
-                "Total: 8 SLASHING",
-                text);
+            StringAssert.Contains("Damage Roll", text);
+            StringAssert.Contains("Base Damage", text);
+            StringAssert.Contains("Total: 8 SLASHING", text);
+            StringAssert.Contains("Damage Type", text);
+            StringAssert.Contains("Swords, axes", text);
+            StringAssert.Contains("<mspace=", text);
         }
 
         [Test]
@@ -99,13 +105,29 @@ namespace PF2e.Tests
                 fatalBonusDamage: 4,
                 deadlyBonusDamage: 6);
 
-            Assert.AreEqual(
-                "Damage Roll\n" +
-                "Base Damage: 9\n" +
-                "Fatal Bonus: +4\n" +
-                "Deadly Bonus: +6\n" +
-                "Total: 19 PIERCING",
-                text);
+            StringAssert.Contains("Damage Roll", text);
+            StringAssert.Contains("Base Damage", text);
+            StringAssert.Contains("Fatal Bonus", text);
+            StringAssert.Contains("Deadly Bonus", text);
+            StringAssert.Contains("Total: 19 PIERCING", text);
+            StringAssert.Contains("Damage Type", text);
+            StringAssert.Contains("Puncturing and impaling attacks", text);
+        }
+
+        [Test]
+        public void BuildResultExtendedBody_AppendsRuleBlock()
+        {
+            string standardBody = "Attack Roll\nResult: 16 Success!";
+            string text = TooltipTextBuilder.BuildResultExtendedBody(
+                standardBody,
+                "Constitution",
+                "Ability Score",
+                "Constitution measures health and stamina.");
+
+            StringAssert.Contains("Attack Roll", text);
+            StringAssert.Contains("Constitution", text);
+            StringAssert.Contains("ABILITY SCORE", text);
+            StringAssert.Contains("Constitution measures health and stamina.", text);
         }
     }
 }

@@ -55,7 +55,10 @@ namespace PF2e.Presentation
             int effectiveAc = e.dc + e.coverAcBonus;
             string degreeLabel = TooltipTextBuilder.FormatDegreeLabel(e.acDegree);
             string signedModifier = RollBreakdownFormatter.FormatSigned(e.attackRoll.modifier);
-            string resultLink = CombatLogLinkHelper.Link(CombatLogLinkTokens.Result, $"{e.attackRoll.total} - {degreeLabel}");
+            string resultLink = CombatLogLinkHelper.Link(
+                CombatLogLinkTokens.Result,
+                CombatLogRichText.OutcomeSummary(e.attackRoll.total, e.acDegree),
+                CombatLogRichText.DegreeColor(e.acDegree));
             var tooltipPayload = new CombatLogTooltipPayload(new[]
             {
                 new TooltipEntry(
@@ -71,7 +74,8 @@ namespace PF2e.Presentation
                         e.attackRoll.total,
                         e.acDegree,
                         e.dc,
-                        e.coverAcBonus))
+                        e.coverAcBonus),
+                    TooltipLayoutProfile.Standard)
             });
 
             // 1. Attack roll line (always published)
@@ -96,7 +100,9 @@ namespace PF2e.Presentation
             {
                 if (e.damage > 0)
                 {
-                    string damageTotalLink = CombatLogLinkHelper.Link(CombatLogLinkTokens.DamageTotal, e.damage.ToString());
+                    string damageTotalLink = CombatLogLinkHelper.LinkWithoutUnderline(
+                        CombatLogLinkTokens.DamageTotal,
+                        CombatLogRichText.DamageAmountAndType(e.damage, e.damageType));
                     var damageTooltipPayload = new CombatLogTooltipPayload(new[]
                     {
                         new TooltipEntry(
@@ -106,11 +112,12 @@ namespace PF2e.Presentation
                                 e.damage,
                                 e.damageType,
                                 e.fatalBonusDamage,
-                                e.deadlyBonusDamage))
+                                e.deadlyBonusDamage),
+                            TooltipLayoutProfile.Compact)
                     });
 
                     eventBus.Publish(e.attacker,
-                        $"{CombatLogRichText.Verb("deals")} {damageTotalLink} {CombatLogRichText.DmgType(e.damageType)} {CombatLogRichText.Verb("damage to")} {targetName}" +
+                        $"{CombatLogRichText.Verb("deals")} {damageTotalLink} {CombatLogRichText.Verb("damage to")} {targetName}" +
                         BuildCritTraitBreakdown(e) +
                         $" {CombatLogRichText.Hp(e.hpBefore, e.hpAfter)}",
                         CombatLogCategory.Attack,
@@ -133,7 +140,7 @@ namespace PF2e.Presentation
             // 3. Defeat notification (if applicable)
             if (e.targetDefeated)
             {
-                eventBus.PublishSystem(CombatLogRichText.Defeated(rawTargetName));
+                eventBus.Publish(e.target, CombatLogRichText.Defeated(), CombatLogCategory.Condition);
             }
         }
 
@@ -150,7 +157,7 @@ namespace PF2e.Presentation
 
             eventBus.Publish(
                 e.reactor,
-                $"{CombatLogRichText.Verb("uses")} {CombatLogRichText.Weapon("Shield Block")} {CombatLogRichText.Verb("— reduces")} {CombatLogRichText.Damage(e.damageReduction)} {CombatLogRichText.Verb($"damage (incoming {e.incomingDamage}); shield takes")} {e.shieldSelfDamage} {CombatLogRichText.Verb($"(HP {e.shieldHpBefore}→{e.shieldHpAfter})")}",
+                $"{CombatLogRichText.Verb("uses")} {CombatLogRichText.Weapon("Shield Block")} {CombatLogRichText.Verb("— reduces")} {CombatLogRichText.Damage(e.damageReduction)} {CombatLogRichText.Verb($"damage (incoming {e.incomingDamage}); shield takes")} {CombatLogRichText.Damage(e.shieldSelfDamage)} {CombatLogRichText.Hp(e.shieldHpBefore, e.shieldHpAfter)}",
                 CombatLogCategory.Attack);
 
             if (e.shieldHpBefore > 0 && e.shieldHpAfter <= 0)
@@ -168,12 +175,12 @@ namespace PF2e.Presentation
                 return string.Empty;
 
             if (e.fatalBonusDamage > 0 && e.deadlyBonusDamage > 0)
-                return $" (FATAL+{e.fatalBonusDamage}, DEADLY+{e.deadlyBonusDamage})";
+                return CombatLogRichText.MinorNote($" (FATAL+{e.fatalBonusDamage}, DEADLY+{e.deadlyBonusDamage})");
 
             if (e.fatalBonusDamage > 0)
-                return $" (FATAL+{e.fatalBonusDamage})";
+                return CombatLogRichText.MinorNote($" (FATAL+{e.fatalBonusDamage})");
 
-            return $" (DEADLY+{e.deadlyBonusDamage})";
+            return CombatLogRichText.MinorNote($" (DEADLY+{e.deadlyBonusDamage})");
         }
 
         private static string GetWouldHitVerb(DegreeOfSuccess acDegree)

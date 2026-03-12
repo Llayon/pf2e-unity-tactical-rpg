@@ -66,7 +66,7 @@ namespace PF2e.Tests
             lineText.alignment = TextAlignmentOptions.Center;
             lineText.fontSize = 36f;
             lineText.raycastTarget = false;
-            lineText.text = "Strike total " + CombatLogLinkHelper.Link(CombatLogLinkTokens.Result, "16 - Success!");
+            lineText.text = "Strike total " + CombatLogLinkHelper.Link(CombatLogLinkTokens.Result, "16 Success!");
             var lineRect = lineText.rectTransform;
             lineRect.anchorMin = new Vector2(0.5f, 0.5f);
             lineRect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -131,7 +131,18 @@ namespace PF2e.Tests
                 new TooltipEntry(
                     CombatLogLinkTokens.Result,
                     "16 vs AC 18 - Success!",
-                    "Attack Roll vs AC 18\nD20 Roll: 12\nAttack Bonus: +9\nMAP: -5\nTotal: 16\nDegree: Success!\n\nArmor Class\nBase AC: 18\nTotal: 18")
+                    TooltipTextBuilder.StrikeResultBreakdown(
+                        naturalRoll: 12,
+                        attackBonus: 9,
+                        mapPenalty: -5,
+                        rangePenalty: 0,
+                        volleyPenalty: 0,
+                        aidCircumstanceBonus: 0,
+                        total: 16,
+                        degree: DegreeOfSuccess.Success,
+                        baseAc: 18,
+                        coverBonus: 0),
+                    TooltipLayoutProfile.Standard)
             };
 
             yield return null;
@@ -206,9 +217,11 @@ namespace PF2e.Tests
             Assert.GreaterOrEqual(linkIndex, 0, "Expected helper point to intersect TMP link.");
             Assert.AreEqual(CombatLogLinkTokens.Result, lineText.textInfo.linkInfo[linkIndex].GetLinkID());
             Assert.IsTrue(
-                logController.TryGetTooltip(lineText, CombatLogLinkTokens.Result, out _, out string mappedBody),
+                logController.TryGetTooltip(lineText, CombatLogLinkTokens.Result, out _, out string mappedBody, out TooltipLayoutProfile mappedProfile),
                 "Expected tooltip mapping for attack token.");
-            StringAssert.Contains("Attack Roll vs AC", mappedBody);
+            Assert.AreEqual(TooltipLayoutProfile.Standard, mappedProfile);
+            StringAssert.Contains("Attack Roll", mappedBody);
+            StringAssert.Contains("against AC", mappedBody);
             StringAssert.Contains("Armor Class", mappedBody);
             Assert.AreEqual(1, logController.GetActiveLines().Count, "Expected one active combat log line in test setup.");
 
@@ -221,7 +234,7 @@ namespace PF2e.Tests
             Assert.AreEqual(linkIndex, (int)findArgs[2]);
             string foundToken = ((TextMeshProUGUI)findArgs[1]).textInfo.linkInfo[(int)findArgs[2]].GetLinkID();
             Assert.IsTrue(
-                logController.TryGetTooltip((TextMeshProUGUI)findArgs[1], foundToken, out _, out _),
+                logController.TryGetTooltip((TextMeshProUGUI)findArgs[1], foundToken, out _, out _, out _),
                 "Expected controller-found token to resolve tooltip mapping.");
             yield break;
         }
@@ -232,7 +245,9 @@ namespace PF2e.Tests
             var activeLines = GetPrivateField<Queue<TextMeshProUGUI>>(logController, "activeLines");
             var lineTooltips = GetPrivateField<Dictionary<TextMeshProUGUI, TooltipEntry[]>>(logController, "lineTooltips");
 
-            lineText.text = "Damage " + CombatLogLinkHelper.Link(CombatLogLinkTokens.DamageTotal, "14");
+            lineText.text = CombatLogLinkHelper.Link(
+                CombatLogLinkTokens.DamageTotal,
+                CombatLogRichText.DamageAmountAndType(14, DamageType.Piercing)) + " damage";
             lineText.ForceMeshUpdate();
             activeLines.Clear();
             activeLines.Enqueue(lineText);
@@ -242,7 +257,12 @@ namespace PF2e.Tests
                 new TooltipEntry(
                     CombatLogLinkTokens.DamageTotal,
                     "Damage Breakdown",
-                    "Damage Roll\nBase Damage: 8\nDeadly Bonus: +6\nTotal: 14 PIERCING")
+                    TooltipTextBuilder.StrikeDamageBreakdown(
+                        totalDamage: 14,
+                        damageType: DamageType.Piercing,
+                        fatalBonusDamage: 0,
+                        deadlyBonusDamage: 6),
+                    TooltipLayoutProfile.Compact)
             };
 
             yield return null;
@@ -262,9 +282,11 @@ namespace PF2e.Tests
 
             string foundToken = ((TextMeshProUGUI)findArgs[1]).textInfo.linkInfo[(int)findArgs[2]].GetLinkID();
             Assert.AreEqual(CombatLogLinkTokens.DamageTotal, foundToken);
-            Assert.IsTrue(logController.TryGetTooltip((TextMeshProUGUI)findArgs[1], foundToken, out string title, out string body));
+            Assert.IsTrue(logController.TryGetTooltip((TextMeshProUGUI)findArgs[1], foundToken, out string title, out string body, out TooltipLayoutProfile profile));
             Assert.AreEqual("Damage Breakdown", title);
-            StringAssert.Contains("Deadly Bonus: +6", body);
+            Assert.AreEqual(TooltipLayoutProfile.Compact, profile);
+            StringAssert.Contains("Deadly Bonus", body);
+            StringAssert.Contains("+6", body);
         }
 
         [UnityTest]

@@ -48,9 +48,11 @@ namespace PF2e.Tests
                 Assert.AreEqual(CombatLogCategory.Attack, last.Category);
                 var stripped = Strip(last.Message);
                 StringAssert.Contains("uses Trip on Goblin_1", stripped);
-                StringAssert.Contains("rolls 13+7 = 20 - Success!", stripped);
+                StringAssert.Contains("rolls 13+7 = 20 Success!", stripped);
                 var entry = FindTooltipEntry(lastPayload, CombatLogLinkTokens.Result);
-                StringAssert.Contains("ATHLETICS Check vs FORTITUDE DC 17", entry.body);
+                Assert.AreEqual(TooltipLayoutProfile.Standard, entry.layoutProfile);
+                StringAssert.Contains("ATHLETICS Check", entry.body);
+                StringAssert.Contains("against FORTITUDE DC 17", entry.body);
             }
             finally
             {
@@ -137,7 +139,7 @@ namespace PF2e.Tests
 
                 Assert.AreEqual(1, count);
                 var stripped = Strip(last.Message);
-                StringAssert.Contains("rolls 10-2 = 8 - Failure", stripped);
+                StringAssert.Contains("rolls 10-2 = 8 Failure", stripped);
                 StringAssert.DoesNotContain("+-", stripped);
             }
             finally
@@ -228,7 +230,9 @@ namespace PF2e.Tests
 
                 Assert.AreEqual(1, count);
                 var entry = FindTooltipEntry(lastPayload, CombatLogLinkTokens.Result);
-                StringAssert.Contains("Aid: +2", entry.body);
+                Assert.AreEqual(TooltipLayoutProfile.Standard, entry.layoutProfile);
+                StringAssert.Contains("Aid", entry.body);
+                StringAssert.Contains("+2", entry.body);
             }
             finally
             {

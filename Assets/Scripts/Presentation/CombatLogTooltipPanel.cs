@@ -1,30 +1,64 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using PF2e.Core;
 
 namespace PF2e.Presentation
 {
     public class CombatLogTooltipPanel : MonoBehaviour
     {
+        private const float MinimumDockClearance = 8f;
+        private static readonly Color PanelBackgroundColor = CombatUiPalette.TooltipBackgroundColor;
+        private static readonly Color PanelTitleColor = CombatUiPalette.TooltipTitleColor;
+        private static readonly Color PanelBodyColor = CombatUiPalette.TooltipBodyColor;
+        private static readonly Color SeparatorColor = CombatUiPalette.TooltipDividerColor;
+
         [SerializeField] private RectTransform panelRect;
         [SerializeField] private TextMeshProUGUI titleText;
         [SerializeField] private TextMeshProUGUI bodyText;
         [SerializeField] private CanvasGroup canvasGroup;
         [SerializeField] private Canvas rootCanvas;
-        [SerializeField] private float minWidth = 280f;
-        [SerializeField] private float maxWidth = 360f;
-        [SerializeField] private float edgePadding = 8f;
-        [SerializeField] private float dockGap = 14f;
+        [SerializeField] private Image panelBackgroundImage;
+        [SerializeField] private float minWidth = 420f;
+        [SerializeField] private float maxWidth = 560f;
+        [SerializeField] private float compactMinWidth = 360f;
+        [SerializeField] private float compactMaxWidth = 500f;
+        [SerializeField] private float extendedMinWidth = 480f;
+        [SerializeField] private float extendedMaxWidth = 640f;
+        [SerializeField] private float compactBodyLineSpacing = 4f;
+        [SerializeField] private float standardBodyLineSpacing = 5f;
+        [SerializeField] private float extendedBodyLineSpacing = 6f;
+        [SerializeField] private float compactLayoutSpacing = 6f;
+        [SerializeField] private float standardLayoutSpacing = 7f;
+        [SerializeField] private float extendedLayoutSpacing = 8f;
+        [SerializeField] private int compactPadding = 14;
+        [SerializeField] private int standardPadding = 16;
+        [SerializeField] private int extendedPadding = 18;
+        [SerializeField] private float compactBodyFontSize = 16f;
+        [SerializeField] private float standardBodyFontSize = 18f;
+        [SerializeField] private float extendedBodyFontSize = 18f;
+        [SerializeField] private float compactTitleFontSize = 18f;
+        [SerializeField] private float standardTitleFontSize = 20f;
+        [SerializeField] private float extendedTitleFontSize = 22f;
+        [SerializeField] private float compactCharacterSpacing = 2f;
+        [SerializeField] private float standardCharacterSpacing = 2f;
+        [SerializeField] private float extendedCharacterSpacing = 2f;
+        [SerializeField] private float edgePadding = 24f;
+        [SerializeField] private float dockGap = 20f;
         [SerializeField] private RectTransform dockTarget;
         [SerializeField] private RectTransform dockViewport;
+        [SerializeField] private Image titleSeparator;
         [SerializeField] private Vector2 cursorOffset = new Vector2(14f, 14f);
 
         private readonly Vector3[] viewportCorners = new Vector3[4];
         private readonly Vector3[] targetCorners = new Vector3[4];
         private RectTransform parentRect;
         private LayoutElement panelLayoutElement;
+        private VerticalLayoutGroup panelLayoutGroup;
         private bool isVisible;
         private bool loggedMissingDockTarget;
+        private float activeMinWidth;
+        private float activeMaxWidth;
 
         public bool IsVisible => isVisible;
 
@@ -41,6 +75,7 @@ namespace PF2e.Presentation
         private void OnEnable()
         {
             EnsureReferences();
+            ApplyProfileStyle(TooltipLayoutProfile.Standard);
 
             if (canvasGroup != null)
             {
@@ -54,6 +89,11 @@ namespace PF2e.Presentation
         }
 
         public void Show(string title, string body, Vector2 screenPosition)
+        {
+            Show(title, body, screenPosition, TooltipLayoutProfile.Standard);
+        }
+
+        public void Show(string title, string body, Vector2 screenPosition, TooltipLayoutProfile layoutProfile)
         {
             if (!EnsureReferences())
             {
@@ -73,6 +113,7 @@ namespace PF2e.Presentation
             canvasGroup.interactable = false;
             canvasGroup.blocksRaycasts = false;
 
+            ApplyProfileStyle(layoutProfile);
             ApplyWidthConstraints();
             UpdatePosition(screenPosition);
         }
@@ -138,7 +179,19 @@ namespace PF2e.Presentation
             float targetCenterY = (targetCorners[0].y + targetCorners[1].y) * 0.5f;
             Vector3 targetLeftWorld = new Vector3(targetLeftX, targetCenterY, targetCorners[0].z);
             Vector3 targetLeftLocal = parentRect.InverseTransformPoint(targetLeftWorld);
-            float anchoredX = targetLeftLocal.x - dockGap;
+            float panelWidth = Mathf.Max(panelRect.rect.width, LayoutUtility.GetPreferredWidth(panelRect));
+            float minDockedX = parentRect.rect.xMin + edgePadding + panelWidth;
+            float maxDockedX = targetLeftLocal.x - MinimumDockClearance;
+            float preferredDockedX = targetLeftLocal.x - dockGap;
+            float anchoredX;
+            if (minDockedX > maxDockedX)
+            {
+                anchoredX = minDockedX;
+            }
+            else
+            {
+                anchoredX = Mathf.Clamp(preferredDockedX, minDockedX, maxDockedX);
+            }
 
             UnityEngine.Camera uiCamera = ResolveCamera();
             float desiredY = targetLeftLocal.y;
@@ -212,6 +265,25 @@ namespace PF2e.Presentation
                 parentRect = panelRect.parent as RectTransform;
             }
 
+            if (panelRect != null && panelLayoutGroup == null)
+            {
+                panelLayoutGroup = panelRect.GetComponent<VerticalLayoutGroup>();
+            }
+
+            if (panelBackgroundImage == null && panelRect != null)
+            {
+                panelBackgroundImage = panelRect.GetComponent<Image>();
+            }
+
+            if (titleSeparator == null && panelRect != null)
+            {
+                var separatorTransform = panelRect.Find("TooltipSeparator");
+                if (separatorTransform != null)
+                {
+                    titleSeparator = separatorTransform.GetComponent<Image>();
+                }
+            }
+
             if (panelRect != null && panelLayoutElement == null)
             {
                 panelLayoutElement = panelRect.GetComponent<LayoutElement>();
@@ -257,10 +329,10 @@ namespace PF2e.Presentation
             Rect parent = parentRect.rect;
             Vector2 pos = panelRect.anchoredPosition;
 
-            float minX = parent.xMin + (size.x * pivot.x);
-            float maxX = parent.xMax - (size.x * (1f - pivot.x));
-            float minY = parent.yMin + (size.y * pivot.y);
-            float maxY = parent.yMax - (size.y * (1f - pivot.y));
+            float minX = parent.xMin + edgePadding + (size.x * pivot.x);
+            float maxX = parent.xMax - edgePadding - (size.x * (1f - pivot.x));
+            float minY = parent.yMin + edgePadding + (size.y * pivot.y);
+            float maxY = parent.yMax - edgePadding - (size.y * (1f - pivot.y));
 
             if (minX > maxX)
             {
@@ -288,27 +360,113 @@ namespace PF2e.Presentation
                 return;
             }
 
-            float clampedMaxWidth = Mathf.Max(minWidth, maxWidth);
+            float clampedMinWidth = activeMinWidth > 0f ? activeMinWidth : minWidth;
+            float clampedMaxWidth = activeMaxWidth > 0f ? activeMaxWidth : maxWidth;
+            clampedMaxWidth = Mathf.Max(clampedMinWidth, clampedMaxWidth);
             float titleWidth = titleText.GetPreferredValues(titleText.text, clampedMaxWidth, 0f).x;
             float bodyWidth = bodyText.GetPreferredValues(bodyText.text, clampedMaxWidth, 0f).x;
             float contentWidth = Mathf.Max(titleWidth, bodyWidth);
             float horizontalPadding = 0f;
 
-            if (panelRect.TryGetComponent<VerticalLayoutGroup>(out var layout))
+            if (panelLayoutGroup != null)
             {
-                horizontalPadding = layout.padding.left + layout.padding.right;
+                horizontalPadding = panelLayoutGroup.padding.left + panelLayoutGroup.padding.right;
             }
 
-            float targetWidth = Mathf.Clamp(contentWidth + horizontalPadding, minWidth, clampedMaxWidth);
+            float targetWidth = Mathf.Clamp(contentWidth + horizontalPadding, clampedMinWidth, clampedMaxWidth);
             if (panelLayoutElement != null)
             {
-                panelLayoutElement.minWidth = minWidth;
+                panelLayoutElement.minWidth = clampedMinWidth;
                 panelLayoutElement.preferredWidth = targetWidth;
                 panelLayoutElement.flexibleWidth = 0f;
             }
 
             panelRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, targetWidth);
             LayoutRebuilder.ForceRebuildLayoutImmediate(panelRect);
+        }
+
+        private void ApplyProfileStyle(TooltipLayoutProfile layoutProfile)
+        {
+            float profileMinWidth = minWidth;
+            float profileMaxWidth = maxWidth;
+            float bodyLineSpacing = standardBodyLineSpacing;
+            float layoutSpacing = standardLayoutSpacing;
+            int layoutPadding = Mathf.Max(0, standardPadding);
+            float bodyFontSize = standardBodyFontSize;
+            float titleFontSize = standardTitleFontSize;
+            float characterSpacing = standardCharacterSpacing;
+            FontStyles titleFontStyle = FontStyles.Normal;
+
+            switch (layoutProfile)
+            {
+                case TooltipLayoutProfile.Compact:
+                    profileMinWidth = compactMinWidth;
+                    profileMaxWidth = compactMaxWidth;
+                    bodyLineSpacing = compactBodyLineSpacing;
+                    layoutSpacing = compactLayoutSpacing;
+                    layoutPadding = Mathf.Max(0, compactPadding);
+                    bodyFontSize = compactBodyFontSize;
+                    titleFontSize = compactTitleFontSize;
+                    characterSpacing = compactCharacterSpacing;
+                    titleFontStyle = FontStyles.Normal;
+                    break;
+                case TooltipLayoutProfile.Extended:
+                    profileMinWidth = extendedMinWidth;
+                    profileMaxWidth = extendedMaxWidth;
+                    bodyLineSpacing = extendedBodyLineSpacing;
+                    layoutSpacing = extendedLayoutSpacing;
+                    layoutPadding = Mathf.Max(0, extendedPadding);
+                    bodyFontSize = extendedBodyFontSize;
+                    titleFontSize = extendedTitleFontSize;
+                    characterSpacing = extendedCharacterSpacing;
+                    titleFontStyle = FontStyles.Bold;
+                    break;
+                case TooltipLayoutProfile.Standard:
+                default:
+                    titleFontStyle = FontStyles.Normal;
+                    break;
+            }
+
+            activeMinWidth = Mathf.Max(1f, profileMinWidth);
+            activeMaxWidth = Mathf.Max(activeMinWidth, profileMaxWidth);
+
+            if (bodyText != null)
+            {
+                bodyText.lineSpacing = bodyLineSpacing;
+                bodyText.fontSize = bodyFontSize;
+                bodyText.characterSpacing = characterSpacing;
+                bodyText.color = PanelBodyColor;
+                bodyText.fontStyle = FontStyles.Normal;
+            }
+
+            if (titleText != null)
+            {
+                titleText.fontSize = titleFontSize;
+                titleText.characterSpacing = characterSpacing;
+                titleText.color = PanelTitleColor;
+                titleText.fontStyle = titleFontStyle;
+            }
+
+            if (panelLayoutGroup != null)
+            {
+                panelLayoutGroup.spacing = layoutSpacing;
+                panelLayoutGroup.padding.left = layoutPadding;
+                panelLayoutGroup.padding.right = layoutPadding;
+                panelLayoutGroup.padding.top = layoutPadding;
+                panelLayoutGroup.padding.bottom = layoutPadding;
+                LayoutRebuilder.MarkLayoutForRebuild(panelRect);
+            }
+
+            if (panelBackgroundImage != null)
+            {
+                panelBackgroundImage.color = PanelBackgroundColor;
+            }
+
+            if (titleSeparator != null)
+            {
+                titleSeparator.color = SeparatorColor;
+                titleSeparator.gameObject.SetActive(!string.IsNullOrEmpty(titleText != null ? titleText.text : string.Empty));
+            }
         }
     }
 }

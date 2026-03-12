@@ -102,9 +102,9 @@ namespace PF2e.Presentation
             currentLinkIndex = hoveredLinkIndex;
 
             string token = hoveredLine.textInfo.linkInfo[hoveredLinkIndex].GetLinkID();
-            if (logController.TryGetTooltip(hoveredLine, token, out string title, out string body))
+            if (logController.TryGetTooltip(hoveredLine, token, out string title, out string body, out var layoutProfile))
             {
-                tooltipPanel.Show(title, body, mousePosition);
+                tooltipPanel.Show(title, body, mousePosition, layoutProfile);
             }
             else
             {

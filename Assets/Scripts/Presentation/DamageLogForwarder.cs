@@ -57,7 +57,7 @@ namespace PF2e.Presentation
                 ? $"<color={CombatLogRichText.CritSuccessColor}><b>critical</b></color> "
                 : string.Empty;
             string damageLine =
-                $"{CombatLogRichText.Weapon(sourceLabel)} {CombatLogRichText.Verb("deals")} {CombatLogRichText.Damage(e.amount)} {CombatLogRichText.DmgType(e.damageType)} {critPrefix}{CombatLogRichText.Verb("damage to")} {targetName} {CombatLogRichText.Hp(e.hpBefore, e.hpAfter)}";
+                $"{CombatLogRichText.Weapon(sourceLabel)} {CombatLogRichText.Verb("deals")} {CombatLogRichText.DamageAmountAndType(e.amount, e.damageType)} {critPrefix}{CombatLogRichText.Verb("damage to")} {targetName} {CombatLogRichText.Hp(e.hpBefore, e.hpAfter)}";
 
             if (e.source.IsValid)
                 eventBus.Publish(e.source, damageLine, CombatLogCategory.Attack);
@@ -65,7 +65,7 @@ namespace PF2e.Presentation
                 eventBus.PublishSystem(damageLine, CombatLogCategory.Attack);
 
             if (e.targetDefeated)
-                eventBus.PublishSystem(CombatLogRichText.Defeated(rawTargetName));
+                eventBus.Publish(e.target, CombatLogRichText.Defeated(), CombatLogCategory.Condition);
         }
     }
 }
