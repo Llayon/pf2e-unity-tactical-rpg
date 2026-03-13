@@ -185,6 +185,14 @@ namespace PF2e.Presentation
                 f.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
                 f.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             }
+
+            var background = GetComponent<Image>();
+            if (background == null)
+                background = gameObject.AddComponent<Image>();
+            background.raycastTarget = false;
+            background.color = CombatUiPalette.HudPanelBackgroundColor;
+
+            ApplyVisualStyle();
         }
 
         private TMP_Text CreateTextChild(string objectName, float fontSize, FontStyles style, float characterSpacing)
@@ -195,12 +203,31 @@ namespace PF2e.Presentation
             text.fontSize = fontSize;
             text.fontStyle = style;
             text.characterSpacing = characterSpacing;
-            text.color = new Color(0.92f, 0.92f, 0.95f, 1f);
             text.raycastTarget = false;
             text.enableAutoSizing = false;
             text.enableKerning = true;
             text.overflowMode = TextOverflowModes.Truncate;
             return text;
+        }
+
+        private void ApplyVisualStyle()
+        {
+            CombatUiTypography.ApplyTitle(nameText, 20f, 0.1f, CombatUiPalette.HudTextPrimaryColor);
+            CombatUiTypography.ApplySecondary(levelText, 13.5f, 0.06f, CombatUiPalette.HudTextSecondaryColor);
+            CombatUiTypography.ApplyBody(hpText, 13.5f, 0.06f, CombatUiPalette.HudTextPrimaryColor);
+            CombatUiTypography.ApplySecondary(acText, 13.5f, 0.06f, CombatUiPalette.HudTextSecondaryColor);
+            CombatUiTypography.ApplySecondary(conditionsText, 13f, 0.05f, CombatUiPalette.HudTextMutedColor);
+
+            if (hpFillImage != null)
+            {
+                hpFillImage.color = CombatUiPalette.HudHealthGoodColor;
+
+                var hpBarBackground = hpFillImage.transform.parent != null
+                    ? hpFillImage.transform.parent.GetComponent<Image>()
+                    : null;
+                if (hpBarBackground != null)
+                    hpBarBackground.color = CombatUiPalette.HudProgressBackgroundColor;
+            }
         }
 
         private void HandleCombatStarted(in CombatStartedEvent e)
@@ -351,8 +378,8 @@ namespace PF2e.Presentation
                 float fill = data.MaxHP > 0 ? Mathf.Clamp01((float)data.CurrentHP / data.MaxHP) : 0f;
                 hpFillImage.fillAmount = fill;
                 hpFillImage.color = fill <= 0.25f
-                    ? new Color(0.95f, 0.25f, 0.25f, 1f)
-                    : new Color(0.35f, 0.85f, 0.35f, 1f);
+                    ? CombatUiPalette.HudHealthLowColor
+                    : CombatUiPalette.HudHealthGoodColor;
             }
 
             if (acText != null)

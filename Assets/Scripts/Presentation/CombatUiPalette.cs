@@ -7,26 +7,40 @@ namespace PF2e.Presentation
     /// </summary>
     public static class CombatUiPalette
     {
-        public const string TooltipBackgroundHex = "#0A0C13";
-        public const string TooltipTitleHex = "#D9CCB4";
-        public const string TooltipBodyHex = "#C7BDAF";
-        public const string TooltipSecondaryHex = "#958E83";
-        public const string TooltipDividerHex = "#3D372E";
-        public const string TooltipAccentHex = "#D6C4A3";
-        public const string TooltipValueHex = "#E4D7BA";
+        public const string TooltipBackgroundHex = "#0B1118";
+        public const string TooltipTitleHex = "#E5DBCA";
+        public const string TooltipBodyHex = "#D7DEE6";
+        public const string TooltipSecondaryHex = "#95A2B1";
+        public const string TooltipDividerHex = "#253243";
+        public const string TooltipAccentHex = "#CDBA94";
+        public const string TooltipValueHex = "#F0E2BF";
+
+        public const string HudPanelBackgroundHex = "#0D121A";
+        public const string HudPanelSurfaceHex = "#162231";
+        public const string HudPanelAccentHex = "#25384E";
+        public const string HudButtonBackgroundHex = "#1A2A3A";
+        public const string HudButtonSelectedHex = "#DDBD71";
+        public const string HudTextPrimaryHex = "#E2E8EF";
+        public const string HudTextSecondaryHex = "#B2BCC9";
+        public const string HudTextMutedHex = "#8F99A6";
+        public const string HudButtonTextHex = "#F1F4F8";
+        public const string HudButtonSelectedTextHex = "#141A22";
+        public const string HudHealthGoodHex = "#54C977";
+        public const string HudHealthLowHex = "#E2665E";
+        public const string HudProgressBackgroundHex = "#0A0F15";
 
         public const string SuccessHex = "#A0CB86";
         public const string FailureHex = "#CE8B80";
         public const string CritSuccessHex = "#DEC276";
         public const string CritFailureHex = "#B17068";
 
-        public const string PlayerNameHex = "#89ACC4";
-        public const string EnemyNameHex = "#BB7957";
-        public const string NeutralTextHex = "#EFE5D9";
-        public const string NarrativeTextHex = "#E9E0D4";
-        public const string WeaponTextHex = "#E1D4BC";
-        public const string SecondaryNoteHex = "#B8B0A4";
-        public const string RoundHex = "#B3AB9F";
+        public const string PlayerNameHex = "#8FAFD2";
+        public const string EnemyNameHex = "#C28767";
+        public const string NeutralTextHex = "#E1E7EE";
+        public const string NarrativeTextHex = "#CCD3DC";
+        public const string WeaponTextHex = "#D8C7A8";
+        public const string SecondaryNoteHex = "#92A0B0";
+        public const string RoundHex = "#B7C1CC";
         public const string ConditionGainHex = "#C2A59C";
         public const string ConditionLoseHex = "#97B1AF";
         public const string DefeatedHex = "#B06A63";
@@ -40,10 +54,25 @@ namespace PF2e.Presentation
 
         public const string ActionDiamondHex = "#D4B366";
 
-        public static readonly Color TooltipBackgroundColor = ParseColor(TooltipBackgroundHex, 0.975f);
+        public static readonly Color TooltipBackgroundColor = ParseColor(TooltipBackgroundHex, 0.84f);
         public static readonly Color TooltipTitleColor = ParseColor(TooltipTitleHex);
         public static readonly Color TooltipBodyColor = ParseColor(TooltipBodyHex);
-        public static readonly Color TooltipDividerColor = ParseColor(TooltipDividerHex, 0.9f);
+        public static readonly Color TooltipSecondaryColor = ParseColor(TooltipSecondaryHex);
+        public static readonly Color TooltipDividerColor = ParseColor(TooltipDividerHex, 0.72f);
+
+        public static readonly Color HudPanelBackgroundColor = ParseColor(HudPanelBackgroundHex, 0.84f);
+        public static readonly Color HudPanelSurfaceColor = ParseColor(HudPanelSurfaceHex, 0.92f);
+        public static readonly Color HudPanelAccentColor = ParseColor(HudPanelAccentHex, 0.96f);
+        public static readonly Color HudButtonBackgroundColor = ParseColor(HudButtonBackgroundHex, 0.94f);
+        public static readonly Color HudButtonSelectedColor = ParseColor(HudButtonSelectedHex, 0.95f);
+        public static readonly Color HudTextPrimaryColor = ParseColor(HudTextPrimaryHex);
+        public static readonly Color HudTextSecondaryColor = ParseColor(HudTextSecondaryHex);
+        public static readonly Color HudTextMutedColor = ParseColor(HudTextMutedHex);
+        public static readonly Color HudButtonTextColor = ParseColor(HudButtonTextHex);
+        public static readonly Color HudButtonSelectedTextColor = ParseColor(HudButtonSelectedTextHex);
+        public static readonly Color HudHealthGoodColor = ParseColor(HudHealthGoodHex);
+        public static readonly Color HudHealthLowColor = ParseColor(HudHealthLowHex);
+        public static readonly Color HudProgressBackgroundColor = ParseColor(HudProgressBackgroundHex, 0.58f);
 
         private static Color ParseColor(string html, float alpha = 1f)
         {

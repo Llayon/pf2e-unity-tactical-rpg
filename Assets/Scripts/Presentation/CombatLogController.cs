@@ -50,6 +50,9 @@ namespace PF2e.Presentation
         private float cachedMinLineHeight = 0f;
         private const int LegacyDefaultMaxLines = 80;
         private const int CurrentDefaultMaxLines = 300;
+        private const float LogLineFontSize = 15.5f;
+        private const float LogLineCharacterSpacing = 0.08f;
+        private const float RetentionNoticeCharacterSpacing = 0.05f;
 
 #if UNITY_EDITOR
         private void OnValidate()
@@ -84,8 +87,12 @@ namespace PF2e.Presentation
                 lineTemplate.gameObject.SetActive(false);
 
             MigrateLegacyMaxLinesDefault();
+            ConfigureContentLayout();
+            ConfigureLineLayout(lineTemplate);
+            ApplyLineTypography(lineTemplate);
             CacheTemplateLineHeight();
             EnsureRetentionNoticeLabel();
+            ApplyRetentionNoticeTypography(retentionNoticeLabel);
             UpdateRetentionNoticeLabelText();
             RefreshRetentionNoticeVisibility();
 
@@ -222,6 +229,8 @@ namespace PF2e.Presentation
             inst.gameObject.name = "CombatLogLine";
             inst.gameObject.SetActive(false);
             inst.raycastTarget = false;
+            ConfigureLineLayout(inst);
+            ApplyLineTypography(inst);
             return inst;
         }
 
@@ -242,7 +251,76 @@ namespace PF2e.Presentation
             if (lineTransform.parent != content)
                 lineTransform.SetParent(content, false);
 
+            ConfigureLineLayout(line);
             lineTransform.SetAsLastSibling();
+        }
+
+        private void ConfigureContentLayout()
+        {
+            if (content == null)
+                return;
+
+            if (!content.TryGetComponent<VerticalLayoutGroup>(out var layoutGroup))
+                return;
+
+            layoutGroup.childControlWidth = true;
+            layoutGroup.childForceExpandWidth = true;
+        }
+
+        private static void ConfigureLineLayout(TextMeshProUGUI line)
+        {
+            if (line == null)
+                return;
+
+            RectTransform rectTransform = line.rectTransform;
+            if (rectTransform == null)
+                return;
+
+            rectTransform.anchorMin = new Vector2(0f, 1f);
+            rectTransform.anchorMax = new Vector2(1f, 1f);
+            rectTransform.pivot = new Vector2(0.5f, 1f);
+            rectTransform.anchoredPosition = Vector2.zero;
+
+            Vector2 sizeDelta = rectTransform.sizeDelta;
+            sizeDelta.x = 0f;
+            rectTransform.sizeDelta = sizeDelta;
+
+            if (!line.TryGetComponent<LayoutElement>(out var layoutElement))
+                return;
+
+            // Combat log rows are stretched by the parent layout group, so explicit
+            // width hints avoid expensive TMP preferred-width queries for every row.
+            layoutElement.minWidth = 0f;
+            layoutElement.preferredWidth = 0f;
+            layoutElement.flexibleWidth = 0f;
+        }
+
+        private static void ApplyLineTypography(TMP_Text line)
+        {
+            if (line == null)
+                return;
+
+            CombatUiTypography.ApplyBody(
+                line,
+                LogLineFontSize,
+                LogLineCharacterSpacing,
+                CombatUiPalette.HudTextPrimaryColor);
+            line.enableWordWrapping = true;
+            line.overflowMode = TextOverflowModes.Overflow;
+        }
+
+        private static void ApplyRetentionNoticeTypography(TMP_Text line)
+        {
+            if (line == null)
+                return;
+
+            float fontSize = Mathf.Max(12f, LogLineFontSize * 0.75f);
+            CombatUiTypography.ApplySecondary(
+                line,
+                fontSize,
+                RetentionNoticeCharacterSpacing,
+                CombatUiPalette.HudTextMutedColor,
+                style: FontStyles.Italic);
         }
 
         private void CacheTemplateLineHeight()
@@ -356,9 +434,7 @@ namespace PF2e.Presentation
             inst.enableWordWrapping = false;
             inst.overflowMode = TextOverflowModes.Truncate;
             inst.alignment = TextAlignmentOptions.TopRight;
-            inst.fontStyle = FontStyles.Italic;
-            inst.fontSize = Mathf.Max(12f, lineTemplate.fontSize * 0.75f);
-            inst.color = new Color(0.95f, 0.93f, 0.86f, 0.72f);
+            ApplyRetentionNoticeTypography(inst);
 
             if (inst.TryGetComponent<LayoutElement>(out var le))
                 le.enabled = false;

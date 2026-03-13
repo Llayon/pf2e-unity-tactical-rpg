@@ -196,13 +196,13 @@ namespace PF2e.Tests
 
             var layout = panelRect.GetComponent<VerticalLayoutGroup>();
             Assert.NotNull(layout);
-            Assert.That(titleText.fontSize, Is.EqualTo(20f).Within(0.01f));
-            Assert.That(bodyText.fontSize, Is.EqualTo(18f).Within(0.01f));
-            Assert.That(bodyText.characterSpacing, Is.EqualTo(2f).Within(0.01f));
-            Assert.That(titleText.characterSpacing, Is.EqualTo(2f).Within(0.01f));
-            Assert.That(bodyText.lineSpacing, Is.EqualTo(5f).Within(0.01f));
-            Assert.AreEqual(16, layout.padding.left);
-            Assert.That(layout.spacing, Is.EqualTo(7f).Within(0.01f));
+            Assert.That(titleText.fontSize, Is.EqualTo(18f).Within(0.01f));
+            Assert.That(bodyText.fontSize, Is.EqualTo(16f).Within(0.01f));
+            Assert.That(bodyText.characterSpacing, Is.EqualTo(0.65f).Within(0.01f));
+            Assert.That(titleText.characterSpacing, Is.EqualTo(0.65f).Within(0.01f));
+            Assert.That(bodyText.lineSpacing, Is.EqualTo(4f).Within(0.01f));
+            Assert.AreEqual(14, layout.padding.left);
+            Assert.That(layout.spacing, Is.EqualTo(6f).Within(0.01f));
 
             panel.Show(
                 "Compact",
@@ -211,13 +211,13 @@ namespace PF2e.Tests
                 TooltipLayoutProfile.Compact);
             Canvas.ForceUpdateCanvases();
 
-            Assert.That(titleText.fontSize, Is.EqualTo(18f).Within(0.01f));
-            Assert.That(bodyText.fontSize, Is.EqualTo(16f).Within(0.01f));
-            Assert.That(bodyText.characterSpacing, Is.EqualTo(2f).Within(0.01f));
-            Assert.That(titleText.characterSpacing, Is.EqualTo(2f).Within(0.01f));
-            Assert.That(bodyText.lineSpacing, Is.EqualTo(4f).Within(0.01f));
-            Assert.AreEqual(14, layout.padding.left);
-            Assert.That(layout.spacing, Is.EqualTo(6f).Within(0.01f));
+            Assert.That(titleText.fontSize, Is.EqualTo(17f).Within(0.01f));
+            Assert.That(bodyText.fontSize, Is.EqualTo(15f).Within(0.01f));
+            Assert.That(bodyText.characterSpacing, Is.EqualTo(0.55f).Within(0.01f));
+            Assert.That(titleText.characterSpacing, Is.EqualTo(0.55f).Within(0.01f));
+            Assert.That(bodyText.lineSpacing, Is.EqualTo(3f).Within(0.01f));
+            Assert.AreEqual(12, layout.padding.left);
+            Assert.That(layout.spacing, Is.EqualTo(5f).Within(0.01f));
         }
 
         [Test]

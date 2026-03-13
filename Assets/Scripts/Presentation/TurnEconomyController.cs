@@ -64,6 +64,7 @@ namespace PF2e.Presentation
             if (canvasGroup == null)
                 canvasGroup = GetComponent<CanvasGroup>();
             EnsureUiFallback();
+            ApplyVisualStyle();
             HidePanel();
             RefreshVisuals();
         }
@@ -95,6 +96,7 @@ namespace PF2e.Presentation
                 endTurnButton.onClick.AddListener(OnEndTurnClicked);
 
             BootstrapFromTurnManager();
+            ApplyVisualStyle();
             RefreshVisuals();
         }
 
@@ -141,8 +143,7 @@ namespace PF2e.Presentation
             if (background == null)
                 background = gameObject.AddComponent<Image>();
             background.raycastTarget = false;
-            if (background.color.a <= 0.01f)
-                background.color = new Color(0.08f, 0.09f, 0.12f, 0.92f);
+            background.color = CombatUiPalette.HudPanelBackgroundColor;
 
             if (actionPip1 == null)
                 actionPip1 = GetOrCreatePip("ActionPip1", 14f);
@@ -219,7 +220,7 @@ namespace PF2e.Presentation
             rect.anchoredPosition = new Vector2(112f, -12f);
             rect.sizeDelta = new Vector2(96f, 30f);
 
-            image.color = new Color(0.18f, 0.24f, 0.34f, 0.96f);
+            image.color = CombatUiPalette.HudButtonBackgroundColor;
 
             var label = go.transform.Find("Label");
             TextMeshProUGUI tmp;
@@ -243,14 +244,29 @@ namespace PF2e.Presentation
 
             tmp.text = "End Turn";
             tmp.alignment = TextAlignmentOptions.Center;
-            tmp.fontSize = 20f;
-            tmp.characterSpacing = 0.35f;
-            tmp.color = new Color(0.93f, 0.95f, 0.99f, 1f);
             tmp.raycastTarget = false;
             tmp.enableWordWrapping = false;
             tmp.enableKerning = true;
+            CombatUiTypography.ApplyButton(tmp, 18.5f, 0.12f, CombatUiPalette.HudButtonTextColor);
 
             return button;
+        }
+
+        private void ApplyVisualStyle()
+        {
+            var background = GetComponent<Image>();
+            if (background != null)
+                background.color = CombatUiPalette.HudPanelBackgroundColor;
+
+            if (endTurnButton != null)
+            {
+                var buttonImage = endTurnButton.GetComponent<Image>();
+                if (buttonImage != null)
+                    buttonImage.color = CombatUiPalette.HudButtonBackgroundColor;
+
+                var label = endTurnButton.GetComponentInChildren<TMP_Text>(true);
+                CombatUiTypography.ApplyButton(label, 18.5f, 0.12f, CombatUiPalette.HudButtonTextColor);
+            }
         }
 
         private void BootstrapFromTurnManager()

@@ -79,6 +79,7 @@ namespace PF2e.Presentation
             EnsurePortraitHierarchy();
             InitDamageOverlay();
             EnsureDelayedBadgeFallback();
+            ApplyTypography();
             ApplyDelayedBadgeVisual();
         }
 
@@ -99,6 +100,7 @@ namespace PF2e.Presentation
             delayed = false;
             highlighted = false;
             transform.localScale = Vector3.one;
+            ApplyTypography();
             ApplyNameVisual();
             ApplyDelayedBadgeVisual();
             ApplyPortrait(portrait);
@@ -378,11 +380,11 @@ namespace PF2e.Presentation
                 delayedBadgeRoot.SetActive(delayed);
 
             if (delayedBadgeBackground != null)
-                delayedBadgeBackground.color = delayedBadgeBackgroundColor;
+                delayedBadgeBackground.color = CombatUiPalette.HudButtonSelectedColor;
 
             if (delayedBadgeText != null)
             {
-                delayedBadgeText.color = delayedBadgeTextColor;
+                ApplyTypography();
                 delayedBadgeText.SetText("DLY");
             }
         }
@@ -504,6 +506,17 @@ namespace PF2e.Presentation
                     nameText.color = c;
                 }
             }
+        }
+
+        private void ApplyTypography()
+        {
+            CombatUiTypography.ApplyTitle(nameText, 13.5f, 0.08f, CombatUiPalette.HudTextPrimaryColor);
+            CombatUiTypography.ApplyButton(
+                delayedBadgeText,
+                10f,
+                0.12f,
+                CombatUiPalette.HudButtonSelectedTextColor,
+                FontStyles.Bold);
         }
 
         public void OnPointerClick(PointerEventData eventData)

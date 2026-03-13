@@ -54,6 +54,8 @@ namespace PF2e.Presentation
 
         private void OnEnable()
         {
+            ApplyRuntimeVisualStyle();
+
             if (eventBus != null)
             {
                 eventBus.OnCombatStartedTyped += HandleCombatStarted;
@@ -315,6 +317,7 @@ namespace PF2e.Presentation
             EnsureDelayPlacementInteractionCoordinator();
             EnsureDelayPlacementMarkerOverlayPresenter();
             EnsureDelayInitiativeRowPlanner();
+            ApplyRuntimeVisualStyle();
         }
 
         private Transform GetMarkersOverlayParent()
@@ -714,6 +717,15 @@ namespace PF2e.Presentation
             }
 
             return false;
+        }
+
+        private void ApplyRuntimeVisualStyle()
+        {
+            CombatUiTypography.ApplyTitle(roundLabel, 14.5f, 0.1f, CombatUiPalette.HudTextPrimaryColor);
+            CombatUiTypography.ApplySecondary(delayPlacementPromptLabel, 11f, 0.08f, CombatUiPalette.HudTextSecondaryColor);
+
+            if (delayPlacementPromptBackground != null)
+                delayPlacementPromptBackground.color = CombatUiPalette.HudPanelBackgroundColor;
         }
 
 #if UNITY_EDITOR

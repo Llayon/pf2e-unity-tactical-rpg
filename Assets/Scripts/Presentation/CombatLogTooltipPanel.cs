@@ -25,24 +25,24 @@ namespace PF2e.Presentation
         [SerializeField] private float compactMaxWidth = 500f;
         [SerializeField] private float extendedMinWidth = 480f;
         [SerializeField] private float extendedMaxWidth = 640f;
-        [SerializeField] private float compactBodyLineSpacing = 4f;
-        [SerializeField] private float standardBodyLineSpacing = 5f;
-        [SerializeField] private float extendedBodyLineSpacing = 6f;
-        [SerializeField] private float compactLayoutSpacing = 6f;
-        [SerializeField] private float standardLayoutSpacing = 7f;
-        [SerializeField] private float extendedLayoutSpacing = 8f;
-        [SerializeField] private int compactPadding = 14;
-        [SerializeField] private int standardPadding = 16;
-        [SerializeField] private int extendedPadding = 18;
-        [SerializeField] private float compactBodyFontSize = 16f;
-        [SerializeField] private float standardBodyFontSize = 18f;
-        [SerializeField] private float extendedBodyFontSize = 18f;
-        [SerializeField] private float compactTitleFontSize = 18f;
-        [SerializeField] private float standardTitleFontSize = 20f;
-        [SerializeField] private float extendedTitleFontSize = 22f;
-        [SerializeField] private float compactCharacterSpacing = 2f;
-        [SerializeField] private float standardCharacterSpacing = 2f;
-        [SerializeField] private float extendedCharacterSpacing = 2f;
+        [SerializeField] private float compactBodyLineSpacing = 3f;
+        [SerializeField] private float standardBodyLineSpacing = 4f;
+        [SerializeField] private float extendedBodyLineSpacing = 5f;
+        [SerializeField] private float compactLayoutSpacing = 5f;
+        [SerializeField] private float standardLayoutSpacing = 6f;
+        [SerializeField] private float extendedLayoutSpacing = 7f;
+        [SerializeField] private int compactPadding = 12;
+        [SerializeField] private int standardPadding = 14;
+        [SerializeField] private int extendedPadding = 16;
+        [SerializeField] private float compactBodyFontSize = 15f;
+        [SerializeField] private float standardBodyFontSize = 16f;
+        [SerializeField] private float extendedBodyFontSize = 17f;
+        [SerializeField] private float compactTitleFontSize = 17f;
+        [SerializeField] private float standardTitleFontSize = 18f;
+        [SerializeField] private float extendedTitleFontSize = 19f;
+        [SerializeField] private float compactCharacterSpacing = 0.55f;
+        [SerializeField] private float standardCharacterSpacing = 0.65f;
+        [SerializeField] private float extendedCharacterSpacing = 0.75f;
         [SerializeField] private float edgePadding = 24f;
         [SerializeField] private float dockGap = 20f;
         [SerializeField] private RectTransform dockTarget;
@@ -432,19 +432,23 @@ namespace PF2e.Presentation
 
             if (bodyText != null)
             {
-                bodyText.lineSpacing = bodyLineSpacing;
-                bodyText.fontSize = bodyFontSize;
-                bodyText.characterSpacing = characterSpacing;
-                bodyText.color = PanelBodyColor;
-                bodyText.fontStyle = FontStyles.Normal;
+                CombatUiTypography.ApplyBody(
+                    bodyText,
+                    bodyFontSize,
+                    characterSpacing,
+                    PanelBodyColor,
+                    bodyLineSpacing,
+                    FontStyles.Normal);
             }
 
             if (titleText != null)
             {
-                titleText.fontSize = titleFontSize;
-                titleText.characterSpacing = characterSpacing;
-                titleText.color = PanelTitleColor;
-                titleText.fontStyle = titleFontStyle;
+                CombatUiTypography.ApplyTitle(
+                    titleText,
+                    titleFontSize,
+                    characterSpacing,
+                    PanelTitleColor,
+                    titleFontStyle);
             }
 
             if (panelLayoutGroup != null)

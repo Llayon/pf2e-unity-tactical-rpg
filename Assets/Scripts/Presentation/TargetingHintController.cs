@@ -51,6 +51,7 @@ namespace PF2e.Presentation
 
         private void Awake()
         {
+            ApplyVisualStyle();
             HidePanel();
         }
 
@@ -80,6 +81,7 @@ namespace PF2e.Presentation
             eventBus.OnConditionChangedTyped += HandleConditionChanged;
             eventBus.OnEntityMovedTyped += HandleEntityMoved;
 
+            ApplyVisualStyle();
             RefreshHint();
         }
 
@@ -276,6 +278,14 @@ namespace PF2e.Presentation
 
             if (hintText != null)
                 hintText.text = string.Empty;
+        }
+
+        private void ApplyVisualStyle()
+        {
+            CombatUiTypography.ApplyBody(hintText, 14.5f, 0.08f, CombatUiPalette.HudTextPrimaryColor);
+
+            if (backgroundImage != null)
+                backgroundImage.color = CombatUiPalette.HudPanelBackgroundColor;
         }
     }
 }

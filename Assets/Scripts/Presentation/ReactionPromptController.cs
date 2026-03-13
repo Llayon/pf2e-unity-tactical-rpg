@@ -43,12 +43,14 @@ namespace PF2e.Presentation
 
         private void Awake()
         {
+            ApplyVisualStyle();
             if (rootPanel != null)
                 rootPanel.SetActive(false);
         }
 
         private void OnEnable()
         {
+            ApplyVisualStyle();
             EnsureButtonListenersBound();
         }
 
@@ -157,6 +159,35 @@ namespace PF2e.Presentation
 
             boundYesButton = null;
             boundNoButton = null;
+        }
+
+        private void ApplyVisualStyle()
+        {
+            CombatUiTypography.ApplyTitle(titleText, 18f, 0.12f, CombatUiPalette.HudTextPrimaryColor);
+            CombatUiTypography.ApplyBody(bodyText, 14f, 0.08f, CombatUiPalette.HudTextSecondaryColor, 2f);
+
+            if (rootPanel != null)
+            {
+                var panelImage = rootPanel.GetComponent<Image>();
+                if (panelImage != null)
+                    panelImage.color = CombatUiPalette.HudPanelBackgroundColor;
+            }
+
+            ApplyButtonVisualStyle(yesButton);
+            ApplyButtonVisualStyle(noButton);
+        }
+
+        private static void ApplyButtonVisualStyle(Button button)
+        {
+            if (button == null)
+                return;
+
+            var image = button.GetComponent<Image>();
+            if (image != null)
+                image.color = CombatUiPalette.HudButtonBackgroundColor;
+
+            var label = button.GetComponentInChildren<TMP_Text>(true);
+            CombatUiTypography.ApplyButton(label, 16f, 0.12f, CombatUiPalette.HudButtonTextColor);
         }
     }
 }

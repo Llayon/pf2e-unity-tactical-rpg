@@ -56,11 +56,13 @@ namespace PF2e.Presentation
         private bool hasCachedUiPosition;
         private Vector3 cachedLauncherWorldPosition;
         private Vector3 cachedPanelWorldPosition;
+        private readonly Vector3[] anchorCornersBuffer = new Vector3[4];
 
         private void Awake()
         {
             ResolveDependencies();
             EnsureUiFallback();
+            ApplyVisualStyle();
             SetLauncherVisible(false);
             SetPanelVisible(false);
         }
@@ -93,6 +95,7 @@ namespace PF2e.Presentation
             eventBus.OnDelayedTurnExpiredTyped += HandleDelayedTurnChanged;
 
             BindButtons();
+            ApplyVisualStyle();
             RefreshUiState();
         }
 
@@ -448,11 +451,10 @@ namespace PF2e.Presentation
             if (!initiativeBarController.TryGetTurnOptionsAnchorRect(out var anchorRect) || anchorRect == null)
                 return;
 
-            var corners = new Vector3[4];
-            anchorRect.GetWorldCorners(corners);
+            anchorRect.GetWorldCorners(anchorCornersBuffer);
             // Use slot bounds to anchor launcher to lower-right corner regardless corner index ordering.
-            float minY = Mathf.Min(corners[0].y, corners[1].y, corners[2].y, corners[3].y);
-            float maxX = Mathf.Max(corners[0].x, corners[1].x, corners[2].x, corners[3].x);
+            float minY = Mathf.Min(anchorCornersBuffer[0].y, anchorCornersBuffer[1].y, anchorCornersBuffer[2].y, anchorCornersBuffer[3].y);
+            float maxX = Mathf.Max(anchorCornersBuffer[0].x, anchorCornersBuffer[1].x, anchorCornersBuffer[2].x, anchorCornersBuffer[3].x);
             Vector3 bottomRight = new(maxX, minY, 0f);
 
             Vector3 desiredLauncherPosition = bottomRight + new Vector3(launcherOffset.x, launcherOffset.y, 0f);
@@ -527,6 +529,8 @@ namespace PF2e.Presentation
                 returnNowButton = EnsureButton(panelRoot, "ReturnNowButton");
             if (skipButton == null)
                 skipButton = EnsureButton(panelRoot, "SkipButton");
+
+            ApplyVisualStyle();
         }
 
         private RectTransform CreateLauncherRoot()
@@ -538,19 +542,17 @@ namespace PF2e.Presentation
             rect.sizeDelta = new Vector2(20f, 20f);
 
             var image = go.GetComponent<Image>();
-            image.color = new Color(0.18f, 0.23f, 0.30f, 0.96f);
+            image.color = CombatUiPalette.HudPanelSurfaceColor;
 
             var labelGo = new GameObject("Label", typeof(RectTransform));
             labelGo.transform.SetParent(go.transform, false);
             var label = labelGo.AddComponent<TextMeshProUGUI>();
             label.text = "...";
             label.alignment = TextAlignmentOptions.Center;
-            label.fontSize = 16f;
-            label.characterSpacing = 0.25f;
-            label.color = buttonTextColor;
             label.raycastTarget = false;
             label.enableWordWrapping = false;
             label.enableKerning = true;
+            CombatUiTypography.ApplyButton(label, 16f, 0.12f, CombatUiPalette.HudButtonTextColor);
 
             var labelRect = label.GetComponent<RectTransform>();
             labelRect.anchorMin = Vector2.zero;
@@ -576,7 +578,7 @@ namespace PF2e.Presentation
             rect.sizeDelta = new Vector2(400f, 28f);
 
             var image = go.GetComponent<Image>();
-            image.color = new Color(0.08f, 0.09f, 0.12f, 0.96f);
+            image.color = CombatUiPalette.HudPanelBackgroundColor;
 
             var layout = go.GetComponent<HorizontalLayoutGroup>();
             layout.padding = new RectOffset(6, 6, 4, 4);
@@ -629,12 +631,10 @@ namespace PF2e.Presentation
             var label = labelGo.AddComponent<TextMeshProUGUI>();
             label.text = name;
             label.alignment = TextAlignmentOptions.Center;
-            label.fontSize = 15f;
-            label.characterSpacing = 0.2f;
-            label.color = buttonTextColor;
             label.raycastTarget = false;
             label.enableWordWrapping = false;
             label.enableKerning = true;
+            CombatUiTypography.ApplyButton(label, 15.5f, 0.12f, CombatUiPalette.HudButtonTextColor);
 
             var labelRect = label.GetComponent<RectTransform>();
             labelRect.anchorMin = Vector2.zero;
@@ -679,7 +679,51 @@ namespace PF2e.Presentation
 
             var label = button.GetComponentInChildren<TMP_Text>(true);
             if (label != null)
-                label.color = selected ? Color.black : buttonTextColor;
+                label.color = selected ? CombatUiPalette.HudButtonSelectedTextColor : buttonTextColor;
+        }
+
+        private void ApplyVisualStyle()
+        {
+            selectedReadyColor = CombatUiPalette.HudButtonSelectedColor;
+            unselectedReadyColor = CombatUiPalette.HudButtonBackgroundColor;
+            buttonTextColor = CombatUiPalette.HudButtonTextColor;
+
+            if (launcherRoot != null)
+            {
+                var launcherImage = launcherRoot.GetComponent<Image>();
+                if (launcherImage != null)
+                    launcherImage.color = CombatUiPalette.HudPanelSurfaceColor;
+
+                var launcherLabel = launcherRoot.GetComponentInChildren<TMP_Text>(true);
+                CombatUiTypography.ApplyButton(launcherLabel, 16f, 0.12f, buttonTextColor);
+            }
+
+            if (panelRoot != null)
+            {
+                var panelImage = panelRoot.GetComponent<Image>();
+                if (panelImage != null)
+                    panelImage.color = CombatUiPalette.HudPanelBackgroundColor;
+            }
+
+            ApplyButtonVisualStyle(readyMoveButton);
+            ApplyButtonVisualStyle(readyAttackButton);
+            ApplyButtonVisualStyle(readyAnyButton);
+            ApplyButtonVisualStyle(delayButton);
+            ApplyButtonVisualStyle(returnNowButton);
+            ApplyButtonVisualStyle(skipButton);
+        }
+
+        private void ApplyButtonVisualStyle(Button button)
+        {
+            if (button == null)
+                return;
+
+            var image = button.GetComponent<Image>();
+            if (image != null)
+                image.color = unselectedReadyColor;
+
+            var label = button.GetComponentInChildren<TMP_Text>(true);
+            CombatUiTypography.ApplyButton(label, 15.5f, 0.12f, buttonTextColor);
         }
 
         private void SetLauncherVisible(bool visible)

@@ -119,73 +119,6 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!21 &5493926
-Material:
-  serializedVersion: 8
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: Source Sans 3 SDF Material (Instance)
-  m_Shader: {fileID: 4800000, guid: fe393ace9b354375a9cb14cdbbc28be4, type: 3}
-  m_Parent: {fileID: 0}
-  m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
-  m_InvalidKeywords: []
-  m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
-  m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
-  stringTagMap: {}
-  disabledShaderPasses: []
-  m_LockedProperties: 
-  m_SavedProperties:
-    serializedVersion: 3
-    m_TexEnvs:
-    - _MainTex:
-        m_Texture: {fileID: 7842356879169434983, guid: 963951fba879b2d45a41ff44f563e6e7, type: 2}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    m_Ints: []
-    m_Floats:
-    - _ColorMask: 15
-    - _CullMode: 0
-    - _FaceDilate: 0.018
-    - _GradientScale: 10
-    - _MaskSoftnessX: 0
-    - _MaskSoftnessY: 0
-    - _OutlineSoftness: 0.09
-    - _OutlineWidth: 0.07
-    - _PerspectiveFilter: 0.875
-    - _ScaleRatioA: 0.9
-    - _ScaleRatioB: 1
-    - _ScaleRatioC: 0.6588
-    - _ScaleX: 1
-    - _ScaleY: 1
-    - _ShaderFlags: 0
-    - _Sharpness: 0
-    - _Stencil: 0
-    - _StencilComp: 8
-    - _StencilOp: 0
-    - _StencilReadMask: 255
-    - _StencilWriteMask: 255
-    - _TextureHeight: 1024
-    - _TextureWidth: 1024
-    - _UnderlayDilate: 0
-    - _UnderlayOffsetX: 0
-    - _UnderlayOffsetY: 0
-    - _UnderlaySoftness: 0
-    - _VertexOffsetX: 0
-    - _VertexOffsetY: 0
-    - _WeightBold: 1
-    - _WeightNormal: 0
-    m_Colors:
-    - _ClipRect: {r: -32767, g: -32767, b: 32767, a: 32767}
-    - _FaceColor: {r: 1, g: 1, b: 1, a: 1}
-    - _OutlineColor: {r: 0, g: 0, b: 0, a: 0.92}
-    - _UnderlayColor: {r: 0, g: 0, b: 0, a: 0.5}
-  m_BuildTextureStacks: []
-  m_AllowLocking: 1
 --- !u!21 &34439149
 Material:
   serializedVersion: 8
@@ -451,7 +384,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294110187
-  m_fontColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -468,8 +401,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -478,7 +411,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -728,7 +661,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294110187
-  m_fontColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -745,8 +678,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 15
-  m_fontSizeBase: 15
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -755,7 +688,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.2
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -858,14 +791,14 @@ MonoBehaviour:
   m_text: Shield
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 963951fba879b2d45a41ff44f563e6e7, type: 2}
-  m_sharedMaterial: {fileID: 5493926}
+  m_sharedMaterial: {fileID: -7282970135425176950, guid: 963951fba879b2d45a41ff44f563e6e7, type: 2}
   m_fontSharedMaterials: []
-  m_fontMaterial: {fileID: 5493926}
+  m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
     rgba: 4293716200
-  m_fontColor: {r: 0.91, g: 0.91, b: 0.925, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -882,8 +815,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 17
-  m_fontSizeBase: 17
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -892,7 +825,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.3
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -1002,7 +935,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -1019,8 +952,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 20
-  m_fontSizeBase: 20
+  m_fontSize: 19
+  m_fontSizeBase: 19
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -1029,7 +962,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.14
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -2152,7 +2085,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 0.050980393, g: 0.07058824, b: 0.101960786, a: 0.84}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -2381,73 +2314,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 107740862}
   m_CullTransparentMesh: 1
---- !u!21 &112189405
-Material:
-  serializedVersion: 8
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: Source Sans 3 SDF Material (Instance)
-  m_Shader: {fileID: 4800000, guid: fe393ace9b354375a9cb14cdbbc28be4, type: 3}
-  m_Parent: {fileID: 0}
-  m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
-  m_InvalidKeywords: []
-  m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
-  m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
-  stringTagMap: {}
-  disabledShaderPasses: []
-  m_LockedProperties: 
-  m_SavedProperties:
-    serializedVersion: 3
-    m_TexEnvs:
-    - _MainTex:
-        m_Texture: {fileID: 7842356879169434983, guid: 963951fba879b2d45a41ff44f563e6e7, type: 2}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    m_Ints: []
-    m_Floats:
-    - _ColorMask: 15
-    - _CullMode: 0
-    - _FaceDilate: 0.018
-    - _GradientScale: 10
-    - _MaskSoftnessX: 0
-    - _MaskSoftnessY: 0
-    - _OutlineSoftness: 0.09
-    - _OutlineWidth: 0.07
-    - _PerspectiveFilter: 0.875
-    - _ScaleRatioA: 0.9
-    - _ScaleRatioB: 1
-    - _ScaleRatioC: 0.6588
-    - _ScaleX: 1
-    - _ScaleY: 1
-    - _ShaderFlags: 0
-    - _Sharpness: 0
-    - _Stencil: 0
-    - _StencilComp: 8
-    - _StencilOp: 0
-    - _StencilReadMask: 255
-    - _StencilWriteMask: 255
-    - _TextureHeight: 1024
-    - _TextureWidth: 1024
-    - _UnderlayDilate: 0
-    - _UnderlayOffsetX: 0
-    - _UnderlayOffsetY: 0
-    - _UnderlaySoftness: 0
-    - _VertexOffsetX: 0
-    - _VertexOffsetY: 0
-    - _WeightBold: 1
-    - _WeightNormal: 0
-    m_Colors:
-    - _ClipRect: {r: -32767, g: -32767, b: 32767, a: 32767}
-    - _FaceColor: {r: 1, g: 1, b: 1, a: 1}
-    - _OutlineColor: {r: 0, g: 0, b: 0, a: 0.92}
-    - _UnderlayColor: {r: 0, g: 0, b: 0, a: 0.5}
-  m_BuildTextureStacks: []
-  m_AllowLocking: 1
 --- !u!1 &112200031
 GameObject:
   m_ObjectHideFlags: 0
@@ -2640,7 +2506,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4278190080
-  m_fontColor: {r: 0, g: 0, b: 0, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -2657,8 +2523,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 20
-  m_fontSizeBase: 20
+  m_fontSize: 16
+  m_fontSizeBase: 16
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -2667,7 +2533,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.2
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -2926,7 +2792,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
+  m_fontColor: {r: 0.8862745, g: 0.9098039, b: 0.9372549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -2943,8 +2809,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 20
-  m_fontSizeBase: 20
+  m_fontSize: 18
+  m_fontSizeBase: 18
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -2953,7 +2819,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 1
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.2
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -3879,7 +3745,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294110187
-  m_fontColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -3896,8 +3762,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -3906,7 +3772,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -4066,7 +3932,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.18, g: 0.23, b: 0.3, a: 0.92}
+  m_Color: {r: 0.101960786, g: 0.16470589, b: 0.22745098, a: 0.94}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -4472,7 +4338,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4293716200
-  m_fontColor: {r: 0.91, g: 0.91, b: 0.925, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -4489,8 +4355,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 17
-  m_fontSizeBase: 17
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -4499,7 +4365,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.3
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -4834,7 +4700,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.18, g: 0.23, b: 0.3, a: 0.92}
+  m_Color: {r: 0.101960786, g: 0.16470589, b: 0.22745098, a: 0.94}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -5280,7 +5146,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294110187
-  m_fontColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -5297,8 +5163,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -5307,7 +5173,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -5417,7 +5283,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294110187
-  m_fontColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -5434,8 +5300,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 15
-  m_fontSizeBase: 15
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -5444,7 +5310,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.2
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -5613,7 +5479,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.2902, g: 0.2902, b: 0.2902, a: 1}
+  m_Color: {r: 0.14509805, g: 0.19607843, b: 0.2627451, a: 0.72}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -5725,7 +5591,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4288710792
-  m_fontColor: {r: 0.533, g: 0.533, b: 0.627, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -5742,8 +5608,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -5752,7 +5618,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -6131,7 +5997,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4288710792
-  m_fontColor: {r: 0.533, g: 0.533, b: 0.627, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -6148,8 +6014,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -6158,7 +6024,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -7675,7 +7541,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294110187
-  m_fontColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -7692,8 +7558,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 15
-  m_fontSizeBase: 15
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -7702,7 +7568,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.2
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -7875,7 +7741,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4288710792
-  m_fontColor: {r: 0.533, g: 0.533, b: 0.627, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -7892,8 +7758,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -7902,7 +7768,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -8012,7 +7878,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4293716200
-  m_fontColor: {r: 0.91, g: 0.91, b: 0.925, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -8029,8 +7895,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 17
-  m_fontSizeBase: 17
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -8039,7 +7905,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.3
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -8149,7 +8015,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294110187
-  m_fontColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -8166,8 +8032,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -8176,7 +8042,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -8321,7 +8187,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4288710792
-  m_fontColor: {r: 0.533, g: 0.533, b: 0.627, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -8338,8 +8204,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -8348,7 +8214,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -8611,14 +8477,14 @@ MonoBehaviour:
   m_text: S
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 963951fba879b2d45a41ff44f563e6e7, type: 2}
-  m_sharedMaterial: {fileID: 5493926}
+  m_sharedMaterial: {fileID: -7282970135425176950, guid: 963951fba879b2d45a41ff44f563e6e7, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294110187
-  m_fontColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -8635,8 +8501,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -8645,7 +8511,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -8755,7 +8621,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294110187
-  m_fontColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -8772,8 +8638,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 15
-  m_fontSizeBase: 15
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -8782,7 +8648,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.2
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -9010,7 +8876,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.10196, g: 0.10196, b: 0.13333, a: 0.92}
+  m_Color: {r: 0.043137256, g: 0.06666667, b: 0.09411765, a: 0.84}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -9171,7 +9037,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 0.101960786, g: 0.16470589, b: 0.22745098, a: 0.94}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -9446,7 +9312,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294110187
-  m_fontColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -9463,8 +9329,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -9473,7 +9339,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -9583,7 +9449,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294110187
-  m_fontColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -9600,8 +9466,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 15
-  m_fontSizeBase: 15
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -9610,7 +9476,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.2
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -9922,7 +9788,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4293716200
-  m_fontColor: {r: 0.91, g: 0.91, b: 0.925, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -9939,8 +9805,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 17
-  m_fontSizeBase: 17
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -9949,7 +9815,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.3
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -10059,7 +9925,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4288710792
-  m_fontColor: {r: 0.533, g: 0.533, b: 0.627, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -10076,8 +9942,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -10086,7 +9952,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -10561,7 +10427,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4293716200
-  m_fontColor: {r: 0.91, g: 0.91, b: 0.925, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -10578,8 +10444,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 17
-  m_fontSizeBase: 17
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -10588,7 +10454,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.3
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -11083,7 +10949,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4293716200
-  m_fontColor: {r: 0.91, g: 0.91, b: 0.925, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -11100,8 +10966,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 17
-  m_fontSizeBase: 17
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -11110,7 +10976,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.3
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -11230,7 +11096,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 0.101960786, g: 0.16470589, b: 0.22745098, a: 0.94}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -11364,7 +11230,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 0.050980393, g: 0.07058824, b: 0.101960786, a: 0.84}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -11496,7 +11362,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294110187
-  m_fontColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -11523,7 +11389,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.25
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -11793,7 +11659,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4293716200
-  m_fontColor: {r: 0.91, g: 0.91, b: 0.925, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -11810,8 +11676,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 17
-  m_fontSizeBase: 17
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -11820,7 +11686,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.3
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -12323,7 +12189,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4288710792
-  m_fontColor: {r: 0.533, g: 0.533, b: 0.627, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -12340,8 +12206,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -12350,7 +12216,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -12460,7 +12326,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4288710792
-  m_fontColor: {r: 0.533, g: 0.533, b: 0.627, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -12477,8 +12343,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -12487,7 +12353,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -12917,7 +12783,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294110187
-  m_fontColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -12934,8 +12800,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 15
-  m_fontSizeBase: 15
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -12944,7 +12810,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.2
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -13129,7 +12995,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4293716200
-  m_fontColor: {r: 0.91, g: 0.91, b: 0.925, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -13146,8 +13012,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 17
-  m_fontSizeBase: 17
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -13156,7 +13022,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.3
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -13266,7 +13132,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4293716200
-  m_fontColor: {r: 0.91, g: 0.91, b: 0.925, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -13283,8 +13149,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 17
-  m_fontSizeBase: 17
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -13293,7 +13159,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.3
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -13494,7 +13360,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4293716200
-  m_fontColor: {r: 0.91, g: 0.91, b: 0.925, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -13511,8 +13377,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 17
-  m_fontSizeBase: 17
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -13521,7 +13387,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.3
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -13791,7 +13657,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4293716200
-  m_fontColor: {r: 0.91, g: 0.91, b: 0.925, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -13808,8 +13674,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 17
-  m_fontSizeBase: 17
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -13818,7 +13684,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.3
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -14056,7 +13922,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4293716200
-  m_fontColor: {r: 0.91, g: 0.91, b: 0.925, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -14073,8 +13939,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 17
-  m_fontSizeBase: 17
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -14083,7 +13949,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.3
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -14314,7 +14180,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4293716200
-  m_fontColor: {r: 0.91, g: 0.91, b: 0.925, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -14331,8 +14197,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 17
-  m_fontSizeBase: 17
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -14341,7 +14207,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.3
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -14638,7 +14504,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.18, g: 0.23, b: 0.3, a: 0.92}
+  m_Color: {r: 0.101960786, g: 0.16470589, b: 0.22745098, a: 0.94}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -14730,7 +14596,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4288710792
-  m_fontColor: {r: 0.533, g: 0.533, b: 0.627, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -14747,8 +14613,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -14757,7 +14623,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -14860,14 +14726,14 @@ MonoBehaviour:
   m_text: G
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 963951fba879b2d45a41ff44f563e6e7, type: 2}
-  m_sharedMaterial: {fileID: 5493926}
+  m_sharedMaterial: {fileID: -7282970135425176950, guid: 963951fba879b2d45a41ff44f563e6e7, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294110187
-  m_fontColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -14884,8 +14750,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -14894,7 +14760,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -15136,7 +15002,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontColor: {r: 0.9, g: 0.9, b: 0.95, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -15153,8 +15019,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 15
-  m_fontSizeBase: 15
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -15163,7 +15029,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.2
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -15423,7 +15289,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4288710792
-  m_fontColor: {r: 0.533, g: 0.533, b: 0.627, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -15440,8 +15306,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -15450,7 +15316,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -15560,7 +15426,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4293716200
-  m_fontColor: {r: 0.91, g: 0.91, b: 0.925, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -15577,8 +15443,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 17
-  m_fontSizeBase: 17
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -15587,7 +15453,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.3
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -15764,7 +15630,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4293716200
-  m_fontColor: {r: 0.91, g: 0.91, b: 0.925, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -15781,8 +15647,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 17
-  m_fontSizeBase: 17
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -15791,7 +15657,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.3
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -15901,7 +15767,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
+  m_fontColor: {r: 0.8862745, g: 0.9098039, b: 0.9372549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -15918,8 +15784,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 15
-  m_fontSizeBase: 15
+  m_fontSize: 14.5
+  m_fontSizeBase: 14.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -15928,7 +15794,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 1
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.15
+  m_characterSpacing: 0.1
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -16038,7 +15904,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4288710792
-  m_fontColor: {r: 0.533, g: 0.533, b: 0.627, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -16055,8 +15921,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -16065,7 +15931,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -16175,7 +16041,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294110187
-  m_fontColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -16192,8 +16058,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -16202,7 +16068,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -16362,7 +16228,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.18, g: 0.23, b: 0.3, a: 0.92}
+  m_Color: {r: 0.101960786, g: 0.16470589, b: 0.22745098, a: 0.94}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -16454,7 +16320,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4278190080
-  m_fontColor: {r: 0, g: 0, b: 0, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -16471,8 +16337,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 20
-  m_fontSizeBase: 20
+  m_fontSize: 16
+  m_fontSizeBase: 16
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -16481,7 +16347,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.2
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -16641,7 +16507,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.18, g: 0.23, b: 0.3, a: 0.92}
+  m_Color: {r: 0.101960786, g: 0.16470589, b: 0.22745098, a: 0.94}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -16918,7 +16784,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294110187
-  m_fontColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -16935,8 +16801,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -16945,7 +16811,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -17055,7 +16921,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4288710792
-  m_fontColor: {r: 0.533, g: 0.533, b: 0.627, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -17072,8 +16938,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -17082,7 +16948,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -17236,7 +17102,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.1, g: 0.1, b: 0.15, a: 0.85}
+  m_Color: {r: 0.050980393, g: 0.07058824, b: 0.101960786, a: 0.84}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -17328,7 +17194,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4293716200
-  m_fontColor: {r: 0.91, g: 0.91, b: 0.925, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -17345,8 +17211,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 17
-  m_fontSizeBase: 17
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -17355,7 +17221,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.3
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -17894,7 +17760,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4288710792
-  m_fontColor: {r: 0.533, g: 0.533, b: 0.627, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -17911,8 +17777,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -17921,7 +17787,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -18331,16 +18197,14 @@ MonoBehaviour:
   m_text: Aid
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 963951fba879b2d45a41ff44f563e6e7, type: 2}
-  m_sharedMaterial: {fileID: 112189405}
-  m_fontSharedMaterials:
-  - {fileID: 1806260441}
-  m_fontMaterial: {fileID: 112189405}
-  m_fontMaterials:
-  - {fileID: 1806260441}
+  m_sharedMaterial: {fileID: -7282970135425176950, guid: 963951fba879b2d45a41ff44f563e6e7, type: 2}
+  m_fontSharedMaterials: []
+  m_fontMaterial: {fileID: 0}
+  m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
     rgba: 4293716200
-  m_fontColor: {r: 0.91, g: 0.91, b: 0.925, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -18357,8 +18221,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 17
-  m_fontSizeBase: 17
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -18367,7 +18231,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.3
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -18479,7 +18343,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4288710792
-  m_fontColor: {r: 0.533, g: 0.533, b: 0.627, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -18496,8 +18360,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -18506,7 +18370,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -18805,7 +18669,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.18, g: 0.23, b: 0.3, a: 0.96}
+  m_Color: {r: 0.08627451, g: 0.13333334, b: 0.19215687, a: 0.92}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -19321,7 +19185,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4288710792
-  m_fontColor: {r: 0.533, g: 0.533, b: 0.627, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -19338,8 +19202,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -19348,7 +19212,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -19458,7 +19322,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4288710792
-  m_fontColor: {r: 0.533, g: 0.533, b: 0.627, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -19475,8 +19339,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -19485,7 +19349,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -19755,7 +19619,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4293716200
-  m_fontColor: {r: 0.91, g: 0.91, b: 0.925, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -19772,8 +19636,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 17
-  m_fontSizeBase: 17
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -19782,7 +19646,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.3
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -20792,7 +20656,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4288710792
-  m_fontColor: {r: 0.533, g: 0.533, b: 0.627, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -20809,8 +20673,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -20819,7 +20683,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -20922,14 +20786,14 @@ MonoBehaviour:
   m_text: 
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 963951fba879b2d45a41ff44f563e6e7, type: 2}
-  m_sharedMaterial: {fileID: 112189405}
+  m_sharedMaterial: {fileID: -7282970135425176950, guid: 963951fba879b2d45a41ff44f563e6e7, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontColor: {r: 0, g: 0, b: 0, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -20946,8 +20810,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -20956,7 +20820,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -21076,7 +20940,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
+  m_fontColor: {r: 0.8862745, g: 0.9098039, b: 0.9372549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -21093,8 +20957,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 20
-  m_fontSizeBase: 20
+  m_fontSize: 18
+  m_fontSizeBase: 18
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -21103,7 +20967,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 1
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.2
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -21207,7 +21071,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -21224,8 +21088,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 20
-  m_fontSizeBase: 20
+  m_fontSize: 19
+  m_fontSizeBase: 19
   m_fontWeight: 500
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -21234,7 +21098,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.14
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -21419,7 +21283,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.07, g: 0.07, b: 0.1, a: 0.92}
+  m_Color: {r: 0.050980393, g: 0.07058824, b: 0.101960786, a: 0.84}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -21561,7 +21425,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.18, g: 0.23, b: 0.3, a: 0.92}
+  m_Color: {r: 0.101960786, g: 0.16470589, b: 0.22745098, a: 0.94}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -21752,7 +21616,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.08, g: 0.09, b: 0.12, a: 0.92}
+  m_Color: {r: 0.050980393, g: 0.07058824, b: 0.101960786, a: 0.84}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -21844,7 +21708,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 3957775323
-  m_fontColor: {r: 0.86, g: 0.86, b: 0.9, a: 0.92}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -21861,8 +21725,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -21871,7 +21735,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 1
   m_VerticalAlignment: 4096
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -22482,7 +22346,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294110187
-  m_fontColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -22499,8 +22363,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -22509,7 +22373,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -22669,7 +22533,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.18, g: 0.23, b: 0.3, a: 0.92}
+  m_Color: {r: 0.101960786, g: 0.16470589, b: 0.22745098, a: 0.94}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -22811,7 +22675,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.18, g: 0.23, b: 0.3, a: 0.92}
+  m_Color: {r: 0.101960786, g: 0.16470589, b: 0.22745098, a: 0.94}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -22905,7 +22769,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4290829544
-  m_fontColor: {r: 0.9098, g: 0.8627, b: 0.7529, a: 1}
+  m_fontColor: {r: 0.8980392, g: 0.85882354, b: 0.7921569, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -22922,17 +22786,17 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 13
-  m_fontSizeBase: 13
+  m_fontSize: 18
+  m_fontSizeBase: 18
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 1
+  m_fontStyle: 0
   m_HorizontalAlignment: 1
   m_VerticalAlignment: 256
   m_textAlignment: 65535
-  m_characterSpacing: 0
+  m_characterSpacing: 0.65
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -23415,7 +23279,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294110187
-  m_fontColor: {r: 0.92, g: 0.92, b: 0.95, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -23432,8 +23296,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -23442,7 +23306,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -23552,7 +23416,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4288710792
-  m_fontColor: {r: 0.533, g: 0.533, b: 0.627, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -23569,8 +23433,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -23579,7 +23443,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -23689,7 +23553,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4288710792
-  m_fontColor: {r: 0.533, g: 0.533, b: 0.627, a: 1}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -23706,8 +23570,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -23716,7 +23580,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
@@ -23826,7 +23690,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 3957775323
-  m_fontColor: {r: 0.86, g: 0.86, b: 0.9, a: 0.92}
+  m_fontColor: {r: 0.94509804, g: 0.95686275, b: 0.972549, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -23843,8 +23707,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 11.5
-  m_fontSizeBase: 11.5
+  m_fontSize: 15.5
+  m_fontSizeBase: 15.5
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -23853,7 +23717,7 @@ MonoBehaviour:
   m_HorizontalAlignment: 1
   m_VerticalAlignment: 4096
   m_textAlignment: 65535
-  m_characterSpacing: 0.35
+  m_characterSpacing: 0.12
   m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0

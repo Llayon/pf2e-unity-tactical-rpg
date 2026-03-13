@@ -150,6 +150,7 @@ namespace PF2e.Presentation
             ResolveCastSpellUiReferences();
             EnsureLauncherLayoutFallback();
             ConfigureLauncherPresenter();
+            ApplyTypographyStyle();
 
             aidPreparedIndicatorPresenter.Clear();
             RefreshAidPreparedIndicator();
@@ -201,6 +202,9 @@ namespace PF2e.Presentation
 
         private void ApplyAidPreparedIndicatorStyle()
         {
+            aidPreparedIndicatorFillColor = CombatUiPalette.HudButtonSelectedColor;
+            aidPreparedIndicatorLabelColor = CombatUiPalette.HudButtonSelectedTextColor;
+
             if (aidPreparedIndicatorRoot != null)
             {
                 var indicatorImage = aidPreparedIndicatorRoot.GetComponent<Image>();
@@ -208,8 +212,7 @@ namespace PF2e.Presentation
                     indicatorImage.color = aidPreparedIndicatorFillColor;
             }
 
-            if (aidPreparedIndicatorLabel != null)
-                aidPreparedIndicatorLabel.color = aidPreparedIndicatorLabelColor;
+            CombatUiTypography.ApplyButton(aidPreparedIndicatorLabel, 12f, 0.12f, aidPreparedIndicatorLabelColor, FontStyles.Bold);
         }
 
         private void ResolveCastSpellUiReferences()
@@ -388,7 +391,7 @@ namespace PF2e.Presentation
 
             if (!root.TryGetComponent<Image>(out var image))
                 image = root.gameObject.AddComponent<Image>();
-            image.color = new Color(0.08f, 0.09f, 0.12f, 0.96f);
+            image.color = CombatUiPalette.HudPanelBackgroundColor;
             image.raycastTarget = true;
 
             if (!root.TryGetComponent<HorizontalLayoutGroup>(out var layout))
@@ -405,6 +408,41 @@ namespace PF2e.Presentation
                 fitter = root.gameObject.AddComponent<ContentSizeFitter>();
             fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        }
+
+        private void ApplyTypographyStyle()
+        {
+            castSpellModeSelectedColor = CombatUiPalette.HudButtonSelectedColor;
+            castSpellModeUnselectedColor = CombatUiPalette.HudButtonBackgroundColor;
+            castSpellModeTextColor = CombatUiPalette.HudButtonTextColor;
+
+            ApplyButtonTypography(strikeButton);
+            ApplyButtonTypography(jumpButton);
+            ApplyButtonTypography(tripButton);
+            ApplyButtonTypography(shoveButton);
+            ApplyButtonTypography(grappleButton);
+            ApplyButtonTypography(repositionButton);
+            ApplyButtonTypography(demoralizeButton);
+            ApplyButtonTypography(escapeButton);
+            ApplyButtonTypography(aidButton);
+            ApplyButtonTypography(castSpellButton);
+            ApplyButtonTypography(castSpellModeStandardButton);
+            ApplyButtonTypography(castSpellModeGlassButton);
+            ApplyButtonTypography(raiseShieldButton);
+            ApplyButtonTypography(standButton);
+            ApplyButtonTypography(tacticsLauncherButton);
+            ApplyButtonTypography(strikePopupStrikeButton);
+
+            CombatUiTypography.ApplyButton(castSpellButtonLabel, 15.5f, 0.12f, CombatUiPalette.HudButtonTextColor);
+        }
+
+        private static void ApplyButtonTypography(Button button)
+        {
+            if (button == null)
+                return;
+
+            TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
+            CombatUiTypography.ApplyButton(label, 15.5f, 0.12f, CombatUiPalette.HudButtonTextColor);
         }
 
         private static void ConfigurePopupTileLayout(Button button, float preferredWidth)
@@ -1170,7 +1208,7 @@ namespace PF2e.Presentation
 
             var label = button.GetComponentInChildren<TMP_Text>(true);
             if (label != null)
-                label.color = selected ? Color.black : castSpellModeTextColor;
+                label.color = selected ? CombatUiPalette.HudButtonSelectedTextColor : castSpellModeTextColor;
         }
 
         private void RefreshCastSpellButtonLabel()

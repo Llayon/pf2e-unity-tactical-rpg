@@ -159,7 +159,7 @@ public static class ApplySourceSans3UiFont
         return path.Contains("/_Recovery/") || path.Contains("\\_Recovery\\");
     }
 
-    private static void ApplyFont(TMP_Text text, TMP_FontAsset sourceFont)
+    public static void ApplyFont(TMP_Text text, TMP_FontAsset sourceFont)
     {
         Undo.RecordObject(text, "Apply Source Sans 3 UI Font");
         text.font = sourceFont;

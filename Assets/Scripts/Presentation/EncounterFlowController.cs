@@ -80,6 +80,7 @@ namespace PF2e.Presentation
             }
 
             EnsureButtons();
+            ApplyVisualStyle();
             if (startEncounterButton == null || endEncounterButton == null)
             {
                 Debug.LogError("[EncounterFlow] Missing encounter flow buttons. Assign in Inspector or enable runtime creation.", this);
@@ -251,7 +252,7 @@ namespace PF2e.Presentation
             runtimePanel.sizeDelta = new Vector2(0f, 44f);
 
             var image = panelGo.GetComponent<Image>();
-            image.color = new Color(0f, 0f, 0f, 0.35f);
+            image.color = CombatUiPalette.HudPanelBackgroundColor;
 
             var layout = panelGo.GetComponent<HorizontalLayoutGroup>();
             layout.padding = new RectOffset(8, 8, 4, 4);
@@ -361,7 +362,7 @@ namespace PF2e.Presentation
             rect.sizeDelta = new Vector2(180f, 36f);
 
             var image = buttonGo.GetComponent<Image>();
-            image.color = new Color(0.18f, 0.23f, 0.3f, 0.92f);
+            image.color = CombatUiPalette.HudButtonBackgroundColor;
 
             var layout = buttonGo.GetComponent<LayoutElement>();
             layout.minWidth = 180f;
@@ -379,14 +380,42 @@ namespace PF2e.Presentation
 
             var tmp = labelGo.GetComponent<TextMeshProUGUI>();
             tmp.text = label;
-            tmp.fontSize = 20f;
-            tmp.characterSpacing = 0.35f;
-            tmp.color = Color.white;
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.enableAutoSizing = false;
             tmp.enableKerning = true;
+            CombatUiTypography.ApplyButton(tmp, 19f, 0.14f, CombatUiPalette.HudButtonTextColor);
 
             return buttonGo.GetComponent<Button>();
+        }
+
+        private void ApplyVisualStyle()
+        {
+            RectTransform panel = runtimePanel;
+            if (panel == null && startEncounterButton != null)
+                panel = startEncounterButton.transform.parent as RectTransform;
+
+            if (panel != null)
+            {
+                var panelImage = panel.GetComponent<Image>();
+                if (panelImage != null)
+                    panelImage.color = CombatUiPalette.HudPanelBackgroundColor;
+            }
+
+            ApplyButtonVisualStyle(startEncounterButton);
+            ApplyButtonVisualStyle(endEncounterButton);
+        }
+
+        private static void ApplyButtonVisualStyle(Button button)
+        {
+            if (button == null)
+                return;
+
+            var image = button.GetComponent<Image>();
+            if (image != null)
+                image.color = CombatUiPalette.HudButtonBackgroundColor;
+
+            var label = button.GetComponentInChildren<TMP_Text>(true);
+            CombatUiTypography.ApplyButton(label, 19f, 0.14f, CombatUiPalette.HudButtonTextColor);
         }
     }
 }
