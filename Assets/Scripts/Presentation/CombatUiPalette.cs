@@ -23,6 +23,7 @@ namespace PF2e.Presentation
         public const string HudTextPrimaryHex = "#E2E8EF";
         public const string HudTextSecondaryHex = "#B2BCC9";
         public const string HudTextMutedHex = "#8F99A6";
+        public const string CombatLogBodyHex = "#F1ECE2";
         public const string HudButtonTextHex = "#F1F4F8";
         public const string HudButtonSelectedTextHex = "#141A22";
         public const string HudHealthGoodHex = "#54C977";
@@ -68,6 +69,7 @@ namespace PF2e.Presentation
         public static readonly Color HudTextPrimaryColor = ParseColor(HudTextPrimaryHex);
         public static readonly Color HudTextSecondaryColor = ParseColor(HudTextSecondaryHex);
         public static readonly Color HudTextMutedColor = ParseColor(HudTextMutedHex);
+        public static readonly Color CombatLogBodyColor = ParseColor(CombatLogBodyHex);
         public static readonly Color HudButtonTextColor = ParseColor(HudButtonTextHex);
         public static readonly Color HudButtonSelectedTextColor = ParseColor(HudButtonSelectedTextHex);
         public static readonly Color HudHealthGoodColor = ParseColor(HudHealthGoodHex);

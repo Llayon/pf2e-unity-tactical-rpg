@@ -50,8 +50,8 @@ namespace PF2e.Presentation
         private float cachedMinLineHeight = 0f;
         private const int LegacyDefaultMaxLines = 80;
         private const int CurrentDefaultMaxLines = 300;
-        private const float LogLineFontSize = 15.5f;
-        private const float LogLineCharacterSpacing = 0.08f;
+        private const float LogLineFontSize = 19.5f;
+        private const float LogLineCharacterSpacing = 0.05f;
         private const float RetentionNoticeCharacterSpacing = 0.05f;
 
 #if UNITY_EDITOR
@@ -300,11 +300,12 @@ namespace PF2e.Presentation
             if (line == null)
                 return;
 
-            CombatUiTypography.ApplyBody(
+            CombatUiTypography.ApplyWithFont(
                 line,
+                CombatUiTypography.RegularFont,
                 LogLineFontSize,
                 LogLineCharacterSpacing,
-                CombatUiPalette.HudTextPrimaryColor);
+                CombatUiPalette.CombatLogBodyColor);
             line.enableWordWrapping = true;
             line.overflowMode = TextOverflowModes.Overflow;
         }

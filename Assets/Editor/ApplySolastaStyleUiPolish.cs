@@ -80,7 +80,7 @@ public static class ApplySolastaStyleUiPolish
         changes += WithNamedObject(scene, "InitiativeBarPanel", root => StyleInitiativeBarPanel(root, regularFont, lightFont));
         changes += WithNamedObject(scene, "TargetingHintPanel", root => StyleTargetingHintPanel(root, lightFont));
         changes += WithNamedObject(scene, "ReactionPromptPanel", root => StyleReactionPromptPanel(root, regularFont, lightFont));
-        changes += WithNamedObject(scene, "CombatLogHUD", root => StyleCombatLog(root, lightFont));
+        changes += WithNamedObject(scene, "CombatLogHUD", root => StyleCombatLog(root, regularFont, lightFont));
         changes += WithNamedObject(scene, "CombatLogTooltip", root => StyleCombatLogTooltip(root, regularFont, lightFont));
 
         if (changes > 0)
@@ -294,7 +294,7 @@ public static class ApplySolastaStyleUiPolish
         return changes;
     }
 
-    private static int StyleCombatLog(GameObject root, TMP_FontAsset lightFont)
+    private static int StyleCombatLog(GameObject root, TMP_FontAsset regularFont, TMP_FontAsset lightFont)
     {
         int changes = 0;
         foreach (TMP_Text text in root.GetComponentsInChildren<TextMeshProUGUI>(true))
@@ -302,7 +302,7 @@ public static class ApplySolastaStyleUiPolish
             if (text.name.Contains("Retention", StringComparison.OrdinalIgnoreCase))
                 changes += ApplyText(text, lightFont, 12f, 0.05f, FontStyles.Italic, CombatUiPalette.HudTextMutedColor);
             else
-                changes += ApplyText(text, lightFont, 15.5f, 0.08f, FontStyles.Normal, CombatUiPalette.HudTextPrimaryColor);
+                changes += ApplyText(text, regularFont, 19.5f, 0.05f, FontStyles.Normal, CombatUiPalette.CombatLogBodyColor);
         }
 
         return changes;
