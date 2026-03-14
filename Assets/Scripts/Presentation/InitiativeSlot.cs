@@ -14,10 +14,15 @@ namespace PF2e.Presentation
         [SerializeField] private TMP_Text nameText;
         [SerializeField] private Image hpBarFill;
         [SerializeField] private Image background;
+        [SerializeField] private RectTransform portraitMaskRect;
         [SerializeField] private Image portraitImage;
+        [SerializeField] private AspectRatioFitter portraitAspectFitter;
         [SerializeField] private Image damageOverlay;
         [SerializeField] private Image frameImage;
         [SerializeField] private GameObject activeHighlight;
+        [SerializeField] private GameObject duplicateBadgeRoot;
+        [SerializeField] private Image duplicateBadgeBackground;
+        [SerializeField] private TMP_Text duplicateBadgeText;
         [SerializeField] private GameObject delayedBadgeRoot;
         [SerializeField] private Image delayedBadgeBackground;
         [SerializeField] private TMP_Text delayedBadgeText;
@@ -28,14 +33,32 @@ namespace PF2e.Presentation
         [SerializeField] private Color neutralColor = new Color(0.85f, 0.85f, 0.2f, 1f);
         [SerializeField] private Color defeatedColor = new Color(0.3f, 0.3f, 0.3f, 1f);
         [SerializeField] private Color activeFrameColor = new Color(1f, 0.92f, 0.7f, 1f);
-        [SerializeField] private float activeScaleFactor = 1.15f;
-        [SerializeField] private Color damageOverlayColor = new Color(0.7f, 0.05f, 0.05f, 0.75f);
+        [SerializeField] private float activeScaleFactor = 1f;
+        [SerializeField] private Color actedFrameTint = new Color(0.72f, 0.76f, 0.8f, 1f);
+        [SerializeField] private Color actedPortraitTint = new Color(0.72f, 0.72f, 0.72f, 1f);
+        [SerializeField] private float actedAlphaMultiplier = 0.62f;
+        [SerializeField] private Color damageOverlayColor = new Color(0.7f, 0.05f, 0.05f, 0.35f);
+        [SerializeField] private Color defeatedPortraitTint = new Color(0.42f, 0.42f, 0.42f, 1f);
+        [SerializeField] private Color defeatedFrameTint = new Color(0.48f, 0.48f, 0.48f, 1f);
         [SerializeField] private Color delayedBadgeBackgroundColor = new Color(0.95f, 0.85f, 0.25f, 0.95f);
         [SerializeField] private Color delayedBadgeTextColor = new Color(0.1f, 0.08f, 0.03f, 1f);
+        [SerializeField] private Color duplicateBadgeBackgroundColor = new Color(0.11f, 0.16f, 0.22f, 0.92f);
+        [SerializeField] private Color duplicateBadgeTextColor = new Color(0.9f, 0.93f, 0.97f, 1f);
+        [SerializeField] private Color hpStripHighColor = new Color(0.38f, 0.86f, 0.43f, 1f);
+        [SerializeField] private Color hpStripMidColor = new Color(0.95f, 0.8f, 0.28f, 1f);
+        [SerializeField] private Color hpStripLowColor = new Color(0.93f, 0.31f, 0.26f, 1f);
+
+        [Header("Portrait Insets")]
+        [SerializeField] private Vector2 playerPortraitMaskOffsetMin = Vector2.zero;
+        [SerializeField] private Vector2 playerPortraitMaskOffsetMax = Vector2.zero;
+        [SerializeField] private Vector2 enemyPortraitMaskOffsetMin = Vector2.zero;
+        [SerializeField] private Vector2 enemyPortraitMaskOffsetMax = Vector2.zero;
+        [SerializeField] private Vector2 neutralPortraitMaskOffsetMin = Vector2.zero;
+        [SerializeField] private Vector2 neutralPortraitMaskOffsetMax = Vector2.zero;
 
         [Header("Layout Stability")]
         [SerializeField] private bool enforceFixedLayoutSize = true;
-        [SerializeField] private float fixedPreferredWidth = 60f;
+        [SerializeField] private float fixedPreferredWidth = 73f;
         [SerializeField] private float fixedPreferredHeight = 90f;
 
         [Header("Delayed State")]
@@ -47,9 +70,11 @@ namespace PF2e.Presentation
         private bool defeated;
         private bool delayed;
         private bool highlighted;
+        private bool actedThisRound;
         private string baseDisplayName = string.Empty;
+        private string duplicateBadgeValue = string.Empty;
         private LayoutElement layoutElement;
-        private RectTransform portraitMaskRect;
+        private Team currentTeam;
 
         public event Action<InitiativeSlot> OnClicked;
 
@@ -78,31 +103,43 @@ namespace PF2e.Presentation
 
             EnsurePortraitHierarchy();
             InitDamageOverlay();
+            EnsureDuplicateBadgeFallback();
             EnsureDelayedBadgeFallback();
             ApplyTypography();
+            ApplyDuplicateBadgeVisual();
             ApplyDelayedBadgeVisual();
         }
 
         public void SetupStatic(EntityHandle handle, string displayName, Team team)
         {
-            SetupStatic(handle, displayName, team, null, null);
+            SetupStatic(handle, displayName, team, null, null, null);
         }
 
         public void SetupStatic(EntityHandle handle, string displayName, Team team, Sprite portrait)
         {
-            SetupStatic(handle, displayName, team, portrait, null);
+            SetupStatic(handle, displayName, team, portrait, null, null);
         }
 
         public void SetupStatic(EntityHandle handle, string displayName, Team team, Sprite portrait, Sprite frame)
+        {
+            SetupStatic(handle, displayName, team, portrait, frame, null);
+        }
+
+        public void SetupStatic(EntityHandle handle, string displayName, Team team, Sprite portrait, Sprite frame, string duplicateBadgeLabel)
         {
             Handle = handle;
             baseDisplayName = displayName ?? string.Empty;
             delayed = false;
             highlighted = false;
+            actedThisRound = false;
+            currentTeam = team;
+            duplicateBadgeValue = duplicateBadgeLabel ?? string.Empty;
             transform.localScale = Vector3.one;
             ApplyTypography();
             ApplyNameVisual();
+            ApplyDuplicateBadgeVisual();
             ApplyDelayedBadgeVisual();
+            ApplyPortraitMaskInsets(team);
             ApplyPortrait(portrait);
             ApplyFrame(frame);
 
@@ -118,11 +155,12 @@ namespace PF2e.Presentation
         {
             float fill = (maxHP > 0) ? Mathf.Clamp01((float)currentHP / maxHP) : 0f;
 
-            // Legacy green HP bar (only when no portrait)
-            if (!hasPortrait && hpBarFill != null)
+            if (hpBarFill != null)
+            {
                 hpBarFill.fillAmount = fill;
+                hpBarFill.color = EvaluateHpStripColor(fill);
+            }
 
-            // BG3-style: damage overlay fills from bottom as HP drops
             if (damageOverlay != null)
             {
                 float damageFraction = 1f - fill;
@@ -139,8 +177,7 @@ namespace PF2e.Presentation
 
             if (hasPortrait)
             {
-                // BG3-style: scale up + bright frame instead of yellow overlay
-                transform.localScale = active ? Vector3.one * activeScaleFactor : Vector3.one;
+                transform.localScale = Vector3.one * activeScaleFactor;
 
                 if (!hasFrame && background != null && !defeated)
                     background.color = active ? activeFrameColor : baseColor;
@@ -148,6 +185,8 @@ namespace PF2e.Presentation
                 // Hide legacy yellow overlay in portrait mode
                 if (activeHighlight != null)
                     activeHighlight.SetActive(false);
+
+                ApplyColors();
             }
             else
             {
@@ -158,10 +197,21 @@ namespace PF2e.Presentation
             }
         }
 
+        public void SetActedThisRound(bool value)
+        {
+            if (actedThisRound == value)
+                return;
+
+            actedThisRound = value;
+            ApplyColors();
+        }
+
         public void SetDefeated(bool value)
         {
             if (defeated == value) return;
             defeated = value;
+            if (defeated && hasPortrait)
+                transform.localScale = Vector3.one;
             ApplyColors();
         }
 
@@ -176,10 +226,36 @@ namespace PF2e.Presentation
 
         private void EnsurePortraitHierarchy()
         {
-            if (portraitImage != null && damageOverlay != null && frameImage != null)
+            if (portraitMaskRect != null
+                && portraitImage != null
+                && portraitAspectFitter != null
+                && damageOverlay != null
+                && frameImage != null
+                && duplicateBadgeRoot != null)
                 return;
 
-            // Mask container — clips portrait + overlay to inset rect
+            // Prepared portrait art already matches the frame window. Keep the frame on top.
+            if (frameImage == null)
+            {
+                var frameGo = new GameObject("Frame", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                var frameRect = frameGo.GetComponent<RectTransform>();
+                frameRect.SetParent(transform, false);
+                frameRect.anchorMin = Vector2.zero;
+                frameRect.anchorMax = Vector2.one;
+                frameRect.offsetMin = Vector2.zero;
+                frameRect.offsetMax = Vector2.zero;
+                frameRect.SetAsFirstSibling();
+
+                frameImage = frameGo.GetComponent<Image>();
+                frameImage.type = Image.Type.Simple;
+                frameImage.pixelsPerUnitMultiplier = 1f;
+                frameImage.preserveAspect = false;
+                frameImage.raycastTarget = false;
+                frameImage.color = Color.white;
+                frameGo.SetActive(false);
+            }
+
+            // Mask container clips portrait + overlay to the slot bounds.
             if (portraitMaskRect == null)
             {
                 var maskGo = new GameObject("PortraitMask", typeof(RectTransform), typeof(RectMask2D));
@@ -187,27 +263,40 @@ namespace PF2e.Presentation
                 portraitMaskRect.SetParent(transform, false);
                 portraitMaskRect.anchorMin = Vector2.zero;
                 portraitMaskRect.anchorMax = Vector2.one;
-                portraitMaskRect.offsetMin = new Vector2(6f, 6f);
-                portraitMaskRect.offsetMax = new Vector2(-6f, -6f);
-                portraitMaskRect.SetSiblingIndex(0);
+                portraitMaskRect.offsetMin = Vector2.zero;
+                portraitMaskRect.offsetMax = Vector2.zero;
             }
 
-            // Portrait — child of mask, fills mask rect
+            // Portrait — prepared art fills the slot directly.
             if (portraitImage == null)
             {
-                var portraitGo = new GameObject("Portrait", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                var portraitGo = new GameObject("Portrait", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(AspectRatioFitter));
                 var portraitRect = portraitGo.GetComponent<RectTransform>();
                 portraitRect.SetParent(portraitMaskRect, false);
                 portraitRect.anchorMin = Vector2.zero;
                 portraitRect.anchorMax = Vector2.one;
                 portraitRect.offsetMin = Vector2.zero;
                 portraitRect.offsetMax = Vector2.zero;
+                portraitRect.pivot = new Vector2(0.5f, 0.5f);
 
                 portraitImage = portraitGo.GetComponent<Image>();
                 portraitImage.preserveAspect = false;
                 portraitImage.raycastTarget = false;
                 portraitImage.color = Color.white;
+                portraitAspectFitter = portraitGo.GetComponent<AspectRatioFitter>();
+                portraitAspectFitter.aspectMode = AspectRatioFitter.AspectMode.None;
+                portraitAspectFitter.aspectRatio = 1f;
                 portraitGo.SetActive(false);
+            }
+            else if (portraitAspectFitter == null)
+            {
+                portraitAspectFitter = portraitImage.GetComponent<AspectRatioFitter>();
+                if (portraitAspectFitter == null)
+                    portraitAspectFitter = portraitImage.gameObject.AddComponent<AspectRatioFitter>();
+
+                portraitAspectFitter.aspectMode = AspectRatioFitter.AspectMode.None;
+                portraitAspectFitter.aspectRatio = 1f;
+                portraitImage.preserveAspect = false;
             }
 
             // Damage overlay — child of mask, fills mask rect
@@ -227,28 +316,11 @@ namespace PF2e.Presentation
                 overlayGo.SetActive(false);
             }
 
-            // Frame overlay — direct child of slot (NOT inside mask)
-            // Extends beyond slot bounds so the frame's visual border overlaps portrait edges
-            if (frameImage == null)
-            {
-                var frameGo = new GameObject("Frame", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                var frameRect = frameGo.GetComponent<RectTransform>();
-                frameRect.SetParent(transform, false);
-                frameRect.anchorMin = Vector2.zero;
-                frameRect.anchorMax = Vector2.one;
-                frameRect.offsetMin = new Vector2(-4f, -4f);
-                frameRect.offsetMax = new Vector2(4f, 4f);
-                // Place frame after mask in sibling order so it renders on top
-                frameRect.SetSiblingIndex(portraitMaskRect.GetSiblingIndex() + 1);
+            if (portraitMaskRect != null)
+                portraitMaskRect.SetAsFirstSibling();
 
-                frameImage = frameGo.GetComponent<Image>();
-                frameImage.type = Image.Type.Sliced;
-                frameImage.pixelsPerUnitMultiplier = 15f;
-                frameImage.preserveAspect = false;
-                frameImage.raycastTarget = false;
-                frameImage.color = Color.white;
-                frameGo.SetActive(false);
-            }
+            if (frameImage != null)
+                frameImage.transform.SetAsLastSibling();
         }
 
         private void InitDamageOverlay()
@@ -277,7 +349,13 @@ namespace PF2e.Presentation
                 {
                     portraitImage.sprite = portrait;
                     portraitImage.color = Color.white;
+                    portraitImage.preserveAspect = false;
                     portraitImage.gameObject.SetActive(true);
+                    if (portraitAspectFitter != null)
+                    {
+                        portraitAspectFitter.aspectMode = AspectRatioFitter.AspectMode.None;
+                        portraitAspectFitter.aspectRatio = 1f;
+                    }
                 }
                 else
                 {
@@ -285,11 +363,15 @@ namespace PF2e.Presentation
                 }
             }
 
+            if (portraitMaskRect != null)
+                portraitMaskRect.gameObject.SetActive(hasPortrait);
+
             // When portrait is present: hide name, HP bar, and background (portrait + frame only)
             if (nameText != null)
                 nameText.gameObject.SetActive(!hasPortrait);
 
-            HideHpBar(hasPortrait);
+            HideHpBar(false);
+            ApplyDuplicateBadgeVisual();
         }
 
         private void HideHpBar(bool hide)
@@ -306,6 +388,7 @@ namespace PF2e.Presentation
         private void ApplyFrame(Sprite frame)
         {
             hasFrame = frame != null;
+            ApplyPortraitMaskInsets(currentTeam);
             // When frame present: transparent fill (frame + portrait cover everything). When no frame: normal color.
             if (background != null && hasFrame)
                 background.color = Color.clear;
@@ -322,6 +405,28 @@ namespace PF2e.Presentation
                 {
                     frameImage.gameObject.SetActive(false);
                 }
+            }
+        }
+
+        private void ApplyPortraitMaskInsets(Team team)
+        {
+            if (portraitMaskRect == null)
+                return;
+
+            switch (team)
+            {
+                case Team.Player:
+                    portraitMaskRect.offsetMin = playerPortraitMaskOffsetMin;
+                    portraitMaskRect.offsetMax = playerPortraitMaskOffsetMax;
+                    break;
+                case Team.Enemy:
+                    portraitMaskRect.offsetMin = enemyPortraitMaskOffsetMin;
+                    portraitMaskRect.offsetMax = enemyPortraitMaskOffsetMax;
+                    break;
+                default:
+                    portraitMaskRect.offsetMin = neutralPortraitMaskOffsetMin;
+                    portraitMaskRect.offsetMax = neutralPortraitMaskOffsetMax;
+                    break;
             }
         }
 
@@ -343,10 +448,24 @@ namespace PF2e.Presentation
             }
 
             if (frameImage != null && frameImage.gameObject.activeSelf)
-                frameImage.color = defeated ? new Color(0.4f, 0.4f, 0.4f, 1f) : Color.white;
+            {
+                frameImage.color = defeated
+                    ? defeatedFrameTint
+                    : highlighted ? activeFrameColor
+                    : actedThisRound ? actedFrameTint
+                    : Color.white;
+            }
 
             if (defeated && portraitImage != null && portraitImage.gameObject.activeSelf)
-                portraitImage.color = new Color(0.4f, 0.4f, 0.4f, 1f);
+            {
+                portraitImage.color = defeatedPortraitTint;
+            }
+            else if (portraitImage != null && portraitImage.gameObject.activeSelf)
+            {
+                portraitImage.color = actedThisRound && !highlighted
+                    ? actedPortraitTint
+                    : Color.white;
+            }
 
             ApplyAlphaVisual();
         }
@@ -387,6 +506,82 @@ namespace PF2e.Presentation
                 ApplyTypography();
                 delayedBadgeText.SetText("DLY");
             }
+        }
+
+        private void ApplyDuplicateBadgeVisual()
+        {
+            bool showDuplicateBadge = hasPortrait && !string.IsNullOrEmpty(duplicateBadgeValue);
+            if (duplicateBadgeRoot != null && duplicateBadgeRoot.activeSelf != showDuplicateBadge)
+                duplicateBadgeRoot.SetActive(showDuplicateBadge);
+
+            if (duplicateBadgeBackground != null)
+                duplicateBadgeBackground.color = duplicateBadgeBackgroundColor;
+
+            if (duplicateBadgeText != null)
+            {
+                ApplyTypography();
+                duplicateBadgeText.SetText(duplicateBadgeValue);
+            }
+        }
+
+        private void EnsureDuplicateBadgeFallback()
+        {
+            if (duplicateBadgeRoot != null)
+            {
+                CacheDuplicateBadgeChildrenFromRootIfNeeded();
+                return;
+            }
+
+            var existingBadge = transform.Find("DuplicateBadge");
+            if (existingBadge != null && existingBadge is RectTransform)
+            {
+                duplicateBadgeRoot = existingBadge.gameObject;
+                CacheDuplicateBadgeChildrenFromRootIfNeeded();
+                if (duplicateBadgeRoot != null)
+                    duplicateBadgeRoot.SetActive(false);
+                return;
+            }
+
+            if (nameText == null)
+                return;
+
+            var badgeRootGo = new GameObject("DuplicateBadge", typeof(RectTransform));
+            var badgeRect = badgeRootGo.GetComponent<RectTransform>();
+            badgeRect.SetParent(transform, false);
+            badgeRect.anchorMin = new Vector2(0f, 1f);
+            badgeRect.anchorMax = new Vector2(0f, 1f);
+            badgeRect.pivot = new Vector2(0f, 1f);
+            badgeRect.anchoredPosition = new Vector2(2f, -2f);
+            badgeRect.sizeDelta = new Vector2(16f, 14f);
+
+            var bgGo = new GameObject("Background", typeof(RectTransform), typeof(Image));
+            var bgRect = bgGo.GetComponent<RectTransform>();
+            bgRect.SetParent(badgeRect, false);
+            bgRect.anchorMin = Vector2.zero;
+            bgRect.anchorMax = Vector2.one;
+            bgRect.offsetMin = Vector2.zero;
+            bgRect.offsetMax = Vector2.zero;
+
+            duplicateBadgeBackground = bgGo.GetComponent<Image>();
+            duplicateBadgeBackground.raycastTarget = false;
+
+            var textClone = Instantiate(nameText, badgeRect);
+            textClone.gameObject.name = "Label";
+            var textRect = textClone.rectTransform;
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+            textClone.raycastTarget = false;
+            textClone.enableWordWrapping = false;
+            textClone.overflowMode = TextOverflowModes.Overflow;
+            textClone.alignment = TextAlignmentOptions.Center;
+            textClone.fontSize = Mathf.Min(textClone.fontSize, 9f);
+            textClone.fontStyle = FontStyles.Bold;
+            duplicateBadgeText = textClone;
+
+            duplicateBadgeRoot = badgeRootGo;
+            duplicateBadgeRoot.SetActive(false);
         }
 
         private void EnsureDelayedBadgeFallback()
@@ -465,9 +660,23 @@ namespace PF2e.Presentation
                 delayedBadgeText = delayedBadgeRoot.GetComponentInChildren<TMP_Text>(includeInactive: true);
         }
 
+        private void CacheDuplicateBadgeChildrenFromRootIfNeeded()
+        {
+            if (duplicateBadgeRoot == null)
+                return;
+
+            if (duplicateBadgeBackground == null)
+                duplicateBadgeBackground = duplicateBadgeRoot.GetComponentInChildren<Image>(includeInactive: true);
+
+            if (duplicateBadgeText == null)
+                duplicateBadgeText = duplicateBadgeRoot.GetComponentInChildren<TMP_Text>(includeInactive: true);
+        }
+
         private void ApplyAlphaVisual()
         {
             float alpha = delayed ? 0.55f : 1f;
+            if (actedThisRound && !highlighted && !defeated)
+                alpha *= actedAlphaMultiplier;
 
             if (background != null)
             {
@@ -506,11 +715,60 @@ namespace PF2e.Presentation
                     nameText.color = c;
                 }
             }
+
+            if (duplicateBadgeBackground != null && duplicateBadgeRoot != null && duplicateBadgeRoot.activeSelf)
+            {
+                var c = duplicateBadgeBackground.color;
+                c.a = alpha;
+                duplicateBadgeBackground.color = c;
+            }
+
+            if (duplicateBadgeText != null && duplicateBadgeRoot != null && duplicateBadgeRoot.activeSelf)
+            {
+                var c = duplicateBadgeText.color;
+                c.a = alpha;
+                duplicateBadgeText.color = c;
+            }
+
+            if (delayedBadgeBackground != null && delayedBadgeRoot != null && delayedBadgeRoot.activeSelf)
+            {
+                var c = delayedBadgeBackground.color;
+                c.a = alpha;
+                delayedBadgeBackground.color = c;
+            }
+
+            if (delayedBadgeText != null && delayedBadgeRoot != null && delayedBadgeRoot.activeSelf)
+            {
+                var c = delayedBadgeText.color;
+                c.a = alpha;
+                delayedBadgeText.color = c;
+            }
+        }
+
+        private Color EvaluateHpStripColor(float fill)
+        {
+            if (fill <= 0.25f)
+                return hpStripLowColor;
+
+            if (fill <= 0.55f)
+            {
+                float t = Mathf.InverseLerp(0.25f, 0.55f, fill);
+                return Color.Lerp(hpStripLowColor, hpStripMidColor, t);
+            }
+
+            float highT = Mathf.InverseLerp(0.55f, 1f, fill);
+            return Color.Lerp(hpStripMidColor, hpStripHighColor, highT);
         }
 
         private void ApplyTypography()
         {
             CombatUiTypography.ApplyTitle(nameText, 13.5f, 0.08f, CombatUiPalette.HudTextPrimaryColor);
+            CombatUiTypography.ApplyButton(
+                duplicateBadgeText,
+                9.5f,
+                0.08f,
+                duplicateBadgeTextColor,
+                FontStyles.Bold);
             CombatUiTypography.ApplyButton(
                 delayedBadgeText,
                 10f,

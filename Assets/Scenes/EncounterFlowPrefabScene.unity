@@ -941,7 +941,7 @@ MonoBehaviour:
     m_Top: 0
     m_Bottom: 0
   m_ChildAlignment: 0
-  m_Spacing: 6
+  m_Spacing: 2
   m_ChildForceExpandWidth: 0
   m_ChildForceExpandHeight: 1
   m_ChildControlWidth: 0
@@ -1825,8 +1825,8 @@ MonoBehaviour:
   markersOverlayContainer: {fileID: 0}
   slotPrefab: {fileID: 839799860991756177, guid: 193b34705046a91468498974fb3ff0bc, type: 3}
   insertionMarkerPrefab: {fileID: 0}
-  playerFrameSprite: {fileID: 0}
-  enemyFrameSprite: {fileID: 0}
+  playerFrameSprite: {fileID: 21300000, guid: 7f8b306c40780bd4fb40634e932c456c, type: 3}
+  enemyFrameSprite: {fileID: 21300000, guid: 8e892022e05eca94899a65330b07b490, type: 3}
   autoSizePanelToSlotsContent: 1
   minPanelWidth: 180
   maxPanelWidth: 900
@@ -2122,9 +2122,7 @@ MonoBehaviour:
   wizardArmorDef: {fileID: 11400000, guid: e5f678901234567890123456789012ee, type: 2}
   goblinWeaponDef: {fileID: 11400000, guid: c3d4e5f67890123456789012345678cc, type: 2}
   goblinArmorDef: {fileID: 11400000, guid: bdc614f1cb0d5284ea9a83cae2ac1259, type: 2}
-  fighterPortrait: {fileID: 0}
-  wizardPortrait: {fileID: 0}
-  goblinPortrait: {fileID: 0}
+  portraitLibrary: {fileID: 11400000, guid: a9cb9aee835129643ba77de71e935068, type: 2}
   fighterShieldBlockPreference: 0
   entityHeight: 1.6
   entityRadius: 0.35

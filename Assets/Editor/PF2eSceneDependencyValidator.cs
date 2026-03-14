@@ -10,6 +10,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 using PF2e.Core;
+using PF2e.Data;
 using PF2e.Grid;
 using PF2e.Managers;
 using PF2e.Presentation;
@@ -214,6 +215,8 @@ public static class PF2eSceneDependencyValidator
     {
         errors += RequireRef(em, "gridManager", "GridManager");
         errors += RequireRef(em, "eventBus",    "CombatEventBus");
+        warnings += WarnRef(em, "portraitLibrary", "EncounterActorPortraitLibrary");
+        warnings += WarnIfLegacyPortraitLibrary(em);
     }
 
     private static void ValidateTurnManager(TurnManager tm, ref int errors, ref int warnings)
@@ -380,6 +383,24 @@ public static class PF2eSceneDependencyValidator
         errors += RequireRef(c, "roundLabel",     "TextMeshProUGUI");
         errors += RequireRef(c, "slotsContainer", "Transform");
         errors += RequireRef(c, "slotPrefab",     "InitiativeSlot");
+        warnings += WarnRef(c, "playerFrameSprite", "Sprite");
+        warnings += WarnRef(c, "enemyFrameSprite", "Sprite");
+
+        var field = typeof(InitiativeBarController).GetField("slotPrefab", Flags);
+        var slotPrefab = field != null ? field.GetValue(c) as InitiativeSlot : null;
+        if (slotPrefab != null)
+        {
+            warnings += WarnRef(slotPrefab, "portraitMaskRect", "RectTransform");
+            warnings += WarnRef(slotPrefab, "portraitImage", "Image");
+            warnings += WarnRef(slotPrefab, "portraitAspectFitter", "AspectRatioFitter");
+            warnings += WarnRef(slotPrefab, "damageOverlay", "Image");
+            warnings += WarnRef(slotPrefab, "frameImage", "Image");
+            warnings += WarnRef(slotPrefab, "duplicateBadgeRoot", "GameObject");
+            warnings += WarnRef(slotPrefab, "duplicateBadgeText", "TextMeshProUGUI");
+        }
+
+        warnings += WarnIfLegacyFrameSprite(c, "playerFrameSprite", "newpcramka.png");
+        warnings += WarnIfLegacyFrameSprite(c, "enemyFrameSprite", "newenemyramka.png");
     }
 
     private static void ValidateTurnEconomyController(TurnEconomyController c, ref int errors, ref int warnings)
@@ -628,6 +649,68 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         errors += RequireRef(log, "scrollRect", "ScrollRect");
         errors += RequireRef(log, "content", "RectTransform");
         errors += RequireRef(log, "lineTemplate", "TextMeshProUGUI");
+    }
+
+    private static int WarnIfLegacyPortraitLibrary(EntityManager em)
+    {
+        var field = typeof(EntityManager).GetField("portraitLibrary", Flags);
+        var library = field != null ? field.GetValue(em) as EncounterActorPortraitLibrary : null;
+        if (library == null)
+            return 0;
+
+        var serialized = new SerializedObject(library);
+        var entries = serialized.FindProperty("entries");
+        if (entries == null)
+            return 0;
+
+        int warnings = 0;
+        for (int i = 0; i < entries.arraySize; i++)
+        {
+            var entry = entries.GetArrayElementAtIndex(i);
+            var portrait = entry.FindPropertyRelative("portraitSprite").objectReferenceValue as Sprite;
+            string path = portrait != null ? AssetDatabase.GetAssetPath(portrait) : string.Empty;
+            if (!IsLegacyPortraitPath(path))
+                continue;
+
+            string actorId = entry.FindPropertyRelative("actorId").stringValue;
+            Debug.LogWarning($"[PF2eValidator] EntityManager ({GetPath(em.transform)}): portraitLibrary entry '{actorId}' still uses legacy portrait asset '{path}'.", em);
+            warnings++;
+        }
+
+        return warnings;
+    }
+
+    private static int WarnIfLegacyFrameSprite(InitiativeBarController controller, string fieldName, string expectedAssetName)
+    {
+        var field = typeof(InitiativeBarController).GetField(fieldName, Flags);
+        var sprite = field != null ? field.GetValue(controller) as Sprite : null;
+        if (sprite == null)
+            return 0;
+
+        string path = AssetDatabase.GetAssetPath(sprite);
+        if (string.IsNullOrWhiteSpace(path))
+            return 0;
+
+        string normalizedPath = path.Replace('\\', '/');
+        if (normalizedPath.EndsWith("/" + expectedAssetName, StringComparison.OrdinalIgnoreCase))
+            return 0;
+
+        if (normalizedPath.IndexOf("/ramka_", StringComparison.OrdinalIgnoreCase) < 0)
+            return 0;
+
+        Debug.LogWarning($"[PF2eValidator] InitiativeBarController ({GetPath(controller.transform)}): {fieldName} still uses legacy frame asset '{path}'.", controller);
+        return 1;
+    }
+
+    private static bool IsLegacyPortraitPath(string assetPath)
+    {
+        if (string.IsNullOrWhiteSpace(assetPath))
+            return false;
+
+        string normalized = assetPath.Replace('\\', '/');
+        return normalized.EndsWith("/portrait_fighter.png", StringComparison.OrdinalIgnoreCase)
+            || normalized.EndsWith("/portrait_wizard.png", StringComparison.OrdinalIgnoreCase)
+            || normalized.EndsWith("/portrait_goblin.png", StringComparison.OrdinalIgnoreCase);
     }
 
     // ----------------- Helpers -----------------

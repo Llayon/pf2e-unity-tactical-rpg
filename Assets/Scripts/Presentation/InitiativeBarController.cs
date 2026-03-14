@@ -10,6 +10,18 @@ namespace PF2e.Presentation
 {
     public class InitiativeBarController : MonoBehaviour
     {
+        private readonly struct VisibleSlotEntry
+        {
+            public VisibleSlotEntry(EntityData data, bool isDelayed)
+            {
+                Data = data;
+                IsDelayed = isDelayed;
+            }
+
+            public EntityData Data { get; }
+            public bool IsDelayed { get; }
+        }
+
         [Header("Dependencies (Inspector-only)")]
         [SerializeField] private TurnManager turnManager;
         [SerializeField] private EntityManager entityManager;
@@ -47,6 +59,8 @@ namespace PF2e.Presentation
         private readonly Dictionary<EntityHandle, InitiativeSlot> slotByHandle
             = new Dictionary<EntityHandle, InitiativeSlot>();
         private readonly HashSet<EntityHandle> appendedDelayedHandles = new HashSet<EntityHandle>();
+        private readonly HashSet<EntityHandle> actedThisRound = new HashSet<EntityHandle>();
+        private RectTransform slotPoolContainer;
         private DelayPlacementMarkerOverlayPresenter delayMarkerOverlayPresenter;
         private DelayPlacementPromptPresenter delayPromptPresenter;
         private DelayPlacementInteractionCoordinator delayPlacementInteractionCoordinator;
@@ -62,6 +76,7 @@ namespace PF2e.Presentation
                 eventBus.OnCombatEndedTyped += HandleCombatEnded;
                 eventBus.OnRoundStartedTyped += HandleRoundStarted;
                 eventBus.OnTurnStartedTyped += HandleTurnStarted;
+                eventBus.OnTurnEndedTyped += HandleTurnEnded;
                 eventBus.OnStrikeResolved  += HandleStrikeResolved;
                 eventBus.OnEntityDefeated  += HandleEntityDefeated;
                 eventBus.OnDelayPlacementSelectionChangedTyped += HandleDelayPlacementSelectionChanged;
@@ -83,6 +98,7 @@ namespace PF2e.Presentation
                 eventBus.OnCombatEndedTyped -= HandleCombatEnded;
                 eventBus.OnRoundStartedTyped -= HandleRoundStarted;
                 eventBus.OnTurnStartedTyped -= HandleTurnStarted;
+                eventBus.OnTurnEndedTyped -= HandleTurnEnded;
                 eventBus.OnStrikeResolved  -= HandleStrikeResolved;
                 eventBus.OnEntityDefeated  -= HandleEntityDefeated;
                 eventBus.OnDelayPlacementSelectionChangedTyped -= HandleDelayPlacementSelectionChanged;
@@ -102,15 +118,17 @@ namespace PF2e.Presentation
 
             EnsureRuntimeUiReferences();
             SetPanelVisible(true);
+            actedThisRound.Clear();
             if (roundLabel != null)
                 roundLabel.SetText("Round {0}", turnManager.RoundNumber);
             HideDelayPlacementPrompt();
             BuildSlots(turnManager.InitiativeOrder);
-            UpdateHighlight();
+            RefreshSlotVisuals();
         }
 
         private void HandleCombatEnded(in CombatEndedEvent e)
         {
+            actedThisRound.Clear();
             SetPanelVisible(false);
             HideDelayPlacementPrompt();
             ClearSlotsToPool();
@@ -118,19 +136,28 @@ namespace PF2e.Presentation
 
         private void HandleRoundStarted(in RoundStartedEvent e)
         {
+            actedThisRound.Clear();
             if (roundLabel != null)
                 roundLabel.SetText("Round {0}", e.round);
-            AutoSizePanelToContent();
-            MarkMarkersOverlayDirty();
+            if (turnManager != null)
+                BuildSlots(turnManager.InitiativeOrder);
+            RefreshSlotVisuals();
             if (turnManager == null || !turnManager.IsDelayPlacementSelectionOpen)
                 HideDelayPlacementPrompt();
         }
 
         private void HandleTurnStarted(in TurnStartedEvent e)
         {
-            if (turnManager != null)
-                BuildSlots(turnManager.InitiativeOrder);
-            UpdateHighlight();
+            _ = e;
+            RefreshSlotVisuals();
+        }
+
+        private void HandleTurnEnded(in TurnEndedEvent e)
+        {
+            if (e.actor.IsValid)
+                actedThisRound.Add(e.actor);
+
+            RefreshSlotVisuals();
         }
 
         private void HandleDelayPlacementSelectionChanged(in DelayPlacementSelectionChangedEvent e)
@@ -175,13 +202,12 @@ namespace PF2e.Presentation
                 return;
 
             BuildSlots(turnManager.InitiativeOrder);
-            UpdateHighlight();
-            RefreshDelayPlacementHintLabel();
+            RefreshSlotVisuals();
         }
 
         private void RefreshDelayReturnWindowUi()
         {
-            UpdateHighlight(); // clears active slot highlight while inter-turn Delay window is open
+            RefreshSlotVisuals();
         }
 
         private void RefreshDelayedActorsUi()
@@ -190,7 +216,7 @@ namespace PF2e.Presentation
                 return;
 
             BuildSlots(turnManager.InitiativeOrder);
-            UpdateHighlight();
+            RefreshSlotVisuals();
         }
 
         private void HandleStrikeResolved(in StrikeResolvedEvent e)
@@ -206,8 +232,17 @@ namespace PF2e.Presentation
 
         private void HandleEntityDefeated(in EntityDefeatedEvent e)
         {
-            if (!slotByHandle.TryGetValue(e.handle, out var slot)) return;
-            slot.SetDefeated(true);
+            actedThisRound.Remove(e.handle);
+
+            if (turnManager != null)
+            {
+                BuildSlots(turnManager.InitiativeOrder);
+                RefreshSlotVisuals();
+                return;
+            }
+
+            if (slotByHandle.TryGetValue(e.handle, out var slot))
+                slot.SetDefeated(true);
         }
 
         // ─── Slot Management ──────────────────────────────────────────────────
@@ -221,18 +256,17 @@ namespace PF2e.Presentation
 
             if (order == null || entityManager == null || entityManager.Registry == null) return;
 
-            for (int i = 0; i < order.Count; i++)
+            var visibleSlots = BuildVisibleSlotSequence(order);
+            var duplicateOrdinals = BuildDuplicateOrdinals(visibleSlots);
+
+            for (int i = 0; i < visibleSlots.Count; i++)
             {
-                var handle = order[i].Handle;
-                var data = entityManager.Registry.Get(handle);
-                if (data == null) continue;
-
-                CreateOrRefreshSlot(data, isDelayed: false);
-                AppendInsertionMarkerIfNeeded(handle);
-                AppendDelayedSlotsAnchoredTo(handle);
+                var entry = visibleSlots[i];
+                var data = entry.Data;
+                CreateOrRefreshSlot(data, entry.IsDelayed, GetDuplicateBadgeText(data.Handle, duplicateOrdinals));
+                if (!entry.IsDelayed)
+                    AppendInsertionMarkerIfNeeded(data.Handle);
             }
-
-            AppendRemainingDelayedSlots();
 
             var slotsRect = slotsContainer as RectTransform;
             if (slotsRect != null)
@@ -249,14 +283,38 @@ namespace PF2e.Presentation
 
         private InitiativeSlot GetSlot()
         {
-            if (slotPool.Count > 0)
-                return slotPool.Pop();
+            while (slotPool.Count > 0)
+            {
+                var pooledSlot = slotPool.Pop();
+                if (pooledSlot != null)
+                    return pooledSlot;
+            }
 
-            // Parent to slotsContainer immediately — never orphan a UI element outside Canvas
-            var inst = Instantiate(slotPrefab, slotsContainer);
+            var inst = Instantiate(slotPrefab, GetOrCreateSlotPoolContainer());
             inst.gameObject.name = "InitiativeSlot";
             inst.gameObject.SetActive(false);
             return inst;
+        }
+
+        private RectTransform GetOrCreateSlotPoolContainer()
+        {
+            if (slotPoolContainer != null)
+                return slotPoolContainer;
+
+            var parent = transform as RectTransform;
+            var poolRoot = new GameObject("_InitiativeSlotPool", typeof(RectTransform));
+            poolRoot.SetActive(false);
+
+            var poolRect = poolRoot.GetComponent<RectTransform>();
+            poolRect.SetParent(parent, false);
+            poolRect.anchorMin = new Vector2(0f, 0f);
+            poolRect.anchorMax = new Vector2(0f, 0f);
+            poolRect.pivot = new Vector2(0f, 0f);
+            poolRect.anchoredPosition = Vector2.zero;
+            poolRect.sizeDelta = Vector2.zero;
+
+            slotPoolContainer = poolRect;
+            return slotPoolContainer;
         }
 
         private void ClearSlotsToPool()
@@ -270,8 +328,11 @@ namespace PF2e.Presentation
 
                 s.OnClicked -= HandleSlotClicked;
                 s.SetHighlight(false);
+                s.SetActedThisRound(false);
+                s.SetDelayed(false);
+                s.SetDefeated(false);
                 s.gameObject.SetActive(false);
-                // Keep under slotsContainer — stays inside Canvas hierarchy
+                s.transform.SetParent(GetOrCreateSlotPoolContainer(), false);
                 slotPool.Push(s);
             }
             activeSlots.Clear();
@@ -302,6 +363,32 @@ namespace PF2e.Presentation
                 if (slotByHandle.TryGetValue(handle, out var slot))
                     slot.SetHighlight(true);
             }
+        }
+
+        private void RefreshSlotVisuals()
+        {
+            if (entityManager == null || entityManager.Registry == null)
+            {
+                UpdateHighlight();
+                return;
+            }
+
+            for (int i = 0; i < activeSlots.Count; i++)
+            {
+                var slot = activeSlots[i];
+                if (slot == null)
+                    continue;
+
+                var data = entityManager.Registry.Get(slot.Handle);
+                if (data == null)
+                    continue;
+
+                slot.RefreshHP(data.CurrentHP, data.MaxHP, data.IsAlive);
+                slot.SetDefeated(!data.IsAlive);
+                slot.SetActedThisRound(actedThisRound.Contains(slot.Handle));
+            }
+
+            UpdateHighlight();
         }
 
         private void SetPanelVisible(bool visible)
@@ -565,20 +652,21 @@ namespace PF2e.Presentation
             delayMarkerOverlayPresenter?.MarkDirtyIfAny();
         }
 
-        private void CreateOrRefreshSlot(EntityData data, bool isDelayed)
+        private void CreateOrRefreshSlot(EntityData data, bool isDelayed, string duplicateBadgeText)
         {
-            if (data == null || !data.Handle.IsValid)
+            if (data == null || !data.Handle.IsValid || !data.IsAlive)
                 return;
 
             var slot = GetSlot();
             slot.transform.SetParent(slotsContainer, false);
+            slot.transform.SetAsLastSibling();
             slot.gameObject.SetActive(true);
             slot.OnClicked -= HandleSlotClicked;
             slot.OnClicked += HandleSlotClicked;
 
             var frameSprite = data.Team == Team.Player ? playerFrameSprite :
                               data.Team == Team.Enemy  ? enemyFrameSprite  : null;
-            slot.SetupStatic(data.Handle, data.Name, data.Team, data.Portrait, frameSprite);
+            slot.SetupStatic(data.Handle, data.Name, data.Team, data.Portrait, frameSprite, duplicateBadgeText);
             slot.RefreshHP(data.CurrentHP, data.MaxHP, data.IsAlive);
             slot.SetDelayed(isDelayed);
 
@@ -603,24 +691,30 @@ namespace PF2e.Presentation
                 insertionMarkerPrefab);
         }
 
-        private void AppendDelayedSlotsAnchoredTo(EntityHandle anchorHandle)
+        private void AppendDelayedSlotsAnchoredTo(EntityHandle anchorHandle, IReadOnlyDictionary<EntityHandle, int> duplicateOrdinals)
         {
             if (delayInitiativeRowPlanner == null)
                 return;
 
             var delayedAnchored = delayInitiativeRowPlanner.CollectDelayedAnchoredTo(anchorHandle, appendedDelayedHandles);
             for (int i = 0; i < delayedAnchored.Count; i++)
-                CreateOrRefreshSlot(delayedAnchored[i], isDelayed: true);
+                CreateOrRefreshSlot(
+                    delayedAnchored[i],
+                    isDelayed: true,
+                    GetDuplicateBadgeText(delayedAnchored[i].Handle, duplicateOrdinals));
         }
 
-        private void AppendRemainingDelayedSlots()
+        private void AppendRemainingDelayedSlots(IReadOnlyDictionary<EntityHandle, int> duplicateOrdinals)
         {
             if (delayInitiativeRowPlanner == null)
                 return;
 
             var remainingDelayed = delayInitiativeRowPlanner.CollectRemainingDelayed(appendedDelayedHandles);
             for (int i = 0; i < remainingDelayed.Count; i++)
-                CreateOrRefreshSlot(remainingDelayed[i], isDelayed: true);
+                CreateOrRefreshSlot(
+                    remainingDelayed[i],
+                    isDelayed: true,
+                    GetDuplicateBadgeText(remainingDelayed[i].Handle, duplicateOrdinals));
         }
 
         private void HandleSlotClicked(InitiativeSlot slot)
@@ -640,9 +734,8 @@ namespace PF2e.Presentation
             if (turnManager == null)
                 return;
 
-            // TurnStarted will also rebuild, but refresh immediately keeps the click responsive.
             BuildSlots(turnManager.InitiativeOrder);
-            UpdateHighlight();
+            RefreshSlotVisuals();
         }
 
         private void LateUpdate()
@@ -739,5 +832,150 @@ namespace PF2e.Presentation
                 Debug.LogWarning("[InitiativeBarController] CombatEventBus not assigned.", this);
         }
 #endif
+
+        private List<VisibleSlotEntry> BuildVisibleSlotSequence(IReadOnlyList<InitiativeEntry> order)
+        {
+            var visibleActors = new List<VisibleSlotEntry>(order != null ? order.Count * 2 : 0);
+            if (order == null || entityManager == null || entityManager.Registry == null)
+                return visibleActors;
+
+            var plannedDelayedHandles = new HashSet<EntityHandle>();
+            for (int i = 0; i < order.Count; i++)
+            {
+                var handle = order[i].Handle;
+                var data = entityManager.Registry.Get(handle);
+                if (data == null || !data.IsAlive)
+                    continue;
+
+                visibleActors.Add(new VisibleSlotEntry(data, false));
+
+                if (delayInitiativeRowPlanner == null)
+                    continue;
+
+                var delayedAnchored = delayInitiativeRowPlanner.CollectDelayedAnchoredTo(handle, plannedDelayedHandles);
+                for (int delayedIndex = 0; delayedIndex < delayedAnchored.Count; delayedIndex++)
+                {
+                    var delayedActor = delayedAnchored[delayedIndex];
+                    if (delayedActor == null || !delayedActor.IsAlive)
+                        continue;
+
+                    visibleActors.Add(new VisibleSlotEntry(delayedActor, true));
+                }
+            }
+
+            if (delayInitiativeRowPlanner != null)
+            {
+                var remainingDelayed = delayInitiativeRowPlanner.CollectRemainingDelayed(plannedDelayedHandles);
+                for (int i = 0; i < remainingDelayed.Count; i++)
+                {
+                    var delayedActor = remainingDelayed[i];
+                    if (delayedActor == null || !delayedActor.IsAlive)
+                        continue;
+
+                    visibleActors.Add(new VisibleSlotEntry(delayedActor, true));
+                }
+            }
+
+            return visibleActors;
+        }
+
+        private static Dictionary<EntityHandle, int> BuildDuplicateOrdinals(IReadOnlyList<EntityData> visibleActors)
+        {
+            var visibleEntries = new List<VisibleSlotEntry>(visibleActors != null ? visibleActors.Count : 0);
+            if (visibleActors != null)
+            {
+                for (int i = 0; i < visibleActors.Count; i++)
+                {
+                    var actor = visibleActors[i];
+                    if (actor == null)
+                        continue;
+
+                    visibleEntries.Add(new VisibleSlotEntry(actor, false));
+                }
+            }
+
+            return BuildDuplicateOrdinals(visibleEntries);
+        }
+
+        private static Dictionary<EntityHandle, int> BuildDuplicateOrdinals(IReadOnlyList<VisibleSlotEntry> visibleActors)
+        {
+            var totalsByGroup = new Dictionary<string, int>(System.StringComparer.OrdinalIgnoreCase);
+            var ordinalsByHandle = new Dictionary<EntityHandle, int>();
+            var assignedByGroup = new Dictionary<string, int>(System.StringComparer.OrdinalIgnoreCase);
+
+            for (int i = 0; i < visibleActors.Count; i++)
+            {
+                string groupKey = NormalizeDuplicateIdentityKey(visibleActors[i].Data);
+                if (string.IsNullOrEmpty(groupKey))
+                    continue;
+
+                totalsByGroup.TryGetValue(groupKey, out int total);
+                totalsByGroup[groupKey] = total + 1;
+            }
+
+            for (int i = 0; i < visibleActors.Count; i++)
+            {
+                var actor = visibleActors[i].Data;
+                string groupKey = NormalizeDuplicateIdentityKey(actor);
+                if (string.IsNullOrEmpty(groupKey))
+                    continue;
+
+                if (!totalsByGroup.TryGetValue(groupKey, out int total) || total <= 1)
+                    continue;
+
+                assignedByGroup.TryGetValue(groupKey, out int nextOrdinal);
+                nextOrdinal += 1;
+                assignedByGroup[groupKey] = nextOrdinal;
+                ordinalsByHandle[actor.Handle] = nextOrdinal;
+            }
+
+            return ordinalsByHandle;
+        }
+
+        private static string GetDuplicateBadgeText(EntityHandle handle, IReadOnlyDictionary<EntityHandle, int> duplicateOrdinals)
+        {
+            if (duplicateOrdinals == null || !duplicateOrdinals.TryGetValue(handle, out int ordinal) || ordinal <= 0)
+                return null;
+
+            return ordinal.ToString();
+        }
+
+        private static string NormalizeDuplicateIdentityKey(EntityData actor)
+        {
+            if (actor == null)
+                return string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(actor.EncounterActorId))
+                return StripTrailingOrdinalSuffix(actor.EncounterActorId);
+
+            return StripTrailingOrdinalSuffix(actor.Name);
+        }
+
+        private static string StripTrailingOrdinalSuffix(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return string.Empty;
+
+            string trimmed = value.Trim();
+            int digitStart = trimmed.Length;
+            while (digitStart > 0 && char.IsDigit(trimmed[digitStart - 1]))
+                digitStart--;
+
+            if (digitStart == trimmed.Length)
+                return trimmed;
+
+            int suffixStart = digitStart;
+            while (suffixStart > 0)
+            {
+                char c = trimmed[suffixStart - 1];
+                if (c != '_' && c != '-' && c != ' ')
+                    break;
+
+                suffixStart--;
+            }
+
+            string stripped = trimmed.Substring(0, suffixStart).TrimEnd('_', '-', ' ');
+            return string.IsNullOrEmpty(stripped) ? trimmed : stripped;
+        }
     }
 }

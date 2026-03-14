@@ -65,12 +65,14 @@ namespace PF2e.Presentation
             public bool        isNumeric;
             public int         damageValue;
             public string      staticText;
+            public float       fontSizeMultiplier;
         }
 
         private readonly Stack<Label> pool   = new Stack<Label>(16);
         private readonly List<Label>  active = new List<Label>(32);
         private Transform poolContainer;
         private UnityEngine.Camera cachedCamera;
+        private const float FallbackFontSizeMultiplier = 6f;
 
         // ---- Unity lifecycle ----
 
@@ -220,7 +222,7 @@ namespace PF2e.Presentation
             label.staticText   = staticText;
 
             label.go.transform.position = pos;
-            label.tmp.fontSize = fontSize;
+            label.tmp.fontSize = fontSize * label.fontSizeMultiplier;
             label.tmp.color    = color;
 
             if (isNumeric)
@@ -239,18 +241,43 @@ namespace PF2e.Presentation
                 var inst = Instantiate(textPrefab, poolContainer);
                 inst.gameObject.name = "FloatingDamageLabel";
                 inst.gameObject.SetActive(false);
-                return new Label { go = inst.gameObject, tmp = inst };
+                return new Label
+                {
+                    go = inst.gameObject,
+                    tmp = inst,
+                    fontSizeMultiplier = 1f
+                };
             }
 
             var go  = new GameObject("FloatingDamageLabel");
             go.transform.SetParent(poolContainer, false);
             var tmp = go.AddComponent<TextMeshPro>();
+            var fallbackFont = CombatUiTypography.RegularFont != null
+                ? CombatUiTypography.RegularFont
+                : TMP_Settings.defaultFontAsset;
+
             tmp.alignment          = TextAlignmentOptions.Center;
             tmp.enableWordWrapping = false;
             tmp.richText           = false;
             tmp.sortingOrder       = 100;
+            tmp.isOverlay         = true;
+            tmp.extraPadding      = true;
+            tmp.raycastTarget     = false;
+            tmp.font              = fallbackFont;
+            if (tmp.font != null && tmp.font.material != null)
+                tmp.fontSharedMaterial = tmp.font.material;
+            tmp.text              = "0";
+            tmp.color             = Color.white;
+            tmp.outlineWidth      = 0.18f;
+            tmp.outlineColor      = new Color(0f, 0f, 0f, 0.85f);
+            go.transform.localScale = Vector3.one;
             go.SetActive(false);
-            return new Label { go = go, tmp = tmp };
+            return new Label
+            {
+                go = go,
+                tmp = tmp,
+                fontSizeMultiplier = FallbackFontSizeMultiplier
+            };
         }
 
         // ---- LateUpdate animation (zero alloc per frame, billboard every frame) ----

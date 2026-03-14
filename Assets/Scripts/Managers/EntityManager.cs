@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using PF2e.Core;
+using PF2e.Data;
 using PF2e.Grid;
 using PF2e.Presentation.Entity;
 
@@ -26,9 +27,7 @@ namespace PF2e.Managers
         [SerializeField] private ArmorDefinition goblinArmorDef;
 
         [Header("Portraits")]
-        [SerializeField] private Sprite fighterPortrait;
-        [SerializeField] private Sprite wizardPortrait;
-        [SerializeField] private Sprite goblinPortrait;
+        [SerializeField] private EncounterActorPortraitLibrary portraitLibrary;
 
         [Header("Reaction Preferences (Test Setup)")]
         [SerializeField] private ReactionPreference fighterShieldBlockPreference = ReactionPreference.AutoBlock;
@@ -91,6 +90,8 @@ private void OnValidate()
                     Debug.LogWarning("[EntityManager] Wizard weapon/armor definitions not assigned.", this);
                 if (goblinWeaponDef == null || goblinArmorDef == null)
                     Debug.LogWarning("[EntityManager] Goblin weapon/armor definitions not assigned.", this);
+                if (portraitLibrary == null)
+                    Debug.LogWarning("[EntityManager] EncounterActorPortraitLibrary not assigned. Initiative portraits will fall back to legacy mode.", this);
             }
         }
 #endif
@@ -194,7 +195,7 @@ private void OnValidate()
                 fighter.EquippedShield = ShieldInstance.CreateEquipped(fighterShieldDef);
             }
             fighter.ShieldBlockPreference = fighterShieldBlockPreference;
-            fighter.Portrait = fighterPortrait;
+            fighter.Portrait = ResolvePortrait(fighter.EncounterActorId);
             CreateEntity(fighter, new Vector3Int(1, 0, 1));
 
             // Wizard with dagger and armor (from inspector defs)
@@ -228,7 +229,7 @@ private void OnValidate()
             };
             wizard.KnowsGlassShieldCantrip = true;
             wizard.KnowsStandardShieldCantrip = true;
-            wizard.Portrait = wizardPortrait;
+            wizard.Portrait = ResolvePortrait(wizard.EncounterActorId);
             CreateEntity(wizard, new Vector3Int(1, 0, 5));
 
             // Goblin_1 (from inspector defs)
@@ -260,7 +261,7 @@ private void OnValidate()
                 resilient = ResilientRuneRank.None,
                 broken = false
             };
-            goblin1.Portrait = goblinPortrait;
+            goblin1.Portrait = ResolvePortrait(goblin1.EncounterActorId);
             CreateEntity(goblin1, new Vector3Int(6, 0, 2));
 
             // Goblin_2 (from inspector defs)
@@ -292,10 +293,15 @@ private void OnValidate()
                 resilient = ResilientRuneRank.None,
                 broken = false
             };
-            goblin2.Portrait = goblinPortrait;
+            goblin2.Portrait = ResolvePortrait(goblin2.EncounterActorId);
             CreateEntity(goblin2, new Vector3Int(6, 0, 5));
 
             Debug.Log($"[EntityManager] Spawned {Registry.Count} test entities");
+        }
+
+        private Sprite ResolvePortrait(string encounterActorId)
+        {
+            return portraitLibrary != null ? portraitLibrary.Resolve(encounterActorId) : null;
         }
 
         // ─── Selection ───
