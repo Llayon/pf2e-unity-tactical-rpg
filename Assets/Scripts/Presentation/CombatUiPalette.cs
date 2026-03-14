@@ -23,7 +23,7 @@ namespace PF2e.Presentation
         public const string HudTextPrimaryHex = "#E2E8EF";
         public const string HudTextSecondaryHex = "#B2BCC9";
         public const string HudTextMutedHex = "#8F99A6";
-        public const string CombatLogBodyHex = "#F1ECE2";
+        public const string CombatLogBodyHex = "#F0E9C9";
         public const string HudButtonTextHex = "#F1F4F8";
         public const string HudButtonSelectedTextHex = "#141A22";
         public const string HudHealthGoodHex = "#54C977";
@@ -37,10 +37,10 @@ namespace PF2e.Presentation
 
         public const string PlayerNameHex = "#8FAFD2";
         public const string EnemyNameHex = "#C28767";
-        public const string NeutralTextHex = "#E1E7EE";
-        public const string NarrativeTextHex = "#CCD3DC";
+        public const string NeutralTextHex = "#E7DED0";
+        public const string NarrativeTextHex = "#DED4C6";
         public const string WeaponTextHex = "#D8C7A8";
-        public const string SecondaryNoteHex = "#92A0B0";
+        public const string SecondaryNoteHex = "#B8AB9A";
         public const string RoundHex = "#B7C1CC";
         public const string ConditionGainHex = "#C2A59C";
         public const string ConditionLoseHex = "#97B1AF";

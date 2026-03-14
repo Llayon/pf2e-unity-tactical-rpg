@@ -23,9 +23,10 @@ namespace PF2e.Presentation
             float characterSpacing,
             Color color,
             float lineSpacing = float.NaN,
-            FontStyles style = FontStyles.Normal)
+            FontStyles style = FontStyles.Normal,
+            float wordSpacing = float.NaN)
         {
-            return Apply(text, LoadLightFontOrFallback(), fontSize, characterSpacing, color, style, lineSpacing);
+            return Apply(text, LoadLightFontOrFallback(), fontSize, characterSpacing, color, style, lineSpacing, wordSpacing);
         }
 
         public static bool ApplySecondary(
@@ -34,9 +35,10 @@ namespace PF2e.Presentation
             float characterSpacing,
             Color color,
             float lineSpacing = float.NaN,
-            FontStyles style = FontStyles.Normal)
+            FontStyles style = FontStyles.Normal,
+            float wordSpacing = float.NaN)
         {
-            return Apply(text, LoadLightFontOrFallback(), fontSize, characterSpacing, color, style, lineSpacing);
+            return Apply(text, LoadLightFontOrFallback(), fontSize, characterSpacing, color, style, lineSpacing, wordSpacing);
         }
 
         public static bool ApplyTitle(
@@ -45,9 +47,10 @@ namespace PF2e.Presentation
             float characterSpacing,
             Color color,
             FontStyles style = FontStyles.Normal,
-            float lineSpacing = float.NaN)
+            float lineSpacing = float.NaN,
+            float wordSpacing = float.NaN)
         {
-            return Apply(text, LoadRegularFont(), fontSize, characterSpacing, color, style, lineSpacing);
+            return Apply(text, LoadRegularFont(), fontSize, characterSpacing, color, style, lineSpacing, wordSpacing);
         }
 
         public static bool ApplyButton(
@@ -55,9 +58,10 @@ namespace PF2e.Presentation
             float fontSize,
             float characterSpacing,
             Color color,
-            FontStyles style = FontStyles.Normal)
+            FontStyles style = FontStyles.Normal,
+            float wordSpacing = float.NaN)
         {
-            return Apply(text, LoadRegularFont(), fontSize, characterSpacing, color, style, float.NaN);
+            return Apply(text, LoadRegularFont(), fontSize, characterSpacing, color, style, float.NaN, wordSpacing);
         }
 
         public static bool ApplyWithFont(
@@ -67,9 +71,10 @@ namespace PF2e.Presentation
             float characterSpacing,
             Color color,
             FontStyles style = FontStyles.Normal,
-            float lineSpacing = float.NaN)
+            float lineSpacing = float.NaN,
+            float wordSpacing = float.NaN)
         {
-            return Apply(text, font, fontSize, characterSpacing, color, style, lineSpacing);
+            return Apply(text, font, fontSize, characterSpacing, color, style, lineSpacing, wordSpacing);
         }
 
         private static TMP_FontAsset LoadRegularFont()
@@ -101,7 +106,8 @@ namespace PF2e.Presentation
             float characterSpacing,
             Color color,
             FontStyles style,
-            float lineSpacing)
+            float lineSpacing,
+            float wordSpacing)
         {
             if (text == null)
                 return false;
@@ -129,6 +135,12 @@ namespace PF2e.Presentation
             if (!Mathf.Approximately(text.characterSpacing, characterSpacing))
             {
                 text.characterSpacing = characterSpacing;
+                changed = true;
+            }
+
+            if (!float.IsNaN(wordSpacing) && !Mathf.Approximately(text.wordSpacing, wordSpacing))
+            {
+                text.wordSpacing = wordSpacing;
                 changed = true;
             }
 

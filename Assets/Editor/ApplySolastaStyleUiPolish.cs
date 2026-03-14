@@ -18,6 +18,7 @@ public static class ApplySolastaStyleUiPolish
     private const string EncounterFlowPrefabPath = "Assets/Prefabs/EncounterFlowPanel.prefab";
     private const string RegularFontPath = "Assets/TextMesh Pro/Resources/Fonts & Materials/Source Sans 3 SDF.asset";
     private const string LightFontPath = "Assets/TextMesh Pro/Resources/Fonts & Materials/Source Sans 3 Light SDF.asset";
+    private const float CombatLogPanelWidth = 605f;
 
     [MenuItem(MenuPath)]
     private static void Apply()
@@ -297,12 +298,25 @@ public static class ApplySolastaStyleUiPolish
     private static int StyleCombatLog(GameObject root, TMP_FontAsset regularFont, TMP_FontAsset lightFont)
     {
         int changes = 0;
+        RectTransform rectTransform = root.GetComponent<RectTransform>();
+        if (rectTransform != null)
+        {
+            Vector2 sizeDelta = rectTransform.sizeDelta;
+            if (!Mathf.Approximately(sizeDelta.x, CombatLogPanelWidth))
+            {
+                sizeDelta.x = CombatLogPanelWidth;
+                rectTransform.sizeDelta = sizeDelta;
+                EditorUtility.SetDirty(rectTransform);
+                changes++;
+            }
+        }
+
         foreach (TMP_Text text in root.GetComponentsInChildren<TextMeshProUGUI>(true))
         {
             if (text.name.Contains("Retention", StringComparison.OrdinalIgnoreCase))
                 changes += ApplyText(text, lightFont, 12f, 0.05f, FontStyles.Italic, CombatUiPalette.HudTextMutedColor);
             else
-                changes += ApplyText(text, regularFont, 19.5f, 0.05f, FontStyles.Normal, CombatUiPalette.CombatLogBodyColor);
+                changes += ApplyText(text, regularFont, 21f, 0.18f, FontStyles.Normal, CombatUiPalette.CombatLogBodyColor, wordSpacing: 2.8f);
         }
 
         return changes;
@@ -350,7 +364,8 @@ public static class ApplySolastaStyleUiPolish
         float characterSpacing,
         FontStyles style,
         Color color,
-        float lineSpacing = float.NaN)
+        float lineSpacing = float.NaN,
+        float wordSpacing = float.NaN)
     {
         if (text == null || font == null)
             return 0;
@@ -372,6 +387,12 @@ public static class ApplySolastaStyleUiPolish
         if (!Mathf.Approximately(text.characterSpacing, characterSpacing))
         {
             text.characterSpacing = characterSpacing;
+            changes++;
+        }
+
+        if (!float.IsNaN(wordSpacing) && !Mathf.Approximately(text.wordSpacing, wordSpacing))
+        {
+            text.wordSpacing = wordSpacing;
             changes++;
         }
 
