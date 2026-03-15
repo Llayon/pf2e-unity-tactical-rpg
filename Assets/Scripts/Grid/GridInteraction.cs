@@ -18,6 +18,9 @@ namespace PF2e.Grid
     [RequireComponent(typeof(CellHighlightPool))]
     public class GridInteraction : MonoBehaviour
     {
+        private const float IdleWorldRefreshInterval = 0.1f;
+        private const float MouseDeadZoneSqr = 1f;
+
         [SerializeField] private LayerMask gridLayerMask = ~0;
         [SerializeField] private float maxRayDistance = 100f;
 
@@ -42,6 +45,12 @@ namespace PF2e.Grid
         private EventSystem pointerEventSystem;
         private readonly List<RaycastResult> uiRaycastResults = new List<RaycastResult>(8);
         private RaycastHit[] raycastHitsBuffer = new RaycastHit[64];
+        private bool hasCachedPointerState;
+        private Vector2 lastMousePosition;
+        private Vector3 lastCameraPosition;
+        private Quaternion lastCameraRotation;
+        private float lastWorldRaycastTime;
+        private bool wasPointerOverUiLastFrame;
 
         private void OnEnable()
         {
@@ -116,12 +125,41 @@ namespace PF2e.Grid
             if (mouse == null) return;
 
             Vector2 mousePos = mouse.position.ReadValue();
+            Vector3 cameraPosition = mainCamera.transform.position;
+            Quaternion cameraRotation = mainCamera.transform.rotation;
+            bool pointerPressedThisFrame = mouse.leftButton.wasPressedThisFrame;
             if (IsPointerOverUI(mousePos))
             {
                 ClearHover();
                 gridManager.SetHoveredEntity(null);
+                UpdateCachedPointerState(mousePos, cameraPosition, cameraRotation);
+                wasPointerOverUiLastFrame = true;
                 return;
             }
+
+            bool cameraChanged = hasCachedPointerState &&
+                                 (cameraPosition != lastCameraPosition || cameraRotation != lastCameraRotation);
+            bool justLeftUi = wasPointerOverUiLastFrame;
+            float elapsedSinceLastWorldRaycast = hasCachedPointerState ? Time.unscaledTime - lastWorldRaycastTime : 0f;
+
+            if (!ShouldPerformWorldRaycast(
+                    hasCachedPointerState,
+                    mousePos,
+                    lastMousePosition,
+                    cameraChanged,
+                    pointerPressedThisFrame,
+                    justLeftUi,
+                    elapsedSinceLastWorldRaycast,
+                    IdleWorldRefreshInterval,
+                    MouseDeadZoneSqr))
+            {
+                wasPointerOverUiLastFrame = false;
+                return;
+            }
+
+            UpdateCachedPointerState(mousePos, cameraPosition, cameraRotation);
+            lastWorldRaycastTime = Time.unscaledTime;
+            wasPointerOverUiLastFrame = false;
 
             Ray ray = mainCamera.ScreenPointToRay(new Vector3(mousePos.x, mousePos.y, 0));
 
@@ -141,6 +179,7 @@ namespace PF2e.Grid
             }
 
             RaycastHit? floorHit = null;
+            FloorLevel floorLevel = null;
             float nearestFloorDistance = float.MaxValue;
             EntityView entityView = null;
             float nearestEntityDistance = float.MaxValue;
@@ -153,6 +192,7 @@ namespace PF2e.Grid
                 if (floor != null && hit.distance < nearestFloorDistance)
                 {
                     floorHit = hit;
+                    floorLevel = floor;
                     nearestFloorDistance = hit.distance;
                 }
 
@@ -172,7 +212,7 @@ namespace PF2e.Grid
                 return;
             }
 
-            var cell = ResolveCell(floorHit.Value);
+            var cell = ResolveCell(floorHit.Value, floorLevel);
 
             if (gridData.HasCell(cell))
             {
@@ -180,7 +220,7 @@ namespace PF2e.Grid
                 gridManager.SetHoveredCell(cell);
                 UpdateHoverHighlight(cell);
 
-                if (mouse.leftButton.wasPressedThisFrame)
+                if (pointerPressedThisFrame)
                 {
                     if (entityManager != null)
                     {
@@ -215,18 +255,49 @@ namespace PF2e.Grid
             }
         }
 
+        internal static bool ShouldPerformWorldRaycast(
+            bool hasCachedPointerState,
+            Vector2 currentMousePosition,
+            Vector2 previousMousePosition,
+            bool cameraChanged,
+            bool pointerPressedThisFrame,
+            bool justLeftUi,
+            float elapsedSinceLastWorldRaycast,
+            float idleWorldRefreshInterval,
+            float mouseDeadZoneSqr)
+        {
+            if (!hasCachedPointerState)
+                return true;
+
+            Vector2 mouseDelta = currentMousePosition - previousMousePosition;
+            if (mouseDelta.sqrMagnitude > mouseDeadZoneSqr)
+                return true;
+
+            if (cameraChanged || pointerPressedThisFrame || justLeftUi)
+                return true;
+
+            return elapsedSinceLastWorldRaycast >= idleWorldRefreshInterval;
+        }
+
         /// <summary>
         /// Resolve cell from raycast hit. Uses FloorLevel for elevation, hit.point for X/Z.
         /// </summary>
-        private Vector3Int ResolveCell(RaycastHit hit)
+        private Vector3Int ResolveCell(RaycastHit hit, FloorLevel floor)
         {
-            var floor = hit.collider.GetComponent<FloorLevel>();
             int elevation = floor != null ? floor.elevation : 0;
 
             int x = Mathf.FloorToInt(hit.point.x / gridData.CellWorldSize);
             int z = Mathf.FloorToInt(hit.point.z / gridData.CellWorldSize);
 
             return new Vector3Int(x, elevation, z);
+        }
+
+        private void UpdateCachedPointerState(Vector2 mousePosition, Vector3 cameraPosition, Quaternion cameraRotation)
+        {
+            hasCachedPointerState = true;
+            lastMousePosition = mousePosition;
+            lastCameraPosition = cameraPosition;
+            lastCameraRotation = cameraRotation;
         }
 
         private void UpdateHoverHighlight(Vector3Int cell)
