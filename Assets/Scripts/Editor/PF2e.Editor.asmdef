@@ -1,0 +1,19 @@
+{
+    "name": "PF2e.Editor",
+    "rootNamespace": "PF2e.Editor",
+    "references": [
+        "PF2e",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
