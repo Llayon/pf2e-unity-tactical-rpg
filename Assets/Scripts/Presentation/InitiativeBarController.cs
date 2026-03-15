@@ -78,6 +78,7 @@ namespace PF2e.Presentation
                 eventBus.OnTurnStartedTyped += HandleTurnStarted;
                 eventBus.OnTurnEndedTyped += HandleTurnEnded;
                 eventBus.OnStrikeResolved  += HandleStrikeResolved;
+                eventBus.OnDamageAppliedTyped += HandleDamageApplied;
                 eventBus.OnEntityDefeated  += HandleEntityDefeated;
                 eventBus.OnDelayPlacementSelectionChangedTyped += HandleDelayPlacementSelectionChanged;
                 eventBus.OnDelayReturnWindowOpenedTyped += HandleDelayReturnWindowOpened;
@@ -100,6 +101,7 @@ namespace PF2e.Presentation
                 eventBus.OnTurnStartedTyped -= HandleTurnStarted;
                 eventBus.OnTurnEndedTyped -= HandleTurnEnded;
                 eventBus.OnStrikeResolved  -= HandleStrikeResolved;
+                eventBus.OnDamageAppliedTyped -= HandleDamageApplied;
                 eventBus.OnEntityDefeated  -= HandleEntityDefeated;
                 eventBus.OnDelayPlacementSelectionChangedTyped -= HandleDelayPlacementSelectionChanged;
                 eventBus.OnDelayReturnWindowOpenedTyped -= HandleDelayReturnWindowOpened;
@@ -230,6 +232,17 @@ namespace PF2e.Presentation
             slot.RefreshHP(data.CurrentHP, data.MaxHP, data.IsAlive);
         }
 
+        private void HandleDamageApplied(in DamageAppliedEvent e)
+        {
+            if (entityManager == null || entityManager.Registry == null) return;
+            if (!slotByHandle.TryGetValue(e.target, out var slot)) return;
+
+            var data = entityManager.Registry.Get(e.target);
+            if (data == null) return;
+
+            slot.RefreshHP(data.CurrentHP, data.MaxHP, data.IsAlive);
+        }
+
         private void HandleEntityDefeated(in EntityDefeatedEvent e)
         {
             actedThisRound.Remove(e.handle);
@@ -272,6 +285,7 @@ namespace PF2e.Presentation
             if (slotsRect != null)
                 LayoutRebuilder.ForceRebuildLayoutImmediate(slotsRect);
 
+            ApplyActiveVisualOffsets();
             AutoSizePanelToContent();
             RepositionInsertionMarkers();
             RefreshDelayPlacementHintLabel();
@@ -355,7 +369,10 @@ namespace PF2e.Presentation
                 activeSlots[i].SetHighlight(false);
 
             if (turnManager.State == TurnState.DelayReturnWindow)
+            {
+                ApplyActiveVisualOffsets();
                 return;
+            }
 
             if (idx >= 0 && idx < turnManager.InitiativeOrder.Count)
             {
@@ -363,6 +380,8 @@ namespace PF2e.Presentation
                 if (slotByHandle.TryGetValue(handle, out var slot))
                     slot.SetHighlight(true);
             }
+
+            ApplyActiveVisualOffsets();
         }
 
         private void RefreshSlotVisuals()
@@ -389,6 +408,7 @@ namespace PF2e.Presentation
             }
 
             UpdateHighlight();
+            AutoSizePanelToContent();
         }
 
         private void SetPanelVisible(bool visible)
@@ -577,6 +597,79 @@ namespace PF2e.Presentation
             }
 
             return width;
+        }
+
+        private void ApplyActiveVisualOffsets()
+        {
+            if (activeSlots.Count <= 0)
+                return;
+
+            int activeIndex = GetActiveVisualSlotIndex();
+            float slotWidth = GetSlotLayoutWidth();
+            if (slotWidth <= 0f)
+                return;
+
+            float activeScale = activeIndex >= 0 && activeIndex < activeSlots.Count
+                ? activeSlots[activeIndex].ActiveScaleFactor
+                : 1f;
+
+            for (int i = 0; i < activeSlots.Count; i++)
+            {
+                var slot = activeSlots[i];
+                if (slot == null)
+                    continue;
+
+                slot.SetVisualOffsetX(GetVisualOffsetX(i, activeIndex, slotWidth, activeScale));
+            }
+        }
+
+        private int GetActiveVisualSlotIndex()
+        {
+            if (turnManager == null || turnManager.State == TurnState.DelayReturnWindow)
+                return -1;
+
+            int idx = turnManager.CurrentIndex;
+            if (idx < 0 || idx >= turnManager.InitiativeOrder.Count)
+                return -1;
+
+            var handle = turnManager.InitiativeOrder[idx].Handle;
+            if (!slotByHandle.TryGetValue(handle, out var activeSlot) || activeSlot == null)
+                return -1;
+
+            return activeSlots.IndexOf(activeSlot);
+        }
+
+        private float GetSlotLayoutWidth()
+        {
+            for (int i = 0; i < activeSlots.Count; i++)
+            {
+                var slot = activeSlots[i];
+                if (slot == null)
+                    continue;
+
+                if (slot.TryGetComponent<LayoutElement>(out var layoutElement) && layoutElement.preferredWidth > 0f)
+                    return layoutElement.preferredWidth;
+
+                if (slot.transform is RectTransform rect)
+                    return rect.rect.width;
+            }
+
+            return 0f;
+        }
+
+        internal static float GetVisualOffsetX(int slotIndex, int activeIndex, float slotWidth, float activeScaleFactor)
+        {
+            if (slotIndex < 0 || activeIndex < 0 || slotWidth <= 0f || activeScaleFactor <= 1f)
+                return 0f;
+
+            float extraWidth = slotWidth * (activeScaleFactor - 1f);
+            if (slotIndex < activeIndex)
+                return 0f;
+
+            if (slotIndex == activeIndex)
+                return extraWidth * 0.5f;
+
+            return extraWidth;
         }
 
         private float ComputePanelContentWidthFromBounds(RectTransform panelRect)

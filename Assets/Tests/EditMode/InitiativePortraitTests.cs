@@ -86,6 +86,7 @@ namespace PF2e.Tests
                 var portraitMaskRect = GetPrivateField<RectTransform>(slot, "portraitMaskRect");
                 var nameText = GetPrivateField<TMPro.TMP_Text>(slot, "nameText");
                 var hpBarFill = GetPrivateField<Image>(slot, "hpBarFill");
+                var background = GetPrivateField<Image>(slot, "background");
                 var duplicateBadgeRoot = GetPrivateField<GameObject>(slot, "duplicateBadgeRoot");
                 var frameImage = GetPrivateField<Image>(slot, "frameImage");
 
@@ -97,6 +98,7 @@ namespace PF2e.Tests
                 Assert.Greater(frameImage.transform.GetSiblingIndex(), portraitMaskRect.transform.GetSiblingIndex());
                 Assert.IsFalse(nameText.gameObject.activeSelf);
                 Assert.IsTrue(hpBarFill.transform.parent.gameObject.activeSelf);
+                Assert.AreEqual(0f, background.color.a, 0.001f);
                 Assert.IsTrue(duplicateBadgeRoot.activeSelf);
             }
             finally
@@ -106,7 +108,7 @@ namespace PF2e.Tests
         }
 
         [Test]
-        public void SetHighlight_WithPortrait_UsesFrameTint_WithoutLayoutScaleShift()
+        public void SetHighlight_WithPortrait_UsesFrameTint_AndTopAlignedVisualRootScale()
         {
             var slot = InstantiateSlotPrefab();
             try
@@ -120,11 +122,23 @@ namespace PF2e.Tests
                 var frameImage = GetPrivateField<Image>(slot, "frameImage");
                 var activeHighlight = GetPrivateField<GameObject>(slot, "activeHighlight");
                 var activeFrameColor = GetColorField(slot, "activeFrameColor");
+                var activeScaleFactor = GetFloatField(slot, "activeScaleFactor");
+                var slotRect = slot.GetComponent<RectTransform>();
+                var visualRoot = GetPrivateField<RectTransform>(slot, "visualRoot");
 
                 Assert.AreEqual(Vector3.one, slot.transform.localScale);
+                Assert.AreEqual(Vector3.one * activeScaleFactor, visualRoot.localScale);
                 Assert.AreEqual(activeFrameColor.r, frameImage.color.r, 0.001f);
                 Assert.AreEqual(activeFrameColor.g, frameImage.color.g, 0.001f);
                 Assert.AreEqual(activeFrameColor.b, frameImage.color.b, 0.001f);
+                Assert.IsTrue(activeHighlight.activeSelf);
+                Assert.AreEqual(new Vector2(0.5f, 1f), slotRect.pivot);
+                Assert.AreEqual(new Vector2(0.5f, 1f), visualRoot.pivot);
+
+                slot.SetHighlight(false);
+
+                Assert.AreEqual(Vector3.one, slot.transform.localScale);
+                Assert.AreEqual(Vector3.one, visualRoot.localScale);
                 Assert.IsFalse(activeHighlight.activeSelf);
             }
             finally
@@ -211,12 +225,14 @@ namespace PF2e.Tests
                 var hpBarFill = GetPrivateField<Image>(slot, "hpBarFill");
                 var damageOverlay = GetPrivateField<Image>(slot, "damageOverlay");
                 var lowHpColor = GetColorField(slot, "hpStripLowColor");
+                var damageOverlayBaseColor = GetColorField(slot, "damageOverlayColor");
 
                 Assert.IsTrue(hpBarFill.transform.parent.gameObject.activeSelf);
-                Assert.AreEqual(0.25f, hpBarFill.fillAmount, 0.001f);
+                Assert.AreEqual(0.25f, hpBarFill.rectTransform.anchorMax.x, 0.001f);
                 Assert.AreEqual(lowHpColor.r, hpBarFill.color.r, 0.001f);
                 Assert.IsTrue(damageOverlay.gameObject.activeSelf);
-                Assert.AreEqual(0.75f, damageOverlay.fillAmount, 0.001f);
+                Assert.AreEqual(0.75f, damageOverlay.rectTransform.anchorMax.y, 0.001f);
+                Assert.AreEqual(damageOverlayBaseColor.a * 0.75f, damageOverlay.color.a, 0.001f);
             }
             finally
             {
@@ -254,13 +270,25 @@ namespace PF2e.Tests
             {
                 var layoutElement = slot.GetComponent<LayoutElement>();
                 Assert.IsNotNull(layoutElement);
-                Assert.AreEqual(73f, layoutElement.preferredWidth, 0.001f);
-                Assert.AreEqual(90f, layoutElement.preferredHeight, 0.001f);
+                Assert.AreEqual(64f, layoutElement.preferredWidth, 0.001f);
+                Assert.AreEqual(86f, layoutElement.preferredHeight, 0.001f);
             }
             finally
             {
                 Object.DestroyImmediate(slot.gameObject);
             }
+        }
+
+        [Test]
+        public void GetVisualOffsetX_UsesRightPushLayout_ForActiveSlot()
+        {
+            const float slotWidth = 64f;
+            const float activeScale = 1.3f;
+
+            Assert.AreEqual(0f, InitiativeBarController.GetVisualOffsetX(0, 1, slotWidth, activeScale), 0.001f);
+            Assert.AreEqual(9.6f, InitiativeBarController.GetVisualOffsetX(1, 1, slotWidth, activeScale), 0.001f);
+            Assert.AreEqual(19.2f, InitiativeBarController.GetVisualOffsetX(2, 1, slotWidth, activeScale), 0.001f);
+            Assert.AreEqual(19.2f, InitiativeBarController.GetVisualOffsetX(3, 1, slotWidth, activeScale), 0.001f);
         }
 
         private static InitiativeSlot InstantiateSlotPrefab()
@@ -298,6 +326,13 @@ namespace PF2e.Tests
             var field = target.GetType().GetField(fieldName, InstanceNonPublic);
             Assert.IsNotNull(field, $"Missing field {fieldName} on {target.GetType().Name}.");
             return (Color)field.GetValue(target);
+        }
+
+        private static float GetFloatField(object target, string fieldName)
+        {
+            var field = target.GetType().GetField(fieldName, InstanceNonPublic);
+            Assert.IsNotNull(field, $"Missing field {fieldName} on {target.GetType().Name}.");
+            return (float)field.GetValue(target);
         }
     }
 }

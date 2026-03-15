@@ -14,6 +14,7 @@ namespace PF2e.Presentation
         [SerializeField] private TMP_Text nameText;
         [SerializeField] private Image hpBarFill;
         [SerializeField] private Image background;
+        [SerializeField] private RectTransform visualRoot;
         [SerializeField] private RectTransform portraitMaskRect;
         [SerializeField] private Image portraitImage;
         [SerializeField] private AspectRatioFitter portraitAspectFitter;
@@ -32,34 +33,35 @@ namespace PF2e.Presentation
         [SerializeField] private Color enemyColor   = new Color(1f, 0.3f, 0.3f, 1f);
         [SerializeField] private Color neutralColor = new Color(0.85f, 0.85f, 0.2f, 1f);
         [SerializeField] private Color defeatedColor = new Color(0.3f, 0.3f, 0.3f, 1f);
-        [SerializeField] private Color activeFrameColor = new Color(1f, 0.92f, 0.7f, 1f);
-        [SerializeField] private float activeScaleFactor = 1f;
-        [SerializeField] private Color actedFrameTint = new Color(0.72f, 0.76f, 0.8f, 1f);
-        [SerializeField] private Color actedPortraitTint = new Color(0.72f, 0.72f, 0.72f, 1f);
-        [SerializeField] private float actedAlphaMultiplier = 0.62f;
-        [SerializeField] private Color damageOverlayColor = new Color(0.7f, 0.05f, 0.05f, 0.35f);
+        [SerializeField] private Color activeFrameColor = new Color(1f, 0.96f, 0.78f, 1f);
+        [SerializeField] private float activeScaleFactor = 1.3f;
+        [SerializeField] private Color actedFrameTint = new Color(0.56f, 0.6f, 0.66f, 1f);
+        [SerializeField] private Color actedPortraitTint = new Color(0.76f, 0.78f, 0.8f, 1f);
+        [SerializeField] private float actedAlphaMultiplier = 0.68f;
+        [SerializeField] private Color damageOverlayColor = new Color(0.7f, 0.05f, 0.05f, 0.18f);
         [SerializeField] private Color defeatedPortraitTint = new Color(0.42f, 0.42f, 0.42f, 1f);
         [SerializeField] private Color defeatedFrameTint = new Color(0.48f, 0.48f, 0.48f, 1f);
-        [SerializeField] private Color delayedBadgeBackgroundColor = new Color(0.95f, 0.85f, 0.25f, 0.95f);
-        [SerializeField] private Color delayedBadgeTextColor = new Color(0.1f, 0.08f, 0.03f, 1f);
-        [SerializeField] private Color duplicateBadgeBackgroundColor = new Color(0.11f, 0.16f, 0.22f, 0.92f);
-        [SerializeField] private Color duplicateBadgeTextColor = new Color(0.9f, 0.93f, 0.97f, 1f);
+        [SerializeField] private Color delayedBadgeBackgroundColor = new Color(0.97f, 0.82f, 0.28f, 0.98f);
+        [SerializeField] private Color delayedBadgeTextColor = new Color(0.14f, 0.09f, 0.03f, 1f);
+        [SerializeField] private Color duplicateBadgeBackgroundColor = new Color(0.2f, 0.26f, 0.33f, 0.96f);
+        [SerializeField] private Color duplicateBadgeTextColor = new Color(0.95f, 0.97f, 0.99f, 1f);
         [SerializeField] private Color hpStripHighColor = new Color(0.38f, 0.86f, 0.43f, 1f);
         [SerializeField] private Color hpStripMidColor = new Color(0.95f, 0.8f, 0.28f, 1f);
         [SerializeField] private Color hpStripLowColor = new Color(0.93f, 0.31f, 0.26f, 1f);
 
         [Header("Portrait Insets")]
-        [SerializeField] private Vector2 playerPortraitMaskOffsetMin = Vector2.zero;
-        [SerializeField] private Vector2 playerPortraitMaskOffsetMax = Vector2.zero;
-        [SerializeField] private Vector2 enemyPortraitMaskOffsetMin = Vector2.zero;
-        [SerializeField] private Vector2 enemyPortraitMaskOffsetMax = Vector2.zero;
-        [SerializeField] private Vector2 neutralPortraitMaskOffsetMin = Vector2.zero;
-        [SerializeField] private Vector2 neutralPortraitMaskOffsetMax = Vector2.zero;
+        [SerializeField] private Vector2 playerPortraitMaskOffsetMin = new Vector2(4f, 5f);
+        [SerializeField] private Vector2 playerPortraitMaskOffsetMax = new Vector2(-4f, -5f);
+        [SerializeField] private Vector2 enemyPortraitMaskOffsetMin = new Vector2(4f, 5f);
+        [SerializeField] private Vector2 enemyPortraitMaskOffsetMax = new Vector2(-4f, -5f);
+        [SerializeField] private Vector2 neutralPortraitMaskOffsetMin = new Vector2(4f, 5f);
+        [SerializeField] private Vector2 neutralPortraitMaskOffsetMax = new Vector2(-4f, -5f);
 
         [Header("Layout Stability")]
         [SerializeField] private bool enforceFixedLayoutSize = true;
-        [SerializeField] private float fixedPreferredWidth = 73f;
-        [SerializeField] private float fixedPreferredHeight = 90f;
+        [SerializeField] private float fixedPreferredWidth = 64f;
+        [SerializeField] private float fixedPreferredHeight = 86f;
+        [SerializeField] private Vector2 visualRootBaseAnchoredPosition = new Vector2(0f, -1f);
 
         [Header("Delayed State")]
         [SerializeField] private bool appendDelayedNameSuffixFallback;
@@ -73,16 +75,36 @@ namespace PF2e.Presentation
         private bool actedThisRound;
         private string baseDisplayName = string.Empty;
         private string duplicateBadgeValue = string.Empty;
+        private float currentHpFill = 1f;
+        private float currentDamageFraction;
         private LayoutElement layoutElement;
         private Team currentTeam;
+        private Canvas slotCanvas;
+        private RectTransform rootRectTransform;
 
         public event Action<InitiativeSlot> OnClicked;
 
+        internal float ActiveScaleFactor => activeScaleFactor;
+
         private void Awake()
         {
+            rootRectTransform = transform as RectTransform;
             layoutElement = GetComponent<LayoutElement>();
             if (layoutElement == null)
                 layoutElement = gameObject.AddComponent<LayoutElement>();
+
+            slotCanvas = GetComponent<Canvas>();
+            if (slotCanvas == null)
+                slotCanvas = gameObject.AddComponent<Canvas>();
+
+            slotCanvas.overrideSorting = false;
+            slotCanvas.sortingOrder = 0;
+            slotCanvas.additionalShaderChannels = AdditionalCanvasShaderChannels.None;
+
+            if (rootRectTransform != null)
+                rootRectTransform.pivot = new Vector2(0.5f, 1f);
+
+            EnsureVisualRoot();
 
             if (enforceFixedLayoutSize)
             {
@@ -102,6 +124,7 @@ namespace PF2e.Presentation
             }
 
             EnsurePortraitHierarchy();
+            InitHpStrip();
             InitDamageOverlay();
             EnsureDuplicateBadgeFallback();
             EnsureDelayedBadgeFallback();
@@ -135,6 +158,8 @@ namespace PF2e.Presentation
             currentTeam = team;
             duplicateBadgeValue = duplicateBadgeLabel ?? string.Empty;
             transform.localScale = Vector3.one;
+            ResetVisualScale();
+            SetVisualOffsetX(0f);
             ApplyTypography();
             ApplyNameVisual();
             ApplyDuplicateBadgeVisual();
@@ -149,23 +174,30 @@ namespace PF2e.Presentation
             defeated = false;
             ApplyColors();
             SetHighlight(false);
+            UpdateVisualStacking();
         }
 
         public void RefreshHP(int currentHP, int maxHP, bool isAlive)
         {
             float fill = (maxHP > 0) ? Mathf.Clamp01((float)currentHP / maxHP) : 0f;
+            currentHpFill = fill;
+            currentDamageFraction = 1f - fill;
 
             if (hpBarFill != null)
             {
-                hpBarFill.fillAmount = fill;
+                UpdateHpStripGeometry(fill);
                 hpBarFill.color = EvaluateHpStripColor(fill);
             }
 
             if (damageOverlay != null)
             {
-                float damageFraction = 1f - fill;
-                damageOverlay.fillAmount = damageFraction;
-                damageOverlay.gameObject.SetActive(damageFraction > 0f);
+                UpdateDamageOverlayGeometry(currentDamageFraction);
+                var overlayColor = damageOverlayColor;
+                overlayColor.a = currentDamageFraction > 0f
+                    ? damageOverlayColor.a * currentDamageFraction
+                    : 0f;
+                damageOverlay.color = overlayColor;
+                damageOverlay.gameObject.SetActive(currentDamageFraction > 0f);
             }
 
             if (!isAlive) SetDefeated(true);
@@ -175,26 +207,9 @@ namespace PF2e.Presentation
         {
             highlighted = active;
 
-            if (hasPortrait)
-            {
-                transform.localScale = Vector3.one * activeScaleFactor;
-
-                if (!hasFrame && background != null && !defeated)
-                    background.color = active ? activeFrameColor : baseColor;
-
-                // Hide legacy yellow overlay in portrait mode
-                if (activeHighlight != null)
-                    activeHighlight.SetActive(false);
-
-                ApplyColors();
-            }
-            else
-            {
-                // Legacy mode (no portrait): use yellow overlay
-                transform.localScale = Vector3.one;
-                if (activeHighlight != null)
-                    activeHighlight.SetActive(active);
-            }
+            SetVisualScale(highlighted && !defeated ? activeScaleFactor : 1f);
+            ApplyColors();
+            UpdateVisualStacking();
         }
 
         public void SetActedThisRound(bool value)
@@ -211,8 +226,9 @@ namespace PF2e.Presentation
             if (defeated == value) return;
             defeated = value;
             if (defeated && hasPortrait)
-                transform.localScale = Vector3.one;
+                ResetVisualScale();
             ApplyColors();
+            UpdateVisualStacking();
         }
 
         public void SetDelayed(bool value)
@@ -226,6 +242,7 @@ namespace PF2e.Presentation
 
         private void EnsurePortraitHierarchy()
         {
+            EnsureVisualRoot();
             if (portraitMaskRect != null
                 && portraitImage != null
                 && portraitAspectFitter != null
@@ -239,7 +256,7 @@ namespace PF2e.Presentation
             {
                 var frameGo = new GameObject("Frame", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
                 var frameRect = frameGo.GetComponent<RectTransform>();
-                frameRect.SetParent(transform, false);
+                frameRect.SetParent(visualRoot, false);
                 frameRect.anchorMin = Vector2.zero;
                 frameRect.anchorMax = Vector2.one;
                 frameRect.offsetMin = Vector2.zero;
@@ -260,11 +277,15 @@ namespace PF2e.Presentation
             {
                 var maskGo = new GameObject("PortraitMask", typeof(RectTransform), typeof(RectMask2D));
                 portraitMaskRect = maskGo.GetComponent<RectTransform>();
-                portraitMaskRect.SetParent(transform, false);
+                portraitMaskRect.SetParent(visualRoot, false);
                 portraitMaskRect.anchorMin = Vector2.zero;
                 portraitMaskRect.anchorMax = Vector2.one;
                 portraitMaskRect.offsetMin = Vector2.zero;
                 portraitMaskRect.offsetMax = Vector2.zero;
+            }
+            else if (visualRoot != null && portraitMaskRect.parent != visualRoot)
+            {
+                portraitMaskRect.SetParent(visualRoot, false);
             }
 
             // Portrait — prepared art fills the slot directly.
@@ -323,16 +344,25 @@ namespace PF2e.Presentation
                 frameImage.transform.SetAsLastSibling();
         }
 
+        private void InitHpStrip()
+        {
+            if (hpBarFill == null)
+                return;
+
+            hpBarFill.type = Image.Type.Simple;
+            hpBarFill.raycastTarget = false;
+            UpdateHpStripGeometry(currentHpFill);
+            hpBarFill.color = EvaluateHpStripColor(currentHpFill);
+        }
+
         private void InitDamageOverlay()
         {
             if (damageOverlay == null) return;
 
-            damageOverlay.type = Image.Type.Filled;
-            damageOverlay.fillMethod = Image.FillMethod.Vertical;
-            damageOverlay.fillOrigin = (int)Image.OriginVertical.Bottom;
-            damageOverlay.fillAmount = 0f;
+            damageOverlay.type = Image.Type.Simple;
             damageOverlay.color = damageOverlayColor;
             damageOverlay.raycastTarget = false;
+            UpdateDamageOverlayGeometry(0f);
             damageOverlay.gameObject.SetActive(false);
         }
 
@@ -413,21 +443,8 @@ namespace PF2e.Presentation
             if (portraitMaskRect == null)
                 return;
 
-            switch (team)
-            {
-                case Team.Player:
-                    portraitMaskRect.offsetMin = playerPortraitMaskOffsetMin;
-                    portraitMaskRect.offsetMax = playerPortraitMaskOffsetMax;
-                    break;
-                case Team.Enemy:
-                    portraitMaskRect.offsetMin = enemyPortraitMaskOffsetMin;
-                    portraitMaskRect.offsetMax = enemyPortraitMaskOffsetMax;
-                    break;
-                default:
-                    portraitMaskRect.offsetMin = neutralPortraitMaskOffsetMin;
-                    portraitMaskRect.offsetMax = neutralPortraitMaskOffsetMax;
-                    break;
-            }
+            portraitMaskRect.offsetMin = Vector2.zero;
+            portraitMaskRect.offsetMax = Vector2.zero;
         }
 
         private void ApplyColors()
@@ -467,6 +484,21 @@ namespace PF2e.Presentation
                     : Color.white;
             }
 
+            if (activeHighlight != null)
+            {
+                bool showActiveHighlight = highlighted && !defeated;
+                if (activeHighlight.activeSelf != showActiveHighlight)
+                    activeHighlight.SetActive(showActiveHighlight);
+
+                if (activeHighlight.TryGetComponent<Image>(out var activeHighlightImage))
+                {
+                    var highlightColor = activeFrameColor;
+                    highlightColor.a = showActiveHighlight ? 0.96f : 0f;
+                    activeHighlightImage.color = highlightColor;
+                    activeHighlightImage.raycastTarget = false;
+                }
+            }
+
             ApplyAlphaVisual();
         }
 
@@ -499,11 +531,12 @@ namespace PF2e.Presentation
                 delayedBadgeRoot.SetActive(delayed);
 
             if (delayedBadgeBackground != null)
-                delayedBadgeBackground.color = CombatUiPalette.HudButtonSelectedColor;
+                delayedBadgeBackground.color = delayedBadgeBackgroundColor;
 
             if (delayedBadgeText != null)
             {
                 ApplyTypography();
+                delayedBadgeText.color = delayedBadgeTextColor;
                 delayedBadgeText.SetText("DLY");
             }
         }
@@ -528,6 +561,8 @@ namespace PF2e.Presentation
         {
             if (duplicateBadgeRoot != null)
             {
+                if (visualRoot != null && duplicateBadgeRoot.transform.parent != visualRoot)
+                    duplicateBadgeRoot.transform.SetParent(visualRoot, false);
                 CacheDuplicateBadgeChildrenFromRootIfNeeded();
                 return;
             }
@@ -536,6 +571,8 @@ namespace PF2e.Presentation
             if (existingBadge != null && existingBadge is RectTransform)
             {
                 duplicateBadgeRoot = existingBadge.gameObject;
+                if (visualRoot != null && duplicateBadgeRoot.transform.parent != visualRoot)
+                    duplicateBadgeRoot.transform.SetParent(visualRoot, false);
                 CacheDuplicateBadgeChildrenFromRootIfNeeded();
                 if (duplicateBadgeRoot != null)
                     duplicateBadgeRoot.SetActive(false);
@@ -547,12 +584,12 @@ namespace PF2e.Presentation
 
             var badgeRootGo = new GameObject("DuplicateBadge", typeof(RectTransform));
             var badgeRect = badgeRootGo.GetComponent<RectTransform>();
-            badgeRect.SetParent(transform, false);
+            badgeRect.SetParent(visualRoot != null ? visualRoot : transform, false);
             badgeRect.anchorMin = new Vector2(0f, 1f);
             badgeRect.anchorMax = new Vector2(0f, 1f);
             badgeRect.pivot = new Vector2(0f, 1f);
-            badgeRect.anchoredPosition = new Vector2(2f, -2f);
-            badgeRect.sizeDelta = new Vector2(16f, 14f);
+            badgeRect.anchoredPosition = new Vector2(3f, -3f);
+            badgeRect.sizeDelta = new Vector2(14f, 14f);
 
             var bgGo = new GameObject("Background", typeof(RectTransform), typeof(Image));
             var bgRect = bgGo.GetComponent<RectTransform>();
@@ -576,7 +613,7 @@ namespace PF2e.Presentation
             textClone.enableWordWrapping = false;
             textClone.overflowMode = TextOverflowModes.Overflow;
             textClone.alignment = TextAlignmentOptions.Center;
-            textClone.fontSize = Mathf.Min(textClone.fontSize, 9f);
+            textClone.fontSize = Mathf.Min(textClone.fontSize, 10.5f);
             textClone.fontStyle = FontStyles.Bold;
             duplicateBadgeText = textClone;
 
@@ -588,6 +625,8 @@ namespace PF2e.Presentation
         {
             if (delayedBadgeRoot != null)
             {
+                if (visualRoot != null && delayedBadgeRoot.transform.parent != visualRoot)
+                    delayedBadgeRoot.transform.SetParent(visualRoot, false);
                 CacheDelayedBadgeChildrenFromRootIfNeeded();
                 return;
             }
@@ -598,6 +637,8 @@ namespace PF2e.Presentation
                 if (existingBadge is RectTransform)
                 {
                     delayedBadgeRoot = existingBadge.gameObject;
+                    if (visualRoot != null && delayedBadgeRoot.transform.parent != visualRoot)
+                        delayedBadgeRoot.transform.SetParent(visualRoot, false);
                     CacheDelayedBadgeChildrenFromRootIfNeeded();
                     if (delayedBadgeRoot != null)
                         delayedBadgeRoot.SetActive(false);
@@ -610,12 +651,12 @@ namespace PF2e.Presentation
 
             var badgeRootGo = new GameObject("DelayedBadge", typeof(RectTransform));
             var badgeRect = badgeRootGo.GetComponent<RectTransform>();
-            badgeRect.SetParent(transform, false);
+            badgeRect.SetParent(visualRoot != null ? visualRoot : transform, false);
             badgeRect.anchorMin = new Vector2(1f, 1f);
             badgeRect.anchorMax = new Vector2(1f, 1f);
             badgeRect.pivot = new Vector2(1f, 1f);
             badgeRect.anchoredPosition = new Vector2(-3f, -3f);
-            badgeRect.sizeDelta = new Vector2(22f, 12f);
+            badgeRect.sizeDelta = new Vector2(26f, 14f);
 
             var bgGo = new GameObject("Background", typeof(RectTransform), typeof(Image));
             var bgRect = bgGo.GetComponent<RectTransform>();
@@ -640,7 +681,7 @@ namespace PF2e.Presentation
             textClone.enableWordWrapping = false;
             textClone.overflowMode = TextOverflowModes.Overflow;
             textClone.alignment = TextAlignmentOptions.Center;
-            textClone.fontSize = Mathf.Min(textClone.fontSize, 8f);
+            textClone.fontSize = Mathf.Min(textClone.fontSize, 10.5f);
             textClone.fontStyle = FontStyles.Bold;
             delayedBadgeText = textClone;
 
@@ -681,8 +722,23 @@ namespace PF2e.Presentation
             if (background != null)
             {
                 var c = background.color;
-                c.a = alpha;
+                c.a = hasFrame ? 0f : alpha;
                 background.color = c;
+            }
+
+            if (hpBarFill != null)
+            {
+                var c = hpBarFill.color;
+                c.a = alpha;
+                hpBarFill.color = c;
+
+                if (hpBarFill.transform.parent != null
+                    && hpBarFill.transform.parent.TryGetComponent<Image>(out var hpBarBackground))
+                {
+                    var bgColor = hpBarBackground.color;
+                    bgColor.a = alpha;
+                    hpBarBackground.color = bgColor;
+                }
             }
 
             if (portraitImage != null && portraitImage.gameObject.activeSelf)
@@ -699,15 +755,18 @@ namespace PF2e.Presentation
                 frameImage.color = c;
             }
 
+            if (damageOverlay != null)
+            {
+                var overlayColor = damageOverlayColor;
+                overlayColor.a = currentDamageFraction > 0f
+                    ? damageOverlayColor.a * currentDamageFraction
+                    : 0f;
+                overlayColor.a *= alpha;
+                damageOverlay.color = overlayColor;
+            }
+
             if (!hasPortrait)
             {
-                if (hpBarFill != null)
-                {
-                    var c = hpBarFill.color;
-                    c.a = alpha;
-                    hpBarFill.color = c;
-                }
-
                 if (nameText != null)
                 {
                     var c = nameText.color;
@@ -745,6 +804,64 @@ namespace PF2e.Presentation
             }
         }
 
+        private void UpdateVisualStacking()
+        {
+            if (slotCanvas == null)
+                return;
+
+            bool bringToFront = highlighted && !defeated;
+            slotCanvas.overrideSorting = bringToFront;
+            slotCanvas.sortingOrder = bringToFront ? 10 : 0;
+        }
+
+        private void EnsureVisualRoot()
+        {
+            if (visualRoot == null)
+            {
+                var existing = transform.Find("VisualRoot") as RectTransform;
+                if (existing != null)
+                    visualRoot = existing;
+            }
+
+            if (visualRoot == null)
+            {
+                var go = new GameObject("VisualRoot", typeof(RectTransform));
+                visualRoot = go.GetComponent<RectTransform>();
+                visualRoot.SetParent(transform, false);
+            }
+
+            if (visualRoot == null)
+                return;
+
+            visualRoot.anchorMin = new Vector2(0.5f, 1f);
+            visualRoot.anchorMax = new Vector2(0.5f, 1f);
+            visualRoot.pivot = new Vector2(0.5f, 1f);
+            visualRoot.anchoredPosition = visualRootBaseAnchoredPosition;
+            visualRoot.sizeDelta = new Vector2(
+                Mathf.Max(0f, fixedPreferredWidth),
+                Mathf.Max(0f, fixedPreferredHeight));
+            visualRoot.localScale = Vector3.one;
+        }
+
+        private void SetVisualScale(float scale)
+        {
+            if (visualRoot != null)
+                visualRoot.localScale = Vector3.one * scale;
+        }
+
+        public void SetVisualOffsetX(float x)
+        {
+            if (visualRoot == null)
+                return;
+
+            visualRoot.anchoredPosition = new Vector2(visualRootBaseAnchoredPosition.x + x, visualRootBaseAnchoredPosition.y);
+        }
+
+        private void ResetVisualScale()
+        {
+            SetVisualScale(1f);
+        }
+
         private Color EvaluateHpStripColor(float fill)
         {
             if (fill <= 0.25f)
@@ -760,20 +877,46 @@ namespace PF2e.Presentation
             return Color.Lerp(hpStripMidColor, hpStripHighColor, highT);
         }
 
+        private void UpdateHpStripGeometry(float fill)
+        {
+            if (hpBarFill == null)
+                return;
+
+            RectTransform rect = hpBarFill.rectTransform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = new Vector2(fill, 1f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            rect.pivot = new Vector2(0f, 0.5f);
+        }
+
+        private void UpdateDamageOverlayGeometry(float damageFraction)
+        {
+            if (damageOverlay == null)
+                return;
+
+            RectTransform rect = damageOverlay.rectTransform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = new Vector2(1f, damageFraction);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            rect.pivot = new Vector2(0.5f, 0f);
+        }
+
         private void ApplyTypography()
         {
             CombatUiTypography.ApplyTitle(nameText, 13.5f, 0.08f, CombatUiPalette.HudTextPrimaryColor);
             CombatUiTypography.ApplyButton(
                 duplicateBadgeText,
-                9.5f,
-                0.08f,
+                10.5f,
+                0.04f,
                 duplicateBadgeTextColor,
                 FontStyles.Bold);
             CombatUiTypography.ApplyButton(
                 delayedBadgeText,
-                10f,
-                0.12f,
-                CombatUiPalette.HudButtonSelectedTextColor,
+                10.5f,
+                0.08f,
+                delayedBadgeTextColor,
                 FontStyles.Bold);
         }
 

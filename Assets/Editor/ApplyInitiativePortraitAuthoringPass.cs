@@ -23,10 +23,13 @@ public static class ApplyInitiativePortraitAuthoringPass
     private const string PlayerFramePath = "Assets/UI/Sprites/newpcramka.png";
     private const string EnemyFramePath = "Assets/UI/Sprites/newenemyramka.png";
 
-    private static readonly Vector2 SlotSize = new(73f, 90f);
-    private static readonly Color HpStripBackgroundColor = new(0f, 0f, 0f, 0.55f);
+    private static readonly Vector2 SlotSize = new(64f, 86f);
+    private static readonly Vector2 VisualRootSize = new(64f, 86f);
+    private static readonly Vector2 PortraitMaskOffsetMin = Vector2.zero;
+    private static readonly Vector2 PortraitMaskOffsetMax = Vector2.zero;
+    private static readonly Color HpStripBackgroundColor = new(0f, 0f, 0f, 0.72f);
     private static readonly Color HpStripFillColor = new(0.38f, 0.86f, 0.43f, 1f);
-    private static readonly Color DamageOverlayColor = new(0.7f, 0.05f, 0.05f, 0.35f);
+    private static readonly Color DamageOverlayColor = new(0.7f, 0.05f, 0.05f, 0.18f);
 
     [MenuItem("PF2e/UI/Apply Initiative Portrait Authoring")]
     public static void Apply()
@@ -181,7 +184,7 @@ public static class ApplyInitiativePortraitAuthoringPass
             var slotsContainer = serializedInitiativeBar.FindProperty("slotsContainer").objectReferenceValue as Transform;
             if (slotsContainer != null && slotsContainer.TryGetComponent<HorizontalLayoutGroup>(out var slotsLayout))
             {
-                slotsLayout.spacing = 2f;
+                slotsLayout.spacing = 0f;
                 EditorUtility.SetDirty(slotsLayout);
             }
         }
@@ -202,13 +205,16 @@ public static class ApplyInitiativePortraitAuthoringPass
             var rootLayout = GetOrAddComponent<LayoutElement>(root);
             var nameText = GetRequiredChildComponent<TMP_Text>(root.transform, "NameText");
             var hpBarBackgroundRect = GetRequiredChild(root.transform, "HPBarBackground") as RectTransform;
-            var hpBarBackgroundImage = GetRequiredChildComponent<Image>(root.transform, "HPBarBackground");
-            var hpBarFill = GetRequiredChildComponent<Image>(root.transform, "HPBarBackground/HPBarFill");
+            var hpBarBackgroundImage = hpBarBackgroundRect != null ? hpBarBackgroundRect.GetComponent<Image>() : null;
+            var hpBarFill = hpBarBackgroundRect != null ? GetRequiredChildComponent<Image>(hpBarBackgroundRect, "HPBarFill") : null;
+            if (hpBarBackgroundRect == null || hpBarBackgroundImage == null || hpBarFill == null)
+                throw new MissingReferenceException("Required HP bar hierarchy missing on initiative slot prefab.");
             var activeHighlight = GetRequiredChild(root.transform, "ActiveHighlight").gameObject;
             var delayedBadgeRoot = GetRequiredChild(root.transform, "DelayedBadge").gameObject;
             var delayedBadgeBackground = delayedBadgeRoot.GetComponent<Image>();
             var delayedBadgeText = delayedBadgeRoot.GetComponentInChildren<TMP_Text>(true);
 
+            rootRect.pivot = new Vector2(0.5f, 1f);
             rootRect.sizeDelta = SlotSize;
             rootLayout.minWidth = SlotSize.x;
             rootLayout.preferredWidth = SlotSize.x;
@@ -217,25 +223,40 @@ public static class ApplyInitiativePortraitAuthoringPass
             rootLayout.preferredHeight = SlotSize.y;
             rootLayout.flexibleHeight = 0f;
 
+            var visualRoot = EnsureRectChild(root.transform, "VisualRoot");
+            visualRoot.anchorMin = new Vector2(0.5f, 1f);
+            visualRoot.anchorMax = new Vector2(0.5f, 1f);
+            visualRoot.pivot = new Vector2(0.5f, 1f);
+            visualRoot.anchoredPosition = new Vector2(0f, -1f);
+            visualRoot.sizeDelta = VisualRootSize;
+
             if (hpBarBackgroundRect != null)
             {
+                hpBarBackgroundRect.SetParent(visualRoot, false);
                 hpBarBackgroundRect.anchorMin = new Vector2(0f, 0f);
                 hpBarBackgroundRect.anchorMax = new Vector2(1f, 0f);
                 hpBarBackgroundRect.pivot = new Vector2(0.5f, 0f);
-                hpBarBackgroundRect.anchoredPosition = new Vector2(0f, 2f);
-                hpBarBackgroundRect.sizeDelta = new Vector2(-6f, 4f);
+                hpBarBackgroundRect.anchoredPosition = new Vector2(0f, 3f);
+                hpBarBackgroundRect.sizeDelta = new Vector2(-4f, 6f);
             }
 
             hpBarBackgroundImage.color = HpStripBackgroundColor;
             hpBarBackgroundImage.raycastTarget = false;
+            hpBarFill.type = Image.Type.Simple;
             hpBarFill.color = HpStripFillColor;
             hpBarFill.raycastTarget = false;
+            hpBarFill.rectTransform.anchorMin = Vector2.zero;
+            hpBarFill.rectTransform.anchorMax = Vector2.one;
+            hpBarFill.rectTransform.offsetMin = Vector2.zero;
+            hpBarFill.rectTransform.offsetMax = Vector2.zero;
+            hpBarFill.rectTransform.pivot = new Vector2(0f, 0.5f);
 
             var portraitMask = EnsureRectChild(root.transform, "PortraitMask");
+            portraitMask.SetParent(visualRoot, false);
             portraitMask.anchorMin = Vector2.zero;
             portraitMask.anchorMax = Vector2.one;
-            portraitMask.offsetMin = Vector2.zero;
-            portraitMask.offsetMax = Vector2.zero;
+            portraitMask.offsetMin = PortraitMaskOffsetMin;
+            portraitMask.offsetMax = PortraitMaskOffsetMax;
             GetOrAddComponent<RectMask2D>(portraitMask.gameObject);
             portraitMask.SetAsFirstSibling();
 
@@ -258,14 +279,12 @@ public static class ApplyInitiativePortraitAuthoringPass
             damageOverlay.rectTransform.offsetMin = Vector2.zero;
             damageOverlay.rectTransform.offsetMax = Vector2.zero;
             damageOverlay.raycastTarget = false;
-            damageOverlay.type = Image.Type.Filled;
-            damageOverlay.fillMethod = Image.FillMethod.Vertical;
-            damageOverlay.fillOrigin = (int)Image.OriginVertical.Bottom;
-            damageOverlay.fillAmount = 0f;
+            damageOverlay.type = Image.Type.Simple;
             damageOverlay.gameObject.SetActive(false);
             damageOverlay.transform.SetAsLastSibling();
 
             var frame = EnsureImageChild(root.transform, "Frame");
+            frame.rectTransform.SetParent(visualRoot, false);
             frame.rectTransform.anchorMin = Vector2.zero;
             frame.rectTransform.anchorMax = Vector2.one;
             frame.rectTransform.offsetMin = Vector2.zero;
@@ -278,12 +297,32 @@ public static class ApplyInitiativePortraitAuthoringPass
             frame.gameObject.SetActive(false);
             frame.transform.SetAsLastSibling();
 
+            if (hpBarBackgroundRect != null)
+                hpBarBackgroundRect.SetAsLastSibling();
+
+            var activeHighlightRect = GetRequiredChild(root.transform, "ActiveHighlight") as RectTransform;
+            if (activeHighlightRect == null)
+                throw new MissingComponentException("ActiveHighlight rect missing on initiative slot prefab.");
+
+            activeHighlightRect.SetParent(visualRoot, false);
+            activeHighlightRect.anchorMin = new Vector2(0f, 1f);
+            activeHighlightRect.anchorMax = new Vector2(1f, 1f);
+            activeHighlightRect.pivot = new Vector2(0.5f, 1f);
+            activeHighlightRect.anchoredPosition = new Vector2(0f, -2f);
+            activeHighlightRect.sizeDelta = new Vector2(-8f, 3f);
+
+            var activeHighlightImage = GetOrAddComponent<Image>(activeHighlightRect.gameObject);
+            activeHighlightImage.color = new Color(1f, 0.96f, 0.78f, 0.96f);
+            activeHighlightImage.raycastTarget = false;
+            activeHighlightRect.gameObject.SetActive(false);
+
             var duplicateBadgeRoot = EnsureRectChild(root.transform, "DuplicateBadge");
+            duplicateBadgeRoot.SetParent(visualRoot, false);
             duplicateBadgeRoot.anchorMin = new Vector2(0f, 1f);
             duplicateBadgeRoot.anchorMax = new Vector2(0f, 1f);
             duplicateBadgeRoot.pivot = new Vector2(0f, 1f);
-            duplicateBadgeRoot.anchoredPosition = new Vector2(2f, -2f);
-            duplicateBadgeRoot.sizeDelta = new Vector2(16f, 14f);
+            duplicateBadgeRoot.anchoredPosition = new Vector2(3f, -3f);
+            duplicateBadgeRoot.sizeDelta = new Vector2(14f, 14f);
             duplicateBadgeRoot.gameObject.SetActive(false);
             duplicateBadgeRoot.transform.SetAsLastSibling();
 
@@ -292,12 +331,21 @@ public static class ApplyInitiativePortraitAuthoringPass
             var duplicateBadgeText = EnsureBadgeLabel(duplicateBadgeRoot, delayedBadgeText);
             duplicateBadgeText.gameObject.name = "Label";
 
+            var delayedBadgeRect = delayedBadgeRoot.GetComponent<RectTransform>();
+            delayedBadgeRect.SetParent(visualRoot, false);
+            delayedBadgeRect.anchorMin = new Vector2(1f, 1f);
+            delayedBadgeRect.anchorMax = new Vector2(1f, 1f);
+            delayedBadgeRect.pivot = new Vector2(1f, 1f);
+            delayedBadgeRect.anchoredPosition = new Vector2(-3f, -3f);
+            delayedBadgeRect.sizeDelta = new Vector2(26f, 14f);
+
             delayedBadgeRoot.transform.SetAsLastSibling();
 
             var serialized = new SerializedObject(slot);
             serialized.FindProperty("nameText").objectReferenceValue = nameText;
             serialized.FindProperty("hpBarFill").objectReferenceValue = hpBarFill;
             serialized.FindProperty("background").objectReferenceValue = root.GetComponent<Image>();
+            serialized.FindProperty("visualRoot").objectReferenceValue = visualRoot;
             serialized.FindProperty("portraitMaskRect").objectReferenceValue = portraitMask;
             serialized.FindProperty("portraitImage").objectReferenceValue = portrait;
             serialized.FindProperty("portraitAspectFitter").objectReferenceValue = portraitAspectFitter;
@@ -310,19 +358,25 @@ public static class ApplyInitiativePortraitAuthoringPass
             serialized.FindProperty("delayedBadgeRoot").objectReferenceValue = delayedBadgeRoot;
             serialized.FindProperty("delayedBadgeBackground").objectReferenceValue = delayedBadgeBackground;
             serialized.FindProperty("delayedBadgeText").objectReferenceValue = delayedBadgeText;
-            serialized.FindProperty("playerPortraitMaskOffsetMin").vector2Value = Vector2.zero;
-            serialized.FindProperty("playerPortraitMaskOffsetMax").vector2Value = Vector2.zero;
-            serialized.FindProperty("enemyPortraitMaskOffsetMin").vector2Value = Vector2.zero;
-            serialized.FindProperty("enemyPortraitMaskOffsetMax").vector2Value = Vector2.zero;
-            serialized.FindProperty("neutralPortraitMaskOffsetMin").vector2Value = Vector2.zero;
-            serialized.FindProperty("neutralPortraitMaskOffsetMax").vector2Value = Vector2.zero;
+            serialized.FindProperty("playerPortraitMaskOffsetMin").vector2Value = PortraitMaskOffsetMin;
+            serialized.FindProperty("playerPortraitMaskOffsetMax").vector2Value = PortraitMaskOffsetMax;
+            serialized.FindProperty("enemyPortraitMaskOffsetMin").vector2Value = PortraitMaskOffsetMin;
+            serialized.FindProperty("enemyPortraitMaskOffsetMax").vector2Value = PortraitMaskOffsetMax;
+            serialized.FindProperty("neutralPortraitMaskOffsetMin").vector2Value = PortraitMaskOffsetMin;
+            serialized.FindProperty("neutralPortraitMaskOffsetMax").vector2Value = PortraitMaskOffsetMax;
             serialized.FindProperty("fixedPreferredWidth").floatValue = SlotSize.x;
             serialized.FindProperty("fixedPreferredHeight").floatValue = SlotSize.y;
-            serialized.FindProperty("activeScaleFactor").floatValue = 1f;
+            serialized.FindProperty("visualRootBaseAnchoredPosition").vector2Value = new Vector2(0f, -1f);
+            serialized.FindProperty("activeFrameColor").colorValue = new Color(1f, 0.96f, 0.78f, 1f);
+            serialized.FindProperty("activeScaleFactor").floatValue = 1.3f;
             serialized.FindProperty("damageOverlayColor").colorValue = DamageOverlayColor;
-            serialized.FindProperty("actedFrameTint").colorValue = new Color(0.72f, 0.76f, 0.8f, 1f);
-            serialized.FindProperty("actedPortraitTint").colorValue = new Color(0.72f, 0.72f, 0.72f, 1f);
-            serialized.FindProperty("actedAlphaMultiplier").floatValue = 0.62f;
+            serialized.FindProperty("actedFrameTint").colorValue = new Color(0.56f, 0.6f, 0.66f, 1f);
+            serialized.FindProperty("actedPortraitTint").colorValue = new Color(0.76f, 0.78f, 0.8f, 1f);
+            serialized.FindProperty("actedAlphaMultiplier").floatValue = 0.68f;
+            serialized.FindProperty("delayedBadgeBackgroundColor").colorValue = new Color(0.97f, 0.82f, 0.28f, 0.98f);
+            serialized.FindProperty("delayedBadgeTextColor").colorValue = new Color(0.14f, 0.09f, 0.03f, 1f);
+            serialized.FindProperty("duplicateBadgeBackgroundColor").colorValue = new Color(0.2f, 0.26f, 0.33f, 0.96f);
+            serialized.FindProperty("duplicateBadgeTextColor").colorValue = new Color(0.95f, 0.97f, 0.99f, 1f);
             serialized.FindProperty("hpStripHighColor").colorValue = new Color(0.38f, 0.86f, 0.43f, 1f);
             serialized.FindProperty("hpStripMidColor").colorValue = new Color(0.95f, 0.8f, 0.28f, 1f);
             serialized.FindProperty("hpStripLowColor").colorValue = new Color(0.93f, 0.31f, 0.26f, 1f);
@@ -397,6 +451,19 @@ public static class ApplyInitiativePortraitAuthoringPass
     private static Transform GetRequiredChild(Transform root, string childPath)
     {
         var child = root.Find(childPath);
+        if (child == null && !childPath.Contains("/"))
+        {
+            var descendants = root.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < descendants.Length; i++)
+            {
+                if (descendants[i].name == childPath)
+                {
+                    child = descendants[i];
+                    break;
+                }
+            }
+        }
+
         if (child == null)
             throw new MissingReferenceException($"Required child '{childPath}' not found under {root.name}.");
 
