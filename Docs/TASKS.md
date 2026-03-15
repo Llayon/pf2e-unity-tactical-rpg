@@ -4,6 +4,14 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 
 | ID | Priority | Status | Agent Role | Task | DoD |
 | --- | --- | --- | --- | --- | --- |
+| T-179 | P1 | done | Builder | Grid interaction perf pass: skip idle world raycasts | `GridInteraction` now keeps UI-over-pointer checks every frame but gates world raycasts behind mouse/camera/click/UI-exit/timeout changes; helper logic has EditMode coverage in `GridInteractionTests` |
+| T-178 | P1 | done | Builder | Initiative strip polish: tighten portraits and fix HP feedback | Portrait-only initiative strip now uses proportional HP-strip shrink, proportional damage overlay fill, transparent framed backgrounds, tighter slot geometry, and active `VisualRoot` enlargement without layout jitter |
+| T-177 | P0 | done | Builder | Initiative portraits: stabilize strip behavior and authored art pipeline | Added `EncounterActorPortraitLibrary`, prepared-art portrait/frame pipeline, validator warnings, authored portrait pass, stable initiative strip order, immediate defeated removal, and initiative portrait EditMode coverage |
+| T-176 | P1 | done | Builder | Combat log readability parity pass | Combat log body size/spacing/panel width/warm palette were tuned for readability parity and synchronized through the Solasta-style authoring pass |
+| T-175 | P1 | done | Builder | Solasta-style HUD typography polish pass | Added `ApplySolastaStyleUiPolish`, `CombatUiTypography`, `CombatUiPalette`, `Source Sans 3 Light SDF`, and unified HUD typography/palette across `SampleScene` + key prefabs |
+| T-174 | P1 | done | Builder | Initiative portraits: add slot portraits and team frames | Added portrait-mode initiative slots, team-frame visuals, `EntityData.Portrait` wiring, and initial player/enemy portrait presentation in the strip |
+| T-173 | P1 | done | Builder | Combat log tooltip profiles: palette, layout, and tests | `CombatLogTooltipPanel`, `TooltipTextBuilder`, `CombatLogHoverController`, and forwarders now support dock/layout profiles, palette-driven cards, and detailed tooltip breakdown tests |
+| T-172 | P0 | done | Builder | Phase 31 tooltip/log links: combat log tooltip data channel + TMP link formatting | `CombatEventBus` publishes typed optional tooltip payloads, strike/skill logs emit compact TMP link tokens, and EditMode/PlayMode coverage proves hover resolution and show-from-inactive behavior |
 | T-001 | P0 | done | Planner | Define weekly implementation plan for top 3 MVP combat improvements | Task breakdown has scope, risk, and validation commands |
 | T-002 | P0 | done | Builder | Add one incremental AI behavior improvement without breaking current melee baseline | AI target selection now prefers same-elevation players but falls back to nearest alive player on any elevation; EditMode coverage added; no turn deadlocks introduced |
 | T-003 | P0 | done | Verifier | Validate encounter flow and combat-end UX regressions | Test evidence attached with pass/fail per command |

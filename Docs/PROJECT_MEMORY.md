@@ -1,5 +1,5 @@
 # Project Memory
-Last updated: 2026-03-08
+Last updated: 2026-03-15
 
 ## Session Handoff Pointers
 - Active handoff snapshot: `Docs/SESSION_HANDOFF_2026-03-08.md`
@@ -13,7 +13,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Secondary wiring-validation scene: `Assets/Scenes/EncounterFlowPrefabScene.unity` (prefab-driven encounter flow UI fallback).
 - Player can: start combat, move (Stride), Strike, Trip, Shove, Grapple, Escape, Demoralize, Reposition, Delay, Aid (prepare + resolve on checks), Stand, Raise Shield, end turn.
 - Enemy side takes turns via simple melee AI (stand if prone, stride toward nearest player, strike in range; if no same-floor targets exist, target selection now falls back to any elevation).
-- Combat presents: turn HUD, initiative bar, combat log (pooled TMP lines, wrap-aware row heights, retention cap `maxLines=300` with notice, Exo 2 font, Solasta 2-style rich text color coding), floating damage, modal Shield Block reaction prompt, and end-of-encounter panel.
+- Combat presents: turn HUD, portrait-only initiative strip (prepared-art portraits, team frames, active enlargement, acted-state dimming, immediate defeated removal, thin HP strip, proportional damage overlay), combat log (pooled TMP lines, wrap-aware row heights, retention cap `maxLines=300` with notice, Source Sans 3 typography with warm Solasta-style palette and Lora accents in rich text), interactive tooltip cards with dock/layout profiles, floating damage, modal Shield Block reaction prompt, and end-of-encounter panel.
 - Basic PF2e rules included: 3-action economy, MAP, weapon-aware strike check (melee/ranged, ranged LoS/cover/concealment MVP), damage roll, simple conditions.
 
 ## Architecture Snapshot
@@ -22,19 +22,22 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - `Assets/Scripts/Grid`: grid data, pathfinding, rendering, floor controls, click/hover interaction.
 - `Assets/Scripts/TurnSystem`: turn state machine, input routing, action execution (`StrideAction`, `StrikeAction`, `StandAction`, `RaiseShieldAction`, `ShieldBlockAction`, `TripAction`, `ShoveAction`, `GrappleAction`, `EscapeAction`, `DemoralizeAction`), phased strike/reaction windows, generic check system (`CheckResolver`), targeting, grapple lifecycle (`GrappleLifecycleController` + `GrappleService`), enemy AI orchestration (`AITurnController`), and AI decision seam (`IAIDecisionPolicy` + `SimpleMeleeDecisionPolicy`) plus reaction decision seam (`IReactionDecisionPolicy`, runtime default `ModalReactionPolicy`).
 - `Assets/Scripts/Managers`: `EntityManager` scene orchestration, spawning test entities (now including optional fighter shield + reaction preference), view management.
-- `Assets/Scripts/Presentation`: UI/controllers/log forwarders, initiative/floating damage visuals, action bar, targeting world tint feedback, targeting reason hint UI, and Delay initiative/prompt composition helpers (`DelayPlacementPromptPresenter`, `DelayPlacementMarkerOverlayPresenter`, `DelayPlacementInteractionCoordinator`, `DelayInitiativeRowPlanner`). Delay UI now refreshes directly in `TurnOptionsPresenter` and `InitiativeBarController` via typed bus subscriptions (no orchestrator component). `AidResolvedLogForwarder` now owns Aid lifecycle log rendering (`prepared/resolved/cleared`) from typed events.
-- `Assets/Scripts/Data`: ScriptableObject configs (`GridConfig`).
+- `Assets/Scripts/Presentation`: UI/controllers/log forwarders, shared UI style primitives (`CombatUiPalette`, `CombatUiTypography`), initiative/floating damage visuals, action bar, targeting world tint feedback, targeting reason hint UI, and Delay initiative/prompt composition helpers (`DelayPlacementPromptPresenter`, `DelayPlacementMarkerOverlayPresenter`, `DelayPlacementInteractionCoordinator`, `DelayInitiativeRowPlanner`). Delay UI now refreshes directly in `TurnOptionsPresenter` and `InitiativeBarController` via typed bus subscriptions (no orchestrator component). `AidResolvedLogForwarder` now owns Aid lifecycle log rendering (`prepared/resolved/cleared`) from typed events.
+- `Assets/Scripts/Data`: ScriptableObject configs/data assets (`GridConfig`, `EncounterActorPortraitLibrary`).
 - `Assets/Tests/EditMode`: NUnit EditMode coverage for grid/pathfinding/occupancy/turn primitives.
 - `Assets/Tests/PlayMode`: smoke tests for encounter-end UX and scene-level flows.
 - Tooling/packages: URP, Input System, Unity Test Framework, `com.coplaydev.unity-mcp`; no Addressables package.
 
 ### B) Gameplay Loop Status (Current)
 - Scene boots to `SampleScene`; test grid and test entities spawn from inspector-wired managers.
-- Combat log interactive tooltip stack is implemented through Phase 31d: typed tooltip payload on `CombatEventBus`, per-line tooltip storage in `CombatLogController`, TMP `<link>` tokens from strike/skill forwarders, `CombatLogHoverController` hover detection, and styled `CombatLogTooltipPanel` in `SampleScene`.
-- Phase 31d regression fix is applied: tooltip now correctly shows when the tooltip object is reactivated from inactive state (`CombatLogTooltipPanel.OnEnable` no longer immediately hides panel).
+- Combat log interactive tooltip stack is implemented end-to-end: typed tooltip payload on `CombatEventBus`, per-line tooltip storage in `CombatLogController`, TMP `<link>` tokens from strike/skill forwarders, `CombatLogHoverController` hover detection, and styled `CombatLogTooltipPanel` with compact/standard/extended dock profiles in `SampleScene`.
+- Combat log hover regressions are covered: tooltip now correctly shows when reactivated from inactive state, hides on viewport exit/scroll, and resolves link tokens through `CombatLogLinkHelper`/`TooltipTextBuilder`.
+- HUD typography pass is applied: `Source Sans 3` regular/light assets plus `Lora` accents are generated through editor tooling, and `ApplySolastaStyleUiPolish` owns palette/spacing/font application for `SampleScene` and key prefabs.
+- Initiative strip now uses a prepared-art portrait pipeline: `EncounterActorPortraitLibrary` resolves portraits by `EncounterActorId`, player/enemy frames are authored assets, active actor enlarges through `VisualRoot` scaling, acted actors dim, defeated actors are removed immediately, and HP/damage feedback stays portrait-only.
 - `EncounterFlowPrefabScene` validates cross-scene reuse of `EncounterFlowPanel.prefab` via runtime auto-create path.
 - Controls currently in code: encounter flow buttons (`Start Encounter` / `End Encounter`) as primary path, `C`/`X` as editor/development fallback, left-click cell/entity, action bar buttons (bottom-center), `Space` end turn, `Esc` cancel targeting, `R` Raise Shield, `T` Trip, `Y` Demoralize, `H` Shove, `J` Grapple, `K` Escape, `V` Reposition, `Delay` action button (turn-begin trigger only; opens initiative insertion markers between portraits), `WASD/QE/Scroll` camera, `G` grid toggle, `PageUp/PageDown` floor.
 - Input/UI boundaries are hardened: grid hover/click handlers and camera wheel-zoom are ignored when pointer is over UI, preventing button click-through movement and accidental zoom while scrolling UI.
+- `GridInteraction` idle-cost pass is applied: UI raycast still runs every frame for correctness, but world raycasts are skipped unless mouse/camera state changes, a click occurs, pointer just left UI, or idle refresh timeout elapses.
 - Playmode-transition warning noise is further reduced: `PlayerActionExecutor`/`TripAction`/`ReadyStrikeAction` skip `OnValidate` warning emission while `EditorApplication.isPlayingOrWillChangePlaymode`, and `ActionBarController` now safely ignores transient UGUI `Selectable` `IndexOutOfRangeException` during scene activation/teardown races.
 - Turn-management UI ownership is explicit: `TurnOptionsPresenter` now owns hiding/showing inline `ActionBar` turn-management controls (`Ready/Delay/Return/Skip`) via direct calls; `ActionBarController` no longer performs `FindFirstObjectByType<TurnOptionsPresenter>` auto-discovery for that visibility state.
 - Turn-management follow-up: when `TurnOptionsPresenter` owns turn-management visibility, `ActionBarController` now also skips inline `DelayActionBarState`/ready-mode refresh work in `RefreshAvailability` (hidden controls are no longer part of runtime update flow).
@@ -115,7 +118,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 ## Current Systems Checklist
 | System | Status | Notes |
 | --- | --- | --- |
-| Grid data/render/interaction | Done | Multi-floor test grid, hover/select/click, floor visibility control |
+| Grid data/render/interaction | Done | Multi-floor test grid, hover/select/click, floor visibility control, UI-over-pointer input gate, and idle world-raycast throttling in `GridInteraction` |
 | Pathfinding + movement zones | Done | A*, occupancy-aware Dijkstra, action-based path search |
 | Entity model + occupancy | Done | Registry, handles, occupancy rules, entity views |
 | Turn state machine + actions economy | Done | Core loop works for both player and enemy turns; action lock tracks actor/source/duration with watchdog diagnostics; Delay turn-begin trigger, planned insertion, auto-resume chain, and fallback return-window state are integrated |
@@ -125,7 +128,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 | PF2e strike/damage basics | Partial | Weapon-aware strike MVP (melee + ranged bow) with MAP, phased reaction windows, ranged range-increment penalties, ranged LoS + simple cover AC support, ranged concealment flat-check miss support, `Volley` trait penalty, and crit-trait support for `Deadly`/`Fatal`; generic non-strike damage event/application path exists for `Trip` crit damage; spells and advanced ranged rules (ammo/reload, hidden/undetected, greater concealment/vision interactions) not implemented |
 | Reactions (Shield Block MVP) | Partial | Post-hit reaction window implemented with pure `ReactionService`/`ShieldBlockRules`, `ShieldBlockAction`, and modal prompt UX; only self-only Shield Block is supported |
 | Conditions | Partial | `ConditionService` is the mutation entrypoint for turn/action flows with caller-owned `ConditionDelta` buffers; model supports independent `Value + RemainingRounds` tick semantics; `ConditionRules` now owns implied/stacking helpers for current combat penalties; `EntityData` uses strict snapshot-based derived-stat cache invalidation for AC/attack-penalty reads |
-| Combat/UI presentation | Partial | Turn HUD, action bar, initiative bar with Delay insertion markers/prompt, targeting world feedback (eligible/hover tint), targeting reason hint panel (valid/invalid plus warning tone for ranged strike risk hints: cover `+2 AC` and concealment flat-check, including combined warning text), combat log (Exo 2 font, Solasta 2-style rich text color coding via `CombatLogRichText` utility — player names blue, enemy names orange, weapons cream, degree green/red/gold, damage type colored, conditions salmon/teal, verbs gray, round headers dim; wrap-aware pooled rows + retention notice), generic non-strike damage log forwarder, floating damage, Shield Block modal prompt (`ReactionPromptController`), and end-of-encounter panel are present; end-panel text maps through `EncounterEndTextMap`; encounter flow panel is reusable and can be driven by shared preset |
+| Combat/UI presentation | Partial | Turn HUD, action bar, portrait-only initiative strip with prepared-art frames/portraits, active enlarge, acted dimming, immediate defeated removal, thin HP strip, and proportional damage overlay; targeting world feedback (eligible/hover tint), targeting reason hint panel (valid/invalid plus warning tone for ranged strike risk hints: cover `+2 AC` and concealment flat-check, including combined warning text), combat log (Source Sans 3 typography, warm Solasta-style palette, rich text via `CombatLogRichText`, structured tooltip cards, wrap-aware pooled rows + retention notice), generic non-strike damage log forwarder, floating damage, Shield Block modal prompt (`ReactionPromptController`), and end-of-encounter panel are present; end-panel text maps through `EncounterEndTextMap`; encounter flow panel is reusable and can be driven by shared preset |
 | Typed event routing | Done | `TurnManager` source events are typed and published directly to `CombatEventBus`; runtime subscribers consume typed bus events |
 | Generic damage event routing | Partial | `DamageAppliedEvent` + `DamageApplicationService` exist for non-strike damage (currently `Trip` crit damage); strike damage still uses `StrikeResolvedEvent` as primary UI/log path |
 | Encounter-end text mapping | Done | `EncounterEndTextMap` is source-of-truth for `EncounterResult -> title/subtitle`, consumed by `EncounterEndPanelController` and covered by EditMode unit tests |
@@ -247,6 +250,8 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - CI requires repository-level `UNITY_LICENSE` secret; workflow fails fast when missing.
 - PlayMode regression now covers multi-round movement/AI/condition-tick flow, blocked-turn recovery, sticky-target lock behavior, ranged concealment/cover logic, Shield Block reaction prompts, and Delay planned/manual + full-round expiry + pointer-level UI click flows (including pointer-driven Skip-loop expiry); full matrix coverage for spells/visibility states is still pending.
 - PlayMode now also includes dedicated combat-log hover coverage: hide-on-scroll, hide-on-viewport-exit, link-scan/token-resolution, and show-from-inactive regression guard for tooltip panel activation.
+- Initiative strip now depends on authored prepared-art assets (`newfighterportrait/newwizardportrait/newgoblinportrait`, `newpcramka/newenemyramka`) and `ApplyInitiativePortraitAuthoringPass`; ad-hoc scene-only tweaks will drift from the prefab/pipeline quickly.
+- Remaining performance noise observed in profiling is now mostly editor/render-thread/profiler overhead and environment drift, not obvious per-frame UI hot paths; gameplay-side idle optimization work most recently landed in `GridInteraction`.
 - Ranged strike MVP is implemented (bow path, range increment penalties, grid LoS + simple cover AC, concealment flat-check misses via `Concealed`, `Volley` penalty, weapon-aware strike targeting, and crit math support for `Deadly`/`Fatal`), but advanced ranged rules remain deferred: ammo, reload, hidden/undetected and richer visibility states, volley-info preview UX, striking-rune scaling for crit traits, and crit specialization effects.
 - Delay UX is currently hybrid by design: Owlcat-style planned insertion is primary, while manual inter-turn `Return`/`Skip` controls are retained as fallback for non-planned delayed actors.
 - `DelayUiOrchestrator` has been removed (`phase 29g.8`); any reintroduction requires explicit architecture decision and validator/test contract updates.
@@ -259,9 +264,9 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Legacy forwarder stubs (`TurnManagerLogForwarder`, `TurnManagerTypedForwarder`) were removed from scenes and code; turn/combat typed flow is direct `TurnManager -> CombatEventBus`.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Combat log auto-fade: implement per-line fade-out after ~10 seconds (Solasta 2 compact mode behavior) + Log toggle button for expand/collapse.
-2. Combat HUD layout Step 1: relocate panels to spec positions (Initiative bar top-left enabled, Combat log top-right, TurnHUD hidden).
-3. Unit Panel (Step 2): create bot-left panel showing selected unit HP/AC/conditions.
+1. Initiative strip micro-polish: tune active/inactive hierarchy, duplicate/delayed badge readability, and round-label integration without changing stable order behavior.
+2. Combat log auto-fade: implement per-line fade-out after ~10 seconds (Solasta 2 compact mode behavior) + Log toggle button for expand/collapse.
+3. Environment/perf cleanup: isolate package/project drift into a separate cleanup pass and re-profile non-editor runtime to separate engine/editor noise from gameplay hotspots.
 
 ## LLM-First Delivery Workflow (Multi-Agent)
 ### Operating Model (for non-programmer project owner)

@@ -47,7 +47,11 @@
 - Add world-space targeting feedback (`eligible` highlight + hover valid/invalid tint) and target reason hint panel powered by `TargetingController` preview reasons (`Phases 23.1–23.2`). (Done)
 - Add playable two-step `Reposition` targeting UX (target -> check -> destination cell on success), cell highlights/hints, Action Bar wiring, and Reposition control polish (`Phases 26.1a–26.2`). (Done)
 - Fix combat log high-volume readability: wrapped-line preferred-height sizing, pooled-line sibling order, and retention cap notice (`Showing last N lines`). (Done)
+- Add combat-log tooltip cards with typed payloads, TMP link tokens, dock/layout profiles, and hover regressions coverage. (Done)
+- Migrate HUD typography to shared `Source Sans 3` / `Lora` assets and add repeatable Solasta-style UI polish tooling for scene/prefab authoring. (Done)
+- Replace the initiative bar with a prepared-art portrait strip (portrait library, team frames, stable visual order, acted-state dimming, active enlargement, HP feedback, and immediate defeated removal). (Done)
 - Harden input/UI interaction boundaries: block camera wheel zoom and grid click/hover raycasts while pointer is over UI. (Done)
+- Reduce idle `GridInteraction` world-raycast cost while preserving UI-over-pointer correctness. (Done)
 - Balance pass for encounter duration and difficulty curve.
 
 ## Phase 4 — Release Hardening (Planned)
