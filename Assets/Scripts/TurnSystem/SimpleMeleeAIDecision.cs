@@ -112,7 +112,7 @@ namespace PF2e.TurnSystem
             var profile = new MovementProfile
             {
                 moveType = MovementType.Walk,
-                speedFeet = actor.Speed,
+                speedFeet = actor.EffectiveSpeed,
                 creatureSizeCells = actor.SizeCells,
                 ignoresDifficultTerrain = false
             };

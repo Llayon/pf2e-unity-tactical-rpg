@@ -11,6 +11,7 @@ namespace PF2e.Core
         Grabbed,
         Restrained,
         Slowed,
+        SpeedPenalty,
         Quickened,
         Wounded,
         Dying,

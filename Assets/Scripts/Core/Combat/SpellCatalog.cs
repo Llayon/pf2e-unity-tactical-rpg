@@ -75,6 +75,19 @@ namespace PF2e.Core
                     saveType: SaveType.Reflex,
                     requiresLineOfSight: true),
 
+                SpellId.Snowball => new SpellSliceDefinition(
+                    SpellId.Snowball,
+                    "Snowball",
+                    "Snowball",
+                    minActionCost: 2,
+                    maxActionCost: 2,
+                    rangeFeet: 30,
+                    targetingKind: SpellTargetingKind.SingleCreature,
+                    resolutionKind: SpellResolutionKind.SpellAttackDamage,
+                    damageType: DamageType.Cold,
+                    saveType: null,
+                    requiresLineOfSight: true),
+
                 _ => throw new ArgumentOutOfRangeException(nameof(spellId), spellId, "Unknown spell slice id.")
             };
         }
@@ -85,7 +98,8 @@ namespace PF2e.Core
                 return false;
 
             return string.Equals(actionName, Get(SpellId.ForceBarrage).actionName, StringComparison.Ordinal)
-                || string.Equals(actionName, Get(SpellId.ElectricArc).actionName, StringComparison.Ordinal);
+                || string.Equals(actionName, Get(SpellId.ElectricArc).actionName, StringComparison.Ordinal)
+                || string.Equals(actionName, Get(SpellId.Snowball).actionName, StringComparison.Ordinal);
         }
 
         public static string GetShortToken(SpellId spellId, int forceBarrageActionCount = 1)
@@ -94,6 +108,7 @@ namespace PF2e.Core
             {
                 SpellId.ForceBarrage => $"FBR{Math.Clamp(forceBarrageActionCount, 1, 3)}",
                 SpellId.ElectricArc => "ARC",
+                SpellId.Snowball => "SNW",
                 _ => "SPL"
             };
         }

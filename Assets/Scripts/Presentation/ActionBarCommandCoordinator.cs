@@ -43,11 +43,25 @@ namespace PF2e.Presentation
 
             bool forceBarrageAvailable = CanSelectForceBarrage(actorData, actionsRemaining);
             bool electricArcAvailable = CanSelectElectricArc(actorData, actionsRemaining);
+            bool snowballAvailable = CanSelectSnowball(actorData, actionsRemaining);
 
-            if (selectedSpell == SpellId.ElectricArc && !electricArcAvailable && forceBarrageAvailable)
+            bool selectedAvailable = selectedSpell switch
+            {
+                SpellId.ForceBarrage => forceBarrageAvailable,
+                SpellId.ElectricArc => electricArcAvailable,
+                SpellId.Snowball => snowballAvailable,
+                _ => false
+            };
+
+            if (selectedAvailable)
+                return;
+
+            if (forceBarrageAvailable)
                 selectedSpell = SpellId.ForceBarrage;
-            else if (selectedSpell == SpellId.ForceBarrage && !forceBarrageAvailable && electricArcAvailable)
+            else if (electricArcAvailable)
                 selectedSpell = SpellId.ElectricArc;
+            else if (snowballAvailable)
+                selectedSpell = SpellId.Snowball;
         }
 
         public bool CanSelectForceBarrage(EntityData actorData, int actionsRemaining)
@@ -64,6 +78,14 @@ namespace PF2e.Presentation
                 && actorData.IsAlive
                 && actorData.KnowsElectricArc
                 && actionsRemaining >= SpellCatalog.Get(SpellId.ElectricArc).minActionCost;
+        }
+
+        public bool CanSelectSnowball(EntityData actorData, int actionsRemaining)
+        {
+            return actorData != null
+                && actorData.IsAlive
+                && actorData.KnowsSnowball
+                && actionsRemaining >= SpellCatalog.Get(SpellId.Snowball).minActionCost;
         }
 
         public bool HasAnyActionBarSpell(EntityData actorData)
@@ -166,6 +188,16 @@ namespace PF2e.Presentation
                     targetingController.BeginElectricArcTargeting(
                         targets => actionExecutor.TryConfirmElectricArc(targets));
                     return;
+
+                case SpellId.Snowball:
+                    if (!actionExecutor.TryBeginSnowball())
+                        return;
+
+                    targetingController.BeginSnowballTargeting(
+                        targets => targets != null
+                            && targets.Count > 0
+                            && actionExecutor.TryConfirmSnowball(targets[0]));
+                    return;
             }
         }
 
@@ -199,6 +231,24 @@ namespace PF2e.Presentation
 
             targetingController.BeginElectricArcTargeting(
                 targets => actionExecutor.TryConfirmElectricArc(targets));
+            refreshAvailability?.Invoke();
+            return true;
+        }
+
+        public bool TryBeginSnowball()
+        {
+            if (targetingController == null || actionExecutor == null)
+                return false;
+
+            selectedSpell = SpellId.Snowball;
+
+            if (!actionExecutor.TryBeginSnowball())
+                return false;
+
+            targetingController.BeginSnowballTargeting(
+                targets => targets != null
+                    && targets.Count > 0
+                    && actionExecutor.TryConfirmSnowball(targets[0]));
             refreshAvailability?.Invoke();
             return true;
         }
@@ -240,6 +290,12 @@ namespace PF2e.Presentation
         public void OnCastSpellModeGlassClicked()
         {
             selectedSpell = SpellId.ElectricArc;
+            refreshAvailability?.Invoke();
+        }
+
+        public void OnCastSpellModeSnowballClicked()
+        {
+            selectedSpell = SpellId.Snowball;
             refreshAvailability?.Invoke();
         }
 

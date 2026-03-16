@@ -268,6 +268,31 @@ namespace PF2e.Presentation
             return sb.ToString();
         }
 
+        public static string SnowballBreakdown(int spellAttackModifier, int rolledDamage, string[] targetLines)
+        {
+            var sb = new StringBuilder(384);
+            AppendSectionHeader(sb, "Snowball");
+            sb.Append('\n');
+            AppendContextLine(sb, $"2 actions • spell attack {RollBreakdownFormatter.FormatSigned(spellAttackModifier)} • rolled {rolledDamage} cold");
+
+            if (targetLines != null && targetLines.Length > 0)
+            {
+                sb.Append('\n');
+                sb.Append('\n');
+                AppendSectionHeader(sb, "Targets");
+                for (int i = 0; i < targetLines.Length; i++)
+                {
+                    if (string.IsNullOrEmpty(targetLines[i]))
+                        continue;
+
+                    sb.Append('\n');
+                    sb.Append(BuildDescriptionText($"• {targetLines[i]}"));
+                }
+            }
+
+            return sb.ToString();
+        }
+
         public static string BuildResultExtendedBody(
             string coreBody,
             string ruleTitle,
@@ -371,6 +396,7 @@ namespace PF2e.Presentation
                 DamageType.Bludgeoning => "Hammers, clubs, fists, and crushing impacts deal bludgeoning damage.",
                 DamageType.Force => "Force damage is pure magical impact that strikes without relying on a weapon or element.",
                 DamageType.Electricity => "Electricity damage comes from lightning, shocks, and crackling magical arcs.",
+                DamageType.Cold => "Cold damage numbs, freezes, and slows with biting frost and winter magic.",
                 _ => "Damage type description unavailable."
             };
         }

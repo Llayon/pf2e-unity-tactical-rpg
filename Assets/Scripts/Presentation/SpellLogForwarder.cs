@@ -52,6 +52,7 @@ namespace PF2e.Presentation
             {
                 SpellId.ForceBarrage => BuildForceBarrageSummary(in e),
                 SpellId.ElectricArc => BuildElectricArcSummary(in e),
+                SpellId.Snowball => BuildSnowballSummary(in e),
                 _ => CombatLogRichText.Verb("resolves.")
             };
 
@@ -127,6 +128,40 @@ namespace PF2e.Presentation
             return sb.ToString();
         }
 
+        private string BuildSnowballSummary(in SpellResolvedEvent e)
+        {
+            if (e.targetOutcomes == null || e.targetOutcomes.Length <= 0)
+                return CombatLogRichText.Verb("no effect.");
+
+            ref readonly var outcome = ref e.targetOutcomes[0];
+            var sb = new StringBuilder(192);
+            sb.Append(GetTargetName(outcome.target, rich: true));
+            sb.Append(' ');
+
+            if (outcome.attackResult.HasValue)
+            {
+                sb.Append(CombatLogRichText.DegreeShort(outcome.attackResult.Value.degree));
+                sb.Append(CombatLogRichText.Verb(", "));
+            }
+
+            if (outcome.appliedDamage > 0)
+            {
+                sb.Append(CombatLogRichText.DamageAmountAndType(outcome.appliedDamage, DamageType.Cold));
+                if (outcome.appliedConditionType == ConditionType.SpeedPenalty && outcome.appliedConditionValue > 0)
+                {
+                    sb.Append(CombatLogRichText.Verb(", speed "));
+                    sb.Append(CombatLogRichText.Verb($"-{outcome.appliedConditionValue} ft"));
+                }
+            }
+            else
+            {
+                sb.Append(CombatLogRichText.Verb("no effect"));
+            }
+
+            sb.Append('.');
+            return sb.ToString();
+        }
+
         private string BuildTooltipBody(in SpellResolvedEvent e)
         {
             string[] targetLines = new string[e.targetOutcomes.Length];
@@ -139,6 +174,7 @@ namespace PF2e.Presentation
                 {
                     SpellId.ForceBarrage => $"{targetName}: {outcome.shardCount} shard(s) [{FormatShardRolls(outcome.shardRolls)}] => {outcome.appliedDamage} force ({outcome.hpBefore}->{outcome.hpAfter} HP)",
                     SpellId.ElectricArc => $"{targetName}: {FormatSaveResult(outcome.saveResult)} => {outcome.appliedDamage} electricity ({outcome.hpBefore}->{outcome.hpAfter} HP)",
+                    SpellId.Snowball => $"{targetName}: {FormatAttackResult(outcome.attackResult)} => {BuildSnowballEffectSummary(in outcome)} ({outcome.hpBefore}->{outcome.hpAfter} HP)",
                     _ => targetName
                 };
             }
@@ -147,6 +183,7 @@ namespace PF2e.Presentation
             {
                 SpellId.ForceBarrage => TooltipTextBuilder.ForceBarrageBreakdown(e.actionCost, targetLines),
                 SpellId.ElectricArc => TooltipTextBuilder.ElectricArcBreakdown(e.spellDc, e.rolledDamage, targetLines),
+                SpellId.Snowball => TooltipTextBuilder.SnowballBreakdown(e.spellAttackModifier, e.rolledDamage, targetLines),
                 _ => string.Empty
             };
         }
@@ -177,6 +214,34 @@ namespace PF2e.Presentation
 
             var result = saveResult.Value;
             return $"{TooltipTextBuilder.FormatDegreeLabel(result.degree)} ({result.total} vs DC {result.dc}, rolled {result.naturalRoll})";
+        }
+
+        private static string FormatAttackResult(CheckResult? attackResult)
+        {
+            if (!attackResult.HasValue)
+                return "no attack roll";
+
+            var result = attackResult.Value;
+            return $"{TooltipTextBuilder.FormatDegreeLabel(result.degree)} ({result.total} vs AC {result.dc}, rolled {result.naturalRoll})";
+        }
+
+        private static string BuildSnowballEffectSummary(in SpellResolvedTargetOutcome outcome)
+        {
+            if (outcome.appliedDamage <= 0)
+                return "no effect";
+
+            var sb = new StringBuilder(64);
+            sb.Append(outcome.appliedDamage);
+            sb.Append(" cold");
+
+            if (outcome.appliedConditionType == ConditionType.SpeedPenalty && outcome.appliedConditionValue > 0)
+            {
+                sb.Append(", speed -");
+                sb.Append(outcome.appliedConditionValue);
+                sb.Append(" ft");
+            }
+
+            return sb.ToString();
         }
     }
 }

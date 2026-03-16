@@ -149,6 +149,38 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void BuildForActor_SnowballKnownWithTwoActions_EnablesCastSpellSlot()
+        {
+            var policy = new ActionBarAvailabilityPolicy();
+            var actor = new EntityData
+            {
+                Team = Team.Player,
+                CurrentHP = 10,
+                MaxHP = 10,
+                KnowsSnowball = true
+            };
+
+            var state = policy.BuildForActor(actor, actionsRemaining: 2);
+            Assert.IsTrue(state.castSpellInteractable);
+        }
+
+        [Test]
+        public void BuildForActor_SnowballKnownWithOneAction_DisablesCastSpellSlot()
+        {
+            var policy = new ActionBarAvailabilityPolicy();
+            var actor = new EntityData
+            {
+                Team = Team.Player,
+                CurrentHP = 10,
+                MaxHP = 10,
+                KnowsSnowball = true
+            };
+
+            var state = policy.BuildForActor(actor, actionsRemaining: 1);
+            Assert.IsFalse(state.castSpellInteractable);
+        }
+
+        [Test]
         public void BuildForActor_NoShieldAndNoActionBarSpells_HidesGuard()
         {
             var policy = new ActionBarAvailabilityPolicy();

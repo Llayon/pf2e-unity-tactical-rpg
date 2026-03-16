@@ -52,7 +52,7 @@ namespace PF2e.TurnSystem
 
             preview = JumpReachabilityResolver.ResolvePreview(
                 actorData.GridPosition,
-                actorData.Speed,
+                actorData.EffectiveSpeed,
                 landingCell,
                 strideReachabilityFeetBuffer,
                 cell => CanLand(actor, actorData.SizeCells, cell),
@@ -163,7 +163,7 @@ namespace PF2e.TurnSystem
             var profile = new MovementProfile
             {
                 moveType = MovementType.Walk,
-                speedFeet = actorData.Speed,
+                speedFeet = actorData.EffectiveSpeed,
                 creatureSizeCells = actorData.SizeCells,
                 ignoresDifficultTerrain = false
             };
@@ -172,7 +172,7 @@ namespace PF2e.TurnSystem
                 entityManager.GridData,
                 actorData.GridPosition,
                 profile,
-                actorData.Speed,
+                actorData.EffectiveSpeed,
                 actorData.Handle,
                 entityManager.Occupancy,
                 outZone);
@@ -201,7 +201,7 @@ namespace PF2e.TurnSystem
             if (actorData == null)
                 return takeoffCell;
 
-            int leapRangeFeet = JumpRules.GetLeapRangeFeet(actorData.Speed);
+            int leapRangeFeet = JumpRules.GetLeapRangeFeet(actorData.EffectiveSpeed);
             int maxSteps = leapRangeFeet / GameConstants.CardinalCostFeet;
             if (maxSteps <= 0)
                 return takeoffCell;

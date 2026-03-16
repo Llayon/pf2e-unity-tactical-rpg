@@ -41,6 +41,7 @@ namespace PF2e.Presentation
         [SerializeField] private RectTransform castSpellModeSelectorRoot;
         [SerializeField] private Button castSpellModeStandardButton;
         [SerializeField] private Button castSpellModeGlassButton;
+        [SerializeField] private Button castSpellModeSnowballButton;
         [SerializeField] private GameObject targetingHintPanelRoot;
         [SerializeField] private Button raiseShieldButton;
         [SerializeField] private Button standButton;
@@ -323,12 +324,17 @@ namespace PF2e.Presentation
             float selectionWidth = Mathf.Max(castPopupTileWidth, 248f);
             ConfigurePopupTileLayout(castSpellModeStandardButton, selectionWidth);
             ConfigurePopupTileLayout(castSpellModeGlassButton, selectionWidth);
+            EnsureSnowballSpellButton(selectionWidth);
+            ConfigurePopupTileLayout(castSpellModeSnowballButton, selectionWidth);
 
             if (castSpellModeStandardButton != null && castSpellModeStandardButton.transform.parent != spellCastPanelContentRoot)
                 castSpellModeStandardButton.transform.SetParent(spellCastPanelContentRoot, false);
 
             if (castSpellModeGlassButton != null && castSpellModeGlassButton.transform.parent != spellCastPanelContentRoot)
                 castSpellModeGlassButton.transform.SetParent(spellCastPanelContentRoot, false);
+
+            if (castSpellModeSnowballButton != null && castSpellModeSnowballButton.transform.parent != spellCastPanelContentRoot)
+                castSpellModeSnowballButton.transform.SetParent(spellCastPanelContentRoot, false);
 
             if (spellCastDetailRoot != null)
                 return;
@@ -376,6 +382,18 @@ namespace PF2e.Presentation
             spellCastCancelButton = CreateSpellPanelButton("CancelButton", spellCastFooterRow, "Cancel", preferredWidth: 92f);
 
             SetSpellCastDetailVisible(false);
+        }
+
+        private void EnsureSnowballSpellButton(float preferredWidth)
+        {
+            if (spellCastPanelContentRoot == null || castSpellModeSnowballButton != null)
+                return;
+
+            castSpellModeSnowballButton = CreateSpellPanelButton(
+                "CastSpellModeSnowballButton",
+                spellCastPanelContentRoot,
+                "Snowball [2]",
+                preferredWidth);
         }
 
         private static RectTransform ConfigureSpellCastPanelRoot(RectTransform root, RectTransform existingContentRoot)
@@ -629,6 +647,7 @@ namespace PF2e.Presentation
 
             ConfigurePopupTileLayout(castSpellModeStandardButton, castPopupTileWidth);
             ConfigurePopupTileLayout(castSpellModeGlassButton, castPopupTileWidth);
+            ConfigurePopupTileLayout(castSpellModeSnowballButton, castPopupTileWidth);
 
             ConfigureStrikePopupCompactMenu();
             ConfigureTacticsPopupCompactMenu();
@@ -695,6 +714,7 @@ namespace PF2e.Presentation
             ApplyButtonTypography(castSpellButton);
             ApplyButtonTypography(castSpellModeStandardButton);
             ApplyButtonTypography(castSpellModeGlassButton);
+            ApplyButtonTypography(castSpellModeSnowballButton);
             ApplyButtonTypography(raiseShieldButton);
             ApplyButtonTypography(standButton);
             ApplyButtonTypography(tacticsLauncherButton);
@@ -1102,6 +1122,7 @@ namespace PF2e.Presentation
             boundCount += BindButton(castSpellButton, useLauncherLayout ? ToggleCastPopup : actionBarCommandCoordinator.OnCastSpellClicked);
             boundCount += BindButton(castSpellModeStandardButton, useLauncherLayout ? HandleCastStandardPopupClicked : actionBarCommandCoordinator.OnCastSpellModeStandardClicked);
             boundCount += BindButton(castSpellModeGlassButton, useLauncherLayout ? HandleCastGlassPopupClicked : actionBarCommandCoordinator.OnCastSpellModeGlassClicked);
+            boundCount += BindButton(castSpellModeSnowballButton, useLauncherLayout ? HandleCastSnowballPopupClicked : actionBarCommandCoordinator.OnCastSpellModeSnowballClicked);
             boundCount += BindButton(raiseShieldButton, actionBarCommandCoordinator.OnRaiseShieldClicked);
             boundCount += BindButton(standButton, actionBarCommandCoordinator.OnStandClicked);
             boundCount += BindButton(tacticsLauncherButton, ToggleTacticsPopup);
@@ -1199,6 +1220,19 @@ namespace PF2e.Presentation
 
             actionBarCommandCoordinator.SelectSpell(SpellId.ElectricArc);
             if (actionBarCommandCoordinator.TryBeginElectricArc())
+                SetCastPopupVisible(true);
+        }
+
+        private void HandleCastSnowballPopupClicked()
+        {
+            if (!useLauncherLayout)
+            {
+                actionBarCommandCoordinator.OnCastSpellModeSnowballClicked();
+                return;
+            }
+
+            actionBarCommandCoordinator.SelectSpell(SpellId.Snowball);
+            if (actionBarCommandCoordinator.TryBeginSnowball())
                 SetCastPopupVisible(true);
         }
 
@@ -1358,7 +1392,7 @@ namespace PF2e.Presentation
 
         private void HandleModeChanged(TargetingMode mode)
         {
-            bool spellTargetingActive = mode == TargetingMode.ForceBarrage || mode == TargetingMode.ElectricArc;
+            bool spellTargetingActive = mode == TargetingMode.ForceBarrage || mode == TargetingMode.ElectricArc || mode == TargetingMode.Snowball;
             if (useLauncherLayout)
             {
                 if (spellTargetingActive)
@@ -1382,7 +1416,7 @@ namespace PF2e.Presentation
             SetHighlight(demoralizeHighlight, mode == TargetingMode.Demoralize);
             SetHighlight(escapeHighlight, mode == TargetingMode.Escape);
             SetHighlight(aidHighlight, mode == TargetingMode.Aid);
-            SetHighlight(castSpellHighlight, mode == TargetingMode.ForceBarrage || mode == TargetingMode.ElectricArc);
+            SetHighlight(castSpellHighlight, mode == TargetingMode.ForceBarrage || mode == TargetingMode.ElectricArc || mode == TargetingMode.Snowball);
             SetHighlight(raiseShieldHighlight, false);
             SetHighlight(standHighlight, false);
 
@@ -1451,9 +1485,12 @@ namespace PF2e.Presentation
                 && actionBarCommandCoordinator.CanSelectForceBarrage(actorData, turnManager.ActionsRemaining);
             bool canSelectElectricArc = canAdjustCastSpellMode
                 && actionBarCommandCoordinator.CanSelectElectricArc(actorData, turnManager.ActionsRemaining);
-            SetCastSpellModeButtonsInteractable(canSelectForceBarrage || canSelectElectricArc);
+            bool canSelectSnowball = canAdjustCastSpellMode
+                && actionBarCommandCoordinator.CanSelectSnowball(actorData, turnManager.ActionsRemaining);
+            SetCastSpellModeButtonsInteractable(canSelectForceBarrage || canSelectElectricArc || canSelectSnowball);
             SetInteractable(castSpellModeStandardButton, canSelectForceBarrage);
             SetInteractable(castSpellModeGlassButton, canSelectElectricArc);
+            SetInteractable(castSpellModeSnowballButton, canSelectSnowball);
             RefreshCastSpellModeButtonsVisual();
 
             RefreshCastSpellButtonLabel();
@@ -1490,6 +1527,7 @@ namespace PF2e.Presentation
                 SetInteractable(raiseShieldButton, enabled);
                 SetInteractable(castSpellModeStandardButton, enabled);
                 SetInteractable(castSpellModeGlassButton, enabled);
+                SetInteractable(castSpellModeSnowballButton, enabled);
                 SetInteractable(tripButton, enabled);
                 SetInteractable(shoveButton, enabled);
                 SetInteractable(grappleButton, enabled);
@@ -1519,6 +1557,7 @@ namespace PF2e.Presentation
                 SetInteractable(castSpellButton, enabled);
                 SetInteractable(castSpellModeStandardButton, enabled);
                 SetInteractable(castSpellModeGlassButton, enabled);
+                SetInteractable(castSpellModeSnowballButton, enabled);
                 SetInteractable(raiseShieldButton, enabled);
                 SetInteractable(standButton, enabled);
                 SetInteractable(spellCastOneActionButton, enabled);
@@ -1663,8 +1702,10 @@ namespace PF2e.Presentation
             bool showSelectionButtons = !useLauncherLayout || targetingController == null || !targetingController.IsSpellTargetingActive;
             SetButtonVisible(castSpellModeStandardButton, showSelectionButtons);
             SetButtonVisible(castSpellModeGlassButton, showSelectionButtons);
+            SetButtonVisible(castSpellModeSnowballButton, showSelectionButtons);
             SetInteractable(castSpellModeStandardButton, enabled && showSelectionButtons);
             SetInteractable(castSpellModeGlassButton, enabled && showSelectionButtons);
+            SetInteractable(castSpellModeSnowballButton, enabled && showSelectionButtons);
 
             if (useLauncherLayout)
                 SetSpellCastDetailVisible(!showSelectionButtons && castSpellModeSelectorRoot != null && castSpellModeSelectorRoot.gameObject.activeSelf);
@@ -1739,6 +1780,7 @@ namespace PF2e.Presentation
 
             SetButtonVisible(castSpellModeStandardButton, rootVisible && !showDetailPanel);
             SetButtonVisible(castSpellModeGlassButton, rootVisible && !showDetailPanel);
+            SetButtonVisible(castSpellModeSnowballButton, rootVisible && !showDetailPanel);
             SetSpellCastDetailVisible(rootVisible && showDetailPanel);
             SetTargetingHintPanelVisible(!showDetailPanel);
             UpdateSpellCastPanelPlacement(showDetailPanel);
@@ -1751,9 +1793,12 @@ namespace PF2e.Presentation
             if (!rootVisible || !showDetailPanel || spellCastTitleLabel == null || spellCastSummaryLabel == null)
                 return;
 
-            SpellId spellId = targetingController.ActiveMode == TargetingMode.ElectricArc
-                ? SpellId.ElectricArc
-                : SpellId.ForceBarrage;
+            SpellId spellId = targetingController.ActiveMode switch
+            {
+                TargetingMode.ElectricArc => SpellId.ElectricArc,
+                TargetingMode.Snowball => SpellId.Snowball,
+                _ => SpellId.ForceBarrage
+            };
 
             switch (spellId)
             {
@@ -1763,6 +1808,10 @@ namespace PF2e.Presentation
 
                 case SpellId.ElectricArc:
                     RefreshElectricArcSpellPanel();
+                    break;
+
+                case SpellId.Snowball:
+                    RefreshSnowballSpellPanel();
                     break;
             }
         }
@@ -1800,6 +1849,22 @@ namespace PF2e.Presentation
                 spellCastActionCountRow.gameObject.SetActive(false);
 
             SetButtonLabelText(spellCastConfirmButton, $"Confirm [{SpellCatalog.GetShortToken(SpellId.ElectricArc)}]");
+            SetInteractable(spellCastConfirmButton, targetingController.CanConfirmSpellTargeting);
+            SetInteractable(spellCastCancelButton, true);
+        }
+
+        private void RefreshSnowballSpellPanel()
+        {
+            if (spellCastTitleLabel == null || spellCastSummaryLabel == null || targetingController == null)
+                return;
+
+            spellCastTitleLabel.text = "Snowball";
+            spellCastSummaryLabel.text = BuildSnowballSummary();
+
+            if (spellCastActionCountRow != null && spellCastActionCountRow.gameObject.activeSelf)
+                spellCastActionCountRow.gameObject.SetActive(false);
+
+            SetButtonLabelText(spellCastConfirmButton, $"Confirm [{SpellCatalog.GetShortToken(SpellId.Snowball)}]");
             SetInteractable(spellCastConfirmButton, targetingController.CanConfirmSpellTargeting);
             SetInteractable(spellCastCancelButton, true);
         }
@@ -1864,6 +1929,30 @@ namespace PF2e.Presentation
 
             if (selectedTargetCount > 0)
                 summary.Append("\nConfirm to cast or Esc to cancel.");
+
+            return summary.ToString();
+        }
+
+        private string BuildSnowballSummary()
+        {
+            int selectedTargetCount = targetingController != null ? targetingController.SnowballSelectedTargetCount : 0;
+            var summary = new StringBuilder();
+            summary.Append("Range 30 ft. 2d4 cold, spell attack.");
+            summary.Append('\n');
+            summary.Append(selectedTargetCount);
+            summary.Append("/1 target selected.");
+
+            string targetSummary = BuildSelectedTargetList(targetingController != null ? targetingController.SnowballSelectedTargets : null);
+            if (!string.IsNullOrEmpty(targetSummary))
+            {
+                summary.Append('\n');
+                summary.Append(targetSummary);
+                summary.Append("\nConfirm to cast or Esc to cancel.");
+            }
+            else
+            {
+                summary.Append("\nChoose a visible creature.");
+            }
 
             return summary.ToString();
         }
@@ -1947,6 +2036,7 @@ namespace PF2e.Presentation
             var selectedSpell = actionBarCommandCoordinator.CurrentSelectedSpell;
             ApplyCastSpellModeButtonVisual(castSpellModeStandardButton, selectedSpell == SpellId.ForceBarrage);
             ApplyCastSpellModeButtonVisual(castSpellModeGlassButton, selectedSpell == SpellId.ElectricArc);
+            ApplyCastSpellModeButtonVisual(castSpellModeSnowballButton, selectedSpell == SpellId.Snowball);
         }
 
         private void ApplyCastSpellModeButtonVisual(Button button, bool selected)
@@ -1988,12 +2078,14 @@ namespace PF2e.Presentation
             {
                 SetButtonLabelText(castSpellModeStandardButton, "Force Barrage [1-3]");
                 SetButtonLabelText(castSpellModeGlassButton, "Electric Arc [2]");
+                SetButtonLabelText(castSpellModeSnowballButton, "Snowball [2]");
                 return;
             }
 
             int forceBarrageActionCount = actionBarCommandCoordinator.CurrentForceBarrageActionCount;
             SetButtonLabelText(castSpellModeStandardButton, $"Force Barrage [{Mathf.Clamp(forceBarrageActionCount, 1, 3)}]");
             SetButtonLabelText(castSpellModeGlassButton, "Electric Arc [2]");
+            SetButtonLabelText(castSpellModeSnowballButton, "Snowball [2]");
         }
 
         private string GetActiveSpellToken()
@@ -2009,6 +2101,9 @@ namespace PF2e.Presentation
 
                     case TargetingMode.ElectricArc:
                         return SpellCatalog.GetShortToken(SpellId.ElectricArc);
+
+                    case TargetingMode.Snowball:
+                        return SpellCatalog.GetShortToken(SpellId.Snowball);
                 }
             }
 

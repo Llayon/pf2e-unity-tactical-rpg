@@ -253,6 +253,27 @@ public class EntityDataTests
         Assert.AreEqual(6, data.SpeedCells);
     }
 
+    [Test] public void EffectiveSpeed_SubtractsSpeedPenaltyCondition()
+    {
+        var data = new EntityData { Speed = 25 };
+        Apply(data, ConditionType.SpeedPenalty, 10, rounds: 1);
+        Assert.AreEqual(15, data.EffectiveSpeed);
+        Assert.AreEqual(3, data.EffectiveSpeedCells);
+    }
+
+    [Test] public void TickEndTurn_SpeedPenaltyDuration_RemovesCondition()
+    {
+        var data = new EntityData { Speed = 25 };
+        Apply(data, ConditionType.SpeedPenalty, 5, rounds: 1);
+
+        var deltas = TickEnd(data);
+
+        Assert.IsFalse(data.HasCondition(ConditionType.SpeedPenalty));
+        Assert.AreEqual(1, deltas.Count);
+        Assert.AreEqual(ConditionChangeType.Removed, deltas[0].changeType);
+        Assert.AreEqual(25, data.EffectiveSpeed);
+    }
+
     [Test] public void SizeCells_Medium_One()
     {
         var data = new EntityData { Size = CreatureSize.Medium };

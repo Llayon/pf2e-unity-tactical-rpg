@@ -4,13 +4,19 @@ namespace PF2e.Core
 {
     public static class SpellcastingRules
     {
-        public static int ComputeWizardSpellDc(EntityData caster)
+        public static int ComputeWizardSpellAttackModifier(EntityData caster)
         {
             if (caster == null)
-                return 10;
+                return 0;
 
             const int trainedBaseline = 2;
-            return 10 + Mathf.Max(0, caster.Level) + trainedBaseline + caster.IntMod;
+            int conditionPenalty = ConditionRules.ComputeCheckPenalty(caster.Conditions);
+            return Mathf.Max(0, caster.Level) + trainedBaseline + caster.IntMod - conditionPenalty;
+        }
+
+        public static int ComputeWizardSpellDc(EntityData caster)
+        {
+            return 10 + ComputeWizardSpellAttackModifier(caster);
         }
     }
 }

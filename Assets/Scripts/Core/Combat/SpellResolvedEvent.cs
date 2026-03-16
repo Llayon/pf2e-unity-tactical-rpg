@@ -6,7 +6,11 @@ namespace PF2e.Core
         public readonly int shardCount;
         public readonly int[] shardRolls;
         public readonly int rolledDamage;
+        public readonly CheckResult? attackResult;
         public readonly CheckResult? saveResult;
+        public readonly ConditionType? appliedConditionType;
+        public readonly int appliedConditionValue;
+        public readonly int appliedConditionRounds;
         public readonly int resolvedDamage;
         public readonly int appliedDamage;
         public readonly int hpBefore;
@@ -18,7 +22,11 @@ namespace PF2e.Core
             int shardCount,
             int[] shardRolls,
             int rolledDamage,
+            CheckResult? attackResult,
             CheckResult? saveResult,
+            ConditionType? appliedConditionType,
+            int appliedConditionValue,
+            int appliedConditionRounds,
             int resolvedDamage,
             int appliedDamage,
             int hpBefore,
@@ -29,7 +37,11 @@ namespace PF2e.Core
             this.shardCount = shardCount;
             this.shardRolls = shardRolls;
             this.rolledDamage = rolledDamage;
+            this.attackResult = attackResult;
             this.saveResult = saveResult;
+            this.appliedConditionType = appliedConditionType;
+            this.appliedConditionValue = appliedConditionValue;
+            this.appliedConditionRounds = appliedConditionRounds;
             this.resolvedDamage = resolvedDamage;
             this.appliedDamage = appliedDamage;
             this.hpBefore = hpBefore;
@@ -44,6 +56,7 @@ namespace PF2e.Core
         public readonly EntityHandle caster;
         public readonly int actionCost;
         public readonly int spellDc;
+        public readonly int spellAttackModifier;
         public readonly int rolledDamage;
         public readonly SpellResolvedTargetOutcome[] targetOutcomes;
 
@@ -52,6 +65,7 @@ namespace PF2e.Core
             EntityHandle caster,
             int actionCost,
             int spellDc,
+            int spellAttackModifier,
             int rolledDamage,
             SpellResolvedTargetOutcome[] targetOutcomes)
         {
@@ -59,6 +73,7 @@ namespace PF2e.Core
             this.caster = caster;
             this.actionCost = actionCost;
             this.spellDc = spellDc;
+            this.spellAttackModifier = spellAttackModifier;
             this.rolledDamage = rolledDamage;
             this.targetOutcomes = targetOutcomes;
         }

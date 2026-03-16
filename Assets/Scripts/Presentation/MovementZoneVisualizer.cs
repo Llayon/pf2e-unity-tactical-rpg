@@ -264,7 +264,7 @@ namespace PF2e.Presentation
             var profile = new MovementProfile
             {
                 moveType = MovementType.Walk,
-                speedFeet = data.Speed,
+                speedFeet = data.EffectiveSpeed,
                 creatureSizeCells = data.SizeCells,
                 ignoresDifficultTerrain = false
             };

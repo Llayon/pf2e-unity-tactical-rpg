@@ -6,6 +6,7 @@ namespace PF2e.Core
         Piercing,
         Slashing,
         Force,
-        Electricity
+        Electricity,
+        Cold
     }
 }

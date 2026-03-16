@@ -104,7 +104,8 @@ namespace PF2e.Presentation
 
             bool canCastForceBarrage = data.KnowsForceBarrage && actionsRemaining >= SpellCatalog.Get(SpellId.ForceBarrage).minActionCost;
             bool canCastElectricArc = data.KnowsElectricArc && actionsRemaining >= SpellCatalog.Get(SpellId.ElectricArc).minActionCost;
-            return canCastForceBarrage || canCastElectricArc;
+            bool canCastSnowball = data.KnowsSnowball && actionsRemaining >= SpellCatalog.Get(SpellId.Snowball).minActionCost;
+            return canCastForceBarrage || canCastElectricArc || canCastSnowball;
         }
 
         private static bool IsGuardVisible(EntityData data)

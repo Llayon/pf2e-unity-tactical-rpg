@@ -8,6 +8,7 @@ namespace PF2e.Core
         {
             ConditionType.Frightened or ConditionType.Sickened or
             ConditionType.Stunned or ConditionType.Slowed or
+            ConditionType.SpeedPenalty or
             ConditionType.Wounded or ConditionType.Dying or
             ConditionType.Doomed => true,
             _ => false
@@ -24,6 +25,7 @@ namespace PF2e.Core
         public static string DisplayName(ConditionType type) => type switch
         {
             ConditionType.OffGuard => "off-guard",
+            ConditionType.SpeedPenalty => "speed penalty",
             _ => type.ToString().ToLowerInvariant()
         };
 

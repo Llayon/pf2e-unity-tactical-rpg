@@ -196,6 +196,169 @@ namespace PF2e.Tests
             }
         }
 
+        [Test]
+        public void TryConfirmSnowball_Success_AppliesColdDamageSpeedPenaltyAndSpendsTwoActions()
+        {
+            using var ctx = new SpellExecutorContext();
+
+            var actor = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(0, 0, 0), intelligence: 18);
+            var target = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(1, 0, 0), hp: 12);
+            ctx.Registry.Get(actor).KnowsSnowball = true;
+            ctx.Registry.Get(target).Speed = 25;
+            ctx.SetCurrentActor(actor, actionsRemaining: 3);
+
+            DamageAppliedEvent lastDamage = default;
+            ConditionChangedEvent lastCondition = default;
+            SpellResolvedEvent lastSpell = default;
+            int damageCount = 0;
+            int conditionCount = 0;
+            ctx.EventBus.OnDamageAppliedTyped += HandleDamage;
+            ctx.EventBus.OnConditionChangedTyped += HandleCondition;
+            ctx.EventBus.OnSpellResolvedTyped += HandleSpell;
+            try
+            {
+                bool executed = ctx.Executor.TryConfirmSnowball(
+                    target,
+                    rng: new FixedRng(d20Rolls: new[] { 6 }, dieRolls: new[] { 2, 3 }));
+
+                Assert.IsTrue(executed);
+                Assert.AreEqual(1, damageCount);
+                Assert.AreEqual(5, lastDamage.amount);
+                Assert.AreEqual(DamageType.Cold, lastDamage.damageType);
+                Assert.AreEqual(1, conditionCount);
+                Assert.AreEqual(ConditionType.SpeedPenalty, lastCondition.conditionType);
+                Assert.AreEqual(5, lastCondition.newValue);
+                Assert.AreEqual(1, lastCondition.newRemainingRounds);
+                Assert.AreEqual(20, ctx.Registry.Get(target).EffectiveSpeed);
+                Assert.AreEqual(1, ctx.Registry.Get(actor).ActionsRemaining);
+
+                Assert.AreEqual(SpellId.Snowball, lastSpell.spellId);
+                Assert.AreEqual(7, lastSpell.spellAttackModifier);
+                Assert.AreEqual(5, lastSpell.rolledDamage);
+                Assert.AreEqual(DegreeOfSuccess.Success, lastSpell.targetOutcomes[0].attackResult.Value.degree);
+                Assert.AreEqual(5, lastSpell.targetOutcomes[0].appliedDamage);
+                Assert.AreEqual(5, lastSpell.targetOutcomes[0].appliedConditionValue);
+            }
+            finally
+            {
+                ctx.EventBus.OnDamageAppliedTyped -= HandleDamage;
+                ctx.EventBus.OnConditionChangedTyped -= HandleCondition;
+                ctx.EventBus.OnSpellResolvedTyped -= HandleSpell;
+            }
+
+            void HandleDamage(in DamageAppliedEvent e)
+            {
+                damageCount++;
+                lastDamage = e;
+            }
+
+            void HandleCondition(in ConditionChangedEvent e)
+            {
+                conditionCount++;
+                lastCondition = e;
+            }
+
+            void HandleSpell(in SpellResolvedEvent e)
+            {
+                lastSpell = e;
+            }
+        }
+
+        [Test]
+        public void TryConfirmSnowball_CriticalSuccess_DoublesDamageAndAppliesTenFootPenalty()
+        {
+            using var ctx = new SpellExecutorContext();
+
+            var actor = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(0, 0, 0), intelligence: 18);
+            var target = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(1, 0, 0), hp: 12);
+            ctx.Registry.Get(actor).KnowsSnowball = true;
+            ctx.Registry.Get(target).Speed = 25;
+            ctx.SetCurrentActor(actor, actionsRemaining: 3);
+
+            SpellResolvedEvent lastSpell = default;
+            ctx.EventBus.OnSpellResolvedTyped += HandleSpell;
+            try
+            {
+                bool executed = ctx.Executor.TryConfirmSnowball(
+                    target,
+                    rng: new FixedRng(d20Rolls: new[] { 20 }, dieRolls: new[] { 1, 2 }));
+
+                Assert.IsTrue(executed);
+                Assert.AreEqual(6, ctx.Registry.Get(target).CurrentHP);
+                Assert.AreEqual(15, ctx.Registry.Get(target).EffectiveSpeed);
+                Assert.AreEqual(ConditionType.SpeedPenalty, ctx.Registry.Get(target).Conditions[0].Type);
+                Assert.AreEqual(10, ctx.Registry.Get(target).Conditions[0].Value);
+                Assert.AreEqual(DegreeOfSuccess.CriticalSuccess, lastSpell.targetOutcomes[0].attackResult.Value.degree);
+                Assert.AreEqual(6, lastSpell.targetOutcomes[0].appliedDamage);
+                Assert.AreEqual(10, lastSpell.targetOutcomes[0].appliedConditionValue);
+            }
+            finally
+            {
+                ctx.EventBus.OnSpellResolvedTyped -= HandleSpell;
+            }
+
+            void HandleSpell(in SpellResolvedEvent e)
+            {
+                lastSpell = e;
+            }
+        }
+
+        [Test]
+        public void TryConfirmSnowball_Failure_HasNoEffectAndStillSpendsTwoActions()
+        {
+            using var ctx = new SpellExecutorContext();
+
+            var actor = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(0, 0, 0), intelligence: 18);
+            var target = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(1, 0, 0), hp: 12);
+            ctx.Registry.Get(actor).KnowsSnowball = true;
+            ctx.Registry.Get(target).Speed = 25;
+            ctx.SetCurrentActor(actor, actionsRemaining: 3);
+
+            int damageCount = 0;
+            int conditionCount = 0;
+            SpellResolvedEvent lastSpell = default;
+            ctx.EventBus.OnDamageAppliedTyped += HandleDamage;
+            ctx.EventBus.OnConditionChangedTyped += HandleCondition;
+            ctx.EventBus.OnSpellResolvedTyped += HandleSpell;
+            try
+            {
+                bool executed = ctx.Executor.TryConfirmSnowball(
+                    target,
+                    rng: new FixedRng(d20Rolls: new[] { 1 }, dieRolls: new[] { 4, 4 }));
+
+                Assert.IsTrue(executed);
+                Assert.AreEqual(0, damageCount);
+                Assert.AreEqual(0, conditionCount);
+                Assert.AreEqual(12, ctx.Registry.Get(target).CurrentHP);
+                Assert.AreEqual(25, ctx.Registry.Get(target).EffectiveSpeed);
+                Assert.AreEqual(1, ctx.Registry.Get(actor).ActionsRemaining);
+                Assert.AreEqual(DegreeOfSuccess.CriticalFailure, lastSpell.targetOutcomes[0].attackResult.Value.degree);
+                Assert.AreEqual(0, lastSpell.targetOutcomes[0].appliedDamage);
+                Assert.AreEqual(0, lastSpell.targetOutcomes[0].appliedConditionValue);
+            }
+            finally
+            {
+                ctx.EventBus.OnDamageAppliedTyped -= HandleDamage;
+                ctx.EventBus.OnConditionChangedTyped -= HandleCondition;
+                ctx.EventBus.OnSpellResolvedTyped -= HandleSpell;
+            }
+
+            void HandleDamage(in DamageAppliedEvent e)
+            {
+                damageCount++;
+            }
+
+            void HandleCondition(in ConditionChangedEvent e)
+            {
+                conditionCount++;
+            }
+
+            void HandleSpell(in SpellResolvedEvent e)
+            {
+                lastSpell = e;
+            }
+        }
+
         private sealed class SpellExecutorContext : System.IDisposable
         {
             private readonly bool oldIgnoreLogs;

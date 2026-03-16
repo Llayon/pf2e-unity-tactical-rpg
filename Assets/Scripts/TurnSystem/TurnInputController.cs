@@ -245,6 +245,15 @@ namespace PF2e.TurnSystem
             {
                 targetingController.BeginElectricArcTargeting(
                     targets => actionExecutor.TryConfirmElectricArc(targets));
+                return;
+            }
+
+            if (actorData.KnowsSnowball && actionExecutor.TryBeginSnowball())
+            {
+                targetingController.BeginSnowballTargeting(
+                    targets => targets != null
+                        && targets.Count > 0
+                        && actionExecutor.TryConfirmSnowball(targets[0]));
             }
         }
 

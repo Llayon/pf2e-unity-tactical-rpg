@@ -27,6 +27,7 @@ namespace PF2e.Tests
                 caster,
                 actionCost: 2,
                 spellDc: 0,
+                spellAttackModifier: 0,
                 rolledDamage: 0,
                 targetOutcomes: new[]
                 {
@@ -35,7 +36,11 @@ namespace PF2e.Tests
                         shardCount: 2,
                         shardRolls: new[] { 2, 4 },
                         rolledDamage: 6,
+                        attackResult: null,
                         saveResult: null,
+                        appliedConditionType: null,
+                        appliedConditionValue: 0,
+                        appliedConditionRounds: 0,
                         resolvedDamage: 6,
                         appliedDamage: 6,
                         hpBefore: 10,
@@ -91,6 +96,7 @@ namespace PF2e.Tests
                 caster,
                 actionCost: 2,
                 spellDc: 17,
+                spellAttackModifier: 0,
                 rolledDamage: 5,
                 targetOutcomes: new[]
                 {
@@ -99,7 +105,11 @@ namespace PF2e.Tests
                         shardCount: 0,
                         shardRolls: null,
                         rolledDamage: 5,
+                        attackResult: null,
                         saveResult: save,
+                        appliedConditionType: null,
+                        appliedConditionValue: 0,
+                        appliedConditionRounds: 0,
                         resolvedDamage: 5,
                         appliedDamage: 5,
                         hpBefore: 10,
@@ -126,6 +136,70 @@ namespace PF2e.Tests
 
             void HandleLog(CombatLogEntry entry, CombatLogTooltipPayload? tooltipPayload)
             {
+                lastTooltip = tooltipPayload;
+            }
+        }
+
+        [Test]
+        public void Snowball_PublishesAttackBreakdownTooltip()
+        {
+            using var ctx = new SpellLogContext();
+
+            var caster = ctx.RegisterEntity("Wizard", Team.Player);
+            var target = ctx.RegisterEntity("Goblin", Team.Enemy);
+            var attack = new CheckResult(
+                new CheckRoll(14, 7, CheckSource.Custom("SPA")),
+                dc: 13,
+                degree: DegreeOfSuccess.Success);
+
+            var ev = new SpellResolvedEvent(
+                SpellId.Snowball,
+                caster,
+                actionCost: 2,
+                spellDc: 0,
+                spellAttackModifier: 7,
+                rolledDamage: 5,
+                targetOutcomes: new[]
+                {
+                    new SpellResolvedTargetOutcome(
+                        target,
+                        shardCount: 0,
+                        shardRolls: null,
+                        rolledDamage: 5,
+                        attackResult: attack,
+                        saveResult: null,
+                        appliedConditionType: ConditionType.SpeedPenalty,
+                        appliedConditionValue: 5,
+                        appliedConditionRounds: 1,
+                        resolvedDamage: 5,
+                        appliedDamage: 5,
+                        hpBefore: 10,
+                        hpAfter: 5,
+                        targetDefeated: false)
+                });
+
+            CombatLogEntry lastEntry = default;
+            CombatLogTooltipPayload? lastTooltip = null;
+            ctx.EventBus.OnLogEntryWithTooltip += HandleLog;
+            try
+            {
+                ctx.EventBus.PublishSpellResolved(in ev);
+
+                StringAssert.Contains("Snowball", Strip(lastEntry.Message));
+                StringAssert.Contains("speed", Strip(lastEntry.Message));
+                Assert.IsTrue(lastTooltip.HasValue);
+                StringAssert.Contains("spell attack +7", lastTooltip.Value.entries[0].body);
+                StringAssert.Contains("Success", lastTooltip.Value.entries[0].body);
+                StringAssert.Contains("speed -5 ft", lastTooltip.Value.entries[0].body);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntryWithTooltip -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry, CombatLogTooltipPayload? tooltipPayload)
+            {
+                lastEntry = entry;
                 lastTooltip = tooltipPayload;
             }
         }

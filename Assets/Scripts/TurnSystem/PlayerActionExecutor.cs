@@ -42,6 +42,8 @@ namespace PF2e.TurnSystem
         private RepositionCheckContext pendingRepositionContext;
         private readonly List<Vector3Int> pendingRepositionDestinations = new();
         private readonly List<ReactionOption> reactionBuffer = new(2);
+        private readonly ConditionService conditionService = new();
+        private readonly List<ConditionDelta> conditionDeltaBuffer = new(4);
         private IReactionDecisionPolicy reactionPolicy;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -223,6 +225,11 @@ namespace PF2e.TurnSystem
                     actor,
                     target,
                     SpellCatalog.Get(SpellId.ElectricArc)),
+
+                TargetingMode.Snowball => GetSpellTargetFailure(
+                    actor,
+                    target,
+                    SpellCatalog.Get(SpellId.Snowball)),
 
                 _ => TargetingFailureReason.ModeNotSupported
             };
@@ -1004,7 +1011,11 @@ namespace PF2e.TurnSystem
                     shardRolls.Length,
                     shardRolls,
                     rolledDamage,
+                    attackResult: null,
                     saveResult: null,
+                    appliedConditionType: null,
+                    appliedConditionValue: 0,
+                    appliedConditionRounds: 0,
                     resolvedDamage: rolledDamage,
                     appliedDamage: appliedDamage,
                     hpBefore: hpBefore,
@@ -1017,6 +1028,7 @@ namespace PF2e.TurnSystem
                 actor,
                 clampedActionCount,
                 spellDc: 0,
+                spellAttackModifier: 0,
                 rolledDamage: 0,
                 targetOutcomes: outcomes));
 
@@ -1121,7 +1133,11 @@ namespace PF2e.TurnSystem
                     shardCount: 0,
                     shardRolls: null,
                     rolledDamage: rolledDamage,
+                    attackResult: null,
                     saveResult: save,
+                    appliedConditionType: null,
+                    appliedConditionValue: 0,
+                    appliedConditionRounds: 0,
                     resolvedDamage: resolvedDamage,
                     appliedDamage: appliedDamage,
                     hpBefore: hpBefore,
@@ -1134,8 +1150,173 @@ namespace PF2e.TurnSystem
                 actor,
                 definition.minActionCost,
                 spellDc,
+                spellAttackModifier: 0,
                 rolledDamage,
                 outcomes));
+
+            executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = -1f;
+#endif
+            turnManager.CompleteActionWithCost(definition.minActionCost);
+            return true;
+        }
+
+        public bool TryBeginSnowball()
+        {
+            if (turnManager == null || entityManager == null)
+                return false;
+            if (!CanActNow())
+                return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return false;
+
+            var actorData = entityManager.Registry != null ? entityManager.Registry.Get(actor) : null;
+            if (actorData == null || !actorData.IsAlive || !actorData.KnowsSnowball)
+                return false;
+
+            return turnManager.ActionsRemaining >= SpellCatalog.Get(SpellId.Snowball).minActionCost;
+        }
+
+        public bool TryConfirmSnowball(EntityHandle target, IRng rng = null)
+        {
+            if (turnManager == null || entityManager == null || entityManager.Registry == null)
+                return false;
+            if (!CanActNow())
+                return false;
+            if (!target.IsValid)
+                return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return false;
+
+            var actorData = entityManager.Registry.Get(actor);
+            if (actorData == null || !actorData.IsAlive || !actorData.KnowsSnowball)
+                return false;
+
+            var definition = SpellCatalog.Get(SpellId.Snowball);
+            if (turnManager.ActionsRemaining < definition.minActionCost)
+                return false;
+            if (GetSpellTargetFailure(actor, target, definition) != TargetingFailureReason.None)
+                return false;
+
+            rng ??= UnityRng.Shared;
+
+            executingActor = actor;
+            turnManager.BeginActionExecution(actor, "Player.Snowball");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = Time.time;
+#endif
+
+            var targetData = entityManager.Registry.Get(target);
+            if (targetData == null || !targetData.IsAlive)
+            {
+                executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                executionStartTime = -1f;
+#endif
+                turnManager.ActionCompleted();
+                return false;
+            }
+
+            int spellAttackModifier = SpellcastingRules.ComputeWizardSpellAttackModifier(actorData);
+            var attackResult = CheckResolver.RollCheck(
+                spellAttackModifier,
+                targetData.EffectiveAC,
+                CheckSource.Custom("SPA"),
+                rng);
+
+            int rolledDamage = rng.RollDie(4) + rng.RollDie(4);
+            int resolvedDamage = attackResult.degree switch
+            {
+                DegreeOfSuccess.CriticalSuccess => rolledDamage * 2,
+                DegreeOfSuccess.Success => rolledDamage,
+                _ => 0
+            };
+
+            ConditionType? appliedConditionType = null;
+            int appliedConditionValue = 0;
+            int appliedConditionRounds = 0;
+            conditionDeltaBuffer.Clear();
+
+            if (attackResult.degree == DegreeOfSuccess.CriticalSuccess)
+            {
+                appliedConditionType = ConditionType.SpeedPenalty;
+                appliedConditionValue = 10;
+                appliedConditionRounds = 1;
+            }
+            else if (attackResult.degree == DegreeOfSuccess.Success)
+            {
+                appliedConditionType = ConditionType.SpeedPenalty;
+                appliedConditionValue = 5;
+                appliedConditionRounds = 1;
+            }
+
+            if (appliedConditionType.HasValue)
+            {
+                conditionService.AddOrRefresh(
+                    targetData,
+                    appliedConditionType.Value,
+                    appliedConditionValue,
+                    appliedConditionRounds,
+                    conditionDeltaBuffer);
+            }
+
+            bool canResolveReactions = turnManager != null && shieldBlockAction != null && EnsureReactionPolicy();
+            int hpBefore = Mathf.Max(0, targetData.CurrentHP);
+            int appliedDamage = 0;
+            if (resolvedDamage > 0)
+            {
+                appliedDamage = DamageApplicationService.ApplyDamage(
+                    actor,
+                    target,
+                    resolvedDamage,
+                    definition.damageType,
+                    definition.actionName,
+                    isCritical: attackResult.degree == DegreeOfSuccess.CriticalSuccess,
+                    entityManager,
+                    eventBus,
+                    initiativeOrder: canResolveReactions ? turnManager.InitiativeOrder : null,
+                    getEntity: canResolveReactions ? handle => entityManager.Registry.Get(handle) : null,
+                    canUseReaction: canResolveReactions ? handle => turnManager.CanUseReaction(handle) : null,
+                    reactionPolicy: canResolveReactions ? reactionPolicy : null,
+                    shieldBlockAction: canResolveReactions ? shieldBlockAction : null,
+                    reactionBuffer: canResolveReactions ? reactionBuffer : null,
+                    reactionPhase: ReactionTriggerPhase.PostHit,
+                    reactionOwnerTag: "PlayerActionExecutor.Snowball");
+            }
+
+            var outcomes = new[]
+            {
+                new SpellResolvedTargetOutcome(
+                    target,
+                    shardCount: 0,
+                    shardRolls: null,
+                    rolledDamage: rolledDamage,
+                    attackResult: attackResult,
+                    saveResult: null,
+                    appliedConditionType: appliedConditionType,
+                    appliedConditionValue: appliedConditionValue,
+                    appliedConditionRounds: appliedConditionRounds,
+                    resolvedDamage: resolvedDamage,
+                    appliedDamage: appliedDamage,
+                    hpBefore: hpBefore,
+                    hpAfter: Mathf.Max(0, targetData.CurrentHP),
+                    targetDefeated: !targetData.IsAlive)
+            };
+
+            eventBus?.PublishSpellResolved(new SpellResolvedEvent(
+                SpellId.Snowball,
+                actor,
+                definition.minActionCost,
+                spellDc: 0,
+                spellAttackModifier: spellAttackModifier,
+                rolledDamage: rolledDamage,
+                targetOutcomes: outcomes));
+            PublishConditionDeltas();
 
             executingActor = EntityHandle.None;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -1269,6 +1450,33 @@ namespace PF2e.TurnSystem
             eventBus?.PublishAidCleared(outcome.helper, outcome.ally, AidClearReason.Consumed);
 
             return outcome.appliedModifier;
+        }
+
+        private void PublishConditionDeltas()
+        {
+            if (conditionDeltaBuffer.Count <= 0)
+                return;
+
+            if (eventBus == null)
+            {
+                conditionDeltaBuffer.Clear();
+                return;
+            }
+
+            for (int i = 0; i < conditionDeltaBuffer.Count; i++)
+            {
+                var delta = conditionDeltaBuffer[i];
+                eventBus.PublishConditionChanged(
+                    delta.entity,
+                    delta.type,
+                    delta.changeType,
+                    delta.oldValue,
+                    delta.newValue,
+                    delta.oldRemainingRounds,
+                    delta.newRemainingRounds);
+            }
+
+            conditionDeltaBuffer.Clear();
         }
     }
 }

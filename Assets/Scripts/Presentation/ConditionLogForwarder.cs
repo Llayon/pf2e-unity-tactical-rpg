@@ -34,11 +34,11 @@ namespace PF2e.Presentation
             string msg = e.changeType switch
             {
                 ConditionChangeType.Added => CombatLogRichText.StatusAppliedSuffix(
-                    BuildConditionLabel(conditionName, valued, e.newValue)),
+                    BuildConditionLabel(e.conditionType, conditionName, valued, e.newValue)),
                 ConditionChangeType.Removed =>
                     CombatLogRichText.StatusRemovedSuffix(conditionName),
                 ConditionChangeType.ValueChanged => CombatLogRichText.StatusAppliedSuffix(
-                    BuildConditionLabel(conditionName, valued, e.newValue)),
+                    BuildConditionLabel(e.conditionType, conditionName, valued, e.newValue)),
                 ConditionChangeType.DurationChanged => e.newRemainingRounds >= 0
                     ? $"{conditionName} duration decreases to {e.newRemainingRounds}"
                     : $"{conditionName} duration changed",
@@ -48,8 +48,13 @@ namespace PF2e.Presentation
             eventBus.Publish(e.entity, msg, CombatLogCategory.Condition);
         }
 
-        private static string BuildConditionLabel(string conditionName, bool valued, int value)
+        private static string BuildConditionLabel(ConditionType type, string conditionName, bool valued, int value)
         {
+            if (type == ConditionType.SpeedPenalty && value > 0)
+            {
+                return $"{conditionName} {value} ft";
+            }
+
             if (valued && value > 0)
             {
                 return $"{conditionName} {value}";

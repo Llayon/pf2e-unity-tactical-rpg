@@ -259,6 +259,11 @@ namespace PF2e.Presentation
                         TargetingHintTone.Info,
                         $"Electric Arc: choose 1 or 2 visible creatures within 30 ft ({targetingController.ElectricArcSelectedTargetCount}/2 selected, Confirm/Esc)");
 
+                case TargetingMode.Snowball:
+                    return new TargetingHintMessage(
+                        TargetingHintTone.Info,
+                        $"Snowball: choose 1 visible creature within 30 ft ({targetingController.SnowballSelectedTargetCount}/1 selected, Confirm/Esc/Backspace)");
+
                 default:
                     return TargetingReasonFormatter.ForModeNoHover(mode, strikeIsRanged);
             }

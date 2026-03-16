@@ -159,6 +159,35 @@ namespace PF2e.Tests
             Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
         }
 
+        [Test]
+        public void Snowball_TargetSelection_RequiresExplicitConfirm()
+        {
+            using var ctx = new SpellTargetingContext();
+            var actor = ctx.RegisterEntity("Wizard", Team.Player);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(actor);
+
+            int confirmCalls = 0;
+            IReadOnlyList<EntityHandle> confirmedTargets = null;
+            ctx.Controller.BeginSnowballTargeting(
+                onConfirmed: targets =>
+                {
+                    confirmCalls++;
+                    confirmedTargets = new List<EntityHandle>(targets);
+                    return true;
+                });
+
+            Assert.AreEqual(TargetingResult.Success, ctx.Controller.TryConfirmEntity(enemy));
+            Assert.AreEqual(TargetingMode.Snowball, ctx.Controller.ActiveMode);
+            Assert.AreEqual(1, ctx.Controller.SnowballSelectedTargetCount);
+            Assert.AreEqual(0, confirmCalls);
+
+            Assert.IsTrue(ctx.Controller.TryConfirmSpellTargeting());
+            Assert.AreEqual(1, confirmCalls);
+            CollectionAssert.AreEqual(new[] { enemy }, confirmedTargets);
+            Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
+        }
+
         private sealed class SpellTargetingContext : System.IDisposable
         {
             private readonly bool oldIgnoreLogs;

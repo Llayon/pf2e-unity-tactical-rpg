@@ -28,6 +28,8 @@ namespace PF2e.Core
         public int ArmorClass;
         public int Speed;            // in feet (25, 30, etc.)
         public int SpeedCells => Speed / 5;
+        public int EffectiveSpeed => Mathf.Max(0, Speed - GetConditionValue(ConditionType.SpeedPenalty));
+        public int EffectiveSpeedCells => EffectiveSpeed / 5;
 
         // ─── Equipment & Proficiency (Phase 11 UNIFIED) ───
         public WeaponInstance EquippedWeapon;
@@ -94,6 +96,7 @@ namespace PF2e.Core
         public bool KnowsStandardShieldCantrip;
         public bool KnowsForceBarrage;
         public bool KnowsElectricArc;
+        public bool KnowsSnowball;
         public int GlassShieldCooldownRoundsRemaining;
         public int StandardShieldCooldownRoundsRemaining;
 
@@ -336,7 +339,7 @@ namespace PF2e.Core
             && !EquippedShield.IsEquipped;
 
         public bool KnowsAnyActionBarSpell =>
-            KnowsForceBarrage || KnowsElectricArc;
+            KnowsForceBarrage || KnowsElectricArc || KnowsSnowball;
 
         // ─── State Queries ───
         public bool IsAlive => CurrentHP > 0;

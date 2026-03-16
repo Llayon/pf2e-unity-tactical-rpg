@@ -23,7 +23,8 @@ namespace PF2e.TurnSystem
         ReadyStrike = 12, // explicit mode: choose enemy for readied strike trigger
         Jump = 13,       // explicit mode: choose landing cell
         ForceBarrage = 14,
-        ElectricArc = 15
+        ElectricArc = 15,
+        Snowball = 16
     }
 
     public enum TargetingResult
@@ -67,17 +68,19 @@ namespace PF2e.TurnSystem
         public TargetingMode ActiveMode { get; private set; } = TargetingMode.None;
         public bool IsRepositionSelectingCell => ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectCell;
         public bool IsRepositionSelectingTarget => ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectTarget;
-        public bool IsSpellTargetingActive => ActiveMode == TargetingMode.ForceBarrage || ActiveMode == TargetingMode.ElectricArc;
+        public bool IsSpellTargetingActive => ActiveMode == TargetingMode.ForceBarrage || ActiveMode == TargetingMode.ElectricArc || ActiveMode == TargetingMode.Snowball;
         public bool CanConfirmSpellTargeting => ActiveMode switch
         {
             TargetingMode.ForceBarrage => _onForceBarrageConfirmed != null && _forceBarrageTargets.Count > 0 && _forceBarrageTargets.Count <= _forceBarrageShardCount,
             TargetingMode.ElectricArc => _onElectricArcConfirmed != null && _electricArcTargets.Count > 0,
+            TargetingMode.Snowball => _onSnowballConfirmed != null && _snowballTargets.Count > 0,
             _ => false
         };
         public bool CanUndoSpellSelection => ActiveMode switch
         {
             TargetingMode.ForceBarrage => _forceBarrageTargets.Count > 0,
             TargetingMode.ElectricArc => _electricArcTargets.Count > 0,
+            TargetingMode.Snowball => _snowballTargets.Count > 0,
             _ => false
         };
         public int ForceBarrageAssignedShardCount => ActiveMode == TargetingMode.ForceBarrage ? _forceBarrageTargets.Count : 0;
@@ -86,8 +89,10 @@ namespace PF2e.TurnSystem
             ? Mathf.Max(0, _forceBarrageShardCount - _forceBarrageTargets.Count)
             : 0;
         public int ElectricArcSelectedTargetCount => ActiveMode == TargetingMode.ElectricArc ? _electricArcTargets.Count : 0;
+        public int SnowballSelectedTargetCount => ActiveMode == TargetingMode.Snowball ? _snowballTargets.Count : 0;
         public IReadOnlyList<EntityHandle> ForceBarrageAssignedTargets => _forceBarrageTargets;
         public IReadOnlyList<EntityHandle> ElectricArcSelectedTargets => _electricArcTargets;
+        public IReadOnlyList<EntityHandle> SnowballSelectedTargets => _snowballTargets;
         public event Action<TargetingMode> OnModeChanged;
 
         // Callbacks for explicit modes (BeginTargeting).
@@ -106,6 +111,9 @@ namespace PF2e.TurnSystem
         private Func<IReadOnlyList<EntityHandle>, bool> _onElectricArcConfirmed;
         private Action _onElectricArcCancelled;
         private readonly List<EntityHandle> _electricArcTargets = new(2);
+        private Func<IReadOnlyList<EntityHandle>, bool> _onSnowballConfirmed;
+        private Action _onSnowballCancelled;
+        private readonly List<EntityHandle> _snowballTargets = new(1);
         private RepositionPhase _repositionPhase = RepositionPhase.None;
 
 #if UNITY_EDITOR
@@ -165,6 +173,9 @@ namespace PF2e.TurnSystem
             _onElectricArcConfirmed = null;
             _onElectricArcCancelled = null;
             _electricArcTargets.Clear();
+            _onSnowballConfirmed = null;
+            _onSnowballCancelled = null;
+            _snowballTargets.Clear();
             _repositionPhase = mode == TargetingMode.Reposition ? RepositionPhase.SelectTarget : RepositionPhase.None;
             OnModeChanged?.Invoke(ActiveMode);
         }
@@ -188,6 +199,9 @@ namespace PF2e.TurnSystem
             _onElectricArcConfirmed = null;
             _onElectricArcCancelled = null;
             _electricArcTargets.Clear();
+            _onSnowballConfirmed = null;
+            _onSnowballCancelled = null;
+            _snowballTargets.Clear();
             _repositionPhase = RepositionPhase.None;
             OnModeChanged?.Invoke(ActiveMode);
         }
@@ -215,6 +229,9 @@ namespace PF2e.TurnSystem
             _onElectricArcConfirmed = null;
             _onElectricArcCancelled = null;
             _electricArcTargets.Clear();
+            _onSnowballConfirmed = null;
+            _onSnowballCancelled = null;
+            _snowballTargets.Clear();
             _repositionPhase = RepositionPhase.SelectTarget;
             OnModeChanged?.Invoke(ActiveMode);
         }
@@ -238,6 +255,9 @@ namespace PF2e.TurnSystem
             _onElectricArcConfirmed = null;
             _onElectricArcCancelled = null;
             _electricArcTargets.Clear();
+            _onSnowballConfirmed = null;
+            _onSnowballCancelled = null;
+            _snowballTargets.Clear();
             _repositionPhase = RepositionPhase.None;
             OnModeChanged?.Invoke(ActiveMode);
         }
@@ -260,6 +280,34 @@ namespace PF2e.TurnSystem
             _onElectricArcConfirmed = onConfirmed;
             _onElectricArcCancelled = onCancelled;
             _electricArcTargets.Clear();
+            _onSnowballConfirmed = null;
+            _onSnowballCancelled = null;
+            _snowballTargets.Clear();
+            _repositionPhase = RepositionPhase.None;
+            OnModeChanged?.Invoke(ActiveMode);
+        }
+
+        public void BeginSnowballTargeting(
+            Func<IReadOnlyList<EntityHandle>, bool> onConfirmed,
+            Action onCancelled = null)
+        {
+            ActiveMode = TargetingMode.Snowball;
+            _onEntityConfirmed = null;
+            _onCellConfirmed = null;
+            _onCancelled = null;
+            _onRepositionTargetConfirmed = null;
+            _onRepositionCellConfirmed = null;
+            _onRepositionCellCancelled = null;
+            _onForceBarrageConfirmed = null;
+            _onForceBarrageCancelled = null;
+            _forceBarrageTargets.Clear();
+            _forceBarrageShardCount = 0;
+            _onElectricArcConfirmed = null;
+            _onElectricArcCancelled = null;
+            _electricArcTargets.Clear();
+            _onSnowballConfirmed = onConfirmed;
+            _onSnowballCancelled = onCancelled;
+            _snowballTargets.Clear();
             _repositionPhase = RepositionPhase.None;
             OnModeChanged?.Invoke(ActiveMode);
         }
@@ -292,6 +340,18 @@ namespace PF2e.TurnSystem
 
                     return false;
 
+                case TargetingMode.Snowball:
+                    if (!CanConfirmSpellTargeting)
+                        return false;
+
+                    if (_onSnowballConfirmed.Invoke(_snowballTargets))
+                    {
+                        ClearTargeting();
+                        return true;
+                    }
+
+                    return false;
+
                 default:
                     return false;
             }
@@ -317,6 +377,14 @@ namespace PF2e.TurnSystem
                     OnModeChanged?.Invoke(ActiveMode);
                     return true;
 
+                case TargetingMode.Snowball:
+                    if (_snowballTargets.Count <= 0)
+                        return false;
+
+                    _snowballTargets.Clear();
+                    OnModeChanged?.Invoke(ActiveMode);
+                    return true;
+
                 default:
                     return false;
             }
@@ -331,6 +399,8 @@ namespace PF2e.TurnSystem
                 _onForceBarrageCancelled?.Invoke();
             else if (ActiveMode == TargetingMode.ElectricArc)
                 _onElectricArcCancelled?.Invoke();
+            else if (ActiveMode == TargetingMode.Snowball)
+                _onSnowballCancelled?.Invoke();
             else
                 _onCancelled?.Invoke();
             ClearTargeting();
@@ -410,6 +480,7 @@ namespace PF2e.TurnSystem
                 case TargetingMode.Jump:
                 case TargetingMode.ForceBarrage:
                 case TargetingMode.ElectricArc:
+                case TargetingMode.Snowball:
                     if (ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectCell)
                         return TargetingEvaluationResult.FromFailure(TargetingFailureReason.ModeNotSupported);
 
@@ -457,6 +528,18 @@ namespace PF2e.TurnSystem
 
                             OnModeChanged?.Invoke(ActiveMode);
                         }
+                        else if (ActiveMode == TargetingMode.Snowball)
+                        {
+                            if (_snowballTargets.Count == 1 && _snowballTargets[0] == handle)
+                                _snowballTargets.Clear();
+                            else
+                            {
+                                _snowballTargets.Clear();
+                                _snowballTargets.Add(handle);
+                            }
+
+                            OnModeChanged?.Invoke(ActiveMode);
+                        }
                         else
                         {
                             _onEntityConfirmed?.Invoke(handle);
@@ -486,6 +569,7 @@ namespace PF2e.TurnSystem
                 TargetingMode.Aid => ValidateAlly(handle),
                 TargetingMode.ForceBarrage => ValidateCreature(handle),
                 TargetingMode.ElectricArc => ValidateCreature(handle),
+                TargetingMode.Snowball => ValidateCreature(handle),
                 _ => ValidateEnemy(handle)
             };
             return result == TargetingResult.Success
@@ -670,6 +754,9 @@ namespace PF2e.TurnSystem
             _onElectricArcConfirmed = null;
             _onElectricArcCancelled = null;
             _electricArcTargets.Clear();
+            _onSnowballConfirmed = null;
+            _onSnowballCancelled = null;
+            _snowballTargets.Clear();
             _repositionPhase = RepositionPhase.None;
             if (modeChanged)
                 OnModeChanged?.Invoke(TargetingMode.None);
