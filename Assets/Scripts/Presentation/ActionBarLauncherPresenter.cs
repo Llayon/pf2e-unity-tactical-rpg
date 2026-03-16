@@ -18,6 +18,9 @@ namespace PF2e.Presentation
         private RectTransform strikePopupRect;
         private RectTransform tacticsPopupRect;
         private RectTransform castPopupRect;
+        private float strikePopupVerticalOffset = DefaultPopupVerticalOffset;
+        private float tacticsPopupVerticalOffset = DefaultPopupVerticalOffset;
+        private float castPopupVerticalOffset = DefaultPopupVerticalOffset;
 
         public bool StrikePopupOpen { get; private set; }
         public bool TacticsPopupOpen { get; private set; }
@@ -39,6 +42,24 @@ namespace PF2e.Presentation
             this.strikePopupRect = strikePopupRect;
             this.tacticsPopupRect = tacticsPopupRect;
             this.castPopupRect = castPopupRect;
+            strikePopupVerticalOffset = DefaultPopupVerticalOffset;
+            tacticsPopupVerticalOffset = DefaultPopupVerticalOffset;
+            castPopupVerticalOffset = DefaultPopupVerticalOffset;
+        }
+
+        public void SetStrikePopupVerticalOffset(float verticalOffset)
+        {
+            strikePopupVerticalOffset = Mathf.Max(0f, verticalOffset);
+        }
+
+        public void SetTacticsPopupVerticalOffset(float verticalOffset)
+        {
+            tacticsPopupVerticalOffset = Mathf.Max(0f, verticalOffset);
+        }
+
+        public void SetCastPopupVerticalOffset(float verticalOffset)
+        {
+            castPopupVerticalOffset = Mathf.Max(0f, verticalOffset);
         }
 
         public void ToggleStrikePopup()
@@ -108,14 +129,15 @@ namespace PF2e.Presentation
             float minY = canvasCornersBuffer[0].y + padding;
             float maxY = canvasCornersBuffer[1].y - padding;
 
-            LayoutAndClampPopupRect(strikePopupRect, strikeLauncherRect, minX, maxX, minY, maxY);
-            LayoutAndClampPopupRect(tacticsPopupRect, tacticsLauncherRect, minX, maxX, minY, maxY);
-            LayoutAndClampPopupRect(castPopupRect, castLauncherRect, minX, maxX, minY, maxY);
+            LayoutAndClampPopupRect(strikePopupRect, strikeLauncherRect, strikePopupVerticalOffset, minX, maxX, minY, maxY);
+            LayoutAndClampPopupRect(tacticsPopupRect, tacticsLauncherRect, tacticsPopupVerticalOffset, minX, maxX, minY, maxY);
+            LayoutAndClampPopupRect(castPopupRect, castLauncherRect, castPopupVerticalOffset, minX, maxX, minY, maxY);
         }
 
         private void LayoutAndClampPopupRect(
             RectTransform popupRect,
             RectTransform launcherRect,
+            float verticalOffset,
             float minX,
             float maxX,
             float minY,
@@ -127,21 +149,21 @@ namespace PF2e.Presentation
             if (launcherRect != null)
             {
                 EnsurePopupLayoutReady(popupRect);
-                bool placeAbove = SelectBestVerticalPlacement(popupRect, minY, maxY);
-                ApplyVerticalPlacement(popupRect, placeAbove, DefaultPopupVerticalOffset);
+                bool placeAbove = SelectBestVerticalPlacement(popupRect, verticalOffset, minY, maxY);
+                ApplyVerticalPlacement(popupRect, placeAbove, verticalOffset);
             }
 
             ClampPopupRect(popupRect, minX, maxX, minY, maxY);
         }
 
-        private bool SelectBestVerticalPlacement(RectTransform popupRect, float minY, float maxY)
+        private bool SelectBestVerticalPlacement(RectTransform popupRect, float verticalOffset, float minY, float maxY)
         {
-            ApplyVerticalPlacement(popupRect, placeAbove: true, DefaultPopupVerticalOffset);
+            ApplyVerticalPlacement(popupRect, placeAbove: true, verticalOffset);
             float overflowAbove = ComputeVerticalOverflow(popupRect, minY, maxY);
             if (overflowAbove <= 0f)
                 return true;
 
-            ApplyVerticalPlacement(popupRect, placeAbove: false, DefaultPopupVerticalOffset);
+            ApplyVerticalPlacement(popupRect, placeAbove: false, verticalOffset);
             float overflowBelow = ComputeVerticalOverflow(popupRect, minY, maxY);
             if (overflowBelow <= 0f)
                 return false;

@@ -173,6 +173,34 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void ForceBarrage_NoHover_ShowsRemainingShardsPrompt()
+        {
+            using var ctx = new TargetingHintTestContext();
+            var actor = ctx.RegisterEntity("Wizard", Team.Player);
+            ctx.SetCurrentActor(actor);
+
+            ctx.TargetingController.BeginForceBarrageTargeting(3, _ => false);
+
+            AssertVisible(ctx);
+            Assert.AreEqual("Force Barrage: choose visible creature within 120 ft (0/3 assigned, Confirm/Esc/Backspace)", ctx.HintTextValue);
+        }
+
+        [Test]
+        public void ElectricArc_NoHoverAfterOneSelection_ShowsSelectedCountPrompt()
+        {
+            using var ctx = new TargetingHintTestContext();
+            var actor = ctx.RegisterEntity("Wizard", Team.Player);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(actor);
+
+            ctx.TargetingController.BeginElectricArcTargeting(_ => false);
+            Assert.AreEqual(TargetingResult.Success, ctx.TargetingController.TryConfirmEntity(enemy));
+
+            AssertVisible(ctx);
+            Assert.AreEqual("Electric Arc: choose 1 or 2 visible creatures within 30 ft (1/2 selected, Confirm/Esc)", ctx.HintTextValue);
+        }
+
+        [Test]
         public void TurnEnded_HidesPanel()
         {
             using var ctx = new TargetingHintTestContext();

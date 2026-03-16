@@ -3,6 +3,8 @@ using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using TMPro;
 using System;
+using System.Collections.Generic;
+using System.Text;
 using PF2e.Core;
 using PF2e.Managers;
 using PF2e.TurnSystem;
@@ -39,6 +41,7 @@ namespace PF2e.Presentation
         [SerializeField] private RectTransform castSpellModeSelectorRoot;
         [SerializeField] private Button castSpellModeStandardButton;
         [SerializeField] private Button castSpellModeGlassButton;
+        [SerializeField] private GameObject targetingHintPanelRoot;
         [SerializeField] private Button raiseShieldButton;
         [SerializeField] private Button standButton;
 
@@ -79,6 +82,18 @@ namespace PF2e.Presentation
         [SerializeField] private Color castSpellModeTextColor = new Color(0.92f, 0.92f, 0.95f, 1f);
 
         private bool buttonListenersBound;
+        private bool spellPanelPinnedByActiveTargeting;
+        private RectTransform spellCastPanelContentRoot;
+        private RectTransform spellCastDetailRoot;
+        private TMP_Text spellCastTitleLabel;
+        private TMP_Text spellCastSummaryLabel;
+        private RectTransform spellCastActionCountRow;
+        private Button spellCastOneActionButton;
+        private Button spellCastTwoActionButton;
+        private Button spellCastThreeActionButton;
+        private RectTransform spellCastFooterRow;
+        private Button spellCastConfirmButton;
+        private Button spellCastCancelButton;
         private readonly ActionBarAvailabilityPolicy actionBarAvailabilityPolicy = new();
         private readonly ActionBarLauncherPresenter actionBarLauncherPresenter = new();
         private readonly AidPreparedIndicatorPresenter aidPreparedIndicatorPresenter = new();
@@ -87,6 +102,11 @@ namespace PF2e.Presentation
         private bool castSpellUiWiringWarned;
         private bool launcherLayoutWiringWarned;
         private bool strikePopupHeaderWiringWarned;
+        private const float LauncherPopupOffsetY = 18f;
+        private const float CastPopupSelectionOffsetY = 42f;
+        private const float CastPopupDetailOffsetY = 84f;
+        private const float StrikePopupMenuWidth = 156f;
+        private const float TacticsPopupMenuWidth = 148f;
 #if UNITY_EDITOR
         private void OnValidate()
         {
@@ -145,10 +165,12 @@ namespace PF2e.Presentation
         private void ValidateAndApplyUiWiring()
         {
             ResolveJumpUiReferences();
+            ResolveTargetingHintPanelReference();
             ValidateAidUiReferences();
             ApplyAidPreparedIndicatorStyle();
             ResolveCastSpellUiReferences();
             EnsureLauncherLayoutFallback();
+            EnsureSpellCastPanelUi();
             ConfigureLauncherPresenter();
             ApplyTypographyStyle();
 
@@ -183,6 +205,16 @@ namespace PF2e.Presentation
                 if (highlightTf != null)
                     jumpHighlight = highlightTf.GetComponent<Image>();
             }
+        }
+
+        private void ResolveTargetingHintPanelReference()
+        {
+            if (targetingHintPanelRoot != null)
+                return;
+
+            var hintTransform = transform.Find("TargetingHintPanel");
+            if (hintTransform != null)
+                targetingHintPanelRoot = hintTransform.gameObject;
         }
 
         private Button FindButtonByName(string buttonName)
@@ -281,6 +313,237 @@ namespace PF2e.Presentation
                 this);
         }
 
+        private void EnsureSpellCastPanelUi()
+        {
+            if (castSpellModeSelectorRoot == null)
+                return;
+
+            spellCastPanelContentRoot = ConfigureSpellCastPanelRoot(castSpellModeSelectorRoot, spellCastPanelContentRoot);
+
+            float selectionWidth = Mathf.Max(castPopupTileWidth, 248f);
+            ConfigurePopupTileLayout(castSpellModeStandardButton, selectionWidth);
+            ConfigurePopupTileLayout(castSpellModeGlassButton, selectionWidth);
+
+            if (castSpellModeStandardButton != null && castSpellModeStandardButton.transform.parent != spellCastPanelContentRoot)
+                castSpellModeStandardButton.transform.SetParent(spellCastPanelContentRoot, false);
+
+            if (castSpellModeGlassButton != null && castSpellModeGlassButton.transform.parent != spellCastPanelContentRoot)
+                castSpellModeGlassButton.transform.SetParent(spellCastPanelContentRoot, false);
+
+            if (spellCastDetailRoot != null)
+                return;
+
+            var detailGo = new GameObject(
+                "SpellCastDetailRoot",
+                typeof(RectTransform),
+                typeof(VerticalLayoutGroup),
+                typeof(LayoutElement));
+            detailGo.transform.SetParent(spellCastPanelContentRoot, false);
+            spellCastDetailRoot = detailGo.GetComponent<RectTransform>();
+            var detailLayout = detailGo.GetComponent<VerticalLayoutGroup>();
+            detailLayout.padding = new RectOffset(0, 0, 0, 0);
+            detailLayout.spacing = 8f;
+            detailLayout.childAlignment = TextAnchor.UpperLeft;
+            detailLayout.childControlWidth = true;
+            detailLayout.childControlHeight = true;
+            detailLayout.childForceExpandWidth = true;
+            detailLayout.childForceExpandHeight = false;
+            var detailElement = detailGo.GetComponent<LayoutElement>();
+            detailElement.preferredWidth = selectionWidth;
+            detailElement.minWidth = selectionWidth;
+            var detailFitter = detailGo.GetComponent<ContentSizeFitter>();
+            if (detailFitter == null)
+                detailFitter = detailGo.AddComponent<ContentSizeFitter>();
+            detailFitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            detailFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            spellCastTitleLabel = CreateSpellPanelLabel("Title", spellCastDetailRoot, TextAlignmentOptions.MidlineLeft, 16f);
+            spellCastSummaryLabel = CreateSpellPanelLabel("Summary", spellCastDetailRoot, TextAlignmentOptions.TopLeft, 12.5f);
+            spellCastSummaryLabel.enableWordWrapping = true;
+            if (spellCastSummaryLabel.TryGetComponent<LayoutElement>(out var summaryLayout))
+            {
+                summaryLayout.preferredHeight = 82f;
+                summaryLayout.minHeight = 72f;
+            }
+
+            spellCastActionCountRow = CreateSpellPanelRow("ActionCountRow", spellCastDetailRoot, spacing: 4f);
+            spellCastOneActionButton = CreateSpellPanelButton("OneActionButton", spellCastActionCountRow, "◆", preferredWidth: 48f);
+            spellCastTwoActionButton = CreateSpellPanelButton("TwoActionButton", spellCastActionCountRow, "◆◆", preferredWidth: 58f);
+            spellCastThreeActionButton = CreateSpellPanelButton("ThreeActionButton", spellCastActionCountRow, "◆◆◆", preferredWidth: 68f);
+
+            spellCastFooterRow = CreateSpellPanelRow("FooterRow", spellCastDetailRoot, spacing: 6f);
+            spellCastConfirmButton = CreateSpellPanelButton("ConfirmButton", spellCastFooterRow, "Confirm", preferredWidth: 92f);
+            spellCastCancelButton = CreateSpellPanelButton("CancelButton", spellCastFooterRow, "Cancel", preferredWidth: 92f);
+
+            SetSpellCastDetailVisible(false);
+        }
+
+        private static RectTransform ConfigureSpellCastPanelRoot(RectTransform root, RectTransform existingContentRoot)
+        {
+            if (root == null)
+                return existingContentRoot;
+
+            if (root.TryGetComponent<HorizontalLayoutGroup>(out var rootLayout))
+            {
+                rootLayout.enabled = true;
+                rootLayout.padding = new RectOffset(0, 0, 0, 0);
+                rootLayout.spacing = 0f;
+                rootLayout.childAlignment = TextAnchor.MiddleCenter;
+                rootLayout.childControlWidth = false;
+                rootLayout.childControlHeight = false;
+                rootLayout.childForceExpandWidth = false;
+                rootLayout.childForceExpandHeight = false;
+            }
+
+            var contentRoot = existingContentRoot;
+            if (contentRoot == null)
+            {
+                var existing = root.Find("SpellCastPanelContent") as RectTransform;
+                if (existing != null)
+                    contentRoot = existing;
+            }
+
+            if (contentRoot == null)
+            {
+                var contentGo = new GameObject(
+                    "SpellCastPanelContent",
+                    typeof(RectTransform),
+                    typeof(VerticalLayoutGroup),
+                    typeof(LayoutElement));
+                contentGo.transform.SetParent(root, false);
+                contentRoot = contentGo.GetComponent<RectTransform>();
+            }
+
+            var verticalLayout = contentRoot.GetComponent<VerticalLayoutGroup>();
+            if (verticalLayout == null)
+                verticalLayout = contentRoot.gameObject.AddComponent<VerticalLayoutGroup>();
+
+            var contentLayout = contentRoot.GetComponent<LayoutElement>();
+            if (contentLayout == null)
+                contentLayout = contentRoot.gameObject.AddComponent<LayoutElement>();
+
+            var contentFitter = contentRoot.GetComponent<ContentSizeFitter>();
+            if (contentFitter == null)
+                contentFitter = contentRoot.gameObject.AddComponent<ContentSizeFitter>();
+
+            verticalLayout.padding = new RectOffset(8, 8, 8, 8);
+            verticalLayout.spacing = 8f;
+            verticalLayout.childAlignment = TextAnchor.UpperCenter;
+            verticalLayout.childControlWidth = true;
+            verticalLayout.childControlHeight = true;
+            verticalLayout.childForceExpandWidth = true;
+            verticalLayout.childForceExpandHeight = false;
+
+            contentLayout.preferredWidth = 248f;
+            contentLayout.minWidth = 248f;
+            contentFitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            contentFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            return contentRoot;
+        }
+
+        private static RectTransform CreateSpellPanelRow(string name, Transform parent, float spacing)
+        {
+            var rowGo = new GameObject(
+                name,
+                typeof(RectTransform),
+                typeof(HorizontalLayoutGroup),
+                typeof(LayoutElement));
+            rowGo.transform.SetParent(parent, false);
+
+            var rowRect = rowGo.GetComponent<RectTransform>();
+            var rowLayout = rowGo.GetComponent<HorizontalLayoutGroup>();
+            rowLayout.padding = new RectOffset(0, 0, 0, 0);
+            rowLayout.spacing = spacing;
+            rowLayout.childAlignment = TextAnchor.MiddleLeft;
+            rowLayout.childControlWidth = true;
+            rowLayout.childControlHeight = true;
+            rowLayout.childForceExpandWidth = false;
+            rowLayout.childForceExpandHeight = false;
+
+            var rowElement = rowGo.GetComponent<LayoutElement>();
+            rowElement.preferredHeight = 28f;
+            rowElement.minHeight = 28f;
+            return rowRect;
+        }
+
+        private static TMP_Text CreateSpellPanelLabel(
+            string name,
+            Transform parent,
+            TextAlignmentOptions alignment,
+            float preferredHeight,
+            bool fillParent = false)
+        {
+            var labelGo = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI), typeof(LayoutElement));
+            labelGo.transform.SetParent(parent, false);
+
+            var labelRect = labelGo.GetComponent<RectTransform>();
+            if (fillParent)
+            {
+                labelRect.anchorMin = new Vector2(0f, 0f);
+                labelRect.anchorMax = new Vector2(1f, 1f);
+                labelRect.offsetMin = Vector2.zero;
+                labelRect.offsetMax = Vector2.zero;
+            }
+            else
+            {
+                labelRect.anchorMin = new Vector2(0f, 0.5f);
+                labelRect.anchorMax = new Vector2(1f, 0.5f);
+                labelRect.pivot = new Vector2(0.5f, 0.5f);
+                labelRect.sizeDelta = new Vector2(0f, preferredHeight);
+            }
+
+            var layout = labelGo.GetComponent<LayoutElement>();
+            layout.preferredHeight = preferredHeight;
+            layout.minHeight = preferredHeight;
+
+            var label = labelGo.GetComponent<TextMeshProUGUI>();
+            label.text = string.Empty;
+            label.alignment = alignment;
+            label.raycastTarget = false;
+            return label;
+        }
+
+        private Button CreateSpellPanelButton(string name, Transform parent, string labelText, float preferredWidth)
+        {
+            var buttonGo = new GameObject(
+                name,
+                typeof(RectTransform),
+                typeof(Image),
+                typeof(Button),
+                typeof(LayoutElement));
+            buttonGo.transform.SetParent(parent, false);
+
+            var layout = buttonGo.GetComponent<LayoutElement>();
+            layout.preferredWidth = preferredWidth;
+            layout.minWidth = preferredWidth;
+            layout.preferredHeight = 28f;
+            layout.minHeight = 28f;
+
+            var buttonRect = buttonGo.GetComponent<RectTransform>();
+            buttonRect.anchorMin = new Vector2(0f, 0.5f);
+            buttonRect.anchorMax = new Vector2(0f, 0.5f);
+            buttonRect.pivot = new Vector2(0.5f, 0.5f);
+            buttonRect.sizeDelta = new Vector2(preferredWidth, 28f);
+
+            var image = buttonGo.GetComponent<Image>();
+            image.color = castSpellModeUnselectedColor;
+            image.raycastTarget = true;
+
+            var button = buttonGo.GetComponent<Button>();
+            button.targetGraphic = image;
+
+            var label = CreateSpellPanelLabel(
+                "Label",
+                buttonGo.transform,
+                TextAlignmentOptions.Center,
+                preferredHeight: 28f,
+                fillParent: true);
+            label.text = labelText;
+
+            return button;
+        }
+
         private void EnsureLauncherLayoutFallback()
         {
             if (!useLauncherLayout)
@@ -321,7 +584,7 @@ namespace PF2e.Presentation
                 strikePopupRoot.anchorMin = new Vector2(0.5f, 1f);
                 strikePopupRoot.anchorMax = new Vector2(0.5f, 1f);
                 strikePopupRoot.pivot = new Vector2(0.5f, 0f);
-                strikePopupRoot.anchoredPosition = new Vector2(0f, 10f);
+                strikePopupRoot.anchoredPosition = new Vector2(0f, LauncherPopupOffsetY);
                 ConfigurePopupRootVisual(strikePopupRoot);
             }
 
@@ -331,7 +594,7 @@ namespace PF2e.Presentation
                 tacticsPopupRoot.anchorMin = new Vector2(0.5f, 1f);
                 tacticsPopupRoot.anchorMax = new Vector2(0.5f, 1f);
                 tacticsPopupRoot.pivot = new Vector2(0.5f, 0f);
-                tacticsPopupRoot.anchoredPosition = new Vector2(0f, 10f);
+                tacticsPopupRoot.anchoredPosition = new Vector2(0f, LauncherPopupOffsetY);
                 ConfigurePopupRootVisual(tacticsPopupRoot);
             }
 
@@ -350,7 +613,7 @@ namespace PF2e.Presentation
                 castSpellModeSelectorRoot.anchorMin = new Vector2(0.5f, 1f);
                 castSpellModeSelectorRoot.anchorMax = new Vector2(0.5f, 1f);
                 castSpellModeSelectorRoot.pivot = new Vector2(0.5f, 0f);
-                castSpellModeSelectorRoot.anchoredPosition = new Vector2(0f, 10f);
+                castSpellModeSelectorRoot.anchoredPosition = new Vector2(0f, CastPopupSelectionOffsetY);
                 ConfigurePopupRootVisual(castSpellModeSelectorRoot);
             }
 
@@ -367,7 +630,8 @@ namespace PF2e.Presentation
             ConfigurePopupTileLayout(castSpellModeStandardButton, castPopupTileWidth);
             ConfigurePopupTileLayout(castSpellModeGlassButton, castPopupTileWidth);
 
-            EnsureStrikePopupGroupHeaders();
+            ConfigureStrikePopupCompactMenu();
+            ConfigureTacticsPopupCompactMenu();
 
             if (standButton != null)
                 standButton.gameObject.SetActive(false);
@@ -382,6 +646,9 @@ namespace PF2e.Presentation
                 strikePopupRoot,
                 tacticsPopupRoot,
                 castSpellModeSelectorRoot);
+            actionBarLauncherPresenter.SetStrikePopupVerticalOffset(LauncherPopupOffsetY);
+            actionBarLauncherPresenter.SetTacticsPopupVerticalOffset(LauncherPopupOffsetY);
+            actionBarLauncherPresenter.SetCastPopupVerticalOffset(CastPopupSelectionOffsetY);
         }
 
         private static void ConfigurePopupRootVisual(RectTransform root)
@@ -432,6 +699,14 @@ namespace PF2e.Presentation
             ApplyButtonTypography(standButton);
             ApplyButtonTypography(tacticsLauncherButton);
             ApplyButtonTypography(strikePopupStrikeButton);
+            ApplyButtonTypography(spellCastOneActionButton);
+            ApplyButtonTypography(spellCastTwoActionButton);
+            ApplyButtonTypography(spellCastThreeActionButton);
+            ApplyButtonTypography(spellCastConfirmButton);
+            ApplyButtonTypography(spellCastCancelButton);
+
+            CombatUiTypography.ApplyTitle(spellCastTitleLabel, 16f, 0.1f, CombatUiPalette.HudButtonTextColor, FontStyles.Bold);
+            CombatUiTypography.ApplyBody(spellCastSummaryLabel, 12.5f, 0.08f, CombatUiPalette.HudButtonTextColor, lineSpacing: 4f);
 
             CombatUiTypography.ApplyButton(castSpellButtonLabel, 15.5f, 0.12f, CombatUiPalette.HudButtonTextColor);
         }
@@ -480,6 +755,137 @@ namespace PF2e.Presentation
             {
                 layoutElement.preferredHeight = Mathf.Max(24f, layoutElement.preferredHeight);
             }
+        }
+
+        private void ConfigureStrikePopupCompactMenu()
+        {
+            var contentRoot = EnsurePopupMenuContentRoot(strikePopupRoot, "StrikePopupMenuContent");
+            SetPopupElementVisible(strikePopupRoot != null ? strikePopupRoot.Find("AttacksHeader") as RectTransform : null, false);
+            SetPopupElementVisible(strikePopupRoot != null ? strikePopupRoot.Find("ManeuversHeader") as RectTransform : null, false);
+            SetPopupElementVisible(strikePopupRoot != null ? strikePopupRoot.Find("ReadyModeMoveButton") as RectTransform : null, false);
+            SetPopupElementVisible(strikePopupRoot != null ? strikePopupRoot.Find("ReadyModeAttackButton") as RectTransform : null, false);
+            SetPopupElementVisible(strikePopupRoot != null ? strikePopupRoot.Find("ReadyModeAnyButton") as RectTransform : null, false);
+
+            MovePopupElementToContainer(strikePopupStrikeButton != null ? strikePopupStrikeButton.transform as RectTransform : null, contentRoot);
+            MovePopupElementToContainer(tripButton != null ? tripButton.transform as RectTransform : null, contentRoot);
+            MovePopupElementToContainer(shoveButton != null ? shoveButton.transform as RectTransform : null, contentRoot);
+            MovePopupElementToContainer(grappleButton != null ? grappleButton.transform as RectTransform : null, contentRoot);
+            MovePopupElementToContainer(repositionButton != null ? repositionButton.transform as RectTransform : null, contentRoot);
+
+            ConfigurePopupTileLayout(strikePopupStrikeButton, StrikePopupMenuWidth);
+            ConfigurePopupTileLayout(tripButton, StrikePopupMenuWidth);
+            ConfigurePopupTileLayout(shoveButton, StrikePopupMenuWidth);
+            ConfigurePopupTileLayout(grappleButton, StrikePopupMenuWidth);
+            ConfigurePopupTileLayout(repositionButton, StrikePopupMenuWidth);
+
+            int siblingIndex = 0;
+            SetPopupSibling(strikePopupStrikeButton, siblingIndex++);
+            SetPopupSibling(tripButton, siblingIndex++);
+            SetPopupSibling(shoveButton, siblingIndex++);
+            SetPopupSibling(grappleButton, siblingIndex++);
+            SetPopupSibling(repositionButton, siblingIndex);
+        }
+
+        private void ConfigureTacticsPopupCompactMenu()
+        {
+            var contentRoot = EnsurePopupMenuContentRoot(tacticsPopupRoot, "TacticsPopupMenuContent");
+
+            MovePopupElementToContainer(demoralizeButton != null ? demoralizeButton.transform as RectTransform : null, contentRoot);
+            MovePopupElementToContainer(escapeButton != null ? escapeButton.transform as RectTransform : null, contentRoot);
+            MovePopupElementToContainer(aidButton != null ? aidButton.transform as RectTransform : null, contentRoot);
+
+            ConfigurePopupTileLayout(demoralizeButton, TacticsPopupMenuWidth);
+            ConfigurePopupTileLayout(escapeButton, TacticsPopupMenuWidth);
+            ConfigurePopupTileLayout(aidButton, TacticsPopupMenuWidth);
+
+            int siblingIndex = 0;
+            SetPopupSibling(demoralizeButton, siblingIndex++);
+            SetPopupSibling(escapeButton, siblingIndex++);
+            SetPopupSibling(aidButton, siblingIndex);
+        }
+
+        private static RectTransform EnsurePopupMenuContentRoot(RectTransform popupRoot, string contentName)
+        {
+            if (popupRoot == null)
+                return null;
+
+            var contentRoot = popupRoot.Find(contentName) as RectTransform;
+            if (contentRoot == null)
+            {
+                var contentGo = new GameObject(
+                    contentName,
+                    typeof(RectTransform),
+                    typeof(VerticalLayoutGroup),
+                    typeof(ContentSizeFitter),
+                    typeof(LayoutElement));
+                contentGo.transform.SetParent(popupRoot, false);
+                contentRoot = contentGo.GetComponent<RectTransform>();
+            }
+
+            if (popupRoot.TryGetComponent<HorizontalLayoutGroup>(out var rootLayout))
+            {
+                rootLayout.enabled = true;
+                rootLayout.padding = new RectOffset(0, 0, 0, 0);
+                rootLayout.spacing = 0f;
+                rootLayout.childAlignment = TextAnchor.MiddleCenter;
+                rootLayout.childControlWidth = false;
+                rootLayout.childControlHeight = false;
+                rootLayout.childForceExpandWidth = false;
+                rootLayout.childForceExpandHeight = false;
+            }
+
+            var verticalLayout = contentRoot.GetComponent<VerticalLayoutGroup>();
+            if (verticalLayout == null)
+                verticalLayout = contentRoot.gameObject.AddComponent<VerticalLayoutGroup>();
+
+            var contentFitter = contentRoot.GetComponent<ContentSizeFitter>();
+            if (contentFitter == null)
+                contentFitter = contentRoot.gameObject.AddComponent<ContentSizeFitter>();
+
+            var layoutElement = contentRoot.GetComponent<LayoutElement>();
+            if (layoutElement == null)
+                layoutElement = contentRoot.gameObject.AddComponent<LayoutElement>();
+
+            verticalLayout.enabled = true;
+            verticalLayout.padding = new RectOffset(6, 6, 6, 6);
+            verticalLayout.spacing = 4f;
+            verticalLayout.childAlignment = TextAnchor.UpperCenter;
+            verticalLayout.childControlWidth = true;
+            verticalLayout.childControlHeight = true;
+            verticalLayout.childForceExpandWidth = true;
+            verticalLayout.childForceExpandHeight = false;
+
+            contentFitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            contentFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            layoutElement.minWidth = 0f;
+            layoutElement.minHeight = 0f;
+            return contentRoot;
+        }
+
+        private static void MovePopupElementToContainer(RectTransform element, RectTransform container)
+        {
+            if (element == null || container == null || element.parent == container)
+                return;
+
+            element.SetParent(container, false);
+            element.localScale = Vector3.one;
+            element.localRotation = Quaternion.identity;
+        }
+
+        private static void SetPopupElementVisible(RectTransform rect, bool visible)
+        {
+            if (rect == null || rect.gameObject.activeSelf == visible)
+                return;
+
+            rect.gameObject.SetActive(visible);
+        }
+
+        private static void SetPopupSibling(Button button, int siblingIndex)
+        {
+            if (button == null)
+                return;
+
+            button.transform.SetSiblingIndex(siblingIndex);
         }
 
         private void EnsureStrikePopupGroupHeaders()
@@ -567,14 +973,11 @@ namespace PF2e.Presentation
             if (standButton != null)
                 SetButtonLabelText(standButton, "Stand [1]");
 
-            if (castSpellButton != null)
-                SetButtonLabelText(castSpellButton, "Cast v");
-            if (castSpellModeStandardButton != null)
-                SetButtonLabelText(castSpellModeStandardButton, "Shield [1]");
-            if (castSpellModeGlassButton != null)
-                SetButtonLabelText(castSpellModeGlassButton, "Glass Shield [1]");
             if (strikePopupStrikeButton != null)
                 SetButtonLabelText(strikePopupStrikeButton, "Strike [1][ATK]");
+
+            RefreshCastSpellModeButtonLabels();
+            RefreshCastSpellButtonLabel();
         }
 
         private static void SetButtonLabelText(Button button, string text)
@@ -657,6 +1060,9 @@ namespace PF2e.Presentation
             if (mouse == null || !mouse.leftButton.wasPressedThisFrame)
                 return;
 
+            if (targetingController != null && targetingController.IsSpellTargetingActive)
+                return;
+
             Vector2 screen = mouse.position.ReadValue();
             if (actionBarLauncherPresenter.IsPointInsideLauncherOrPopup(screen))
                 return;
@@ -700,6 +1106,11 @@ namespace PF2e.Presentation
             boundCount += BindButton(standButton, actionBarCommandCoordinator.OnStandClicked);
             boundCount += BindButton(tacticsLauncherButton, ToggleTacticsPopup);
             boundCount += BindButton(strikePopupStrikeButton, HandleStrikePopupStrikeClicked);
+            boundCount += BindButton(spellCastOneActionButton, () => HandleForceBarrageActionCountClicked(1));
+            boundCount += BindButton(spellCastTwoActionButton, () => HandleForceBarrageActionCountClicked(2));
+            boundCount += BindButton(spellCastThreeActionButton, () => HandleForceBarrageActionCountClicked(3));
+            boundCount += BindButton(spellCastConfirmButton, HandleSpellConfirmClicked);
+            boundCount += BindButton(spellCastCancelButton, HandleSpellCancelClicked);
 
             if (boundCount > 0)
                 buttonListenersBound = true;
@@ -739,7 +1150,15 @@ namespace PF2e.Presentation
                 return;
             }
 
+            if (targetingController != null && targetingController.IsSpellTargetingActive)
+            {
+                SetCastPopupVisible(true);
+                RefreshSpellCastPanelContent();
+                return;
+            }
+
             actionBarLauncherPresenter.ToggleCastPopup();
+            RefreshSpellCastPanelContent();
         }
 
         private void HandleStrikePopupStrikeClicked()
@@ -758,15 +1177,51 @@ namespace PF2e.Presentation
 
         private void HandleCastStandardPopupClicked()
         {
-            actionBarCommandCoordinator.OnCastSpellModeStandardClicked();
-            actionBarCommandCoordinator.OnCastSpellClicked();
-            CloseAllPopups();
+            if (!useLauncherLayout)
+            {
+                actionBarCommandCoordinator.OnCastSpellModeStandardClicked();
+                return;
+            }
+
+            actionBarCommandCoordinator.SelectSpell(SpellId.ForceBarrage);
+            int shardCapacity = Mathf.Clamp(turnManager != null ? turnManager.ActionsRemaining : 1, 1, 3);
+            if (actionBarCommandCoordinator.TryBeginForceBarrage(shardCapacity))
+                SetCastPopupVisible(true);
         }
 
         private void HandleCastGlassPopupClicked()
         {
-            actionBarCommandCoordinator.OnCastSpellModeGlassClicked();
-            actionBarCommandCoordinator.OnCastSpellClicked();
+            if (!useLauncherLayout)
+            {
+                actionBarCommandCoordinator.OnCastSpellModeGlassClicked();
+                return;
+            }
+
+            actionBarCommandCoordinator.SelectSpell(SpellId.ElectricArc);
+            if (actionBarCommandCoordinator.TryBeginElectricArc())
+                SetCastPopupVisible(true);
+        }
+
+        private void HandleForceBarrageActionCountClicked(int actionCount)
+        {
+            if (!useLauncherLayout)
+                return;
+        }
+
+        private void HandleSpellConfirmClicked()
+        {
+            if (targetingController != null && targetingController.IsSpellTargetingActive)
+            {
+                if (actionBarCommandCoordinator.TryConfirmSpellTargeting())
+                    CloseAllPopups();
+            }
+        }
+
+        private void HandleSpellCancelClicked()
+        {
+            if (targetingController != null && targetingController.IsSpellTargetingActive)
+                actionBarCommandCoordinator.CancelSpellTargeting();
+
             CloseAllPopups();
         }
 
@@ -842,12 +1297,14 @@ namespace PF2e.Presentation
             if (targetingController != null && targetingController.ActiveMode != TargetingMode.None)
                 targetingController.CancelTargeting();
 
+            spellPanelPinnedByActiveTargeting = false;
             SetCombatVisible(false);
             SetCastSpellUiVisible(false);
             SetAllInteractable(false);
             SetCastSpellModeButtonsInteractable(false);
             RefreshCastSpellModeButtonsVisual();
             RefreshCastSpellButtonLabel();
+            RefreshSpellCastPanelContent();
             ClearAllHighlights();
             aidPreparedIndicatorPresenter.Clear();
             RefreshAidPreparedIndicator();
@@ -863,10 +1320,12 @@ namespace PF2e.Presentation
             if (targetingController != null && targetingController.ActiveMode != TargetingMode.None)
                 targetingController.CancelTargeting();
 
+            spellPanelPinnedByActiveTargeting = false;
             SetAllInteractable(false);
             SetCastSpellModeButtonsInteractable(false);
             RefreshCastSpellModeButtonsVisual();
             RefreshCastSpellButtonLabel();
+            RefreshSpellCastPanelContent();
             ClearAllHighlights();
         }
 
@@ -899,6 +1358,21 @@ namespace PF2e.Presentation
 
         private void HandleModeChanged(TargetingMode mode)
         {
+            bool spellTargetingActive = mode == TargetingMode.ForceBarrage || mode == TargetingMode.ElectricArc;
+            if (useLauncherLayout)
+            {
+                if (spellTargetingActive)
+                {
+                    spellPanelPinnedByActiveTargeting = true;
+                    SetCastPopupVisible(true);
+                }
+                else if (spellPanelPinnedByActiveTargeting)
+                {
+                    spellPanelPinnedByActiveTargeting = false;
+                    SetCastPopupVisible(false);
+                }
+            }
+
             SetHighlight(strikeHighlight, mode == TargetingMode.Strike);
             SetHighlight(jumpHighlight, mode == TargetingMode.Jump);
             SetHighlight(tripHighlight, mode == TargetingMode.Trip);
@@ -908,7 +1382,7 @@ namespace PF2e.Presentation
             SetHighlight(demoralizeHighlight, mode == TargetingMode.Demoralize);
             SetHighlight(escapeHighlight, mode == TargetingMode.Escape);
             SetHighlight(aidHighlight, mode == TargetingMode.Aid);
-            SetHighlight(castSpellHighlight, false);
+            SetHighlight(castSpellHighlight, mode == TargetingMode.ForceBarrage || mode == TargetingMode.ElectricArc);
             SetHighlight(raiseShieldHighlight, false);
             SetHighlight(standHighlight, false);
 
@@ -926,12 +1400,14 @@ namespace PF2e.Presentation
                 SetCastSpellModeButtonsInteractable(false);
                 RefreshCastSpellModeButtonsVisual();
                 RefreshCastSpellButtonLabel();
+                RefreshSpellCastPanelContent();
                 RefreshAidPreparedIndicator();
                 return;
             }
 
             var actor = turnManager.CurrentEntity;
             var actorData = entityManager.Registry.Get(actor);
+            actionBarCommandCoordinator.SyncSpellSelection(actorData, turnManager.ActionsRemaining);
             SetCastSpellUiVisible(ShouldShowCastSpellUi(actorData));
 
             if (turnManager.IsDelayReturnWindowOpen || turnManager.IsDelayPlacementSelectionOpen)
@@ -941,6 +1417,7 @@ namespace PF2e.Presentation
                 SetCastSpellModeButtonsInteractable(false);
                 RefreshCastSpellModeButtonsVisual();
                 RefreshCastSpellButtonLabel();
+                RefreshSpellCastPanelContent();
                 RefreshAidPreparedIndicator();
                 return;
             }
@@ -956,6 +1433,7 @@ namespace PF2e.Presentation
                 SetCastSpellModeButtonsInteractable(false);
                 RefreshCastSpellModeButtonsVisual();
                 RefreshCastSpellButtonLabel();
+                RefreshSpellCastPanelContent();
                 RefreshAidPreparedIndicator();
                 return;
             }
@@ -964,16 +1442,22 @@ namespace PF2e.Presentation
 
             bool canAdjustCastSpellMode =
                 actorData != null &&
-                actorData.CanCastStandardShield &&
-                actorData.CanCastGlassShield &&
                 !actionExecutor.IsBusy &&
                 turnManager.IsPlayerTurn &&
+                (targetingController == null || !targetingController.IsSpellTargetingActive) &&
                 !turnManager.IsDelayPlacementSelectionOpen &&
                 !turnManager.IsDelayReturnWindowOpen;
-            SetCastSpellModeButtonsInteractable(canAdjustCastSpellMode);
+            bool canSelectForceBarrage = canAdjustCastSpellMode
+                && actionBarCommandCoordinator.CanSelectForceBarrage(actorData, turnManager.ActionsRemaining);
+            bool canSelectElectricArc = canAdjustCastSpellMode
+                && actionBarCommandCoordinator.CanSelectElectricArc(actorData, turnManager.ActionsRemaining);
+            SetCastSpellModeButtonsInteractable(canSelectForceBarrage || canSelectElectricArc);
+            SetInteractable(castSpellModeStandardButton, canSelectForceBarrage);
+            SetInteractable(castSpellModeGlassButton, canSelectElectricArc);
             RefreshCastSpellModeButtonsVisual();
 
             RefreshCastSpellButtonLabel();
+            RefreshSpellCastPanelContent();
             RefreshAidPreparedIndicator();
             ApplyStaticButtonLabels();
         }
@@ -1015,6 +1499,11 @@ namespace PF2e.Presentation
                 SetInteractable(aidButton, enabled);
                 SetInteractable(strikePopupStrikeButton, enabled);
                 SetInteractable(standButton, enabled);
+                SetInteractable(spellCastOneActionButton, enabled);
+                SetInteractable(spellCastTwoActionButton, enabled);
+                SetInteractable(spellCastThreeActionButton, enabled);
+                SetInteractable(spellCastConfirmButton, enabled);
+                SetInteractable(spellCastCancelButton, enabled);
             }
             else
             {
@@ -1032,6 +1521,11 @@ namespace PF2e.Presentation
                 SetInteractable(castSpellModeGlassButton, enabled);
                 SetInteractable(raiseShieldButton, enabled);
                 SetInteractable(standButton, enabled);
+                SetInteractable(spellCastOneActionButton, enabled);
+                SetInteractable(spellCastTwoActionButton, enabled);
+                SetInteractable(spellCastThreeActionButton, enabled);
+                SetInteractable(spellCastConfirmButton, enabled);
+                SetInteractable(spellCastCancelButton, enabled);
             }
         }
 
@@ -1062,11 +1556,8 @@ namespace PF2e.Presentation
                 SetInteractable(aidButton, availability.aidInteractable);
 
                 SetInteractable(castSpellButton, availability.castSpellInteractable);
-                SetInteractable(castSpellModeStandardButton, availability.castSpellInteractable);
-                SetInteractable(castSpellModeGlassButton, availability.castSpellInteractable);
 
-                bool guardInteractable = availability.raiseShieldInteractable || availability.castSpellInteractable;
-                SetInteractable(raiseShieldButton, guardInteractable);
+                SetInteractable(raiseShieldButton, availability.raiseShieldInteractable);
                 SetButtonVisible(raiseShieldButton, availability.guardVisible);
 
                 SetButtonVisible(standButton, availability.standVisible);
@@ -1162,12 +1653,21 @@ namespace PF2e.Presentation
             {
                 bool shouldBeVisible = castSpellButton != null && castSpellButton.gameObject.activeInHierarchy;
                 if (useLauncherLayout)
-                    shouldBeVisible = shouldBeVisible && actionBarLauncherPresenter.CastPopupOpen;
+                    shouldBeVisible = shouldBeVisible
+                        && (actionBarLauncherPresenter.CastPopupOpen
+                            || spellPanelPinnedByActiveTargeting
+                            || (targetingController != null && targetingController.IsSpellTargetingActive));
                 castSpellModeSelectorRoot.gameObject.SetActive(shouldBeVisible);
             }
 
-            SetInteractable(castSpellModeStandardButton, enabled);
-            SetInteractable(castSpellModeGlassButton, enabled);
+            bool showSelectionButtons = !useLauncherLayout || targetingController == null || !targetingController.IsSpellTargetingActive;
+            SetButtonVisible(castSpellModeStandardButton, showSelectionButtons);
+            SetButtonVisible(castSpellModeGlassButton, showSelectionButtons);
+            SetInteractable(castSpellModeStandardButton, enabled && showSelectionButtons);
+            SetInteractable(castSpellModeGlassButton, enabled && showSelectionButtons);
+
+            if (useLauncherLayout)
+                SetSpellCastDetailVisible(!showSelectionButtons && castSpellModeSelectorRoot != null && castSpellModeSelectorRoot.gameObject.activeSelf);
         }
 
         private void SetCastSpellUiVisible(bool visible)
@@ -1177,24 +1677,276 @@ namespace PF2e.Presentation
 
             if (castSpellModeSelectorRoot != null)
             {
-                bool modeRootVisible = visible && (!useLauncherLayout || actionBarLauncherPresenter.CastPopupOpen);
+                bool modeRootVisible = visible
+                    && (!useLauncherLayout
+                        || actionBarLauncherPresenter.CastPopupOpen
+                        || spellPanelPinnedByActiveTargeting
+                        || (targetingController != null && targetingController.IsSpellTargetingActive));
                 if (castSpellModeSelectorRoot.gameObject.activeSelf != modeRootVisible)
                     castSpellModeSelectorRoot.gameObject.SetActive(modeRootVisible);
             }
+        }
+
+        private void SetSpellCastDetailVisible(bool visible)
+        {
+            if (spellCastDetailRoot == null)
+                return;
+
+            if (spellCastDetailRoot.gameObject.activeSelf != visible)
+                spellCastDetailRoot.gameObject.SetActive(visible);
+        }
+
+        private void SetTargetingHintPanelVisible(bool visible)
+        {
+            if (targetingHintPanelRoot == null || targetingHintPanelRoot.activeSelf == visible)
+                return;
+
+            targetingHintPanelRoot.SetActive(visible);
+        }
+
+        private void UpdateSpellCastPanelPlacement(bool showDetailPanel)
+        {
+            if (castSpellModeSelectorRoot == null || castSpellButton == null)
+                return;
+
+            float verticalOffset = showDetailPanel ? CastPopupDetailOffsetY : CastPopupSelectionOffsetY;
+            castSpellModeSelectorRoot.SetParent(castSpellButton.transform, false);
+            castSpellModeSelectorRoot.anchorMin = new Vector2(0.5f, 1f);
+            castSpellModeSelectorRoot.anchorMax = new Vector2(0.5f, 1f);
+            castSpellModeSelectorRoot.pivot = new Vector2(0.5f, 0f);
+            castSpellModeSelectorRoot.anchoredPosition = new Vector2(0f, verticalOffset);
+            actionBarLauncherPresenter.SetCastPopupVerticalOffset(verticalOffset);
+        }
+
+        private void RefreshSpellCastPanelContent()
+        {
+            if (!useLauncherLayout)
+                return;
+
+            EnsureSpellCastPanelUi();
+
+            if (castSpellModeSelectorRoot != null
+                && targetingController != null
+                && targetingController.IsSpellTargetingActive
+                && !castSpellModeSelectorRoot.gameObject.activeSelf)
+            {
+                castSpellModeSelectorRoot.gameObject.SetActive(true);
+            }
+
+            bool rootVisible = castSpellModeSelectorRoot != null && castSpellModeSelectorRoot.gameObject.activeSelf;
+            bool spellTargetingActive = targetingController != null && targetingController.IsSpellTargetingActive;
+            bool showDetailPanel = spellTargetingActive;
+
+            SetButtonVisible(castSpellModeStandardButton, rootVisible && !showDetailPanel);
+            SetButtonVisible(castSpellModeGlassButton, rootVisible && !showDetailPanel);
+            SetSpellCastDetailVisible(rootVisible && showDetailPanel);
+            SetTargetingHintPanelVisible(!showDetailPanel);
+            UpdateSpellCastPanelPlacement(showDetailPanel);
+
+            if (spellCastPanelContentRoot != null)
+                LayoutRebuilder.ForceRebuildLayoutImmediate(spellCastPanelContentRoot);
+            if (castSpellModeSelectorRoot != null)
+                LayoutRebuilder.ForceRebuildLayoutImmediate(castSpellModeSelectorRoot);
+
+            if (!rootVisible || !showDetailPanel || spellCastTitleLabel == null || spellCastSummaryLabel == null)
+                return;
+
+            SpellId spellId = targetingController.ActiveMode == TargetingMode.ElectricArc
+                ? SpellId.ElectricArc
+                : SpellId.ForceBarrage;
+
+            switch (spellId)
+            {
+                case SpellId.ForceBarrage:
+                    RefreshForceBarrageSpellPanel();
+                    break;
+
+                case SpellId.ElectricArc:
+                    RefreshElectricArcSpellPanel();
+                    break;
+            }
+        }
+
+        private void RefreshForceBarrageSpellPanel()
+        {
+            if (spellCastTitleLabel == null || spellCastSummaryLabel == null || targetingController == null)
+                return;
+
+            int shardCapacity = Mathf.Max(1, targetingController.ForceBarrageShardCapacity);
+            int assignedShardCount = targetingController.ForceBarrageAssignedShardCount;
+
+            spellCastTitleLabel.text = "Force Barrage";
+            spellCastSummaryLabel.text = BuildForceBarrageSummary(shardCapacity);
+
+            if (spellCastActionCountRow != null && spellCastActionCountRow.gameObject.activeSelf)
+                spellCastActionCountRow.gameObject.SetActive(false);
+
+            SetButtonLabelText(
+                spellCastConfirmButton,
+                $"Confirm [{SpellCatalog.GetShortToken(SpellId.ForceBarrage, Mathf.Max(1, assignedShardCount))}]");
+            SetInteractable(spellCastConfirmButton, targetingController.CanConfirmSpellTargeting);
+            SetInteractable(spellCastCancelButton, true);
+        }
+
+        private void RefreshElectricArcSpellPanel()
+        {
+            if (spellCastTitleLabel == null || spellCastSummaryLabel == null || targetingController == null)
+                return;
+
+            spellCastTitleLabel.text = "Electric Arc";
+            spellCastSummaryLabel.text = BuildElectricArcSummary();
+
+            if (spellCastActionCountRow != null && spellCastActionCountRow.gameObject.activeSelf)
+                spellCastActionCountRow.gameObject.SetActive(false);
+
+            SetButtonLabelText(spellCastConfirmButton, $"Confirm [{SpellCatalog.GetShortToken(SpellId.ElectricArc)}]");
+            SetInteractable(spellCastConfirmButton, targetingController.CanConfirmSpellTargeting);
+            SetInteractable(spellCastCancelButton, true);
+        }
+
+        private void ApplySpellPanelSelectorState(Button button, bool selected, bool interactable)
+        {
+            ApplyCastSpellModeButtonVisual(button, selected);
+            SetInteractable(button, interactable);
+        }
+
+        private string BuildForceBarrageSummary(int shardCapacity)
+        {
+            int assignedShardCount = targetingController != null
+                ? targetingController.ForceBarrageAssignedShardCount
+                : 0;
+            var summary = new StringBuilder();
+            summary.Append("Range 120 ft. 1 shard per click.");
+            summary.Append('\n');
+            summary.Append(assignedShardCount);
+            summary.Append('/');
+            summary.Append(shardCapacity);
+            summary.Append(" shards assigned.");
+
+            string allocationSummary = BuildGroupedTargetSummary(
+                targetingController != null ? targetingController.ForceBarrageAssignedTargets : null,
+                "x");
+            if (!string.IsNullOrEmpty(allocationSummary))
+            {
+                summary.Append('\n');
+                summary.Append(allocationSummary);
+            }
+
+            if (assignedShardCount <= 0)
+                summary.Append("\nClick a creature to add the first shard.");
+            else if (assignedShardCount < shardCapacity)
+                summary.Append("\nKeep clicking to add shards, or Confirm now to spend the assigned actions.");
+            else
+                summary.Append("\nAll shards assigned. Confirm to cast or Esc to cancel.");
+
+            return summary.ToString();
+        }
+
+        private string BuildElectricArcSummary()
+        {
+            int selectedTargetCount = targetingController != null ? targetingController.ElectricArcSelectedTargetCount : 0;
+            var summary = new StringBuilder();
+            summary.Append("Range 30 ft. 2d4 electricity, basic Reflex.");
+            summary.Append('\n');
+            summary.Append(selectedTargetCount);
+            summary.Append("/2 targets selected.");
+
+            string targetSummary = BuildSelectedTargetList(targetingController != null ? targetingController.ElectricArcSelectedTargets : null);
+            if (!string.IsNullOrEmpty(targetSummary))
+            {
+                summary.Append('\n');
+                summary.Append(targetSummary);
+            }
+            else
+            {
+                summary.Append("\nChoose one or two visible creatures.");
+            }
+
+            if (selectedTargetCount > 0)
+                summary.Append("\nConfirm to cast or Esc to cancel.");
+
+            return summary.ToString();
+        }
+
+        private string BuildGroupedTargetSummary(IReadOnlyList<EntityHandle> targets, string countSeparator)
+        {
+            if (targets == null || targets.Count == 0)
+                return string.Empty;
+
+            var orderedNames = new List<string>(targets.Count);
+            var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (int i = 0; i < targets.Count; i++)
+            {
+                string targetName = ResolveEntityName(targets[i]);
+                if (counts.TryGetValue(targetName, out int currentCount))
+                {
+                    counts[targetName] = currentCount + 1;
+                    continue;
+                }
+
+                counts.Add(targetName, 1);
+                orderedNames.Add(targetName);
+            }
+
+            var summary = new StringBuilder();
+            for (int i = 0; i < orderedNames.Count; i++)
+            {
+                if (i > 0)
+                    summary.Append(", ");
+
+                string targetName = orderedNames[i];
+                summary.Append(targetName);
+                summary.Append(' ');
+                summary.Append(countSeparator);
+                summary.Append(counts[targetName]);
+            }
+
+            return summary.ToString();
+        }
+
+        private string BuildSelectedTargetList(IReadOnlyList<EntityHandle> targets)
+        {
+            if (targets == null || targets.Count == 0)
+                return string.Empty;
+
+            var summary = new StringBuilder();
+            for (int i = 0; i < targets.Count; i++)
+            {
+                if (i > 0)
+                    summary.Append(", ");
+
+                summary.Append(ResolveEntityName(targets[i]));
+            }
+
+            return summary.ToString();
+        }
+
+        private string ResolveEntityName(EntityHandle handle)
+        {
+            if (entityManager == null || entityManager.Registry == null || !handle.IsValid)
+                return "Unknown";
+
+            var data = entityManager.Registry.Get(handle);
+            if (data == null || string.IsNullOrWhiteSpace(data.Name))
+                return "Unknown";
+
+            return data.Name;
         }
 
         private static bool ShouldShowCastSpellUi(EntityData actorData)
         {
             return actorData != null
                 && actorData.IsAlive
-                && (actorData.KnowsStandardShieldCantrip || actorData.KnowsGlassShieldCantrip);
+                && actorData.KnowsAnyActionBarSpell;
         }
 
         private void RefreshCastSpellModeButtonsVisual()
         {
-            var mode = actionBarCommandCoordinator.CurrentCastShieldSpellMode;
-            ApplyCastSpellModeButtonVisual(castSpellModeStandardButton, mode == RaiseShieldSpellMode.Standard);
-            ApplyCastSpellModeButtonVisual(castSpellModeGlassButton, mode == RaiseShieldSpellMode.Glass);
+            RefreshCastSpellModeButtonLabels();
+
+            var selectedSpell = actionBarCommandCoordinator.CurrentSelectedSpell;
+            ApplyCastSpellModeButtonVisual(castSpellModeStandardButton, selectedSpell == SpellId.ForceBarrage);
+            ApplyCastSpellModeButtonVisual(castSpellModeGlassButton, selectedSpell == SpellId.ElectricArc);
         }
 
         private void ApplyCastSpellModeButtonVisual(Button button, bool selected)
@@ -1213,6 +1965,8 @@ namespace PF2e.Presentation
 
         private void RefreshCastSpellButtonLabel()
         {
+            string token = GetActiveSpellToken();
+
             if (useLauncherLayout)
             {
                 SetButtonLabelText(castSpellButton, "Cast v");
@@ -1222,8 +1976,45 @@ namespace PF2e.Presentation
             if (castSpellButtonLabel == null)
                 return;
 
-            string token = actionBarCommandCoordinator.CurrentCastShieldSpellMode.ToShortToken();
-            castSpellButtonLabel.text = $"Cast [{token}]";
+            string verb = targetingController != null && targetingController.IsSpellTargetingActive
+                ? "Confirm"
+                : "Cast";
+            castSpellButtonLabel.text = $"{verb} [{token}]";
+        }
+
+        private void RefreshCastSpellModeButtonLabels()
+        {
+            if (useLauncherLayout)
+            {
+                SetButtonLabelText(castSpellModeStandardButton, "Force Barrage [1-3]");
+                SetButtonLabelText(castSpellModeGlassButton, "Electric Arc [2]");
+                return;
+            }
+
+            int forceBarrageActionCount = actionBarCommandCoordinator.CurrentForceBarrageActionCount;
+            SetButtonLabelText(castSpellModeStandardButton, $"Force Barrage [{Mathf.Clamp(forceBarrageActionCount, 1, 3)}]");
+            SetButtonLabelText(castSpellModeGlassButton, "Electric Arc [2]");
+        }
+
+        private string GetActiveSpellToken()
+        {
+            if (targetingController != null)
+            {
+                switch (targetingController.ActiveMode)
+                {
+                    case TargetingMode.ForceBarrage:
+                        return SpellCatalog.GetShortToken(
+                            SpellId.ForceBarrage,
+                            Mathf.Max(1, targetingController.ForceBarrageShardCapacity));
+
+                    case TargetingMode.ElectricArc:
+                        return SpellCatalog.GetShortToken(SpellId.ElectricArc);
+                }
+            }
+
+            return SpellCatalog.GetShortToken(
+                actionBarCommandCoordinator.CurrentSelectedSpell,
+                actionBarCommandCoordinator.CurrentForceBarrageActionCount);
         }
 
     }

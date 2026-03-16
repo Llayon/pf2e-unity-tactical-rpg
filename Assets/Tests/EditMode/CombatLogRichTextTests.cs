@@ -72,5 +72,14 @@ namespace PF2e.Tests
             StringAssert.DoesNotContain(CombatUiPalette.DefeatedHex, rich);
             StringAssert.DoesNotContain("Lora SDF", rich);
         }
+
+        [Test]
+        public void DmgType_Electricity_UsesElectricityColor()
+        {
+            string rich = CombatLogRichText.DmgType(DamageType.Electricity);
+
+            StringAssert.Contains("Electricity", rich);
+            StringAssert.Contains(CombatUiPalette.ElectricityHex, rich);
+        }
     }
 }

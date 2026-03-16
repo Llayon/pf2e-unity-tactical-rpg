@@ -89,12 +89,14 @@ namespace PF2e.Tests
                 var background = GetPrivateField<Image>(slot, "background");
                 var duplicateBadgeRoot = GetPrivateField<GameObject>(slot, "duplicateBadgeRoot");
                 var frameImage = GetPrivateField<Image>(slot, "frameImage");
+                var expectedOffsetMin = GetVector2Field(slot, "enemyPortraitMaskOffsetMin");
+                var expectedOffsetMax = GetVector2Field(slot, "enemyPortraitMaskOffsetMax");
 
                 Assert.IsTrue(portraitImage.gameObject.activeSelf);
                 Assert.AreEqual(AspectRatioFitter.AspectMode.None, portraitAspectFitter.aspectMode);
                 Assert.IsFalse(portraitImage.preserveAspect);
-                Assert.AreEqual(Vector2.zero, portraitMaskRect.offsetMin);
-                Assert.AreEqual(Vector2.zero, portraitMaskRect.offsetMax);
+                Assert.AreEqual(expectedOffsetMin, portraitMaskRect.offsetMin);
+                Assert.AreEqual(expectedOffsetMax, portraitMaskRect.offsetMax);
                 Assert.Greater(frameImage.transform.GetSiblingIndex(), portraitMaskRect.transform.GetSiblingIndex());
                 Assert.IsFalse(nameText.gameObject.activeSelf);
                 Assert.IsTrue(hpBarFill.transform.parent.gameObject.activeSelf);
@@ -333,6 +335,13 @@ namespace PF2e.Tests
             var field = target.GetType().GetField(fieldName, InstanceNonPublic);
             Assert.IsNotNull(field, $"Missing field {fieldName} on {target.GetType().Name}.");
             return (float)field.GetValue(target);
+        }
+
+        private static Vector2 GetVector2Field(object target, string fieldName)
+        {
+            var field = target.GetType().GetField(fieldName, InstanceNonPublic);
+            Assert.IsNotNull(field, $"Missing field {fieldName} on {target.GetType().Name}.");
+            return (Vector2)field.GetValue(target);
         }
     }
 }

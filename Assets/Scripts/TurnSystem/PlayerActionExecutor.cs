@@ -214,6 +214,16 @@ namespace PF2e.TurnSystem
                     ? TargetingFailureReason.InvalidState
                     : aidAction.GetAidTargetFailure(actor, target),
 
+                TargetingMode.ForceBarrage => GetSpellTargetFailure(
+                    actor,
+                    target,
+                    SpellCatalog.Get(SpellId.ForceBarrage)),
+
+                TargetingMode.ElectricArc => GetSpellTargetFailure(
+                    actor,
+                    target,
+                    SpellCatalog.Get(SpellId.ElectricArc)),
+
                 _ => TargetingFailureReason.ModeNotSupported
             };
 
@@ -891,6 +901,250 @@ namespace PF2e.TurnSystem
             return true;
         }
 
+        public bool TryBeginForceBarrage(int actionCount)
+        {
+            if (turnManager == null || entityManager == null) return false;
+            if (!CanActNow()) return false;
+
+            int clampedActionCount = Mathf.Clamp(actionCount, 1, 3);
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid) return false;
+
+            var actorData = entityManager.Registry != null ? entityManager.Registry.Get(actor) : null;
+            if (actorData == null || !actorData.IsAlive || !actorData.KnowsForceBarrage) return false;
+
+            return turnManager.ActionsRemaining >= clampedActionCount;
+        }
+
+        public bool TryConfirmForceBarrage(IReadOnlyList<EntityHandle> targets, int actionCount, IRng rng = null)
+        {
+            if (turnManager == null || entityManager == null || entityManager.Registry == null) return false;
+            if (!CanActNow()) return false;
+
+            int clampedActionCount = Mathf.Clamp(actionCount, 1, 3);
+            if (targets == null || targets.Count != clampedActionCount) return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid) return false;
+
+            var actorData = entityManager.Registry.Get(actor);
+            if (actorData == null || !actorData.IsAlive || !actorData.KnowsForceBarrage) return false;
+            if (turnManager.ActionsRemaining < clampedActionCount) return false;
+
+            var definition = SpellCatalog.Get(SpellId.ForceBarrage);
+            for (int i = 0; i < targets.Count; i++)
+            {
+                if (GetSpellTargetFailure(actor, targets[i], definition) != TargetingFailureReason.None)
+                    return false;
+            }
+
+            rng ??= UnityRng.Shared;
+
+            executingActor = actor;
+            turnManager.BeginActionExecution(actor, "Player.ForceBarrage");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = Time.time;
+#endif
+
+            var groupedShardRolls = new Dictionary<EntityHandle, List<int>>(targets.Count);
+            for (int i = 0; i < targets.Count; i++)
+            {
+                if (!groupedShardRolls.TryGetValue(targets[i], out var shardRolls))
+                {
+                    shardRolls = new List<int>(clampedActionCount);
+                    groupedShardRolls.Add(targets[i], shardRolls);
+                }
+
+                shardRolls.Add(rng.RollDie(4) + 1);
+            }
+
+            bool canResolveReactions = turnManager != null && shieldBlockAction != null && EnsureReactionPolicy();
+            var outcomes = new SpellResolvedTargetOutcome[groupedShardRolls.Count];
+            int outcomeIndex = 0;
+
+            foreach (var pair in groupedShardRolls)
+            {
+                var targetData = entityManager.Registry.Get(pair.Key);
+                if (targetData == null || !targetData.IsAlive)
+                {
+                    executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                    executionStartTime = -1f;
+#endif
+                    turnManager.ActionCompleted();
+                    return false;
+                }
+
+                int[] shardRolls = pair.Value.ToArray();
+                int rolledDamage = 0;
+                for (int i = 0; i < shardRolls.Length; i++)
+                    rolledDamage += shardRolls[i];
+
+                int hpBefore = Mathf.Max(0, targetData.CurrentHP);
+                int appliedDamage = DamageApplicationService.ApplyDamage(
+                    actor,
+                    pair.Key,
+                    rolledDamage,
+                    definition.damageType,
+                    definition.actionName,
+                    isCritical: false,
+                    entityManager,
+                    eventBus,
+                    initiativeOrder: canResolveReactions ? turnManager.InitiativeOrder : null,
+                    getEntity: canResolveReactions ? handle => entityManager.Registry.Get(handle) : null,
+                    canUseReaction: canResolveReactions ? handle => turnManager.CanUseReaction(handle) : null,
+                    reactionPolicy: canResolveReactions ? reactionPolicy : null,
+                    shieldBlockAction: canResolveReactions ? shieldBlockAction : null,
+                    reactionBuffer: canResolveReactions ? reactionBuffer : null,
+                    reactionPhase: ReactionTriggerPhase.PostHit,
+                    reactionOwnerTag: "PlayerActionExecutor.ForceBarrage");
+
+                outcomes[outcomeIndex++] = new SpellResolvedTargetOutcome(
+                    pair.Key,
+                    shardRolls.Length,
+                    shardRolls,
+                    rolledDamage,
+                    saveResult: null,
+                    resolvedDamage: rolledDamage,
+                    appliedDamage: appliedDamage,
+                    hpBefore: hpBefore,
+                    hpAfter: Mathf.Max(0, targetData.CurrentHP),
+                    targetDefeated: !targetData.IsAlive);
+            }
+
+            eventBus?.PublishSpellResolved(new SpellResolvedEvent(
+                SpellId.ForceBarrage,
+                actor,
+                clampedActionCount,
+                spellDc: 0,
+                rolledDamage: 0,
+                targetOutcomes: outcomes));
+
+            executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = -1f;
+#endif
+            turnManager.CompleteActionWithCost(clampedActionCount);
+            return true;
+        }
+
+        public bool TryBeginElectricArc()
+        {
+            if (turnManager == null || entityManager == null) return false;
+            if (!CanActNow()) return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid) return false;
+
+            var actorData = entityManager.Registry != null ? entityManager.Registry.Get(actor) : null;
+            if (actorData == null || !actorData.IsAlive || !actorData.KnowsElectricArc) return false;
+
+            return turnManager.ActionsRemaining >= SpellCatalog.Get(SpellId.ElectricArc).minActionCost;
+        }
+
+        public bool TryConfirmElectricArc(IReadOnlyList<EntityHandle> targets, IRng rng = null)
+        {
+            if (turnManager == null || entityManager == null || entityManager.Registry == null) return false;
+            if (!CanActNow()) return false;
+            if (targets == null || targets.Count <= 0 || targets.Count > 2) return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid) return false;
+
+            var actorData = entityManager.Registry.Get(actor);
+            if (actorData == null || !actorData.IsAlive || !actorData.KnowsElectricArc) return false;
+
+            var definition = SpellCatalog.Get(SpellId.ElectricArc);
+            if (turnManager.ActionsRemaining < definition.minActionCost) return false;
+
+            for (int i = 0; i < targets.Count; i++)
+            {
+                if (GetSpellTargetFailure(actor, targets[i], definition) != TargetingFailureReason.None)
+                    return false;
+
+                for (int j = i + 1; j < targets.Count; j++)
+                {
+                    if (targets[i] == targets[j])
+                        return false;
+                }
+            }
+
+            rng ??= UnityRng.Shared;
+
+            executingActor = actor;
+            turnManager.BeginActionExecution(actor, "Player.ElectricArc");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = Time.time;
+#endif
+
+            int spellDc = SpellcastingRules.ComputeWizardSpellDc(actorData);
+            int rolledDamage = rng.RollDie(4) + rng.RollDie(4);
+            bool canResolveReactions = turnManager != null && shieldBlockAction != null && EnsureReactionPolicy();
+            var outcomes = new SpellResolvedTargetOutcome[targets.Count];
+
+            for (int i = 0; i < targets.Count; i++)
+            {
+                var targetData = entityManager.Registry.Get(targets[i]);
+                if (targetData == null || !targetData.IsAlive)
+                {
+                    executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                    executionStartTime = -1f;
+#endif
+                    turnManager.ActionCompleted();
+                    return false;
+                }
+
+                var save = CheckResolver.RollSave(targetData, SaveType.Reflex, spellDc, rng);
+                int resolvedDamage = CheckResolver.ApplyBasicSaveDamage(rolledDamage, save.degree);
+                int hpBefore = Mathf.Max(0, targetData.CurrentHP);
+                int appliedDamage = DamageApplicationService.ApplyDamage(
+                    actor,
+                    targets[i],
+                    resolvedDamage,
+                    definition.damageType,
+                    definition.actionName,
+                    isCritical: save.degree == DegreeOfSuccess.CriticalFailure,
+                    entityManager,
+                    eventBus,
+                    initiativeOrder: canResolveReactions ? turnManager.InitiativeOrder : null,
+                    getEntity: canResolveReactions ? handle => entityManager.Registry.Get(handle) : null,
+                    canUseReaction: canResolveReactions ? handle => turnManager.CanUseReaction(handle) : null,
+                    reactionPolicy: canResolveReactions ? reactionPolicy : null,
+                    shieldBlockAction: canResolveReactions ? shieldBlockAction : null,
+                    reactionBuffer: canResolveReactions ? reactionBuffer : null,
+                    reactionPhase: ReactionTriggerPhase.PostHit,
+                    reactionOwnerTag: "PlayerActionExecutor.ElectricArc");
+
+                outcomes[i] = new SpellResolvedTargetOutcome(
+                    targets[i],
+                    shardCount: 0,
+                    shardRolls: null,
+                    rolledDamage: rolledDamage,
+                    saveResult: save,
+                    resolvedDamage: resolvedDamage,
+                    appliedDamage: appliedDamage,
+                    hpBefore: hpBefore,
+                    hpAfter: Mathf.Max(0, targetData.CurrentHP),
+                    targetDefeated: !targetData.IsAlive);
+            }
+
+            eventBus?.PublishSpellResolved(new SpellResolvedEvent(
+                SpellId.ElectricArc,
+                actor,
+                definition.minActionCost,
+                spellDc,
+                rolledDamage,
+                outcomes));
+
+            executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = -1f;
+#endif
+            turnManager.CompleteActionWithCost(definition.minActionCost);
+            return true;
+        }
+
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         private void Update()
         {
@@ -915,6 +1169,47 @@ namespace PF2e.TurnSystem
             }
         }
 #endif
+
+        private TargetingFailureReason GetSpellTargetFailure(
+            EntityHandle actor,
+            EntityHandle target,
+            in SpellSliceDefinition definition)
+        {
+            if (!actor.IsValid || !target.IsValid)
+                return TargetingFailureReason.InvalidTarget;
+            if (entityManager == null || entityManager.Registry == null)
+                return TargetingFailureReason.InvalidState;
+
+            var actorData = entityManager.Registry.Get(actor);
+            var targetData = entityManager.Registry.Get(target);
+            if (actorData == null || targetData == null)
+                return TargetingFailureReason.InvalidTarget;
+            if (!actorData.IsAlive || !targetData.IsAlive)
+                return TargetingFailureReason.NotAlive;
+            if (actor == target)
+                return TargetingFailureReason.SelfTarget;
+            if (actorData.GridPosition.y != targetData.GridPosition.y)
+                return TargetingFailureReason.WrongElevation;
+
+            int distanceFeet = GridDistancePF2e.DistanceFeetXZ(actorData.GridPosition, targetData.GridPosition);
+            if (distanceFeet > definition.rangeFeet)
+                return TargetingFailureReason.OutOfRange;
+
+            if (!definition.requiresLineOfSight || entityManager.GridData == null)
+                return TargetingFailureReason.None;
+
+            var line = StrikeLineResolver.ResolveSameElevation(
+                entityManager.GridData,
+                entityManager.Occupancy,
+                actorData.GridPosition,
+                targetData.GridPosition,
+                actor,
+                target);
+
+            return line.hasLineOfSight
+                ? TargetingFailureReason.None
+                : TargetingFailureReason.NoLineOfSight;
+        }
 
         private void ResetPendingRepositionState(bool rollbackActionLock)
         {

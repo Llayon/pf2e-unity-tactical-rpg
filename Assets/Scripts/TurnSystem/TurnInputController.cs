@@ -128,11 +128,14 @@ namespace PF2e.TurnSystem
             if (kb.escapeKey.wasPressedThisFrame)
                 targetingController.CancelTargeting();
 
+            if (kb.backspaceKey.wasPressedThisFrame)
+                TryHandleSpellUndoShortcut();
+
             if (kb.rKey.wasPressedThisFrame)
                 actionExecutor.TryExecuteRaiseShield();
 
             if (kb.cKey.wasPressedThisFrame)
-                actionExecutor.TryExecuteCastShieldSpell(RaiseShieldSpellMode.Standard);
+                TryHandleCastSpellShortcut();
 
             if (kb.tKey.wasPressedThisFrame)
             {
@@ -203,6 +206,54 @@ namespace PF2e.TurnSystem
                 if (turnManager.IsPlayerTurn && !actionExecutor.IsBusy)
                     turnManager.CycleReadyTriggerMode();
             }
+
+            var mouse = Mouse.current;
+            if (mouse != null && mouse.rightButton.wasPressedThisFrame)
+                TryHandleSpellUndoShortcut();
+        }
+
+        private void TryHandleCastSpellShortcut()
+        {
+            if (targetingController == null || actionExecutor == null || turnManager == null)
+                return;
+
+            if (targetingController.IsSpellTargetingActive)
+            {
+                targetingController.TryConfirmSpellTargeting();
+                return;
+            }
+
+            if (!turnManager.IsPlayerTurn || actionExecutor.IsBusy || entityManager == null || entityManager.Registry == null)
+                return;
+
+            var actor = turnManager.CurrentEntity;
+            var actorData = actor.IsValid ? entityManager.Registry.Get(actor) : null;
+            if (actorData == null || !actorData.IsAlive)
+                return;
+
+            int maxForceBarrageActions = Mathf.Clamp(turnManager.ActionsRemaining, 1, 3);
+
+            if (actorData.KnowsForceBarrage && actionExecutor.TryBeginForceBarrage(1))
+            {
+                targetingController.BeginForceBarrageTargeting(
+                    maxForceBarrageActions,
+                    targets => actionExecutor.TryConfirmForceBarrage(targets, targets != null ? targets.Count : 0));
+                return;
+            }
+
+            if (actorData.KnowsElectricArc && actionExecutor.TryBeginElectricArc())
+            {
+                targetingController.BeginElectricArcTargeting(
+                    targets => actionExecutor.TryConfirmElectricArc(targets));
+            }
+        }
+
+        private void TryHandleSpellUndoShortcut()
+        {
+            if (targetingController == null || !targetingController.IsSpellTargetingActive)
+                return;
+
+            targetingController.TryUndoLastSpellSelection();
         }
     }
 }

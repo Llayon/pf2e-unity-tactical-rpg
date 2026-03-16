@@ -256,6 +256,37 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void ForceBarrage_NoHover_ReturnsSpellPrompt()
+        {
+            var msg = TargetingReasonFormatter.ForModeNoHover(TargetingMode.ForceBarrage);
+
+            Assert.AreEqual(TargetingHintTone.Info, msg.Tone);
+            Assert.AreEqual("Force Barrage: choose a visible creature within 120 ft", msg.Text);
+        }
+
+        [Test]
+        public void ForceBarrage_OutOfRange_ReturnsSpellRangeMessage()
+        {
+            var msg = TargetingReasonFormatter.ForPreview(
+                TargetingMode.ForceBarrage,
+                TargetingEvaluationResult.FromFailure(TargetingFailureReason.OutOfRange));
+
+            Assert.AreEqual(TargetingHintTone.Invalid, msg.Tone);
+            Assert.AreEqual("Force Barrage: target is out of range (120 ft)", msg.Text);
+        }
+
+        [Test]
+        public void ElectricArc_NoLineOfSight_ReturnsVisibleTargetMessage()
+        {
+            var msg = TargetingReasonFormatter.ForPreview(
+                TargetingMode.ElectricArc,
+                TargetingEvaluationResult.FromFailure(TargetingFailureReason.NoLineOfSight));
+
+            Assert.AreEqual(TargetingHintTone.Invalid, msg.Tone);
+            Assert.AreEqual("Electric Arc: target is not visible", msg.Text);
+        }
+
+        [Test]
         public void ModeNone_NoHover_ReturnsHidden()
         {
             var msg = TargetingReasonFormatter.ForModeNoHover(TargetingMode.None);

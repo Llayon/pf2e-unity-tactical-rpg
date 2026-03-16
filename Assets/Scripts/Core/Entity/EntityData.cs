@@ -92,6 +92,8 @@ namespace PF2e.Core
         public bool ReactionAvailable;
         public bool KnowsGlassShieldCantrip;
         public bool KnowsStandardShieldCantrip;
+        public bool KnowsForceBarrage;
+        public bool KnowsElectricArc;
         public int GlassShieldCooldownRoundsRemaining;
         public int StandardShieldCooldownRoundsRemaining;
 
@@ -332,6 +334,9 @@ namespace PF2e.Core
             && !StandardShieldRaised
             && !GlassShieldRaised
             && !EquippedShield.IsEquipped;
+
+        public bool KnowsAnyActionBarSpell =>
+            KnowsForceBarrage || KnowsElectricArc;
 
         // ─── State Queries ───
         public bool IsAlive => CurrentHP > 0;

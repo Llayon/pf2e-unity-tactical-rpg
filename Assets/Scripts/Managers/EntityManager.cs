@@ -35,6 +35,7 @@ namespace PF2e.Managers
         [Header("Entity Visuals")]
         [SerializeField] private float entityHeight = 1.6f;
         [SerializeField] private float entityRadius = 0.35f;
+        [SerializeField] private Material entityMaterialOverride;
 
         [SerializeField] private Color playerColor  = new Color(0.2f, 0.8f, 0.2f, 1f);
         [SerializeField] private Color enemyColor   = new Color(0.8f, 0.2f, 0.2f, 1f);
@@ -49,6 +50,7 @@ namespace PF2e.Managers
             = new Dictionary<EntityHandle, EntityView>();
 
         private readonly HashSet<EntityHandle> defeatedPublished = new HashSet<EntityHandle>();
+        private Material runtimeEntityMaterial;
 
         // ─── Selection ───
         public EntityHandle SelectedEntity { get; private set; }
@@ -154,9 +156,51 @@ private void OnValidate()
             float scaleXZ = entityRadius * 2f;
             go.transform.localScale = new Vector3(scaleXZ, scaleY, scaleXZ);
 
+            var renderer = go.GetComponent<MeshRenderer>();
+            var entityMaterial = GetOrCreateEntityMaterial();
+            if (renderer != null && entityMaterial != null)
+                renderer.sharedMaterial = entityMaterial;
+
             var view = go.AddComponent<EntityView>();
             view.Initialize(handle, GetTeamColor(data.Team));
             return view;
+        }
+
+        private Material GetOrCreateEntityMaterial()
+        {
+            if (entityMaterialOverride != null)
+                return entityMaterialOverride;
+
+            if (runtimeEntityMaterial != null)
+                return runtimeEntityMaterial;
+
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null)
+                shader = Shader.Find("Universal Render Pipeline/Simple Lit");
+            if (shader == null)
+                shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null)
+                shader = Shader.Find("Standard");
+
+            if (shader == null)
+            {
+                Debug.LogError("[EntityManager] Failed to resolve a runtime shader for entity visuals. Capsules may render magenta in build.", this);
+                return null;
+            }
+
+            runtimeEntityMaterial = new Material(shader)
+            {
+                name = "PF2e_RuntimeEntityMaterial"
+            };
+
+            if (runtimeEntityMaterial.HasProperty("_BaseColor"))
+                runtimeEntityMaterial.SetColor("_BaseColor", Color.white);
+            if (runtimeEntityMaterial.HasProperty("_Color"))
+                runtimeEntityMaterial.SetColor("_Color", Color.white);
+            if (runtimeEntityMaterial.HasProperty("_Surface"))
+                runtimeEntityMaterial.SetFloat("_Surface", 0f);
+
+            return runtimeEntityMaterial;
         }
 
         private void SpawnTestEntities()
@@ -229,6 +273,8 @@ private void OnValidate()
             };
             wizard.KnowsGlassShieldCantrip = true;
             wizard.KnowsStandardShieldCantrip = true;
+            wizard.KnowsForceBarrage = true;
+            wizard.KnowsElectricArc = true;
             wizard.Portrait = ResolvePortrait(wizard.EncounterActorId);
             CreateEntity(wizard, new Vector3Int(1, 0, 5));
 
@@ -417,6 +463,12 @@ public void HandleDeath(EntityHandle handle)
                     Destroy(kvp.Value.gameObject);
             }
             views.Clear();
+
+            if (runtimeEntityMaterial != null)
+            {
+                Destroy(runtimeEntityMaterial);
+                runtimeEntityMaterial = null;
+            }
         }
     }
 }

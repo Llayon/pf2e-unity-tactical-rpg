@@ -146,6 +146,43 @@ namespace PF2e.Tests
             }
         }
 
+        [Test]
+        public void DamageApplied_ForceBarrage_DoesNotPublishGenericDamageLine()
+        {
+            using var ctx = new DamageLogContext();
+
+            var source = ctx.RegisterEntity("Wizard", Team.Player);
+            var target = ctx.RegisterEntity("Goblin_1", Team.Enemy);
+
+            var ev = new DamageAppliedEvent(
+                source,
+                target,
+                amount: 7,
+                damageType: DamageType.Force,
+                sourceActionName: SpellCatalog.Get(SpellId.ForceBarrage).actionName,
+                isCritical: false,
+                hpBefore: 12,
+                hpAfter: 5,
+                targetDefeated: false);
+
+            int count = 0;
+            ctx.EventBus.OnLogEntry += HandleLog;
+            try
+            {
+                ctx.EventBus.PublishDamageApplied(in ev);
+                Assert.AreEqual(0, count);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry)
+            {
+                count++;
+            }
+        }
+
         private sealed class DamageLogContext : System.IDisposable
         {
             private readonly bool oldIgnoreLogs;

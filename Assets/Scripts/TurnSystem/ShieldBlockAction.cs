@@ -98,7 +98,7 @@ namespace PF2e.TurnSystem
 
             int dc = GlassShieldAction.ComputeReflexDc(reactorData);
             var save = CheckResolver.RollSave(breakerData, SaveType.Reflex, dc, UnityRng.Shared);
-            int finalDamage = ApplyBasicSave(rawDamage, save.degree);
+            int finalDamage = CheckResolver.ApplyBasicSaveDamage(rawDamage, save.degree);
 
             string breakerName = string.IsNullOrWhiteSpace(breakerData.Name)
                 ? $"Entity#{breaker.Id}"
@@ -131,21 +131,6 @@ namespace PF2e.TurnSystem
                 reactionBuffer: secondaryDamageReactionBuffer,
                 reactionPhase: ReactionTriggerPhase.PostHit,
                 reactionOwnerTag: "ShieldBlockAction.Shards");
-        }
-
-        private static int ApplyBasicSave(int damage, DegreeOfSuccess degree)
-        {
-            if (damage <= 0)
-                return 0;
-
-            return degree switch
-            {
-                DegreeOfSuccess.CriticalSuccess => 0,
-                DegreeOfSuccess.Success => damage / 2,
-                DegreeOfSuccess.Failure => damage,
-                DegreeOfSuccess.CriticalFailure => damage * 2,
-                _ => damage
-            };
         }
 
         private EntityData ResolveEntity(EntityHandle handle)

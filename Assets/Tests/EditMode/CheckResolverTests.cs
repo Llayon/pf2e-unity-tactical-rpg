@@ -303,6 +303,15 @@ namespace PF2e.Tests
             Assert.AreEqual(2, acPenalty);
         }
 
+        [Test]
+        public void ApplyBasicSaveDamage_MapsDegreesCorrectly()
+        {
+            Assert.AreEqual(0, CheckResolver.ApplyBasicSaveDamage(7, DegreeOfSuccess.CriticalSuccess));
+            Assert.AreEqual(3, CheckResolver.ApplyBasicSaveDamage(7, DegreeOfSuccess.Success));
+            Assert.AreEqual(7, CheckResolver.ApplyBasicSaveDamage(7, DegreeOfSuccess.Failure));
+            Assert.AreEqual(14, CheckResolver.ApplyBasicSaveDamage(7, DegreeOfSuccess.CriticalFailure));
+        }
+
 
         private static EntityData CreateEntity(
             int level = 1,

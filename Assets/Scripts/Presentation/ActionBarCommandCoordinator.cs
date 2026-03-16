@@ -1,5 +1,4 @@
 using System;
-using UnityEngine.InputSystem;
 using PF2e.Core;
 using PF2e.TurnSystem;
 
@@ -14,9 +13,11 @@ namespace PF2e.Presentation
         private TargetingController targetingController;
         private PlayerActionExecutor actionExecutor;
         private Action refreshAvailability;
-        private RaiseShieldSpellMode castShieldSpellMode = RaiseShieldSpellMode.Standard;
+        private SpellId selectedSpell = SpellId.ForceBarrage;
+        private int forceBarrageActionCount = 1;
 
-        public RaiseShieldSpellMode CurrentCastShieldSpellMode => castShieldSpellMode;
+        public SpellId CurrentSelectedSpell => selectedSpell;
+        public int CurrentForceBarrageActionCount => forceBarrageActionCount;
 
         public void Bind(
             TargetingController targetingController,
@@ -26,6 +27,50 @@ namespace PF2e.Presentation
             this.targetingController = targetingController;
             this.actionExecutor = actionExecutor;
             this.refreshAvailability = refreshAvailability;
+        }
+
+        public void SyncSpellSelection(EntityData actorData, int actionsRemaining)
+        {
+            if (actorData == null)
+            {
+                selectedSpell = SpellId.ForceBarrage;
+                forceBarrageActionCount = 1;
+                return;
+            }
+
+            int maxForceBarrageActions = Math.Clamp(actionsRemaining, 1, 3);
+            forceBarrageActionCount = Math.Clamp(forceBarrageActionCount, 1, maxForceBarrageActions);
+
+            bool forceBarrageAvailable = CanSelectForceBarrage(actorData, actionsRemaining);
+            bool electricArcAvailable = CanSelectElectricArc(actorData, actionsRemaining);
+
+            if (selectedSpell == SpellId.ElectricArc && !electricArcAvailable && forceBarrageAvailable)
+                selectedSpell = SpellId.ForceBarrage;
+            else if (selectedSpell == SpellId.ForceBarrage && !forceBarrageAvailable && electricArcAvailable)
+                selectedSpell = SpellId.ElectricArc;
+        }
+
+        public bool CanSelectForceBarrage(EntityData actorData, int actionsRemaining)
+        {
+            return actorData != null
+                && actorData.IsAlive
+                && actorData.KnowsForceBarrage
+                && actionsRemaining >= SpellCatalog.Get(SpellId.ForceBarrage).minActionCost;
+        }
+
+        public bool CanSelectElectricArc(EntityData actorData, int actionsRemaining)
+        {
+            return actorData != null
+                && actorData.IsAlive
+                && actorData.KnowsElectricArc
+                && actionsRemaining >= SpellCatalog.Get(SpellId.ElectricArc).minActionCost;
+        }
+
+        public bool HasAnyActionBarSpell(EntityData actorData)
+        {
+            return actorData != null
+                && actorData.IsAlive
+                && actorData.KnowsAnyActionBarSpell;
         }
 
         public void OnStrikeClicked()
@@ -94,44 +139,108 @@ namespace PF2e.Presentation
 
         public void OnCastSpellClicked()
         {
-            if (actionExecutor == null)
+            if (targetingController == null || actionExecutor == null)
                 return;
 
-            var kb = Keyboard.current;
-            bool shiftPressed = kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed);
-            if (shiftPressed)
+            if (targetingController.IsSpellTargetingActive)
             {
-                ToggleCastShieldSpellMode();
-                refreshAvailability?.Invoke();
+                targetingController.TryConfirmSpellTargeting();
                 return;
             }
 
-            actionExecutor.TryExecuteCastShieldSpell(castShieldSpellMode);
+            switch (selectedSpell)
+            {
+                case SpellId.ForceBarrage:
+                    if (!actionExecutor.TryBeginForceBarrage(forceBarrageActionCount))
+                        return;
+
+                    targetingController.BeginForceBarrageTargeting(
+                        forceBarrageActionCount,
+                        targets => actionExecutor.TryConfirmForceBarrage(targets, targets != null ? targets.Count : 0));
+                    return;
+
+                case SpellId.ElectricArc:
+                    if (!actionExecutor.TryBeginElectricArc())
+                        return;
+
+                    targetingController.BeginElectricArcTargeting(
+                        targets => actionExecutor.TryConfirmElectricArc(targets));
+                    return;
+            }
+        }
+
+        public bool TryBeginForceBarrage(int actionCount)
+        {
+            if (targetingController == null || actionExecutor == null)
+                return false;
+
+            forceBarrageActionCount = Math.Clamp(actionCount, 1, 3);
+            selectedSpell = SpellId.ForceBarrage;
+
+            if (!actionExecutor.TryBeginForceBarrage(forceBarrageActionCount))
+                return false;
+
+            targetingController.BeginForceBarrageTargeting(
+                forceBarrageActionCount,
+                targets => actionExecutor.TryConfirmForceBarrage(targets, targets != null ? targets.Count : 0));
+            refreshAvailability?.Invoke();
+            return true;
+        }
+
+        public bool TryBeginElectricArc()
+        {
+            if (targetingController == null || actionExecutor == null)
+                return false;
+
+            selectedSpell = SpellId.ElectricArc;
+
+            if (!actionExecutor.TryBeginElectricArc())
+                return false;
+
+            targetingController.BeginElectricArcTargeting(
+                targets => actionExecutor.TryConfirmElectricArc(targets));
+            refreshAvailability?.Invoke();
+            return true;
+        }
+
+        public bool TryConfirmSpellTargeting()
+        {
+            return targetingController != null
+                && targetingController.TryConfirmSpellTargeting();
+        }
+
+        public void CancelSpellTargeting()
+        {
+            targetingController?.CancelTargeting();
+        }
+
+        public void SelectSpell(SpellId spellId)
+        {
+            selectedSpell = spellId;
+            refreshAvailability?.Invoke();
+        }
+
+        public void SetForceBarrageActionCount(int actionCount)
+        {
+            forceBarrageActionCount = Math.Clamp(actionCount, 1, 3);
+            selectedSpell = SpellId.ForceBarrage;
+            refreshAvailability?.Invoke();
         }
 
         public void OnCastSpellModeStandardClicked()
         {
-            if (castShieldSpellMode == RaiseShieldSpellMode.Standard)
-                return;
+            if (selectedSpell == SpellId.ForceBarrage)
+                forceBarrageActionCount = forceBarrageActionCount >= 3 ? 1 : forceBarrageActionCount + 1;
+            else
+                selectedSpell = SpellId.ForceBarrage;
 
-            castShieldSpellMode = RaiseShieldSpellMode.Standard;
             refreshAvailability?.Invoke();
         }
 
         public void OnCastSpellModeGlassClicked()
         {
-            if (castShieldSpellMode == RaiseShieldSpellMode.Glass)
-                return;
-
-            castShieldSpellMode = RaiseShieldSpellMode.Glass;
+            selectedSpell = SpellId.ElectricArc;
             refreshAvailability?.Invoke();
-        }
-
-        private void ToggleCastShieldSpellMode()
-        {
-            castShieldSpellMode = castShieldSpellMode == RaiseShieldSpellMode.Standard
-                ? RaiseShieldSpellMode.Glass
-                : RaiseShieldSpellMode.Standard;
         }
 
         public void OnStandClicked()

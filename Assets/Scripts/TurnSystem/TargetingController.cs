@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using PF2e.Core;
 using PF2e.Managers;
@@ -20,7 +21,9 @@ namespace PF2e.TurnSystem
         HealSingle = 10, // future: ally
         Aid = 11,        // explicit mode: choose ally in reach
         ReadyStrike = 12, // explicit mode: choose enemy for readied strike trigger
-        Jump = 13        // explicit mode: choose landing cell
+        Jump = 13,       // explicit mode: choose landing cell
+        ForceBarrage = 14,
+        ElectricArc = 15
     }
 
     public enum TargetingResult
@@ -64,6 +67,27 @@ namespace PF2e.TurnSystem
         public TargetingMode ActiveMode { get; private set; } = TargetingMode.None;
         public bool IsRepositionSelectingCell => ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectCell;
         public bool IsRepositionSelectingTarget => ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectTarget;
+        public bool IsSpellTargetingActive => ActiveMode == TargetingMode.ForceBarrage || ActiveMode == TargetingMode.ElectricArc;
+        public bool CanConfirmSpellTargeting => ActiveMode switch
+        {
+            TargetingMode.ForceBarrage => _onForceBarrageConfirmed != null && _forceBarrageTargets.Count > 0 && _forceBarrageTargets.Count <= _forceBarrageShardCount,
+            TargetingMode.ElectricArc => _onElectricArcConfirmed != null && _electricArcTargets.Count > 0,
+            _ => false
+        };
+        public bool CanUndoSpellSelection => ActiveMode switch
+        {
+            TargetingMode.ForceBarrage => _forceBarrageTargets.Count > 0,
+            TargetingMode.ElectricArc => _electricArcTargets.Count > 0,
+            _ => false
+        };
+        public int ForceBarrageAssignedShardCount => ActiveMode == TargetingMode.ForceBarrage ? _forceBarrageTargets.Count : 0;
+        public int ForceBarrageShardCapacity => ActiveMode == TargetingMode.ForceBarrage ? _forceBarrageShardCount : 0;
+        public int ForceBarrageRemainingShardCount => ActiveMode == TargetingMode.ForceBarrage
+            ? Mathf.Max(0, _forceBarrageShardCount - _forceBarrageTargets.Count)
+            : 0;
+        public int ElectricArcSelectedTargetCount => ActiveMode == TargetingMode.ElectricArc ? _electricArcTargets.Count : 0;
+        public IReadOnlyList<EntityHandle> ForceBarrageAssignedTargets => _forceBarrageTargets;
+        public IReadOnlyList<EntityHandle> ElectricArcSelectedTargets => _electricArcTargets;
         public event Action<TargetingMode> OnModeChanged;
 
         // Callbacks for explicit modes (BeginTargeting).
@@ -75,6 +99,13 @@ namespace PF2e.TurnSystem
         private Func<EntityHandle, RepositionTargetSelectionResult> _onRepositionTargetConfirmed;
         private Func<Vector3Int, bool> _onRepositionCellConfirmed;
         private Action _onRepositionCellCancelled;
+        private Func<IReadOnlyList<EntityHandle>, bool> _onForceBarrageConfirmed;
+        private Action _onForceBarrageCancelled;
+        private readonly List<EntityHandle> _forceBarrageTargets = new(3);
+        private int _forceBarrageShardCount;
+        private Func<IReadOnlyList<EntityHandle>, bool> _onElectricArcConfirmed;
+        private Action _onElectricArcCancelled;
+        private readonly List<EntityHandle> _electricArcTargets = new(2);
         private RepositionPhase _repositionPhase = RepositionPhase.None;
 
 #if UNITY_EDITOR
@@ -127,6 +158,13 @@ namespace PF2e.TurnSystem
             _onRepositionTargetConfirmed = null;
             _onRepositionCellConfirmed = null;
             _onRepositionCellCancelled = null;
+            _onForceBarrageConfirmed = null;
+            _onForceBarrageCancelled = null;
+            _forceBarrageTargets.Clear();
+            _forceBarrageShardCount = 0;
+            _onElectricArcConfirmed = null;
+            _onElectricArcCancelled = null;
+            _electricArcTargets.Clear();
             _repositionPhase = mode == TargetingMode.Reposition ? RepositionPhase.SelectTarget : RepositionPhase.None;
             OnModeChanged?.Invoke(ActiveMode);
         }
@@ -143,6 +181,13 @@ namespace PF2e.TurnSystem
             _onRepositionTargetConfirmed = null;
             _onRepositionCellConfirmed = null;
             _onRepositionCellCancelled = null;
+            _onForceBarrageConfirmed = null;
+            _onForceBarrageCancelled = null;
+            _forceBarrageTargets.Clear();
+            _forceBarrageShardCount = 0;
+            _onElectricArcConfirmed = null;
+            _onElectricArcCancelled = null;
+            _electricArcTargets.Clear();
             _repositionPhase = RepositionPhase.None;
             OnModeChanged?.Invoke(ActiveMode);
         }
@@ -163,8 +208,118 @@ namespace PF2e.TurnSystem
             _onRepositionTargetConfirmed = onTargetConfirmed;
             _onRepositionCellConfirmed = onCellConfirmed;
             _onRepositionCellCancelled = onCellPhaseCancelled;
+            _onForceBarrageConfirmed = null;
+            _onForceBarrageCancelled = null;
+            _forceBarrageTargets.Clear();
+            _forceBarrageShardCount = 0;
+            _onElectricArcConfirmed = null;
+            _onElectricArcCancelled = null;
+            _electricArcTargets.Clear();
             _repositionPhase = RepositionPhase.SelectTarget;
             OnModeChanged?.Invoke(ActiveMode);
+        }
+
+        public void BeginForceBarrageTargeting(
+            int shardCount,
+            Func<IReadOnlyList<EntityHandle>, bool> onConfirmed,
+            Action onCancelled = null)
+        {
+            ActiveMode = TargetingMode.ForceBarrage;
+            _onEntityConfirmed = null;
+            _onCellConfirmed = null;
+            _onCancelled = null;
+            _onRepositionTargetConfirmed = null;
+            _onRepositionCellConfirmed = null;
+            _onRepositionCellCancelled = null;
+            _onForceBarrageConfirmed = onConfirmed;
+            _onForceBarrageCancelled = onCancelled;
+            _forceBarrageTargets.Clear();
+            _forceBarrageShardCount = Mathf.Clamp(shardCount, 1, 3);
+            _onElectricArcConfirmed = null;
+            _onElectricArcCancelled = null;
+            _electricArcTargets.Clear();
+            _repositionPhase = RepositionPhase.None;
+            OnModeChanged?.Invoke(ActiveMode);
+        }
+
+        public void BeginElectricArcTargeting(
+            Func<IReadOnlyList<EntityHandle>, bool> onConfirmed,
+            Action onCancelled = null)
+        {
+            ActiveMode = TargetingMode.ElectricArc;
+            _onEntityConfirmed = null;
+            _onCellConfirmed = null;
+            _onCancelled = null;
+            _onRepositionTargetConfirmed = null;
+            _onRepositionCellConfirmed = null;
+            _onRepositionCellCancelled = null;
+            _onForceBarrageConfirmed = null;
+            _onForceBarrageCancelled = null;
+            _forceBarrageTargets.Clear();
+            _forceBarrageShardCount = 0;
+            _onElectricArcConfirmed = onConfirmed;
+            _onElectricArcCancelled = onCancelled;
+            _electricArcTargets.Clear();
+            _repositionPhase = RepositionPhase.None;
+            OnModeChanged?.Invoke(ActiveMode);
+        }
+
+        public bool TryConfirmSpellTargeting()
+        {
+            switch (ActiveMode)
+            {
+                case TargetingMode.ForceBarrage:
+                    if (!CanConfirmSpellTargeting)
+                        return false;
+
+                    if (_onForceBarrageConfirmed.Invoke(_forceBarrageTargets))
+                    {
+                        ClearTargeting();
+                        return true;
+                    }
+
+                    return false;
+
+                case TargetingMode.ElectricArc:
+                    if (!CanConfirmSpellTargeting)
+                        return false;
+
+                    if (_onElectricArcConfirmed.Invoke(_electricArcTargets))
+                    {
+                        ClearTargeting();
+                        return true;
+                    }
+
+                    return false;
+
+                default:
+                    return false;
+            }
+        }
+
+        public bool TryUndoLastSpellSelection()
+        {
+            switch (ActiveMode)
+            {
+                case TargetingMode.ForceBarrage:
+                    if (_forceBarrageTargets.Count <= 0)
+                        return false;
+
+                    _forceBarrageTargets.RemoveAt(_forceBarrageTargets.Count - 1);
+                    OnModeChanged?.Invoke(ActiveMode);
+                    return true;
+
+                case TargetingMode.ElectricArc:
+                    if (_electricArcTargets.Count <= 0)
+                        return false;
+
+                    _electricArcTargets.RemoveAt(_electricArcTargets.Count - 1);
+                    OnModeChanged?.Invoke(ActiveMode);
+                    return true;
+
+                default:
+                    return false;
+            }
         }
 
         /// <summary>Cancel targeting (Escape / turn end / combat end).</summary>
@@ -172,6 +327,10 @@ namespace PF2e.TurnSystem
         {
             if (ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectCell)
                 _onRepositionCellCancelled?.Invoke();
+            else if (ActiveMode == TargetingMode.ForceBarrage)
+                _onForceBarrageCancelled?.Invoke();
+            else if (ActiveMode == TargetingMode.ElectricArc)
+                _onElectricArcCancelled?.Invoke();
             else
                 _onCancelled?.Invoke();
             ClearTargeting();
@@ -249,6 +408,8 @@ namespace PF2e.TurnSystem
                 case TargetingMode.Reposition:
                 case TargetingMode.Aid:
                 case TargetingMode.Jump:
+                case TargetingMode.ForceBarrage:
+                case TargetingMode.ElectricArc:
                     if (ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectCell)
                         return TargetingEvaluationResult.FromFailure(TargetingFailureReason.ModeNotSupported);
 
@@ -277,7 +438,24 @@ namespace PF2e.TurnSystem
                                 default:
                                     // Stay in SelectTarget. Validation passed but callback rejected due to runtime state race.
                                     break;
-                            }
+                                }
+                        }
+                        else if (ActiveMode == TargetingMode.ForceBarrage)
+                        {
+                            if (_forceBarrageTargets.Count < _forceBarrageShardCount)
+                                _forceBarrageTargets.Add(handle);
+
+                            OnModeChanged?.Invoke(ActiveMode);
+                        }
+                        else if (ActiveMode == TargetingMode.ElectricArc)
+                        {
+                            int index = _electricArcTargets.IndexOf(handle);
+                            if (index >= 0)
+                                _electricArcTargets.RemoveAt(index);
+                            else if (_electricArcTargets.Count < 2)
+                                _electricArcTargets.Add(handle);
+
+                            OnModeChanged?.Invoke(ActiveMode);
                         }
                         else
                         {
@@ -303,9 +481,13 @@ namespace PF2e.TurnSystem
             }
 
             // Fallback for isolated tests that construct TargetingController without PlayerActionExecutor.
-            var result = ActiveMode == TargetingMode.Aid
-                ? ValidateAlly(handle)
-                : ValidateEnemy(handle);
+            var result = ActiveMode switch
+            {
+                TargetingMode.Aid => ValidateAlly(handle),
+                TargetingMode.ForceBarrage => ValidateCreature(handle),
+                TargetingMode.ElectricArc => ValidateCreature(handle),
+                _ => ValidateEnemy(handle)
+            };
             return result == TargetingResult.Success
                 ? TargetingEvaluationResult.Success()
                 : TargetingEvaluationResult.FromFailure(MapBasicResultToFailure(result));
@@ -444,6 +626,18 @@ namespace PF2e.TurnSystem
             return TargetingResult.Success;
         }
 
+        private TargetingResult ValidateCreature(EntityHandle handle)
+        {
+            var actor = turnManager.CurrentEntity;
+            var actorData = entityManager.Registry?.Get(actor);
+            var targetData = entityManager.Registry?.Get(handle);
+
+            if (targetData == null || actorData == null) return TargetingResult.InvalidTarget;
+            if (!targetData.IsAlive) return TargetingResult.NotAlive;
+            if (handle == actor) return TargetingResult.SelfTarget;
+            return TargetingResult.Success;
+        }
+
         private static TargetingFailureReason MapBasicResultToFailure(TargetingResult result)
         {
             return result switch
@@ -469,6 +663,13 @@ namespace PF2e.TurnSystem
             _onRepositionTargetConfirmed = null;
             _onRepositionCellConfirmed = null;
             _onRepositionCellCancelled = null;
+            _onForceBarrageConfirmed = null;
+            _onForceBarrageCancelled = null;
+            _forceBarrageTargets.Clear();
+            _forceBarrageShardCount = 0;
+            _onElectricArcConfirmed = null;
+            _onElectricArcCancelled = null;
+            _electricArcTargets.Clear();
             _repositionPhase = RepositionPhase.None;
             if (modeChanged)
                 OnModeChanged?.Invoke(TargetingMode.None);

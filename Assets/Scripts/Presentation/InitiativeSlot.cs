@@ -443,8 +443,23 @@ namespace PF2e.Presentation
             if (portraitMaskRect == null)
                 return;
 
-            portraitMaskRect.offsetMin = Vector2.zero;
-            portraitMaskRect.offsetMax = Vector2.zero;
+            switch (team)
+            {
+                case Team.Player:
+                    portraitMaskRect.offsetMin = playerPortraitMaskOffsetMin;
+                    portraitMaskRect.offsetMax = playerPortraitMaskOffsetMax;
+                    break;
+
+                case Team.Enemy:
+                    portraitMaskRect.offsetMin = enemyPortraitMaskOffsetMin;
+                    portraitMaskRect.offsetMax = enemyPortraitMaskOffsetMax;
+                    break;
+
+                default:
+                    portraitMaskRect.offsetMin = neutralPortraitMaskOffsetMin;
+                    portraitMaskRect.offsetMax = neutralPortraitMaskOffsetMax;
+                    break;
+            }
         }
 
         private void ApplyColors()

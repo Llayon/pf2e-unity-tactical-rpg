@@ -81,5 +81,20 @@ namespace PF2e.Core
 
             return RollCheck(roller.GetSaveModifier(save), dc, CheckSource.Save(save), rng);
         }
+
+        public static int ApplyBasicSaveDamage(int damage, DegreeOfSuccess degree)
+        {
+            if (damage <= 0)
+                return 0;
+
+            return degree switch
+            {
+                DegreeOfSuccess.CriticalSuccess => 0,
+                DegreeOfSuccess.Success => damage / 2,
+                DegreeOfSuccess.Failure => damage,
+                DegreeOfSuccess.CriticalFailure => damage * 2,
+                _ => damage
+            };
+        }
     }
 }

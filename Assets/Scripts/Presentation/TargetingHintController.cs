@@ -236,10 +236,32 @@ namespace PF2e.Presentation
             }
             else
             {
-                message = TargetingReasonFormatter.ForModeNoHover(mode, strikeIsRanged);
+                message = GetNoHoverMessage(mode, strikeIsRanged);
             }
 
             ApplyMessage(message);
+        }
+
+        private TargetingHintMessage GetNoHoverMessage(TargetingMode mode, bool strikeIsRanged)
+        {
+            if (targetingController == null)
+                return TargetingReasonFormatter.ForModeNoHover(mode, strikeIsRanged);
+
+            switch (mode)
+            {
+                case TargetingMode.ForceBarrage:
+                    return new TargetingHintMessage(
+                        TargetingHintTone.Info,
+                        $"Force Barrage: choose visible creature within 120 ft ({targetingController.ForceBarrageAssignedShardCount}/{targetingController.ForceBarrageShardCapacity} assigned, Confirm/Esc/Backspace)");
+
+                case TargetingMode.ElectricArc:
+                    return new TargetingHintMessage(
+                        TargetingHintTone.Info,
+                        $"Electric Arc: choose 1 or 2 visible creatures within 30 ft ({targetingController.ElectricArcSelectedTargetCount}/2 selected, Confirm/Esc)");
+
+                default:
+                    return TargetingReasonFormatter.ForModeNoHover(mode, strikeIsRanged);
+            }
         }
 
         private void ApplyMessage(TargetingHintMessage message)

@@ -4,6 +4,8 @@ namespace PF2e.Core
     {
         Bludgeoning,
         Piercing,
-        Slashing
+        Slashing,
+        Force,
+        Electricity
     }
 }

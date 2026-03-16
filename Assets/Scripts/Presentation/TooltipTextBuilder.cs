@@ -218,6 +218,56 @@ namespace PF2e.Presentation
             return sb.ToString();
         }
 
+        public static string ForceBarrageBreakdown(int actionCost, string[] targetLines)
+        {
+            var sb = new StringBuilder(384);
+            AppendSectionHeader(sb, "Force Barrage");
+            sb.Append('\n');
+            AppendContextLine(sb, $"{actionCost} action(s) • {actionCost} shard(s) • auto-hit");
+
+            if (targetLines != null && targetLines.Length > 0)
+            {
+                sb.Append('\n');
+                sb.Append('\n');
+                AppendSectionHeader(sb, "Targets");
+                for (int i = 0; i < targetLines.Length; i++)
+                {
+                    if (string.IsNullOrEmpty(targetLines[i]))
+                        continue;
+
+                    sb.Append('\n');
+                    sb.Append(BuildDescriptionText($"• {targetLines[i]}"));
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        public static string ElectricArcBreakdown(int spellDc, int rolledDamage, string[] targetLines)
+        {
+            var sb = new StringBuilder(384);
+            AppendSectionHeader(sb, "Electric Arc");
+            sb.Append('\n');
+            AppendContextLine(sb, $"2 actions • Reflex DC {spellDc} • rolled {rolledDamage} electricity");
+
+            if (targetLines != null && targetLines.Length > 0)
+            {
+                sb.Append('\n');
+                sb.Append('\n');
+                AppendSectionHeader(sb, "Targets");
+                for (int i = 0; i < targetLines.Length; i++)
+                {
+                    if (string.IsNullOrEmpty(targetLines[i]))
+                        continue;
+
+                    sb.Append('\n');
+                    sb.Append(BuildDescriptionText($"• {targetLines[i]}"));
+                }
+            }
+
+            return sb.ToString();
+        }
+
         public static string BuildResultExtendedBody(
             string coreBody,
             string ruleTitle,
@@ -319,6 +369,8 @@ namespace PF2e.Presentation
                 DamageType.Slashing => "Swords, axes, and monster claws deal slashing damage.",
                 DamageType.Piercing => "Puncturing and impaling attacks, including spears and monster bites, deal piercing damage.",
                 DamageType.Bludgeoning => "Hammers, clubs, fists, and crushing impacts deal bludgeoning damage.",
+                DamageType.Force => "Force damage is pure magical impact that strikes without relying on a weapon or element.",
+                DamageType.Electricity => "Electricity damage comes from lightning, shocks, and crackling magical arcs.",
                 _ => "Damage type description unavailable."
             };
         }

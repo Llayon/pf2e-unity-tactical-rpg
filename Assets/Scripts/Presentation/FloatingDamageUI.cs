@@ -44,6 +44,8 @@ namespace PF2e.Presentation
         [SerializeField] private Color slashingColor    = new Color(1f, 0.35f, 0.35f, 1f);
         [SerializeField] private Color piercingColor    = new Color(1f, 0.55f, 0.25f, 1f);
         [SerializeField] private Color bludgeoningColor = new Color(1f, 1f,    1f,    1f);
+        [SerializeField] private Color forceColor       = new Color(0.9f, 0.86f, 0.66f, 1f);
+        [SerializeField] private Color electricityColor = new Color(0.5f, 0.82f, 1f, 1f);
 
         [Header("Overrides")]
         [SerializeField] private Color critTint      = new Color(1f, 0.75f, 0.2f,  1f);
@@ -132,6 +134,8 @@ namespace PF2e.Presentation
                 case DamageType.Slashing:    return slashingColor;
                 case DamageType.Piercing:    return piercingColor;
                 case DamageType.Bludgeoning: return bludgeoningColor;
+                case DamageType.Force:       return forceColor;
+                case DamageType.Electricity: return electricityColor;
                 default:                     return bludgeoningColor;
             }
         }

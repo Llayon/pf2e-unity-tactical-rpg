@@ -88,13 +88,7 @@ namespace PF2e.TurnSystem
 
         public static int ComputeReflexDc(EntityData caster)
         {
-            if (caster == null)
-                return 10;
-
-            // MVP contract: until full spellcasting subsystem lands, use a deterministic proxy DC:
-            // 10 + level + trained(2) + INT mod.
-            int trainedBaseline = 2;
-            return 10 + Mathf.Max(0, caster.Level) + trainedBaseline + caster.IntMod;
+            return SpellcastingRules.ComputeWizardSpellDc(caster);
         }
 
         private static int ComputeHardnessForRank(int cantripRank)

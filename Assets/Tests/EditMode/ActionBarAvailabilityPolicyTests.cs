@@ -89,7 +89,7 @@ namespace PF2e.Tests
         }
 
         [Test]
-        public void BuildForActor_GlassShieldCantripAvailable_EnablesCastSpellSlot()
+        public void BuildForActor_ForceBarrageKnown_EnablesCastSpellSlot()
         {
             var policy = new ActionBarAvailabilityPolicy();
             var actor = new EntityData
@@ -97,20 +97,19 @@ namespace PF2e.Tests
                 Team = Team.Player,
                 CurrentHP = 10,
                 MaxHP = 10,
-                KnowsGlassShieldCantrip = true,
-                GlassShieldCooldownRoundsRemaining = 0
+                KnowsForceBarrage = true
             };
 
             var state = policy.BuildForActor(actor);
             Assert.IsFalse(state.raiseShieldInteractable);
             Assert.IsTrue(state.castSpellInteractable);
-            Assert.IsTrue(state.guardVisible);
+            Assert.IsFalse(state.guardVisible);
             Assert.IsTrue(state.jumpInteractable);
             Assert.IsFalse(state.standVisible);
         }
 
         [Test]
-        public void BuildForActor_StandardShieldCantripAvailable_EnablesCastSpellSlot()
+        public void BuildForActor_ElectricArcKnownWithTwoActions_EnablesCastSpellSlot()
         {
             var policy = new ActionBarAvailabilityPolicy();
             var actor = new EntityData
@@ -118,20 +117,19 @@ namespace PF2e.Tests
                 Team = Team.Player,
                 CurrentHP = 10,
                 MaxHP = 10,
-                KnowsStandardShieldCantrip = true,
-                StandardShieldCooldownRoundsRemaining = 0
+                KnowsElectricArc = true
             };
 
-            var state = policy.BuildForActor(actor);
+            var state = policy.BuildForActor(actor, actionsRemaining: 2);
             Assert.IsFalse(state.raiseShieldInteractable);
             Assert.IsTrue(state.castSpellInteractable);
-            Assert.IsTrue(state.guardVisible);
+            Assert.IsFalse(state.guardVisible);
             Assert.IsTrue(state.jumpInteractable);
             Assert.IsFalse(state.standVisible);
         }
 
         [Test]
-        public void BuildForActor_StandardShieldAlreadyRaised_DisablesCastSpellSlot()
+        public void BuildForActor_ElectricArcKnownWithOneAction_DisablesCastSpellSlot()
         {
             var policy = new ActionBarAvailabilityPolicy();
             var actor = new EntityData
@@ -139,21 +137,19 @@ namespace PF2e.Tests
                 Team = Team.Player,
                 CurrentHP = 10,
                 MaxHP = 10,
-                KnowsStandardShieldCantrip = true,
-                StandardShieldCooldownRoundsRemaining = 0
+                KnowsElectricArc = true
             };
-            Assert.IsTrue(actor.ActivateStandardShield(acBonus: 1, hardness: 5, maxHP: 1));
 
-            var state = policy.BuildForActor(actor);
+            var state = policy.BuildForActor(actor, actionsRemaining: 1);
             Assert.IsFalse(state.castSpellInteractable);
             Assert.IsFalse(state.raiseShieldInteractable);
-            Assert.IsTrue(state.guardVisible);
+            Assert.IsFalse(state.guardVisible);
             Assert.IsTrue(state.jumpInteractable);
             Assert.IsFalse(state.standVisible);
         }
 
         [Test]
-        public void BuildForActor_NoShieldAndNoShieldCantrips_HidesGuard()
+        public void BuildForActor_NoShieldAndNoActionBarSpells_HidesGuard()
         {
             var policy = new ActionBarAvailabilityPolicy();
             var actor = new EntityData
@@ -161,13 +157,12 @@ namespace PF2e.Tests
                 Team = Team.Player,
                 CurrentHP = 10,
                 MaxHP = 10,
-                EquippedShield = default,
-                KnowsStandardShieldCantrip = false,
-                KnowsGlassShieldCantrip = false
+                EquippedShield = default
             };
 
             var state = policy.BuildForActor(actor);
             Assert.IsFalse(state.guardVisible);
+            Assert.IsFalse(state.castSpellInteractable);
             Assert.IsTrue(state.jumpInteractable);
             Assert.IsFalse(state.standVisible);
         }

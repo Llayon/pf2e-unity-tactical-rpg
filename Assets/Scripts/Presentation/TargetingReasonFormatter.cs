@@ -80,6 +80,8 @@ namespace PF2e.Presentation
                 TargetingMode.Escape => "Escape: choose the creature grappling you",
                 TargetingMode.Aid => "Aid: choose an ally in reach",
                 TargetingMode.Jump => "Jump: choose a landing cell",
+                TargetingMode.ForceBarrage => "Force Barrage: choose a visible creature within 120 ft",
+                TargetingMode.ElectricArc => "Electric Arc: choose 1 or 2 visible creatures within 30 ft",
                 _ => "Choose a target"
             };
         }
@@ -98,6 +100,8 @@ namespace PF2e.Presentation
                 TargetingMode.Aid => "Aid: valid ally target",
                 TargetingMode.Jump => "Jump: valid destination",
                 TargetingMode.ReadyStrike => "Ready Strike: valid target",
+                TargetingMode.ForceBarrage => "Force Barrage: valid target (auto-hit force shard)",
+                TargetingMode.ElectricArc => "Electric Arc: valid target (basic Reflex)",
                 _ => "Valid target"
             };
         }
@@ -158,6 +162,10 @@ namespace PF2e.Presentation
                 TargetingFailureReason.NotAlive => $"{action}: target is not alive",
                 TargetingFailureReason.OutOfRange => mode == TargetingMode.Demoralize
                     ? "Demoralize: target is out of range (30 ft)"
+                    : mode == TargetingMode.ForceBarrage
+                        ? "Force Barrage: target is out of range (120 ft)"
+                    : mode == TargetingMode.ElectricArc
+                        ? "Electric Arc: target is out of range (30 ft)"
                     : mode == TargetingMode.Aid
                         ? "Aid: ally is out of reach"
                     : mode == TargetingMode.Strike
@@ -165,6 +173,10 @@ namespace PF2e.Presentation
                         : $"{action}: target is out of reach",
                 TargetingFailureReason.NoLineOfSight => mode == TargetingMode.Strike
                     ? "Strike: no line of sight"
+                    : mode == TargetingMode.ForceBarrage
+                        ? "Force Barrage: target is not visible"
+                    : mode == TargetingMode.ElectricArc
+                        ? "Electric Arc: target is not visible"
                     : $"{action}: no line of sight",
                 TargetingFailureReason.WrongElevation => $"{action}: target is on a different elevation",
                 TargetingFailureReason.TargetTooLarge => $"{action}: target is too large",
@@ -192,6 +204,8 @@ namespace PF2e.Presentation
                 TargetingMode.Demoralize => "Demoralize",
                 TargetingMode.Aid => "Aid",
                 TargetingMode.Jump => "Jump",
+                TargetingMode.ForceBarrage => "Force Barrage",
+                TargetingMode.ElectricArc => "Electric Arc",
                 _ => "Action"
             };
         }

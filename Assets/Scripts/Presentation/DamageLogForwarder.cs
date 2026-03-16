@@ -45,7 +45,17 @@ namespace PF2e.Presentation
 
         private void HandleDamageApplied(in DamageAppliedEvent e)
         {
-            if (e.amount <= 0) return;
+            if (e.amount <= 0)
+                return;
+
+            bool handledBySpellForwarder = SpellCatalog.IsSliceSpellActionName(e.sourceActionName);
+            if (handledBySpellForwarder)
+            {
+                if (e.targetDefeated)
+                    eventBus.Publish(e.target, CombatLogRichText.Defeated(), CombatLogCategory.Condition);
+
+                return;
+            }
 
             var targetData = entityManager.Registry != null ? entityManager.Registry.Get(e.target) : null;
             string rawTargetName = targetData?.Name ?? "Unknown";

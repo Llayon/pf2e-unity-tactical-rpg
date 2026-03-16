@@ -176,7 +176,7 @@ namespace PF2e.Tests
         }
 
         [Test]
-        public void RefreshAvailability_FighterWithoutShieldCantrips_HidesCastSpellUi()
+        public void RefreshAvailability_FighterWithoutActionBarSpells_HidesCastSpellUi()
         {
             using var ctx = new ActionBarTestContext();
             var actor = ctx.RegisterEntity("Fighter", Team.Player);
@@ -192,12 +192,12 @@ namespace PF2e.Tests
         }
 
         [Test]
-        public void RefreshAvailability_WizardWithShieldCantrips_ShowsCastSpellUi()
+        public void RefreshAvailability_WizardWithActionBarSpells_ShowsCastSpellUi()
         {
             using var ctx = new ActionBarTestContext();
             var actor = ctx.RegisterEntity("Wizard", Team.Player);
             ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
-            ctx.EnableBothShieldCantrips(actor);
+            ctx.EnableActionBarSpells(actor);
 
             ctx.RefreshAvailability();
 
@@ -209,27 +209,43 @@ namespace PF2e.Tests
         }
 
         [Test]
-        public void CastSpellModeGlass_Click_WithBothCantrips_CastsGlassShield()
+        public void CastSpellModeStandard_Click_CyclesForceBarrageActionCount()
         {
             using var ctx = new ActionBarTestContext();
             var actor = ctx.RegisterEntity("Wizard", Team.Player);
             ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
-            ctx.EnableBothShieldCantrips(actor);
+            ctx.EnableActionBarSpells(actor);
 
             ctx.RefreshAvailability();
             Assert.IsTrue(ctx.CastSpellButton.interactable);
-            Assert.IsTrue(ctx.CastSpellModeGlassButton.interactable);
             Assert.IsTrue(ctx.CastSpellModeStandardButton.interactable);
+            Assert.AreEqual("Cast [FBR1]", ctx.GetCastSpellButtonLabelText());
+
+            ctx.CastSpellModeStandardButton.onClick.Invoke();
+            Assert.AreEqual("Cast [FBR2]", ctx.GetCastSpellButtonLabelText());
+
+            ctx.CastSpellModeStandardButton.onClick.Invoke();
+            Assert.AreEqual("Cast [FBR3]", ctx.GetCastSpellButtonLabelText());
+
+            ctx.CastSpellModeStandardButton.onClick.Invoke();
+            Assert.AreEqual("Cast [FBR1]", ctx.GetCastSpellButtonLabelText());
+        }
+
+        [Test]
+        public void CastSpellModeGlass_Click_SelectsElectricArcAndUpdatesCastLabel()
+        {
+            using var ctx = new ActionBarTestContext();
+            var actor = ctx.RegisterEntity("Wizard", Team.Player);
+            ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
+            ctx.EnableActionBarSpells(actor);
+
+            ctx.RefreshAvailability();
+            Assert.IsTrue(ctx.CastSpellModeGlassButton.interactable);
 
             ctx.CastSpellModeGlassButton.onClick.Invoke();
-            Assert.AreEqual("Cast [GLS]", ctx.GetCastSpellButtonLabelText());
 
-            ctx.CastSpellButton.onClick.Invoke();
-
-            var data = ctx.Registry.Get(actor);
-            Assert.IsNotNull(data);
-            Assert.IsTrue(data.GlassShieldRaised, "Glass mode must cast Glass Shield when both cantrips are available.");
-            Assert.IsFalse(data.StandardShieldRaised);
+            Assert.AreEqual("Cast [ARC]", ctx.GetCastSpellButtonLabelText());
+            Assert.AreEqual(TargetingMode.None, ctx.TargetingController.ActiveMode);
         }
 
         [Test]
@@ -756,15 +772,12 @@ namespace PF2e.Tests
                 data.Conditions.Add(condition);
             }
 
-            public void EnableBothShieldCantrips(EntityHandle actor)
+            public void EnableActionBarSpells(EntityHandle actor)
             {
                 var data = Registry.Get(actor);
                 Assert.IsNotNull(data);
-                data.EquippedShield = default;
-                data.KnowsStandardShieldCantrip = true;
-                data.KnowsGlassShieldCantrip = true;
-                data.StandardShieldCooldownRoundsRemaining = 0;
-                data.GlassShieldCooldownRoundsRemaining = 0;
+                data.KnowsForceBarrage = true;
+                data.KnowsElectricArc = true;
             }
 
             public void RefreshAvailability()

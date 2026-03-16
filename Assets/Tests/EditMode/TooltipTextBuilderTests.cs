@@ -129,5 +129,41 @@ namespace PF2e.Tests
             StringAssert.Contains("ABILITY SCORE", text);
             StringAssert.Contains("Constitution measures health and stamina.", text);
         }
+
+        [Test]
+        public void ForceBarrageBreakdown_IncludesShardAllocation()
+        {
+            string text = TooltipTextBuilder.ForceBarrageBreakdown(
+                actionCost: 3,
+                targetLines: new[]
+                {
+                    "Goblin_1: 2 shard(s) [2, 4] => 6 force (10->4 HP)",
+                    "Goblin_2: 1 shard(s) [3] => 3 force (8->5 HP)"
+                });
+
+            StringAssert.Contains("Force Barrage", text);
+            StringAssert.Contains("3 action(s)", text);
+            StringAssert.Contains("3 shard(s)", text);
+            StringAssert.Contains("Goblin_1", text);
+            StringAssert.Contains("Goblin_2", text);
+        }
+
+        [Test]
+        public void ElectricArcBreakdown_IncludesSaveDcAndDamage()
+        {
+            string text = TooltipTextBuilder.ElectricArcBreakdown(
+                spellDc: 17,
+                rolledDamage: 5,
+                targetLines: new[]
+                {
+                    "Goblin_1: Failure (8 vs DC 17, rolled 5) => 5 electricity (10->5 HP)"
+                });
+
+            StringAssert.Contains("Electric Arc", text);
+            StringAssert.Contains("Reflex DC 17", text);
+            StringAssert.Contains("rolled 5 electricity", text);
+            StringAssert.Contains("Goblin_1", text);
+            StringAssert.Contains("Failure", text);
+        }
     }
 }

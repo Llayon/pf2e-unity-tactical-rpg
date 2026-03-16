@@ -35,6 +35,8 @@ namespace PF2e.Presentation
         public const string SlashingColor = CombatUiPalette.SlashingHex;
         public const string PiercingColor = CombatUiPalette.PiercingHex;
         public const string BludgeoningColor = CombatUiPalette.BludgeoningHex;
+        public const string ForceColor = CombatUiPalette.ForceHex;
+        public const string ElectricityColor = CombatUiPalette.ElectricityHex;
 
         public static string EntityName(string name, Team team)
         {
@@ -199,6 +201,8 @@ namespace PF2e.Presentation
                 DamageType.Slashing => SlashingColor,
                 DamageType.Piercing => PiercingColor,
                 DamageType.Bludgeoning => BludgeoningColor,
+                DamageType.Force => ForceColor,
+                DamageType.Electricity => ElectricityColor,
                 _ => CombatUiPalette.TooltipBodyHex
             };
         }

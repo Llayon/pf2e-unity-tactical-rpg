@@ -5,6 +5,9 @@ namespace PF2e.Presentation.Entity
 {
     public class EntityView : MonoBehaviour
     {
+        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int ColorId = Shader.PropertyToID("_Color");
+
         private EntityHandle handle;
         private MeshRenderer mr;
 
@@ -26,7 +29,8 @@ namespace PF2e.Presentation.Entity
         {
             if (mr == null) return;
             if (mpb == null) mpb = new MaterialPropertyBlock();
-            mpb.SetColor("_BaseColor", c);
+            mpb.SetColor(BaseColorId, c);
+            mpb.SetColor(ColorId, c);
             mr.SetPropertyBlock(mpb);
         }
 
