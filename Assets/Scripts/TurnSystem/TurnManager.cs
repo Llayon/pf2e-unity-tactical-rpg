@@ -43,8 +43,10 @@ namespace PF2e.TurnSystem
         private readonly ConditionService conditionService = new();
         private readonly AidService aidService = new();
         private readonly ReadyStrikeRuntimeCoordinator readyStrikeCoordinator = new();
+        private readonly ReactiveStrikeRuntimeCoordinator reactiveStrikeCoordinator = new();
         private readonly Dictionary<EntityHandle, DelayedTurnRecord> delayedTurns = new();
         private readonly HashSet<EntityHandle> delayReactionSuppressed = new();
+        private EntityHandle lastActionStartInterruptedActor = EntityHandle.None;
         private IRng initiativeRng = UnityRng.Shared;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -145,6 +147,20 @@ namespace PF2e.TurnSystem
             initiativeRng = rng ?? UnityRng.Shared;
         }
 
+        internal void SetReactiveStrikeRngForTesting(IRng rng)
+        {
+            reactiveStrikeCoordinator.SetRngForTesting(rng);
+        }
+
+        internal bool ConsumeLastActionStartInterrupted(EntityHandle actor)
+        {
+            if (!actor.IsValid || actor != lastActionStartInterruptedActor)
+                return false;
+
+            lastActionStartInterruptedActor = EntityHandle.None;
+            return true;
+        }
+
         public bool ConfigureInitiativeChecks(InitiativeCheckMode mode, SkillType skill = SkillType.Stealth)
         {
             if (state != TurnState.Inactive)
@@ -243,6 +259,8 @@ namespace PF2e.TurnSystem
             ResetDelayState();
             aidService.ClearAll();
             ClearReadiedStrikes();
+            reactiveStrikeCoordinator.ClearAll();
+            lastActionStartInterruptedActor = EntityHandle.None;
             ResolveEventBusIfMissing();
             ResolveStrikeActionIfMissing();
             WarnMissingEncounterActorIdsOnCombatStart();
@@ -1279,9 +1297,19 @@ namespace PF2e.TurnSystem
             readyStrikeCoordinator.HandleEntityMoved(
                 in e,
                 state,
+                initiativeOrder,
                 entityManager,
                 strikeAction,
                 FindInitiativeIndex,
+                CanUseReaction,
+                eventBus);
+
+            reactiveStrikeCoordinator.HandleEntityMoved(
+                in e,
+                state,
+                initiativeOrder,
+                entityManager,
+                strikeAction,
                 CanUseReaction,
                 eventBus);
         }
@@ -1291,11 +1319,38 @@ namespace PF2e.TurnSystem
             readyStrikeCoordinator.HandleStrikePreDamage(
                 in e,
                 state,
+                initiativeOrder,
                 entityManager,
                 strikeAction,
                 FindInitiativeIndex,
                 CanUseReaction,
                 eventBus);
+
+            reactiveStrikeCoordinator.HandleStrikePreDamage(
+                in e,
+                state,
+                initiativeOrder,
+                entityManager,
+                strikeAction,
+                CanUseReaction,
+                eventBus);
+        }
+
+        internal void HandleCombatActionStarted(in CombatActionStartedEvent e)
+        {
+            lastActionStartInterruptedActor = EntityHandle.None;
+
+            bool interrupted = reactiveStrikeCoordinator.HandleCombatActionStarted(
+                in e,
+                state,
+                initiativeOrder,
+                entityManager,
+                strikeAction,
+                CanUseReaction,
+                eventBus);
+
+            if (interrupted)
+                lastActionStartInterruptedActor = e.actor;
         }
 
         private void PublishCombatStarted()

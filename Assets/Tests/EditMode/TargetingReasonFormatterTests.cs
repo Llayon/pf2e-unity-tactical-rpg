@@ -256,6 +256,28 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void Step_NoHover_ReturnsAdjacentCellPrompt()
+        {
+            var msg = TargetingReasonFormatter.ForModeNoHover(TargetingMode.Step);
+
+            Assert.AreEqual(TargetingHintTone.Info, msg.Tone);
+            Assert.AreEqual("Step: choose an adjacent clear cell", msg.Text);
+        }
+
+        [Test]
+        public void StepPreview_DifficultTerrain_ReturnsInvalidTerrainMessage()
+        {
+            var preview = StepPreviewResult.Invalid(
+                StepFailureReason.DifficultTerrain,
+                new UnityEngine.Vector3Int(1, 0, 0));
+
+            var msg = TargetingReasonFormatter.ForStepPreview(in preview);
+
+            Assert.AreEqual(TargetingHintTone.Invalid, msg.Tone);
+            Assert.AreEqual("Step: can't enter difficult terrain", msg.Text);
+        }
+
+        [Test]
         public void ForceBarrage_NoHover_ReturnsSpellPrompt()
         {
             var msg = TargetingReasonFormatter.ForModeNoHover(TargetingMode.ForceBarrage);

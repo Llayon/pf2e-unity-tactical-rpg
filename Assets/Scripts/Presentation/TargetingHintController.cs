@@ -227,6 +227,21 @@ namespace PF2e.Presentation
                 return;
             }
 
+            if (mode == TargetingMode.Step)
+            {
+                if (hoveredCell.HasValue && actionExecutor != null)
+                {
+                    actionExecutor.TryPreviewStepToCell(hoveredCell.Value, out var stepPreview);
+                    ApplyMessage(TargetingReasonFormatter.ForStepPreview(in stepPreview));
+                }
+                else
+                {
+                    ApplyMessage(TargetingReasonFormatter.ForModeNoHover(mode));
+                }
+
+                return;
+            }
+
             if (mode == TargetingMode.SpellAoE && targetingController.ActiveSpellId == SpellId.BurningHands)
             {
                 ApplyMessage(GetBurningHandsHintMessage());
@@ -311,6 +326,11 @@ namespace PF2e.Presentation
                         : new TargetingHintMessage(
                             TargetingHintTone.Info,
                             "Burning Hands: choose a cell or creature to set the cone (Click to lock, Confirm/Esc)");
+
+                case TargetingMode.Step:
+                    return new TargetingHintMessage(
+                        TargetingHintTone.Info,
+                        "Step: choose an adjacent clear cell (Esc to cancel)");
 
                 default:
                     return TargetingReasonFormatter.ForModeNoHover(mode, strikeIsRanged);

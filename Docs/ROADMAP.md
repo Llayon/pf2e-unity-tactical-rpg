@@ -39,6 +39,10 @@
 - Implement ranged `Strike` concealment MVP (`Phase 28`): DC 5 flat check on would-hit vs `Concealed`, preserve AC degree in payload, downgrade final outcome to `Failure` on flat-check miss, and integrate logs/preview warning hints. (Done)
 - Implement Delay action architecture and MVP flow (`Phase 29b–29e`): turn-lifecycle split hooks, delay trigger window, planned insertion-slot selection between initiative portraits, automatic planned resume chaining, and manual Return/Skip fallback window only for non-planned delayed actors. (Done)
 - Remove per-frame Delay UI polling and migrate to typed delay bus events; extract Delay initiative presenters/coordinator/planner (`Phase 29f–29g`). (Done)
+- Add first spellcasting slice with explicit cast/targeting/logging support across `Force Barrage`, `Electric Arc`, `Snowball`, `Burning Hands`, `Fear`, `Heal`, and `Harm`, covering auto-hit, spell attack, basic save, condition-only, cone AoE, emanation AoE, healing, and vitality-routing variants. (Done)
+- Complete `Fear` critical-failure semantics with `Fleeing` and expose status/circumstance penalties directly in strike tooltip/log breakdowns. (Done)
+- Add passive `Reactive Strike` trigger layer for movement, ranged attacks, `Stand`, and `Manipulate`, including action-start aborts and crit-based `Manipulate` disruption. (Done)
+- Add `Step` as a 5-foot safe-move action, mobility-slot UX replacement for non-prone actors, and movement trigger metadata so `Reactive Strike` ignores `Step` while still catching normal movement. (Done)
 
 ## Phase 3 — Content & UX Polish (In Progress)
 - Add more encounter layouts and data-driven authoring flow.

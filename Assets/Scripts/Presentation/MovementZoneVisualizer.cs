@@ -25,6 +25,7 @@ namespace PF2e.Presentation
         [SerializeField] private GridManager gridManager;
         [SerializeField] private CellHighlightPool highlightPool;
         [SerializeField] private TargetingController targetingController;
+        [SerializeField] private PlayerActionExecutor actionExecutor;
 
         [Header("Combat")]
         [SerializeField] private TurnManager turnManager;
@@ -52,6 +53,7 @@ namespace PF2e.Presentation
         private readonly List<GameObject> pathHighlights = new List<GameObject>();
         private readonly List<Vector3Int> pathBuffer = new List<Vector3Int>();
         private readonly List<int> pathActionBoundaries = new List<int>(8);
+        private readonly List<NeighborInfo> stepNeighborBuffer = new List<NeighborInfo>(8);
 
         private EntityHandle showingFor;
         private int showingMaxActions = 0;
@@ -104,6 +106,8 @@ namespace PF2e.Presentation
 
             if (targetingController == null)
                 targetingController = FindFirstObjectByType<TargetingController>();
+            if (actionExecutor == null)
+                actionExecutor = FindFirstObjectByType<PlayerActionExecutor>();
 
             // Selection-driven zone (exploration mode; guarded in handlers for combat)
             entityManager.OnEntitySelected += OnEntitySelected;
@@ -225,6 +229,12 @@ namespace PF2e.Presentation
             int remainingActions = Mathf.Clamp(turnManager.ActionsRemaining, 0, 3);
             if (remainingActions <= 0) { ClearZone(); return; }
 
+            if (targetingController != null && targetingController.ActiveMode == TargetingMode.Step)
+            {
+                ShowStepZoneFor(handle);
+                return;
+            }
+
             ShowZoneFor(handle, remainingActions);
         }
 
@@ -282,6 +292,12 @@ namespace PF2e.Presentation
             if (ShouldSuppressZoneForTargeting())
             {
                 ClearPathPreview();
+                return;
+            }
+            if (targetingController != null && targetingController.ActiveMode == TargetingMode.Step)
+            {
+                HidePathPreviewImmediate();
+                lastHoveredZoneCell = null;
                 return;
             }
             if (movementPlaybackActive) return;
@@ -349,6 +365,32 @@ namespace PF2e.Presentation
 
                 var worldPos = gridManager.Data.CellToWorld(pos);
                 zoneHighlights.Add(highlightPool.ShowHighlight(worldPos, cellSize, color));
+            }
+        }
+
+        private void ShowStepZoneFor(EntityHandle handle)
+        {
+            ClearZone();
+
+            var data = entityManager.Registry.Get(handle);
+            if (data == null || gridManager.Data == null || actionExecutor == null)
+                return;
+
+            showingFor = handle;
+            showingMaxActions = 1;
+
+            gridManager.Data.GetNeighbors(data.GridPosition, MovementType.Walk, stepNeighborBuffer);
+
+            float cellSize = gridManager.Config.cellWorldSize;
+            for (int i = 0; i < stepNeighborBuffer.Count; i++)
+            {
+                Vector3Int cell = stepNeighborBuffer[i].pos;
+                if (!actionExecutor.TryPreviewStepToCell(cell, out var stepPreview) || !stepPreview.isValid)
+                    continue;
+
+                currentZoneActions[cell] = 1;
+                var worldPos = gridManager.Data.CellToWorld(cell);
+                zoneHighlights.Add(highlightPool.ShowHighlight(worldPos, cellSize, action1Color));
             }
         }
 

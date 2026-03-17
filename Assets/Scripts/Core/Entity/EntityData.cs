@@ -102,6 +102,7 @@ namespace PF2e.Core
         public bool KnowsFear;
         public bool KnowsHeal;
         public bool KnowsHarm;
+        public bool HasReactiveStrike;
         public int GlassShieldCooldownRoundsRemaining;
         public int StandardShieldCooldownRoundsRemaining;
 

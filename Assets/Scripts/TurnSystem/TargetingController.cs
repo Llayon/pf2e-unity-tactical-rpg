@@ -26,7 +26,8 @@ namespace PF2e.TurnSystem
         ElectricArc = 15,
         Snowball = 16,
         Fear = 17,
-        HarmSingle = 18
+        HarmSingle = 18,
+        Step = 19
     }
 
     public enum TargetingResult
@@ -167,6 +168,9 @@ namespace PF2e.TurnSystem
 #if UNITY_EDITOR
         private void OnValidate()
         {
+            if (EditorValidationGuard.ShouldSkipMissingReferenceWarnings())
+                return;
+
             if (actionExecutor == null) Debug.LogError("[TargetingController] Missing PlayerActionExecutor", this);
             if (entityManager  == null) Debug.LogError("[TargetingController] Missing EntityManager", this);
             if (turnManager    == null) Debug.LogError("[TargetingController] Missing TurnManager", this);
@@ -1123,6 +1127,7 @@ namespace PF2e.TurnSystem
                     return TargetingResult.InvalidTarget;
 
                 case TargetingMode.Jump:
+                case TargetingMode.Step:
                     if (_onCellConfirmed != null && _onCellConfirmed.Invoke(cell))
                     {
                         ClearTargeting();

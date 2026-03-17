@@ -64,6 +64,28 @@ namespace PF2e.Presentation
             };
         }
 
+        public static TargetingHintMessage ForStepPreview(in StepPreviewResult preview)
+        {
+            if (!preview.isValid)
+            {
+                string invalidText = preview.failureReason switch
+                {
+                    StepFailureReason.Prone => "Step: stand first",
+                    StepFailureReason.SpeedZero => "Step: speed is 0",
+                    StepFailureReason.NotAdjacent => "Step: destination must be within 5 ft",
+                    StepFailureReason.Occupied => "Step: destination is occupied",
+                    StepFailureReason.Impassable => "Step: destination is blocked",
+                    StepFailureReason.DifficultTerrain => "Step: can't enter difficult terrain",
+                    StepFailureReason.InvalidState => "Step: action unavailable",
+                    _ => "Step: choose an adjacent clear cell"
+                };
+
+                return new TargetingHintMessage(TargetingHintTone.Invalid, invalidText);
+            }
+
+            return new TargetingHintMessage(TargetingHintTone.Valid, "Step: valid destination [1]");
+        }
+
         private static string GetModePrompt(TargetingMode mode, bool strikeIsRanged)
         {
             return mode switch
@@ -80,6 +102,7 @@ namespace PF2e.Presentation
                 TargetingMode.Escape => "Escape: choose the creature grappling you",
                 TargetingMode.Aid => "Aid: choose an ally in reach",
                 TargetingMode.Jump => "Jump: choose a landing cell",
+                TargetingMode.Step => "Step: choose an adjacent clear cell",
                 TargetingMode.SpellAoE => "Burning Hands: choose a cone direction",
                 TargetingMode.ForceBarrage => "Force Barrage: choose a visible creature within 120 ft",
                 TargetingMode.ElectricArc => "Electric Arc: choose 1 or 2 visible creatures within 30 ft",
@@ -104,6 +127,7 @@ namespace PF2e.Presentation
                 TargetingMode.Strike => "Strike: valid target",
                 TargetingMode.Aid => "Aid: valid ally target",
                 TargetingMode.Jump => "Jump: valid destination",
+                TargetingMode.Step => "Step: valid destination",
                 TargetingMode.ReadyStrike => "Ready Strike: valid target",
                 TargetingMode.ForceBarrage => "Force Barrage: valid target (auto-hit force shard)",
                 TargetingMode.ElectricArc => "Electric Arc: valid target (basic Reflex)",
@@ -233,6 +257,7 @@ namespace PF2e.Presentation
                 TargetingMode.Demoralize => "Demoralize",
                 TargetingMode.Aid => "Aid",
                 TargetingMode.Jump => "Jump",
+                TargetingMode.Step => "Step",
                 TargetingMode.SpellAoE => "Burning Hands",
                 TargetingMode.ForceBarrage => "Force Barrage",
                 TargetingMode.ElectricArc => "Electric Arc",

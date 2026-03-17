@@ -70,6 +70,7 @@ namespace PF2e.TurnSystem
 
             eventBus.OnEntityMovedTyped += HandleEntityMoved;
             eventBus.OnStrikePreDamageTyped += HandleStrikePreDamage;
+            eventBus.OnCombatActionStartedTyped += HandleCombatActionStarted;
             subscribed = true;
         }
 
@@ -80,6 +81,7 @@ namespace PF2e.TurnSystem
 
             eventBus.OnEntityMovedTyped -= HandleEntityMoved;
             eventBus.OnStrikePreDamageTyped -= HandleStrikePreDamage;
+            eventBus.OnCombatActionStartedTyped -= HandleCombatActionStarted;
             subscribed = false;
         }
 
@@ -91,6 +93,11 @@ namespace PF2e.TurnSystem
         private void HandleStrikePreDamage(in StrikePreDamageEvent e)
         {
             turnManager?.HandleStrikePreDamage(in e);
+        }
+
+        private void HandleCombatActionStarted(in CombatActionStartedEvent e)
+        {
+            turnManager?.HandleCombatActionStarted(in e);
         }
     }
 }

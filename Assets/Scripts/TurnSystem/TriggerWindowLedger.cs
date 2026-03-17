@@ -10,7 +10,8 @@ namespace PF2e.TurnSystem
         MovementEnter = 1,
         AttackStart = 2,
         PostHitDamage = 3,
-        GenericIncomingDamage = 4
+        GenericIncomingDamage = 4,
+        ActionStart = 5
     }
 
     public readonly struct TriggerWindowToken : IEquatable<TriggerWindowToken>

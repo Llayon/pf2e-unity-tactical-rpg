@@ -461,6 +461,16 @@ namespace PF2e.TurnSystem
             if (!standAction.CanStand(actor)) return false;
             if (!TryBeginExecution(actor, "AI.Stand")) return false;
 
+            if (!TryContinueAfterActionStartReactions(
+                    actor,
+                    actionName: "Stand",
+                    actionKind: CombatActionKind.Stand,
+                    traits: CombatActionTraitFlags.None,
+                    actionCost: StandAction.ActionCost))
+            {
+                return false;
+            }
+
             bool completed = false;
             try
             {
@@ -491,6 +501,37 @@ namespace PF2e.TurnSystem
 
             ownsExecutionLock = true;
             return true;
+        }
+
+        private bool TryContinueAfterActionStartReactions(
+            EntityHandle actor,
+            string actionName,
+            CombatActionKind actionKind,
+            CombatActionTraitFlags traits,
+            int actionCost)
+        {
+            eventBus?.PublishCombatActionStarted(actor, actionName, actionKind, traits, actionCost);
+
+            bool actionInterrupted = turnManager != null && turnManager.ConsumeLastActionStartInterrupted(actor);
+
+            if (entityManager == null || entityManager.Registry == null)
+                return !actionInterrupted;
+
+            var actorData = entityManager.Registry.Get(actor);
+            if (actorData != null && actorData.IsAlive && !actionInterrupted)
+                return true;
+
+            TryRollbackExecutionLock();
+
+            if (turnManager != null
+                && (actorData == null || !actorData.IsAlive)
+                && actor == turnManager.CurrentEntity
+                && (turnManager.State == TurnState.PlayerTurn || turnManager.State == TurnState.EnemyTurn))
+            {
+                turnManager.EndTurn();
+            }
+
+            return false;
         }
 
         private void CompleteExecutionWithCost(int actionCost)

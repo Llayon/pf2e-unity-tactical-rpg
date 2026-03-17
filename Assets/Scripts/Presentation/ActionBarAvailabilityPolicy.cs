@@ -64,6 +64,8 @@ namespace PF2e.Presentation
                     castSpellInteractable: false,
                     raiseShieldInteractable: false,
                     guardVisible: IsGuardVisible(actorData),
+                    stepInteractable: false,
+                    stepVisible: false,
                     standInteractable: HasCondition(actorData, ConditionType.Prone),
                     standVisible: HasCondition(actorData, ConditionType.Prone));
             }
@@ -85,6 +87,8 @@ namespace PF2e.Presentation
                 castSpellInteractable: CanCastActionBarSpell(actorData, actionsRemaining),
                 raiseShieldInteractable: CanRaisePhysicalShield(actorData),
                 guardVisible: IsGuardVisible(actorData),
+                stepInteractable: !HasCondition(actorData, ConditionType.Prone) && actorData.EffectiveSpeed > 0,
+                stepVisible: !HasCondition(actorData, ConditionType.Prone),
                 standInteractable: HasCondition(actorData, ConditionType.Prone),
                 standVisible: HasCondition(actorData, ConditionType.Prone));
         }

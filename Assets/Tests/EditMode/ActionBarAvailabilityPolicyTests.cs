@@ -50,6 +50,8 @@ namespace PF2e.Tests
                 Assert.IsFalse(state.castSpellInteractable);
                 Assert.IsTrue(state.raiseShieldInteractable);
                 Assert.IsTrue(state.guardVisible);
+                Assert.IsFalse(state.stepInteractable);
+                Assert.IsFalse(state.stepVisible);
                 Assert.IsTrue(state.standInteractable);
                 Assert.IsTrue(state.standVisible);
             }
@@ -97,6 +99,7 @@ namespace PF2e.Tests
                 Team = Team.Player,
                 CurrentHP = 10,
                 MaxHP = 10,
+                Speed = 25,
                 KnowsForceBarrage = true
             };
 
@@ -105,6 +108,8 @@ namespace PF2e.Tests
             Assert.IsTrue(state.castSpellInteractable);
             Assert.IsFalse(state.guardVisible);
             Assert.IsTrue(state.jumpInteractable);
+            Assert.IsTrue(state.stepInteractable);
+            Assert.IsTrue(state.stepVisible);
             Assert.IsFalse(state.standVisible);
         }
 
@@ -117,6 +122,7 @@ namespace PF2e.Tests
                 Team = Team.Player,
                 CurrentHP = 10,
                 MaxHP = 10,
+                Speed = 25,
                 KnowsElectricArc = true
             };
 
@@ -125,6 +131,8 @@ namespace PF2e.Tests
             Assert.IsTrue(state.castSpellInteractable);
             Assert.IsFalse(state.guardVisible);
             Assert.IsTrue(state.jumpInteractable);
+            Assert.IsTrue(state.stepInteractable);
+            Assert.IsTrue(state.stepVisible);
             Assert.IsFalse(state.standVisible);
         }
 
@@ -137,6 +145,7 @@ namespace PF2e.Tests
                 Team = Team.Player,
                 CurrentHP = 10,
                 MaxHP = 10,
+                Speed = 25,
                 KnowsElectricArc = true
             };
 
@@ -145,6 +154,8 @@ namespace PF2e.Tests
             Assert.IsFalse(state.raiseShieldInteractable);
             Assert.IsFalse(state.guardVisible);
             Assert.IsTrue(state.jumpInteractable);
+            Assert.IsTrue(state.stepInteractable);
+            Assert.IsTrue(state.stepVisible);
             Assert.IsFalse(state.standVisible);
         }
 
@@ -329,6 +340,8 @@ namespace PF2e.Tests
             Assert.IsFalse(state.raiseShieldInteractable);
             Assert.IsFalse(state.readyInteractable);
             Assert.IsFalse(state.escapeInteractable);
+            Assert.IsFalse(state.stepVisible);
+            Assert.IsFalse(state.stepInteractable);
         }
 
         [Test]
@@ -340,6 +353,7 @@ namespace PF2e.Tests
                 Team = Team.Player,
                 CurrentHP = 10,
                 MaxHP = 10,
+                Speed = 25,
                 EquippedShield = default
             };
 
@@ -347,6 +361,8 @@ namespace PF2e.Tests
             Assert.IsFalse(state.guardVisible);
             Assert.IsFalse(state.castSpellInteractable);
             Assert.IsTrue(state.jumpInteractable);
+            Assert.IsTrue(state.stepInteractable);
+            Assert.IsTrue(state.stepVisible);
             Assert.IsFalse(state.standVisible);
         }
 

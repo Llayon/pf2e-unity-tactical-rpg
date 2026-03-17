@@ -104,6 +104,14 @@ namespace PF2e.TurnSystem
                 return;
             }
 
+            if (targetingController != null && targetingController.ActiveMode == TargetingMode.Step)
+            {
+                var data = entityManager?.Registry?.Get(handle);
+                if (data != null)
+                    targetingController.TryConfirmCell(data.GridPosition);
+                return;
+            }
+
             if (actionExecutor.IsBusy) return;
             targetingController.TryConfirmEntity(handle);
         }

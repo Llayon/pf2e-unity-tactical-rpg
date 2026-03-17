@@ -584,6 +584,22 @@ namespace PF2e.Presentation
             actionExecutor.TryExecuteStand();
         }
 
+        public void OnStepClicked()
+        {
+            if (targetingController == null || actionExecutor == null)
+                return;
+
+            if (targetingController.ActiveMode == TargetingMode.Step)
+            {
+                targetingController.CancelTargeting();
+                return;
+            }
+
+            targetingController.BeginCellTargeting(
+                TargetingMode.Step,
+                onCellConfirmed: c => actionExecutor.TryExecuteStepToCell(c));
+        }
+
         private void ToggleOrBeginTargeting(TargetingMode mode, Action<EntityHandle> onConfirm)
         {
             if (targetingController == null || actionExecutor == null)

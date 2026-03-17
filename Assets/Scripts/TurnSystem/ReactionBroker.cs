@@ -6,6 +6,20 @@ using PF2e.Core;
 
 namespace PF2e.TurnSystem
 {
+    public readonly struct ReactiveStrikeResolution
+    {
+        public readonly bool executed;
+        public readonly DegreeOfSuccess degree;
+        public readonly bool targetDefeated;
+
+        public ReactiveStrikeResolution(bool executed, DegreeOfSuccess degree, bool targetDefeated)
+        {
+            this.executed = executed;
+            this.degree = degree;
+            this.targetDefeated = targetDefeated;
+        }
+    }
+
     /// <summary>
     /// Shared reaction arbitration helpers (Shield Block in MVP).
     /// Keeps Player/AI execution paths behavior-consistent for strike and generic incoming damage.
@@ -52,6 +66,21 @@ namespace PF2e.TurnSystem
             TriggerWindowLedger triggerWindowLedger,
             TriggerWindowToken triggerWindowToken)
         {
+            return TryConsumeReactionInWindow(
+                actor,
+                actorData,
+                canUseReaction,
+                triggerWindowLedger,
+                triggerWindowToken);
+        }
+
+        public static bool TryConsumeReactionInWindow(
+            EntityHandle actor,
+            EntityData actorData,
+            Func<EntityHandle, bool> canUseReaction,
+            TriggerWindowLedger triggerWindowLedger,
+            TriggerWindowToken triggerWindowToken)
+        {
             if (!actor.IsValid || actorData == null || !actorData.IsAlive)
                 return false;
             if (canUseReaction == null || triggerWindowLedger == null)
@@ -65,6 +94,63 @@ namespace PF2e.TurnSystem
 
             actorData.ReactionAvailable = false;
             return true;
+        }
+
+        public static ReactiveStrikeResolution TryExecuteReactiveStrike(
+            EntityHandle actor,
+            EntityHandle target,
+            string triggerReason,
+            StrikeAction strikeAction,
+            CombatEventBus eventBus,
+            Func<EntityHandle, EntityData> getEntity,
+            IRng rng)
+        {
+            if (!actor.IsValid || !target.IsValid || strikeAction == null)
+                return default;
+
+            if (rng == null)
+                rng = UnityRng.Shared;
+
+            var actorData = getEntity != null ? getEntity(actor) : null;
+            var targetData = getEntity != null ? getEntity(target) : null;
+            string targetName = targetData != null && !string.IsNullOrWhiteSpace(targetData.Name)
+                ? targetData.Name
+                : $"Entity#{target.Id}";
+
+            if (string.IsNullOrWhiteSpace(triggerReason))
+                triggerReason = "trigger";
+            eventBus?.Publish(
+                actor,
+                $"Reactive Strike triggers on {targetName} {triggerReason}.",
+                CombatLogCategory.Turn);
+
+            int originalMapCount = 0;
+            if (actorData != null)
+            {
+                originalMapCount = actorData.MAPCount;
+                actorData.MAPCount = 0;
+            }
+
+            try
+            {
+                var phase = strikeAction.ResolveAttackRoll(actor, target, rng, aidCircumstanceBonus: 0);
+                if (!phase.HasValue)
+                {
+                    eventBus?.Publish(actor, "Reactive Strike trigger resolves, but attack is no longer valid.", CombatLogCategory.Turn);
+                    return default;
+                }
+
+                var resolved = strikeAction.DetermineHitAndDamage(phase.Value, target, rng);
+                bool executed = strikeAction.ApplyStrikeDamage(resolved, damageReduction: 0);
+                var postTargetData = getEntity != null ? getEntity(target) : null;
+                bool targetDefeated = postTargetData != null && !postTargetData.IsAlive;
+                return new ReactiveStrikeResolution(executed, resolved.degree, targetDefeated);
+            }
+            finally
+            {
+                if (actorData != null)
+                    actorData.MAPCount = originalMapCount;
+            }
         }
 
         public static bool TryExecuteReadiedStrike(

@@ -115,6 +115,9 @@ namespace PF2e.Presentation
 #if UNITY_EDITOR
         private void OnValidate()
         {
+            if (EditorValidationGuard.ShouldSkipMissingReferenceWarnings())
+                return;
+
             if (eventBus == null) Debug.LogError("[ActionBar] Missing CombatEventBus", this);
             if (entityManager == null) Debug.LogError("[ActionBar] Missing EntityManager", this);
             if (turnManager == null) Debug.LogError("[ActionBar] Missing TurnManager", this);
@@ -161,6 +164,7 @@ namespace PF2e.Presentation
             SetCastSpellModeButtonsInteractable(false);
             RefreshCastSpellModeButtonsVisual();
             RefreshCastSpellButtonLabel();
+            RefreshMobilityButtonLabel(null);
             ClearAllHighlights();
             SetStrikePopupVisible(false);
             SetTacticsPopupVisible(false);
@@ -727,9 +731,6 @@ namespace PF2e.Presentation
 
             ConfigureStrikePopupCompactMenu();
             ConfigureTacticsPopupCompactMenu();
-
-            if (standButton != null)
-                standButton.gameObject.SetActive(false);
         }
 
         private void ConfigureLauncherPresenter()
@@ -1070,8 +1071,6 @@ namespace PF2e.Presentation
                 SetButtonLabelText(aidButton, "Aid [1]");
             if (raiseShieldButton != null)
                 SetButtonLabelText(raiseShieldButton, "Guard [1]");
-            if (standButton != null)
-                SetButtonLabelText(standButton, "Stand [1]");
 
             if (strikePopupStrikeButton != null)
                 SetButtonLabelText(strikePopupStrikeButton, "Strike [1][ATK]");
@@ -1208,7 +1207,7 @@ namespace PF2e.Presentation
             boundCount += BindButton(castSpellModeHealButton, useLauncherLayout ? HandleCastHealPopupClicked : actionBarCommandCoordinator.OnCastSpellModeHealClicked);
             boundCount += BindButton(castSpellModeHarmButton, useLauncherLayout ? HandleCastHarmPopupClicked : actionBarCommandCoordinator.OnCastSpellModeHarmClicked);
             boundCount += BindButton(raiseShieldButton, actionBarCommandCoordinator.OnRaiseShieldClicked);
-            boundCount += BindButton(standButton, actionBarCommandCoordinator.OnStandClicked);
+            boundCount += BindButton(standButton, HandleMobilityClicked);
             boundCount += BindButton(tacticsLauncherButton, ToggleTacticsPopup);
             boundCount += BindButton(strikePopupStrikeButton, HandleStrikePopupStrikeClicked);
             boundCount += BindButton(spellCastOneActionButton, () => HandleForceBarrageActionCountClicked(1));
@@ -1571,9 +1570,31 @@ namespace PF2e.Presentation
             SetHighlight(aidHighlight, mode == TargetingMode.Aid);
             SetHighlight(castSpellHighlight, targetingController != null && targetingController.IsSpellTargetingActive);
             SetHighlight(raiseShieldHighlight, false);
-            SetHighlight(standHighlight, false);
+            SetHighlight(standHighlight, mode == TargetingMode.Step);
 
             RefreshAvailability();
+        }
+
+        private void HandleMobilityClicked()
+        {
+            if (turnManager == null || entityManager == null || entityManager.Registry == null)
+                return;
+
+            var actor = turnManager.CurrentEntity;
+            var actorData = actor.IsValid ? entityManager.Registry.Get(actor) : null;
+            if (actorData != null && actorData.HasCondition(ConditionType.Prone))
+                actionBarCommandCoordinator.OnStandClicked();
+            else
+                actionBarCommandCoordinator.OnStepClicked();
+        }
+
+        private void RefreshMobilityButtonLabel(EntityData actorData)
+        {
+            if (standButton == null)
+                return;
+
+            bool showStand = actorData != null && actorData.HasCondition(ConditionType.Prone);
+            SetButtonLabelText(standButton, showStand ? "Stand [1]" : "Step [1]");
         }
 
         private void RefreshAvailability()
@@ -1589,6 +1610,7 @@ namespace PF2e.Presentation
                 RefreshCastSpellButtonLabel();
                 RefreshSpellCastPanelContent();
                 RefreshAidPreparedIndicator();
+                RefreshMobilityButtonLabel(null);
                 return;
             }
 
@@ -1606,6 +1628,7 @@ namespace PF2e.Presentation
                 RefreshCastSpellButtonLabel();
                 RefreshSpellCastPanelContent();
                 RefreshAidPreparedIndicator();
+                RefreshMobilityButtonLabel(actorData);
                 return;
             }
 
@@ -1622,6 +1645,7 @@ namespace PF2e.Presentation
                 RefreshCastSpellButtonLabel();
                 RefreshSpellCastPanelContent();
                 RefreshAidPreparedIndicator();
+                RefreshMobilityButtonLabel(actorData);
                 return;
             }
 
@@ -1662,6 +1686,7 @@ namespace PF2e.Presentation
             RefreshSpellCastPanelContent();
             RefreshAidPreparedIndicator();
             ApplyStaticButtonLabels();
+            RefreshMobilityButtonLabel(actorData);
         }
 
         private void SetCombatVisible(bool visible)
@@ -1772,8 +1797,8 @@ namespace PF2e.Presentation
                 SetInteractable(raiseShieldButton, availability.raiseShieldInteractable);
                 SetButtonVisible(raiseShieldButton, availability.guardVisible);
 
-                SetButtonVisible(standButton, availability.standVisible);
-                SetInteractable(standButton, availability.standInteractable);
+                SetButtonVisible(standButton, availability.stepVisible || availability.standVisible);
+                SetInteractable(standButton, availability.stepInteractable || availability.standInteractable);
             }
             else
             {
@@ -1789,8 +1814,8 @@ namespace PF2e.Presentation
                 SetInteractable(castSpellButton, availability.castSpellInteractable);
                 SetInteractable(raiseShieldButton, availability.raiseShieldInteractable);
                 SetButtonVisible(raiseShieldButton, availability.guardVisible);
-                SetInteractable(standButton, availability.standInteractable);
-                SetButtonVisible(standButton, availability.standVisible);
+                SetInteractable(standButton, availability.stepInteractable || availability.standInteractable);
+                SetButtonVisible(standButton, availability.stepVisible || availability.standVisible);
             }
         }
 

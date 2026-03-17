@@ -51,6 +51,7 @@ namespace PF2e.Core
         public delegate void SpellResolvedHandler(in SpellResolvedEvent e);
         public delegate void ShieldRaisedHandler(in ShieldRaisedEvent e);
         public delegate void ShieldBlockResolvedHandler(in ShieldBlockResolvedEvent e);
+        public delegate void CombatActionStartedHandler(in CombatActionStartedEvent e);
         public delegate void DelayTurnBeginTriggerChangedHandler(in DelayTurnBeginTriggerChangedEvent e);
         public delegate void DelayPlacementSelectionChangedHandler(in DelayPlacementSelectionChangedEvent e);
         public delegate void DelayReturnWindowOpenedHandler(in DelayReturnWindowOpenedEvent e);
@@ -86,6 +87,7 @@ namespace PF2e.Core
         public event SpellResolvedHandler OnSpellResolvedTyped;
         public event ShieldRaisedHandler OnShieldRaisedTyped;
         public event ShieldBlockResolvedHandler OnShieldBlockResolvedTyped;
+        public event CombatActionStartedHandler OnCombatActionStartedTyped;
         public event DelayTurnBeginTriggerChangedHandler OnDelayTurnBeginTriggerChangedTyped;
         public event DelayPlacementSelectionChangedHandler OnDelayPlacementSelectionChangedTyped;
         public event DelayReturnWindowOpenedHandler OnDelayReturnWindowOpenedTyped;
@@ -286,6 +288,22 @@ namespace PF2e.Core
             OnShieldBlockResolvedTyped?.Invoke(in e);
         }
 
+        public void PublishCombatActionStarted(
+            EntityHandle actor,
+            string actionName,
+            CombatActionKind actionKind,
+            CombatActionTraitFlags traits,
+            int actionCost)
+        {
+            var e = new CombatActionStartedEvent(
+                actor,
+                actionName,
+                actionKind,
+                traits,
+                actionCost);
+            OnCombatActionStartedTyped?.Invoke(in e);
+        }
+
         #region Typed: Delay
         public void PublishDelayTurnBeginTriggerChanged(EntityHandle actor, bool isOpen)
         {
@@ -426,7 +444,12 @@ namespace PF2e.Core
         }
         public void PublishEntityMoved(EntityHandle entity, Vector3Int from, Vector3Int to, bool forced)
         {
-            var e = new EntityMovedEvent(entity, from, to, forced);
+            PublishEntityMoved(entity, from, to, forced ? MovementTriggerKind.Forced : MovementTriggerKind.Normal);
+        }
+
+        public void PublishEntityMoved(EntityHandle entity, Vector3Int from, Vector3Int to, MovementTriggerKind movementTriggerKind)
+        {
+            var e = new EntityMovedEvent(entity, from, to, movementTriggerKind);
             OnEntityMovedTyped?.Invoke(in e);
         }
 

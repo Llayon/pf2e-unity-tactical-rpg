@@ -172,5 +172,20 @@ namespace PF2e.Core
                 _ => "SPL"
             };
         }
+
+        public static bool HasManipulateTrait(SpellId spellId, int actionCount = 1)
+        {
+            return spellId switch
+            {
+                SpellId.Heal => Math.Clamp(actionCount, 1, 3) >= 2,
+                SpellId.Harm => Math.Clamp(actionCount, 1, 3) >= 2,
+                SpellId.ForceBarrage => true,
+                SpellId.ElectricArc => true,
+                SpellId.Snowball => true,
+                SpellId.BurningHands => true,
+                SpellId.Fear => true,
+                _ => false
+            };
+        }
     }
 }

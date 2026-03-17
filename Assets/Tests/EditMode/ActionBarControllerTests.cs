@@ -102,7 +102,7 @@ namespace PF2e.Tests
         }
 
         [Test]
-        public void RefreshAvailability_ActorNotProne_HidesStandButton()
+        public void RefreshAvailability_ActorNotProne_ShowsStepButton()
         {
             using var ctx = new ActionBarTestContext();
             var actor = ctx.RegisterEntity("Fighter", Team.Player);
@@ -110,7 +110,8 @@ namespace PF2e.Tests
 
             ctx.RefreshAvailability();
 
-            Assert.IsFalse(ctx.StandButton.gameObject.activeSelf);
+            Assert.IsTrue(ctx.StandButton.gameObject.activeSelf);
+            Assert.IsTrue(ctx.StandButton.interactable);
         }
 
         [Test]

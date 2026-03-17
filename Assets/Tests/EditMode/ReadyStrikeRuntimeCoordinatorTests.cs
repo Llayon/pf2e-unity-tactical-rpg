@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -57,6 +58,11 @@ namespace PF2e.Tests
             ctx.Coordinator.HandleEntityMoved(
                 in evt,
                 TurnState.PlayerTurn,
+                new List<InitiativeEntry>
+                {
+                    new InitiativeEntry { Handle = actor, Roll = new CheckRoll(20, 0, CheckSource.Perception()), IsPlayer = true },
+                    new InitiativeEntry { Handle = enemy, Roll = new CheckRoll(10, 0, CheckSource.Perception()), IsPlayer = false }
+                },
                 ctx.EntityManager,
                 ctx.StrikeAction,
                 handle => handle == actor ? 0 : 1,
@@ -88,6 +94,11 @@ namespace PF2e.Tests
             ctx.Coordinator.HandleEntityMoved(
                 in evt,
                 TurnState.Inactive,
+                new List<InitiativeEntry>
+                {
+                    new InitiativeEntry { Handle = actor, Roll = new CheckRoll(20, 0, CheckSource.Perception()), IsPlayer = true },
+                    new InitiativeEntry { Handle = enemy, Roll = new CheckRoll(10, 0, CheckSource.Perception()), IsPlayer = false }
+                },
                 ctx.EntityManager,
                 ctx.StrikeAction,
                 handle => handle == actor ? 0 : 1,

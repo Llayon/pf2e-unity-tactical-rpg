@@ -28,6 +28,7 @@ namespace PF2e.TurnSystem
         [SerializeField] private EntityManager entityManager;
         [SerializeField] private CombatEventBus eventBus;
         [SerializeField] private StrideAction strideAction;
+        [SerializeField] private StepAction stepAction;
         [SerializeField] private JumpAction jumpAction;
         [SerializeField] private StrikeAction strikeAction;
         [SerializeField] private ReadyStrikeAction readyStrikeAction;
@@ -65,13 +66,14 @@ namespace PF2e.TurnSystem
 #if UNITY_EDITOR
         private void OnValidate()
         {
-            if (UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode)
+            if (EditorValidationGuard.ShouldSkipMissingReferenceWarnings())
                 return;
 
             if (turnManager == null) Debug.LogError("[Executor] Missing TurnManager", this);
             if (entityManager == null) Debug.LogError("[Executor] Missing EntityManager", this);
             if (eventBus == null) Debug.LogWarning("[Executor] Missing CombatEventBus", this);
             if (strideAction == null) Debug.LogError("[Executor] Missing StrideAction", this);
+            if (stepAction == null) Debug.LogWarning("[Executor] Missing StepAction", this);
             if (jumpAction == null) Debug.LogWarning("[Executor] Missing JumpAction", this);
             if (strikeAction == null) Debug.LogError("[Executor] Missing StrikeAction", this);
             if (readyStrikeAction == null) Debug.LogWarning("[Executor] Missing ReadyStrikeAction", this);
@@ -129,6 +131,13 @@ namespace PF2e.TurnSystem
                     jumpAction = gameObject.AddComponent<JumpAction>();
             }
 
+            if (stepAction == null)
+            {
+                stepAction = GetComponent<StepAction>();
+                if (stepAction == null && entityManager != null)
+                    stepAction = gameObject.AddComponent<StepAction>();
+            }
+
             if (glassShieldAction == null)
             {
                 glassShieldAction = GetComponent<GlassShieldAction>();
@@ -148,6 +157,7 @@ namespace PF2e.TurnSystem
 
             aidAction?.InjectDependencies(entityManager, eventBus);
             jumpAction?.InjectDependencies(entityManager, eventBus);
+            stepAction?.InjectDependencies(entityManager, eventBus);
             readyStrikeAction?.InjectDependencies(turnManager, entityManager, strikeAction, eventBus);
             glassShieldAction?.InjectDependencies(entityManager, eventBus);
             standardShieldAction?.InjectDependencies(entityManager, eventBus);
@@ -381,6 +391,58 @@ namespace PF2e.TurnSystem
             return true;
         }
 
+        public bool TryExecuteStepToCell(Vector3Int targetCell)
+        {
+            if (turnManager == null || entityManager == null || stepAction == null)
+                return false;
+            if (!CanActNow())
+                return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return false;
+
+            executingActor = actor;
+            turnManager.BeginActionExecution(actor, "Player.Step");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = Time.time;
+#endif
+
+            bool performed = stepAction.TryExecuteStep(actor, targetCell);
+            if (!performed)
+            {
+                executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                executionStartTime = -1f;
+#endif
+                turnManager.ActionCompleted();
+                return false;
+            }
+
+            executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = -1f;
+#endif
+            turnManager.CompleteActionWithCost(StepAction.ActionCost);
+            return true;
+        }
+
+        public bool TryPreviewStepToCell(Vector3Int targetCell, out StepPreviewResult preview)
+        {
+            preview = StepPreviewResult.Invalid(StepFailureReason.InvalidState, targetCell);
+
+            if (turnManager == null || stepAction == null)
+                return false;
+            if (!CanActNow())
+                return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return false;
+
+            return stepAction.TryPreviewStep(actor, targetCell, out preview);
+        }
+
         public bool TryExecuteJumpToCell(Vector3Int targetCell)
         {
             if (turnManager == null || entityManager == null || jumpAction == null)
@@ -595,6 +657,48 @@ namespace PF2e.TurnSystem
             return true;
         }
 
+        private bool TryContinueAfterActionStartReactions(
+            EntityHandle actor,
+            string actionName,
+            CombatActionKind actionKind,
+            CombatActionTraitFlags traits,
+            int actionCost)
+        {
+            eventBus?.PublishCombatActionStarted(actor, actionName, actionKind, traits, actionCost);
+
+            bool actionInterrupted = turnManager != null && turnManager.ConsumeLastActionStartInterrupted(actor);
+
+            if (entityManager == null || entityManager.Registry == null)
+                return !actionInterrupted;
+
+            var actorData = entityManager.Registry.Get(actor);
+            if (actorData != null && actorData.IsAlive && !actionInterrupted)
+                return true;
+
+            AbortInterruptedExecutingAction(actor, endTurn: actorData == null || !actorData.IsAlive);
+            return false;
+        }
+
+        private void AbortInterruptedExecutingAction(EntityHandle actor, bool endTurn = true)
+        {
+            executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = -1f;
+#endif
+
+            if (turnManager == null)
+                return;
+
+            turnManager.ActionCompleted();
+
+            if (endTurn
+                && actor == turnManager.CurrentEntity
+                && (turnManager.State == TurnState.PlayerTurn || turnManager.State == TurnState.EnemyTurn))
+            {
+                turnManager.EndTurn();
+            }
+        }
+
         public bool TryExecuteStand()
         {
             if (turnManager == null || standAction == null) return false;
@@ -602,9 +706,48 @@ namespace PF2e.TurnSystem
 
             var actor = turnManager.CurrentEntity;
             if (!standAction.CanStand(actor)) return false;
-            if (!standAction.TryStand(actor)) return false;
 
-            turnManager.SpendActions(StandAction.ActionCost);
+            executingActor = actor;
+            turnManager.BeginActionExecution(actor, "Player.Stand");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = Time.time;
+#endif
+
+            if (!TryContinueAfterActionStartReactions(
+                    actor,
+                    actionName: "Stand",
+                    actionKind: CombatActionKind.Stand,
+                    traits: CombatActionTraitFlags.None,
+                    actionCost: StandAction.ActionCost))
+            {
+                return false;
+            }
+
+            if (!standAction.TryStand(actor))
+            {
+                if (entityManager != null && entityManager.Registry != null)
+                {
+                    var actorData = entityManager.Registry.Get(actor);
+                    if (actorData == null || !actorData.IsAlive)
+                    {
+                        AbortInterruptedExecutingAction(actor);
+                        return false;
+                    }
+                }
+
+                executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                executionStartTime = -1f;
+#endif
+                turnManager.ActionCompleted();
+                return false;
+            }
+
+            executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = -1f;
+#endif
+            turnManager.CompleteActionWithCost(StandAction.ActionCost);
             return true;
         }
 
@@ -997,6 +1140,16 @@ namespace PF2e.TurnSystem
             executionStartTime = Time.time;
 #endif
 
+            if (!TryContinueAfterActionStartReactions(
+                    actor,
+                    actionName: executeStandard ? "Shield" : "Glass Shield",
+                    actionKind: CombatActionKind.Spell,
+                    traits: CombatActionTraitFlags.None,
+                    actionCost: RaiseShieldAction.ActionCost))
+            {
+                return false;
+            }
+
             bool casted = executeStandard
                 ? standardShieldAction.TryCastStandardShield(actor)
                 : glassShieldAction.TryCastGlassShield(actor);
@@ -1062,6 +1215,16 @@ namespace PF2e.TurnSystem
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             executionStartTime = Time.time;
 #endif
+
+            if (!TryContinueAfterActionStartReactions(
+                    actor,
+                    definition.actionName,
+                    CombatActionKind.Spell,
+                    SpellCatalog.HasManipulateTrait(SpellId.ForceBarrage, clampedActionCount) ? CombatActionTraitFlags.Manipulate : CombatActionTraitFlags.None,
+                    clampedActionCount))
+            {
+                return false;
+            }
 
             var groupedShardRolls = new Dictionary<EntityHandle, List<int>>(targets.Count);
             for (int i = 0; i < targets.Count; i++)
@@ -1198,6 +1361,16 @@ namespace PF2e.TurnSystem
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             executionStartTime = Time.time;
 #endif
+
+            if (!TryContinueAfterActionStartReactions(
+                    actor,
+                    definition.actionName,
+                    CombatActionKind.Spell,
+                    SpellCatalog.HasManipulateTrait(SpellId.ElectricArc, definition.minActionCost) ? CombatActionTraitFlags.Manipulate : CombatActionTraitFlags.None,
+                    definition.minActionCost))
+            {
+                return false;
+            }
 
             int spellDc = SpellcastingRules.ComputeWizardSpellDc(actorData);
             int rolledDamage = rng.RollDie(4) + rng.RollDie(4);
@@ -1395,6 +1568,16 @@ namespace PF2e.TurnSystem
             executionStartTime = Time.time;
 #endif
 
+            if (!TryContinueAfterActionStartReactions(
+                    actor,
+                    definition.actionName,
+                    CombatActionKind.Spell,
+                    SpellCatalog.HasManipulateTrait(SpellId.Snowball, definition.minActionCost) ? CombatActionTraitFlags.Manipulate : CombatActionTraitFlags.None,
+                    definition.minActionCost))
+            {
+                return false;
+            }
+
             var targetData = entityManager.Registry.Get(target);
             if (targetData == null || !targetData.IsAlive)
             {
@@ -1541,6 +1724,16 @@ namespace PF2e.TurnSystem
             executionStartTime = Time.time;
 #endif
 
+            if (!TryContinueAfterActionStartReactions(
+                    actor,
+                    definition.actionName,
+                    CombatActionKind.Spell,
+                    SpellCatalog.HasManipulateTrait(SpellId.Fear, definition.minActionCost) ? CombatActionTraitFlags.Manipulate : CombatActionTraitFlags.None,
+                    definition.minActionCost))
+            {
+                return false;
+            }
+
             var targetData = entityManager.Registry.Get(target);
             if (targetData == null || !targetData.IsAlive)
             {
@@ -1673,6 +1866,16 @@ namespace PF2e.TurnSystem
             executionStartTime = Time.time;
 #endif
 
+            if (!TryContinueAfterActionStartReactions(
+                    actor,
+                    "Heal",
+                    CombatActionKind.Spell,
+                    SpellCatalog.HasManipulateTrait(SpellId.Heal, clampedActionCount) ? CombatActionTraitFlags.Manipulate : CombatActionTraitFlags.None,
+                    clampedActionCount))
+            {
+                return false;
+            }
+
             var targetData = entityManager.Registry.Get(target);
             if (targetData == null || !targetData.IsAlive)
             {
@@ -1798,6 +2001,16 @@ namespace PF2e.TurnSystem
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             executionStartTime = Time.time;
 #endif
+
+            if (!TryContinueAfterActionStartReactions(
+                    actor,
+                    "Heal",
+                    CombatActionKind.Spell,
+                    SpellCatalog.HasManipulateTrait(SpellId.Heal, actionCost) ? CombatActionTraitFlags.Manipulate : CombatActionTraitFlags.None,
+                    actionCost))
+            {
+                return false;
+            }
 
             var definition = SpellCatalog.Get(SpellId.Heal);
             int spellDc = SpellcastingRules.ComputeWizardSpellDc(actorData);
@@ -1943,6 +2156,16 @@ namespace PF2e.TurnSystem
             executionStartTime = Time.time;
 #endif
 
+            if (!TryContinueAfterActionStartReactions(
+                    actor,
+                    "Harm",
+                    CombatActionKind.Spell,
+                    SpellCatalog.HasManipulateTrait(SpellId.Harm, clampedActionCount) ? CombatActionTraitFlags.Manipulate : CombatActionTraitFlags.None,
+                    clampedActionCount))
+            {
+                return false;
+            }
+
             var targetData = entityManager.Registry.Get(target);
             if (targetData == null || !targetData.IsAlive)
             {
@@ -2068,6 +2291,16 @@ namespace PF2e.TurnSystem
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             executionStartTime = Time.time;
 #endif
+
+            if (!TryContinueAfterActionStartReactions(
+                    actor,
+                    "Harm",
+                    CombatActionKind.Spell,
+                    SpellCatalog.HasManipulateTrait(SpellId.Harm, actionCost) ? CombatActionTraitFlags.Manipulate : CombatActionTraitFlags.None,
+                    actionCost))
+            {
+                return false;
+            }
 
             var definition = SpellCatalog.Get(SpellId.Harm);
             int spellDc = SpellcastingRules.ComputeWizardSpellDc(actorData);
@@ -2196,6 +2429,16 @@ namespace PF2e.TurnSystem
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             executionStartTime = Time.time;
 #endif
+
+            if (!TryContinueAfterActionStartReactions(
+                    actor,
+                    definition.actionName,
+                    CombatActionKind.Spell,
+                    SpellCatalog.HasManipulateTrait(SpellId.BurningHands, definition.minActionCost) ? CombatActionTraitFlags.Manipulate : CombatActionTraitFlags.None,
+                    definition.minActionCost))
+            {
+                return false;
+            }
 
             int spellDc = SpellcastingRules.ComputeWizardSpellDc(actorData);
             int rolledDamage = rng.RollDie(6) + rng.RollDie(6);

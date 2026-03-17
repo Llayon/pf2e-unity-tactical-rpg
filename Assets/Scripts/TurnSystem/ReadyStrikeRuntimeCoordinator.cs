@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using PF2e.Core;
 using PF2e.Managers;
 
@@ -64,13 +65,14 @@ namespace PF2e.TurnSystem
         public void HandleEntityMoved(
             in EntityMovedEvent e,
             TurnState state,
+            IReadOnlyList<InitiativeEntry> initiativeOrder,
             EntityManager entityManager,
             StrikeAction strikeAction,
             Func<EntityHandle, int> findInitiativeIndex,
             Func<EntityHandle, bool> canUseReaction,
             CombatEventBus eventBus)
         {
-            if (!CanProcessRuntimeEvents(state, entityManager, strikeAction))
+            if (!CanProcessRuntimeEvents(state, initiativeOrder, entityManager, strikeAction))
                 return;
             if (findInitiativeIndex == null || canUseReaction == null)
                 return;
@@ -96,6 +98,7 @@ namespace PF2e.TurnSystem
         public void HandleStrikePreDamage(
             in StrikePreDamageEvent e,
             TurnState state,
+            IReadOnlyList<InitiativeEntry> initiativeOrder,
             EntityManager entityManager,
             StrikeAction strikeAction,
             Func<EntityHandle, int> findInitiativeIndex,
@@ -104,7 +107,7 @@ namespace PF2e.TurnSystem
         {
             if (triggerExecutor.IsResolving)
                 return;
-            if (!CanProcessRuntimeEvents(state, entityManager, strikeAction))
+            if (!CanProcessRuntimeEvents(state, initiativeOrder, entityManager, strikeAction))
                 return;
             if (findInitiativeIndex == null || canUseReaction == null)
                 return;
@@ -129,6 +132,7 @@ namespace PF2e.TurnSystem
 
         private bool CanProcessRuntimeEvents(
             TurnState state,
+            IReadOnlyList<InitiativeEntry> initiativeOrder,
             EntityManager entityManager,
             StrikeAction strikeAction)
         {

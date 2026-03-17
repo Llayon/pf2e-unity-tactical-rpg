@@ -74,7 +74,7 @@ namespace PF2e.Managers
         }
 
 #if UNITY_EDITOR
-private void OnValidate()
+        private void OnValidate()
         {
             if (gridManager == null)
                 Debug.LogError("[EntityManager] Missing reference: GridManager. Assign it in Inspector.", this);
@@ -239,6 +239,7 @@ private void OnValidate()
                 fighter.EquippedShield = ShieldInstance.CreateEquipped(fighterShieldDef);
             }
             fighter.ShieldBlockPreference = fighterShieldBlockPreference;
+            fighter.HasReactiveStrike = true;
             fighter.Portrait = ResolvePortrait(fighter.EncounterActorId);
             CreateEntity(fighter, new Vector3Int(1, 0, 1));
 
