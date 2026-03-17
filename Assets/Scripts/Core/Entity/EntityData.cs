@@ -118,6 +118,7 @@ namespace PF2e.Core
 
         // ─── Conditions ───
         public List<ActiveCondition> Conditions = new List<ActiveCondition>();
+        public EntityHandle FleeingSourceHandle;
 
         // ─── Derived Stats Cache (Phase 18.6) ───
         private int cachedEffectiveAC;
@@ -358,6 +359,17 @@ namespace PF2e.Core
             for (int i = 0; i < Conditions.Count; i++)
                 if (Conditions[i].Type == type) return Conditions[i].Value;
             return 0;
+        }
+
+        public void SetFleeingSource(EntityHandle source)
+        {
+            FleeingSourceHandle = source.IsValid ? source : EntityHandle.None;
+        }
+
+        public void ClearTransientConditionState(ConditionType type)
+        {
+            if (type == ConditionType.Fleeing)
+                FleeingSourceHandle = EntityHandle.None;
         }
 
         /// <summary>

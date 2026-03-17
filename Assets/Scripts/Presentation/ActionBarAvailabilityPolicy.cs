@@ -48,6 +48,26 @@ namespace PF2e.Presentation
             if (actorData == null || !actorData.IsAlive)
                 return default;
 
+            if (actorData.HasCondition(ConditionType.Fleeing))
+            {
+                return new ActionBarAvailabilityState(
+                    strikeInteractable: false,
+                    jumpInteractable: false,
+                    tripInteractable: false,
+                    shoveInteractable: false,
+                    grappleInteractable: false,
+                    repositionInteractable: false,
+                    demoralizeInteractable: false,
+                    escapeInteractable: IsGrabbedOrRestrained(actorData),
+                    aidInteractable: false,
+                    readyInteractable: false,
+                    castSpellInteractable: false,
+                    raiseShieldInteractable: false,
+                    guardVisible: IsGuardVisible(actorData),
+                    standInteractable: HasCondition(actorData, ConditionType.Prone),
+                    standVisible: HasCondition(actorData, ConditionType.Prone));
+            }
+
             return new ActionBarAvailabilityState(
                 strikeInteractable: true,
                 jumpInteractable: true,

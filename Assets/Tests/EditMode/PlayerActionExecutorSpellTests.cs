@@ -419,7 +419,7 @@ namespace PF2e.Tests
         }
 
         [Test]
-        public void TryConfirmFear_CriticalFailure_AppliesFrightenedThreeAndNoDamage()
+        public void TryConfirmFear_CriticalFailure_AppliesFrightenedThreeAndFleeing()
         {
             using var ctx = new SpellExecutorContext();
 
@@ -429,8 +429,10 @@ namespace PF2e.Tests
             ctx.SetCurrentActor(actor, actionsRemaining: 3);
 
             int damageCount = 0;
+            var changedConditions = new List<ConditionType>();
             SpellResolvedEvent lastSpell = default;
             ctx.EventBus.OnDamageAppliedTyped += HandleDamage;
+            ctx.EventBus.OnConditionChangedTyped += HandleCondition;
             ctx.EventBus.OnSpellResolvedTyped += HandleSpell;
             try
             {
@@ -440,7 +442,13 @@ namespace PF2e.Tests
 
                 Assert.IsTrue(executed);
                 Assert.AreEqual(0, damageCount);
+                CollectionAssert.AreEquivalent(
+                    new[] { ConditionType.Frightened, ConditionType.Fleeing },
+                    changedConditions);
                 Assert.AreEqual(3, ctx.Registry.Get(target).GetConditionValue(ConditionType.Frightened));
+                Assert.IsTrue(ctx.Registry.Get(target).HasCondition(ConditionType.Fleeing));
+                Assert.AreEqual(1, ctx.Registry.Get(target).Conditions.Find(c => c.Type == ConditionType.Fleeing).RemainingRounds);
+                Assert.AreEqual(actor, ctx.Registry.Get(target).FleeingSourceHandle);
                 Assert.AreEqual(1, ctx.Registry.Get(actor).ActionsRemaining);
                 Assert.AreEqual(DegreeOfSuccess.CriticalFailure, lastSpell.targetOutcomes[0].saveResult.Value.degree);
                 Assert.AreEqual(ConditionType.Frightened, lastSpell.targetOutcomes[0].appliedConditionType);
@@ -450,12 +458,18 @@ namespace PF2e.Tests
             finally
             {
                 ctx.EventBus.OnDamageAppliedTyped -= HandleDamage;
+                ctx.EventBus.OnConditionChangedTyped -= HandleCondition;
                 ctx.EventBus.OnSpellResolvedTyped -= HandleSpell;
             }
 
             void HandleDamage(in DamageAppliedEvent e)
             {
                 damageCount++;
+            }
+
+            void HandleCondition(in ConditionChangedEvent e)
+            {
+                changedConditions.Add(e.conditionType);
             }
 
             void HandleSpell(in SpellResolvedEvent e)

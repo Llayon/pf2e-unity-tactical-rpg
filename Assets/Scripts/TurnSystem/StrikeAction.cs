@@ -203,6 +203,20 @@ namespace PF2e.TurnSystem
 
             int hpBefore = targetData.CurrentHP;
             int finalDamage = 0;
+            ConditionRules.ComputeAttackAndAcPenaltyBreakdown(
+                attackerData.Conditions,
+                out int attackerStatusPenalty,
+                out int attackerCircumstancePenalty,
+                out _);
+            ConditionRules.ComputeAttackAndAcPenaltyBreakdown(
+                targetData.Conditions,
+                out int targetStatusPenalty,
+                out _,
+                out int targetCircumstancePenalty);
+            int shieldAcBonus = Mathf.Max(
+                targetData.EquippedShield.ACBonus,
+                Mathf.Max(targetData.GlassShieldAcBonus, targetData.StandardShieldAcBonus));
+            int baseAttackBonus = phase.attackBonus + attackerStatusPenalty + attackerCircumstancePenalty;
 
             if (phase.damageDealt && phase.damageRolled > 0)
             {
@@ -227,6 +241,13 @@ namespace PF2e.TurnSystem
                 rangePenalty: phase.rangePenalty,
                 volleyPenalty: phase.volleyPenalty,
                 aidCircumstanceBonus: phase.aidCircumstanceBonus,
+                baseAttackBonus: baseAttackBonus,
+                statusPenaltyToAttack: attackerStatusPenalty,
+                circumstancePenaltyToAttack: attackerCircumstancePenalty,
+                baseAc: targetData.BaseAC,
+                shieldAcBonus: shieldAcBonus,
+                statusPenaltyToAc: targetStatusPenalty,
+                circumstancePenaltyToAc: targetCircumstancePenalty,
                 coverAcBonus: phase.coverAcBonus,
                 total: phase.total,
                 dc: phase.dc,

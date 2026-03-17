@@ -2120,7 +2120,7 @@ namespace PF2e.Presentation
         {
             int selectedTargetCount = targetingController != null ? targetingController.FearSelectedTargetCount : 0;
             var summary = new StringBuilder();
-            summary.Append("Range 30 ft. Will save; only critical success avoids frightened.");
+            summary.Append("Range 30 ft. Will save; crit failure also applies fleeing for 1 round.");
             summary.Append('\n');
             summary.Append(selectedTargetCount);
             summary.Append("/1 target selected.");
@@ -2130,7 +2130,7 @@ namespace PF2e.Presentation
             {
                 summary.Append('\n');
                 summary.Append(targetSummary);
-                summary.Append("\nSuccess = frightened 1, failure = frightened 2, crit failure = frightened 3.");
+                summary.Append("\nSuccess = frightened 1, failure = frightened 2, crit failure = frightened 3 + fleeing 1 round.");
                 summary.Append("\nConfirm to cast or Esc to cancel.");
             }
             else

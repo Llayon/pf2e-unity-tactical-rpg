@@ -15,6 +15,14 @@ namespace PF2e.TurnSystem
     /// </summary>
     public class PlayerActionExecutor : MonoBehaviour
     {
+        private enum FleeingActionAllowance : byte
+        {
+            Restricted = 0,
+            Stride = 1,
+            Escape = 2,
+            Stand = 3
+        }
+
         [Header("Dependencies (Inspector-only)")]
         [SerializeField] private TurnManager turnManager;
         [SerializeField] private EntityManager entityManager;
@@ -46,6 +54,7 @@ namespace PF2e.TurnSystem
         private readonly List<ConditionDelta> conditionDeltaBuffer = new(4);
         private readonly List<Vector3Int> spellAreaCellBuffer = new(8);
         private readonly List<EntityHandle> spellAreaTargetBuffer = new(8);
+        private readonly Dictionary<Vector3Int, int> fleeingZoneBuffer = new(64);
         private IReactionDecisionPolicy reactionPolicy;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -155,7 +164,7 @@ namespace PF2e.TurnSystem
             return outCells.Count > 0;
         }
 
-        public bool CanActNow()
+        private bool CanActNow(FleeingActionAllowance fleeingAllowance = FleeingActionAllowance.Restricted)
         {
             if (turnManager == null || entityManager == null) return false;
             if (!turnManager.IsPlayerTurn) return false;
@@ -164,10 +173,54 @@ namespace PF2e.TurnSystem
             var actor = turnManager.CurrentEntity;
             if (!actor.IsValid) return false;
 
+            var actorData = entityManager.Registry != null ? entityManager.Registry.Get(actor) : null;
+            if (actorData == null || !actorData.IsAlive) return false;
+            if (IsRestrictedByFleeing(actorData, fleeingAllowance)) return false;
+
             if (!turnManager.CanAct(actor)) return false;
             if (strideAction != null && strideAction.StrideInProgress) return false;
 
             return true;
+        }
+
+        private bool IsRestrictedByFleeing(EntityData actorData, FleeingActionAllowance allowance)
+        {
+            if (actorData == null || !actorData.HasCondition(ConditionType.Fleeing))
+                return false;
+
+            return allowance switch
+            {
+                FleeingActionAllowance.Stride => false,
+                FleeingActionAllowance.Escape => false,
+                FleeingActionAllowance.Stand => false,
+                _ => true
+            };
+        }
+
+        private bool TryBuildFleeZone(EntityData actorData, int availableActions, out Vector3Int sourcePosition)
+        {
+            sourcePosition = default;
+            fleeingZoneBuffer.Clear();
+
+            if (actorData == null
+                || entityManager == null
+                || entityManager.Registry == null
+                || entityManager.GridData == null
+                || entityManager.Pathfinding == null
+                || entityManager.Occupancy == null)
+            {
+                return false;
+            }
+
+            return FleeingRules.TryBuildFleeZone(
+                entityManager.GridData,
+                entityManager.Pathfinding,
+                entityManager.Occupancy,
+                entityManager.Registry,
+                actorData,
+                availableActions,
+                fleeingZoneBuffer,
+                out sourcePosition);
         }
 
         /// <summary>
@@ -260,11 +313,22 @@ namespace PF2e.TurnSystem
         public bool TryExecuteStrideToCell(Vector3Int targetCell)
         {
             if (turnManager == null || entityManager == null || strideAction == null) return false;
-            if (!CanActNow()) return false;
+            if (!CanActNow(FleeingActionAllowance.Stride)) return false;
 
             var actor = turnManager.CurrentEntity;
+            var actorData = entityManager.Registry != null ? entityManager.Registry.Get(actor) : null;
+            if (actorData == null || !actorData.IsAlive) return false;
+
             int availableActions = Mathf.Clamp(turnManager.ActionsRemaining, 0, 3);
             if (availableActions <= 0) return false;
+
+            if (actorData.HasCondition(ConditionType.Fleeing))
+            {
+                if (!TryBuildFleeZone(actorData, availableActions, out _))
+                    return false;
+                if (!fleeingZoneBuffer.ContainsKey(targetCell))
+                    return false;
+            }
 
             // Lock input first; rollback if stride fails
             executingActor = actor;
@@ -506,7 +570,7 @@ namespace PF2e.TurnSystem
         public bool TryExecuteStand()
         {
             if (turnManager == null || standAction == null) return false;
-            if (!CanActNow()) return false;
+            if (!CanActNow(FleeingActionAllowance.Stand)) return false;
 
             var actor = turnManager.CurrentEntity;
             if (!standAction.CanStand(actor)) return false;
@@ -813,7 +877,7 @@ namespace PF2e.TurnSystem
         public bool TryExecuteEscape(EntityHandle grappler)
         {
             if (turnManager == null || entityManager == null || escapeAction == null) return false;
-            if (!CanActNow()) return false;
+            if (!CanActNow(FleeingActionAllowance.Escape)) return false;
 
             var actor = turnManager.CurrentEntity;
             if (!actor.IsValid) return false;
@@ -1427,6 +1491,7 @@ namespace PF2e.TurnSystem
             int hpBefore = Mathf.Max(0, targetData.CurrentHP);
 
             ConditionType? appliedConditionType = null;
+            bool applyFleeing = save.degree == DegreeOfSuccess.CriticalFailure;
             int appliedConditionValue = save.degree switch
             {
                 DegreeOfSuccess.Success => 1,
@@ -1445,6 +1510,17 @@ namespace PF2e.TurnSystem
                     appliedConditionValue,
                     rounds: -1,
                     conditionDeltaBuffer);
+
+                if (applyFleeing)
+                {
+                    conditionService.AddOrRefresh(
+                        targetData,
+                        ConditionType.Fleeing,
+                        value: 0,
+                        rounds: 1,
+                        conditionDeltaBuffer);
+                    targetData.SetFleeingSource(actor);
+                }
             }
 
             var outcomes = new[]

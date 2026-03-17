@@ -214,7 +214,7 @@ namespace PF2e.Presentation
             if (outcome.appliedConditionType == ConditionType.Frightened && outcome.appliedConditionValue > 0)
             {
                 sb.Append(CombatLogRichText.Verb("gains "));
-                sb.Append(CombatLogRichText.ConditionGain($"frightened {outcome.appliedConditionValue}"));
+                sb.Append(CombatLogRichText.ConditionGain(BuildFearEffectSummary(in outcome)));
             }
             else
             {
@@ -314,7 +314,12 @@ namespace PF2e.Presentation
         private static string BuildFearEffectSummary(in SpellResolvedTargetOutcome outcome)
         {
             if (outcome.appliedConditionType == ConditionType.Frightened && outcome.appliedConditionValue > 0)
+            {
+                if (outcome.saveResult.HasValue && outcome.saveResult.Value.degree == DegreeOfSuccess.CriticalFailure)
+                    return $"frightened {outcome.appliedConditionValue}, fleeing 1 round";
+
                 return $"frightened {outcome.appliedConditionValue}";
+            }
 
             return "no effect";
         }

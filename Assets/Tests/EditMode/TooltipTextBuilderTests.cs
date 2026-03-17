@@ -60,6 +60,34 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void StrikeResultBreakdown_WithStatusPenaltyBreakdown_ShowsPenaltyRows()
+        {
+            string text = TooltipTextBuilder.StrikeResultBreakdown(
+                naturalRoll: 20,
+                attackBonus: 1,
+                mapPenalty: 0,
+                rangePenalty: 0,
+                volleyPenalty: 0,
+                aidCircumstanceBonus: 0,
+                total: 20,
+                degree: DegreeOfSuccess.CriticalSuccess,
+                baseAc: 18,
+                coverBonus: 0,
+                baseAttackBonus: 2,
+                statusPenaltyToAttack: 1,
+                circumstancePenaltyToAttack: 0,
+                shieldAcBonus: 0,
+                statusPenaltyToAc: 1,
+                circumstancePenaltyToAc: 0);
+
+            StringAssert.Contains("Base Attack Bonus", text);
+            StringAssert.Contains("Status Penalty", text);
+            StringAssert.Contains("Base AC", text);
+            StringAssert.Contains("Total: 17", text);
+            StringAssert.Contains("against AC 17", text);
+        }
+
+        [Test]
         public void SkillCheckResultBreakdown_Basic()
         {
             var roll = new CheckRoll(14, 8, CheckSource.Skill(SkillType.Athletics));

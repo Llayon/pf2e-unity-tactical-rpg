@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using PF2e.Core;
 using PF2e.Grid;
@@ -39,6 +40,7 @@ namespace PF2e.TurnSystem
         private IAIDecisionPolicy decisionPolicy;
         private IReactionDecisionPolicy reactionPolicy;
         private readonly System.Collections.Generic.List<ReactionOption> reactionBuffer = new(2);
+        private readonly Dictionary<Vector3Int, int> fleeingZoneBuffer = new(64);
 
         // Async stride state
         private bool waitingForStride;
@@ -151,6 +153,26 @@ namespace PF2e.TurnSystem
 
                     if (stood)
                         yield return new WaitForSeconds(actionDelay);
+                }
+
+                actorData = entityManager.Registry.Get(actor);
+                if (actorData == null || !actorData.IsAlive)
+                    yield break;
+
+                if (actorData.HasCondition(ConditionType.Fleeing))
+                {
+                    if (TrySelectFleeCell(actorData, Mathf.Clamp(actorData.ActionsRemaining, 0, 3), out var fleeCell))
+                    {
+                        bool moved = false;
+                        yield return DoStride(actor, fleeCell, token, success => moved = success);
+                        if (!IsCurrentRun(token) || !IsMyTurn(actor))
+                            yield break;
+                        if (moved)
+                            yield return new WaitForSeconds(actionDelay);
+                    }
+
+                    ForceEndTurn(actor);
+                    yield break;
                 }
 
                 int attempts = 0;
@@ -294,6 +316,37 @@ namespace PF2e.TurnSystem
                 if (!completed)
                     TryRollbackExecutionLock();
             }
+        }
+
+        private bool TrySelectFleeCell(EntityData actorData, int availableActions, out Vector3Int fleeCell)
+        {
+            fleeCell = default;
+
+            if (actorData == null
+                || entityManager == null
+                || entityManager.Registry == null
+                || entityManager.GridData == null
+                || entityManager.Pathfinding == null
+                || entityManager.Occupancy == null)
+            {
+                return false;
+            }
+
+            fleeingZoneBuffer.Clear();
+            if (!FleeingRules.TryBuildFleeZone(
+                    entityManager.GridData,
+                    entityManager.Pathfinding,
+                    entityManager.Occupancy,
+                    entityManager.Registry,
+                    actorData,
+                    availableActions,
+                    fleeingZoneBuffer,
+                    out _))
+            {
+                return false;
+            }
+
+            return FleeingRules.TrySelectDeterministicCell(fleeingZoneBuffer, out fleeCell);
         }
 
         private void HandleStrideComplete(int cost)

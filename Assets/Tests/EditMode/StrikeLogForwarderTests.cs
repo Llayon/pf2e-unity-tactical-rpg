@@ -420,6 +420,63 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void StrikeLog_WithStatusPenaltyBreakdown_ShowsPenaltyRows()
+        {
+            using var ctx = new StrikeLogContext();
+            var attacker = ctx.RegisterEntity("Goblin_1", Team.Enemy);
+            var target = ctx.RegisterEntity("Fighter", Team.Player);
+
+            var ev = CreateStrikeEvent(
+                attacker,
+                target,
+                attackBonus: 1,
+                total: 20,
+                dc: 17,
+                degree: DegreeOfSuccess.CriticalSuccess,
+                acDegree: DegreeOfSuccess.CriticalSuccess,
+                baseAttackBonus: 2,
+                statusPenaltyToAttack: 1,
+                baseAc: 18,
+                statusPenaltyToAc: 1);
+
+            CombatLogTooltipPayload? firstPayload = null;
+            int count = 0;
+            ctx.EventBus.OnLogEntry += HandleLog;
+            ctx.EventBus.OnLogEntryWithTooltip += HandleTooltip;
+            try
+            {
+                ctx.EventBus.PublishStrikeResolved(in ev);
+
+                Assert.GreaterOrEqual(count, 1);
+                var acEntry = FindTooltipEntry(firstPayload, CombatLogLinkTokens.Result);
+                StringAssert.Contains("Base Attack Bonus", acEntry.body);
+                StringAssert.Contains("Status Penalty", acEntry.body);
+                StringAssert.Contains("Base AC", acEntry.body);
+                StringAssert.Contains("Total: 17", acEntry.body);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntry -= HandleLog;
+                ctx.EventBus.OnLogEntryWithTooltip -= HandleTooltip;
+            }
+
+            void HandleLog(CombatLogEntry entry)
+            {
+                count++;
+            }
+
+            void HandleTooltip(CombatLogEntry entry, CombatLogTooltipPayload? payload)
+            {
+                if (firstPayload.HasValue || count != 0)
+                {
+                    return;
+                }
+
+                firstPayload = payload;
+            }
+        }
+
+        [Test]
         public void StrikeLog_ConcealmentFail_CritByAc_ShowsAcDegreeAndExplainsMiss()
         {
             using var ctx = new StrikeLogContext();
@@ -738,6 +795,16 @@ namespace PF2e.Tests
             int concealmentFlatCheckRoll = 0,
             bool concealmentFlatCheckPassed = false,
             int damage = 0,
+            int attackBonus = 9,
+            int total = 14,
+            int dc = 18,
+            int baseAttackBonus = 0,
+            int statusPenaltyToAttack = 0,
+            int circumstancePenaltyToAttack = 0,
+            int baseAc = 0,
+            int shieldAcBonus = 0,
+            int statusPenaltyToAc = 0,
+            int circumstancePenaltyToAc = 0,
             int fatalBonusDamage = 0,
             int deadlyBonusDamage = 0,
             int hpBefore = 20,
@@ -749,10 +816,10 @@ namespace PF2e.Tests
                 target,
                 weaponName: "Shortbow",
                 naturalRoll: 12,
-                attackBonus: 9,
+                attackBonus: attackBonus,
                 mapPenalty: -5,
-                total: 14,
-                dc: 18,
+                total: total,
+                dc: dc,
                 degree: degree,
                 damage: damage,
                 damageType: DamageType.Piercing,
@@ -762,6 +829,13 @@ namespace PF2e.Tests
                 rangePenalty: rangePenalty,
                 volleyPenalty: volleyPenalty,
                 aidCircumstanceBonus: aidCircumstanceBonus,
+                baseAttackBonus: baseAttackBonus,
+                statusPenaltyToAttack: statusPenaltyToAttack,
+                circumstancePenaltyToAttack: circumstancePenaltyToAttack,
+                baseAc: baseAc,
+                shieldAcBonus: shieldAcBonus,
+                statusPenaltyToAc: statusPenaltyToAc,
+                circumstancePenaltyToAc: circumstancePenaltyToAc,
                 coverAcBonus: coverAcBonus,
                 fatalBonusDamage: fatalBonusDamage,
                 deadlyBonusDamage: deadlyBonusDamage,

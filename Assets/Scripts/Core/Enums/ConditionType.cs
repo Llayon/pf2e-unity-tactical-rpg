@@ -4,6 +4,7 @@ namespace PF2e.Core
     {
         OffGuard,
         Frightened,
+        Fleeing,
         Sickened,
         Stunned,
         Prone,

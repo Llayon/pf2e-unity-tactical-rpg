@@ -26,6 +26,7 @@ namespace PF2e.Core
         {
             ConditionType.OffGuard => "off-guard",
             ConditionType.SpeedPenalty => "speed penalty",
+            ConditionType.Fleeing => "fleeing",
             _ => type.ToString().ToLowerInvariant()
         };
 
@@ -59,13 +60,14 @@ namespace PF2e.Core
         /// - Attack: prone gives circumstance -2.
         /// - AC: off-guard/prone/grabbed/restrained gives circumstance -2 (off-guard-like AC state).
         /// </summary>
-        public static void ComputeAttackAndAcPenalties(
+        public static void ComputeAttackAndAcPenaltyBreakdown(
             IReadOnlyList<ActiveCondition> conditions,
-            out int attackPenalty,
-            out int acPenalty)
+            out int statusPenalty,
+            out int attackCircumstancePenalty,
+            out int acCircumstancePenalty)
         {
-            int statusPenalty = ComputeCheckPenalty(conditions);
-                        bool hasProne = false;
+            statusPenalty = ComputeCheckPenalty(conditions);
+            bool hasProne = false;
             bool hasOffGuard = false;
             bool hasGrabbed = false;
             bool hasRestrained = false;
@@ -80,7 +82,7 @@ namespace PF2e.Core
                         case ConditionType.Prone:
                             hasProne = true;
                             break;
-                                                case ConditionType.OffGuard:
+                        case ConditionType.OffGuard:
                             hasOffGuard = true;
                             break;
                         case ConditionType.Grabbed:
@@ -93,10 +95,28 @@ namespace PF2e.Core
                 }
             }
 
-            int attackCircumstancePenalty = hasProne ? 2 : 0;
-                        bool hasOffGuardLikeAcState = hasOffGuard || hasProne || hasGrabbed || hasRestrained;
-            int acCircumstancePenalty = hasOffGuardLikeAcState ? 2 : 0;
+            attackCircumstancePenalty = hasProne ? 2 : 0;
+            bool hasOffGuardLikeAcState = hasOffGuard || hasProne || hasGrabbed || hasRestrained;
+            acCircumstancePenalty = hasOffGuardLikeAcState ? 2 : 0;
+        }
 
+        /// <summary>
+        /// PF2e stacking for current MVP combat slice:
+        /// - Status penalties (Frightened/Sickened) do not stack: use max.
+        /// - Circumstance penalties do not stack per target metric.
+        /// - Attack: prone gives circumstance -2.
+        /// - AC: off-guard/prone/grabbed/restrained gives circumstance -2 (off-guard-like AC state).
+        /// </summary>
+        public static void ComputeAttackAndAcPenalties(
+            IReadOnlyList<ActiveCondition> conditions,
+            out int attackPenalty,
+            out int acPenalty)
+        {
+            ComputeAttackAndAcPenaltyBreakdown(
+                conditions,
+                out int statusPenalty,
+                out int attackCircumstancePenalty,
+                out int acCircumstancePenalty);
             attackPenalty = statusPenalty + attackCircumstancePenalty;
             acPenalty = statusPenalty + acCircumstancePenalty;
         }

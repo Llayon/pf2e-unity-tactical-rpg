@@ -52,7 +52,12 @@ namespace PF2e.Presentation
             string rawTargetName = targetData?.Name ?? "Unknown";
             var targetTeam = targetData?.Team ?? Team.Neutral;
             string targetName = CombatLogRichText.EntityName(rawTargetName, targetTeam);
-            int effectiveAc = e.dc + e.coverAcBonus;
+            bool hasDetailedAcBreakdown =
+                e.baseAc > 0
+                || e.shieldAcBonus != 0
+                || e.statusPenaltyToAc != 0
+                || e.circumstancePenaltyToAc != 0;
+            int effectiveAc = hasDetailedAcBreakdown ? e.dc : e.dc + e.coverAcBonus;
             string degreeLabel = TooltipTextBuilder.FormatDegreeLabel(e.acDegree);
             string signedModifier = RollBreakdownFormatter.FormatSigned(e.attackRoll.modifier);
             string resultLink = CombatLogLinkHelper.Link(
@@ -73,8 +78,14 @@ namespace PF2e.Presentation
                         e.aidCircumstanceBonus,
                         e.attackRoll.total,
                         e.acDegree,
-                        e.dc,
-                        e.coverAcBonus),
+                        hasDetailedAcBreakdown ? e.baseAc : e.dc,
+                        e.coverAcBonus,
+                        e.baseAttackBonus,
+                        e.statusPenaltyToAttack,
+                        e.circumstancePenaltyToAttack,
+                        e.shieldAcBonus,
+                        e.statusPenaltyToAc,
+                        e.circumstancePenaltyToAc),
                     TooltipLayoutProfile.Standard)
             });
 

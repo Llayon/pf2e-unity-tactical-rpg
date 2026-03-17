@@ -245,6 +245,29 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void BuildForActor_Fleeing_DisablesNonEscapeActions()
+        {
+            var policy = new ActionBarAvailabilityPolicy();
+            var actor = new EntityData
+            {
+                Team = Team.Player,
+                CurrentHP = 10,
+                MaxHP = 10
+            };
+
+            actor.Conditions.Add(new ActiveCondition(ConditionType.Fleeing, value: 0, remainingRounds: 1));
+
+            var state = policy.BuildForActor(actor, actionsRemaining: 3);
+            Assert.IsFalse(state.strikeInteractable);
+            Assert.IsFalse(state.jumpInteractable);
+            Assert.IsFalse(state.castSpellInteractable);
+            Assert.IsFalse(state.demoralizeInteractable);
+            Assert.IsFalse(state.raiseShieldInteractable);
+            Assert.IsFalse(state.readyInteractable);
+            Assert.IsFalse(state.escapeInteractable);
+        }
+
+        [Test]
         public void BuildForActor_NoShieldAndNoActionBarSpells_HidesGuard()
         {
             var policy = new ActionBarAvailabilityPolicy();

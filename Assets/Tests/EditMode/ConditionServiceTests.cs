@@ -194,6 +194,26 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void TickEndTurn_FleeingDurationExpires_ClearsStoredSource()
+        {
+            var service = new ConditionService();
+            var actor = CreateEntity();
+            var deltas = new List<ConditionDelta>(4);
+
+            actor.SetFleeingSource(new EntityHandle(123));
+            service.Apply(actor, ConditionType.Fleeing, value: 0, rounds: 1, deltas);
+            deltas.Clear();
+
+            service.TickEndTurn(actor, deltas);
+
+            Assert.AreEqual(1, deltas.Count);
+            Assert.AreEqual(ConditionType.Fleeing, deltas[0].type);
+            Assert.AreEqual(ConditionChangeType.Removed, deltas[0].changeType);
+            Assert.IsFalse(actor.HasCondition(ConditionType.Fleeing));
+            Assert.AreEqual(EntityHandle.None, actor.FleeingSourceHandle);
+        }
+
+        [Test]
         public void TickEndTurn_RemovesInfiniteValuedConditionWhenValueExhausted()
         {
             var service = new ConditionService();

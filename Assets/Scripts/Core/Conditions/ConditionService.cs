@@ -89,6 +89,7 @@ namespace PF2e.Core
                     0));
 
                 entity.Conditions.RemoveAt(i);
+                entity.ClearTransientConditionState(type);
                 entity.MarkDerivedStatsDirty();
             }
         }
@@ -143,6 +144,7 @@ namespace PF2e.Core
                         oldRounds,
                         0));
 
+                    entity.ClearTransientConditionState(cond.Type);
                     entity.Conditions.RemoveAt(i);
                     entity.MarkDerivedStatsDirty();
                     continue;

@@ -303,22 +303,37 @@ namespace PF2e.Presentation
             showingFor = handle;
             showingMaxActions = Mathf.Clamp(maxActions, 0, 3);
 
-            var profile = new MovementProfile
+            if (data.HasCondition(ConditionType.Fleeing))
             {
-                moveType = MovementType.Walk,
-                speedFeet = data.EffectiveSpeed,
-                creatureSizeCells = data.SizeCells,
-                ignoresDifficultTerrain = false
-            };
+                FleeingRules.TryBuildFleeZone(
+                    gridManager.Data,
+                    entityManager.Pathfinding,
+                    entityManager.Occupancy,
+                    entityManager.Registry,
+                    data,
+                    showingMaxActions,
+                    currentZoneActions,
+                    out _);
+            }
+            else
+            {
+                var profile = new MovementProfile
+                {
+                    moveType = MovementType.Walk,
+                    speedFeet = data.EffectiveSpeed,
+                    creatureSizeCells = data.SizeCells,
+                    ignoresDifficultTerrain = false
+                };
 
-            entityManager.Pathfinding.GetMovementZoneByActions(
-                gridManager.Data,
-                data.GridPosition,
-                profile,
-                showingMaxActions,
-                handle,
-                entityManager.Occupancy,
-                currentZoneActions);
+                entityManager.Pathfinding.GetMovementZoneByActions(
+                    gridManager.Data,
+                    data.GridPosition,
+                    profile,
+                    showingMaxActions,
+                    handle,
+                    entityManager.Occupancy,
+                    currentZoneActions);
+            }
 
             float cellSize = gridManager.Config.cellWorldSize;
 

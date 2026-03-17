@@ -18,10 +18,17 @@ namespace PF2e.Core
         public readonly CheckRoll concealmentRoll;
         public readonly int naturalRoll;
         public readonly int attackBonus;
+        public readonly int baseAttackBonus;
+        public readonly int statusPenaltyToAttack;
+        public readonly int circumstancePenaltyToAttack;
         public readonly int mapPenalty;
         public readonly int rangePenalty;
         public readonly int volleyPenalty;
         public readonly int aidCircumstanceBonus;
+        public readonly int baseAc;
+        public readonly int shieldAcBonus;
+        public readonly int statusPenaltyToAc;
+        public readonly int circumstancePenaltyToAc;
         public readonly int coverAcBonus;
         public readonly int total;
         public readonly int dc;
@@ -56,6 +63,13 @@ namespace PF2e.Core
             int rangePenalty = 0,
             int volleyPenalty = 0,
             int aidCircumstanceBonus = 0,
+            int baseAttackBonus = 0,
+            int statusPenaltyToAttack = 0,
+            int circumstancePenaltyToAttack = 0,
+            int baseAc = 0,
+            int shieldAcBonus = 0,
+            int statusPenaltyToAc = 0,
+            int circumstancePenaltyToAc = 0,
             int coverAcBonus = 0,
             int fatalBonusDamage = 0,
             int deadlyBonusDamage = 0,
@@ -79,10 +93,17 @@ namespace PF2e.Core
                 : default;
             this.naturalRoll = naturalRoll;
             this.attackBonus = attackBonus;
+            this.baseAttackBonus = baseAttackBonus;
+            this.statusPenaltyToAttack = statusPenaltyToAttack;
+            this.circumstancePenaltyToAttack = circumstancePenaltyToAttack;
             this.mapPenalty = mapPenalty;
             this.rangePenalty = rangePenalty;
             this.volleyPenalty = volleyPenalty;
             this.aidCircumstanceBonus = aidCircumstanceBonus;
+            this.baseAc = baseAc;
+            this.shieldAcBonus = shieldAcBonus;
+            this.statusPenaltyToAc = statusPenaltyToAc;
+            this.circumstancePenaltyToAc = circumstancePenaltyToAc;
             this.coverAcBonus = coverAcBonus;
             this.total = total;
             this.dc = dc;
@@ -134,6 +155,13 @@ namespace PF2e.Core
                 rangePenalty: 0,
                 volleyPenalty: 0,
                 aidCircumstanceBonus: 0,
+                baseAttackBonus: 0,
+                statusPenaltyToAttack: 0,
+                circumstancePenaltyToAttack: 0,
+                baseAc: 0,
+                shieldAcBonus: 0,
+                statusPenaltyToAc: 0,
+                circumstancePenaltyToAc: 0,
                 coverAcBonus: 0,
                 fatalBonusDamage: 0,
                 deadlyBonusDamage: 0,

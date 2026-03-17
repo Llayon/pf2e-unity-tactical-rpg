@@ -29,7 +29,13 @@ namespace PF2e.Presentation
             int total,
             DegreeOfSuccess degree,
             int baseAc,
-            int coverBonus)
+            int coverBonus,
+            int baseAttackBonus = 0,
+            int statusPenaltyToAttack = 0,
+            int circumstancePenaltyToAttack = 0,
+            int shieldAcBonus = 0,
+            int statusPenaltyToAc = 0,
+            int circumstancePenaltyToAc = 0)
         {
             return BuildResultStandardBody(
                 naturalRoll,
@@ -41,7 +47,13 @@ namespace PF2e.Presentation
                 total,
                 degree,
                 baseAc,
-                coverBonus);
+                coverBonus,
+                baseAttackBonus,
+                statusPenaltyToAttack,
+                circumstancePenaltyToAttack,
+                shieldAcBonus,
+                statusPenaltyToAc,
+                circumstancePenaltyToAc);
         }
 
         public static string BuildResultStandardBody(
@@ -54,9 +66,25 @@ namespace PF2e.Presentation
             int total,
             DegreeOfSuccess degree,
             int baseAc,
-            int coverBonus)
+            int coverBonus,
+            int baseAttackBonus = 0,
+            int statusPenaltyToAttack = 0,
+            int circumstancePenaltyToAttack = 0,
+            int shieldAcBonus = 0,
+            int statusPenaltyToAc = 0,
+            int circumstancePenaltyToAc = 0)
         {
-            int effectiveAc = baseAc + coverBonus;
+            bool showAttackPenaltyBreakdown =
+                baseAttackBonus != 0
+                || statusPenaltyToAttack != 0
+                || circumstancePenaltyToAttack != 0;
+            bool showAcPenaltyBreakdown =
+                shieldAcBonus != 0
+                || statusPenaltyToAc != 0
+                || circumstancePenaltyToAc != 0;
+            int effectiveAc = showAcPenaltyBreakdown
+                ? baseAc + shieldAcBonus - statusPenaltyToAc - circumstancePenaltyToAc + coverBonus
+                : baseAc + coverBonus;
             var sb = new StringBuilder(320);
 
             AppendSectionHeader(sb, "Attack Roll");
@@ -65,7 +93,21 @@ namespace PF2e.Presentation
             sb.Append('\n');
             sb.Append(BuildUnsignedRow(naturalRoll, "D20 Roll"));
             sb.Append('\n');
-            sb.Append(BuildSignedRow(attackBonus, "Attack Bonus"));
+            sb.Append(BuildSignedRow(
+                showAttackPenaltyBreakdown ? baseAttackBonus : attackBonus,
+                showAttackPenaltyBreakdown ? "Base Attack Bonus" : "Attack Bonus"));
+
+            if (statusPenaltyToAttack != 0)
+            {
+                sb.Append('\n');
+                sb.Append(BuildSignedRow(-statusPenaltyToAttack, "Status Penalty"));
+            }
+
+            if (circumstancePenaltyToAttack != 0)
+            {
+                sb.Append('\n');
+                sb.Append(BuildSignedRow(-circumstancePenaltyToAttack, "Circumstance Penalty"));
+            }
 
             if (mapPenalty != 0)
             {
@@ -100,6 +142,24 @@ namespace PF2e.Presentation
             AppendSectionHeader(sb, "Armor Class (AC)");
             sb.Append('\n');
             sb.Append(BuildUnsignedRow(baseAc, "Base AC"));
+
+            if (shieldAcBonus != 0)
+            {
+                sb.Append('\n');
+                sb.Append(BuildSignedRow(shieldAcBonus, "Shield"));
+            }
+
+            if (statusPenaltyToAc != 0)
+            {
+                sb.Append('\n');
+                sb.Append(BuildSignedRow(-statusPenaltyToAc, "Status Penalty"));
+            }
+
+            if (circumstancePenaltyToAc != 0)
+            {
+                sb.Append('\n');
+                sb.Append(BuildSignedRow(-circumstancePenaltyToAc, "Circumstance Penalty"));
+            }
 
             if (coverBonus != 0)
             {
@@ -323,7 +383,7 @@ namespace PF2e.Presentation
             var sb = new StringBuilder(384);
             AppendSectionHeader(sb, "Fear");
             sb.Append('\n');
-            AppendContextLine(sb, $"2 actions • 30 ft • Will DC {spellDc} • critical success avoids frightened");
+            AppendContextLine(sb, $"2 actions • 30 ft • Will DC {spellDc} • crit failure: frightened 3 + fleeing 1 round");
 
             if (targetLines != null && targetLines.Length > 0)
             {
