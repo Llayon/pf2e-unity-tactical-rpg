@@ -403,6 +403,68 @@ namespace PF2e.Presentation
             return sb.ToString();
         }
 
+        public static string HealBreakdown(int actionCost, int spellDc, int rolledAmount, string[] targetLines)
+        {
+            var sb = new StringBuilder(384);
+            AppendSectionHeader(sb, "Heal");
+            sb.Append('\n');
+
+            if (actionCost >= 3)
+                AppendContextLine(sb, $"3 actions • 30 ft emanation • living: {rolledAmount} healing • undead: Fort DC {spellDc}");
+            else if (actionCost >= 2)
+                AppendContextLine(sb, $"2 actions • 30 ft • living: {rolledAmount} healing • undead: Fort DC {spellDc}");
+            else
+                AppendContextLine(sb, $"1 action • touch • rolled {rolledAmount} healing or vitality");
+
+            if (targetLines != null && targetLines.Length > 0)
+            {
+                sb.Append('\n');
+                sb.Append('\n');
+                AppendSectionHeader(sb, "Targets");
+                for (int i = 0; i < targetLines.Length; i++)
+                {
+                    if (string.IsNullOrEmpty(targetLines[i]))
+                        continue;
+
+                    sb.Append('\n');
+                    sb.Append(BuildDescriptionText($"• {targetLines[i]}"));
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        public static string HarmBreakdown(int actionCost, int spellDc, int rolledAmount, string[] targetLines)
+        {
+            var sb = new StringBuilder(384);
+            AppendSectionHeader(sb, "Harm");
+            sb.Append('\n');
+
+            if (actionCost >= 3)
+                AppendContextLine(sb, $"3 actions • 30 ft emanation • living: Fort DC {spellDc} • undead: {rolledAmount} healing");
+            else if (actionCost >= 2)
+                AppendContextLine(sb, $"2 actions • 30 ft • living: Fort DC {spellDc} • undead: {rolledAmount} healing");
+            else
+                AppendContextLine(sb, $"1 action • touch • living: Fort DC {spellDc} • undead: {rolledAmount} healing");
+
+            if (targetLines != null && targetLines.Length > 0)
+            {
+                sb.Append('\n');
+                sb.Append('\n');
+                AppendSectionHeader(sb, "Targets");
+                for (int i = 0; i < targetLines.Length; i++)
+                {
+                    if (string.IsNullOrEmpty(targetLines[i]))
+                        continue;
+
+                    sb.Append('\n');
+                    sb.Append(BuildDescriptionText($"• {targetLines[i]}"));
+                }
+            }
+
+            return sb.ToString();
+        }
+
         public static string BuildResultExtendedBody(
             string coreBody,
             string ruleTitle,
@@ -508,6 +570,8 @@ namespace PF2e.Presentation
                 DamageType.Electricity => "Electricity damage comes from lightning, shocks, and crackling magical arcs.",
                 DamageType.Cold => "Cold damage numbs, freezes, and slows with biting frost and winter magic.",
                 DamageType.Fire => "Fire damage burns with flame, heat, and explosive magical bursts.",
+                DamageType.Vitality => "Vitality restores the living and burns through undead with restorative magic.",
+                DamageType.Void => "Void drains the living and restores undead through entropic necromancy.",
                 _ => "Damage type description unavailable."
             };
         }

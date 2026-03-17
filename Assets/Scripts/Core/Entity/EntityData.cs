@@ -27,6 +27,7 @@ namespace PF2e.Core
         public int CurrentHP;
         public int ArmorClass;
         public int Speed;            // in feet (25, 30, etc.)
+        public VitalityAffinity VitalityAffinity = VitalityAffinity.Living;
         public int SpeedCells => Speed / 5;
         public int EffectiveSpeed => Mathf.Max(0, Speed - GetConditionValue(ConditionType.SpeedPenalty));
         public int EffectiveSpeedCells => EffectiveSpeed / 5;
@@ -99,6 +100,8 @@ namespace PF2e.Core
         public bool KnowsSnowball;
         public bool KnowsBurningHands;
         public bool KnowsFear;
+        public bool KnowsHeal;
+        public bool KnowsHarm;
         public int GlassShieldCooldownRoundsRemaining;
         public int StandardShieldCooldownRoundsRemaining;
 
@@ -342,7 +345,7 @@ namespace PF2e.Core
             && !EquippedShield.IsEquipped;
 
         public bool KnowsAnyActionBarSpell =>
-            KnowsForceBarrage || KnowsElectricArc || KnowsSnowball || KnowsBurningHands || KnowsFear;
+            KnowsForceBarrage || KnowsElectricArc || KnowsSnowball || KnowsBurningHands || KnowsFear || KnowsHeal || KnowsHarm;
 
         // ─── State Queries ───
         public bool IsAlive => CurrentHP > 0;

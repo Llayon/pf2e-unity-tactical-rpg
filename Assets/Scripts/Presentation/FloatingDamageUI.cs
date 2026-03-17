@@ -48,6 +48,9 @@ namespace PF2e.Presentation
         [SerializeField] private Color electricityColor = new Color(0.5f, 0.82f, 1f, 1f);
         [SerializeField] private Color coldColor        = new Color(0.56f, 0.82f, 0.94f, 1f);
         [SerializeField] private Color fireColor        = new Color(0.93f, 0.6f, 0.28f, 1f);
+        [SerializeField] private Color vitalityColor    = new Color(0.64f, 0.82f, 0.54f, 1f);
+        [SerializeField] private Color voidColor        = new Color(0.63f, 0.54f, 0.74f, 1f);
+        [SerializeField] private Color healingColor     = new Color(0.44f, 0.9f, 0.48f, 1f);
 
         [Header("Overrides")]
         [SerializeField] private Color critTint      = new Color(1f, 0.75f, 0.2f,  1f);
@@ -103,6 +106,7 @@ namespace PF2e.Presentation
             // subscription to avoid duplicate floating damage text.
             eventBus.OnStrikeResolved += HandleStrikeResolved;
             eventBus.OnDamageAppliedTyped += HandleDamageApplied;
+            eventBus.OnHealingAppliedTyped += HandleHealingApplied;
         }
 
         private void OnDisable()
@@ -111,6 +115,7 @@ namespace PF2e.Presentation
             {
                 eventBus.OnStrikeResolved -= HandleStrikeResolved;
                 eventBus.OnDamageAppliedTyped -= HandleDamageApplied;
+                eventBus.OnHealingAppliedTyped -= HandleHealingApplied;
             }
         }
 
@@ -140,6 +145,8 @@ namespace PF2e.Presentation
                 case DamageType.Electricity: return electricityColor;
                 case DamageType.Cold:        return coldColor;
                 case DamageType.Fire:        return fireColor;
+                case DamageType.Vitality:    return vitalityColor;
+                case DamageType.Void:        return voidColor;
                 default:                     return bludgeoningColor;
             }
         }
@@ -193,6 +200,18 @@ namespace PF2e.Presentation
             Color color = e.isCritical ? critTint : GetDamageColor(e.damageType);
             float fontSize = e.isCritical ? critFontSize : hitFontSize;
             Spawn(spawnPos, follow, true, e.amount, null, color, fontSize);
+        }
+
+        private void HandleHealingApplied(in HealingAppliedEvent e)
+        {
+            if (e.amount <= 0)
+                return;
+            if (!TryGetTargetAnchor(e.target, out var follow, out var basePos))
+                return;
+
+            Vector2 jitter = Random.insideUnitCircle * jitterRadius;
+            Vector3 spawnPos = basePos + new Vector3(jitter.x, 0f, jitter.y);
+            Spawn(spawnPos, follow, false, 0, $"+{e.amount}", healingColor, hitFontSize);
         }
 
         private bool TryGetTargetAnchor(EntityHandle target, out Transform follow, out Vector3 basePos)

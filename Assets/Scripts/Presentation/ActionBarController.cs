@@ -44,6 +44,8 @@ namespace PF2e.Presentation
         [SerializeField] private Button castSpellModeSnowballButton;
         [SerializeField] private Button castSpellModeBurningHandsButton;
         [SerializeField] private Button castSpellModeFearButton;
+        [SerializeField] private Button castSpellModeHealButton;
+        [SerializeField] private Button castSpellModeHarmButton;
         [SerializeField] private GameObject targetingHintPanelRoot;
         [SerializeField] private Button raiseShieldButton;
         [SerializeField] private Button standButton;
@@ -332,6 +334,10 @@ namespace PF2e.Presentation
             ConfigurePopupTileLayout(castSpellModeBurningHandsButton, selectionWidth);
             EnsureFearSpellButton(selectionWidth);
             ConfigurePopupTileLayout(castSpellModeFearButton, selectionWidth);
+            EnsureHealSpellButton(selectionWidth);
+            ConfigurePopupTileLayout(castSpellModeHealButton, selectionWidth);
+            EnsureHarmSpellButton(selectionWidth);
+            ConfigurePopupTileLayout(castSpellModeHarmButton, selectionWidth);
 
             if (castSpellModeStandardButton != null && castSpellModeStandardButton.transform.parent != spellCastPanelContentRoot)
                 castSpellModeStandardButton.transform.SetParent(spellCastPanelContentRoot, false);
@@ -347,6 +353,12 @@ namespace PF2e.Presentation
 
             if (castSpellModeFearButton != null && castSpellModeFearButton.transform.parent != spellCastPanelContentRoot)
                 castSpellModeFearButton.transform.SetParent(spellCastPanelContentRoot, false);
+
+            if (castSpellModeHealButton != null && castSpellModeHealButton.transform.parent != spellCastPanelContentRoot)
+                castSpellModeHealButton.transform.SetParent(spellCastPanelContentRoot, false);
+
+            if (castSpellModeHarmButton != null && castSpellModeHarmButton.transform.parent != spellCastPanelContentRoot)
+                castSpellModeHarmButton.transform.SetParent(spellCastPanelContentRoot, false);
 
             if (spellCastDetailRoot != null)
                 return;
@@ -429,6 +441,30 @@ namespace PF2e.Presentation
                 "CastSpellModeFearButton",
                 spellCastPanelContentRoot,
                 "Fear [2]",
+                preferredWidth);
+        }
+
+        private void EnsureHealSpellButton(float preferredWidth)
+        {
+            if (spellCastPanelContentRoot == null || castSpellModeHealButton != null)
+                return;
+
+            castSpellModeHealButton = CreateSpellPanelButton(
+                "CastSpellModeHealButton",
+                spellCastPanelContentRoot,
+                "Heal [1-3]",
+                preferredWidth);
+        }
+
+        private void EnsureHarmSpellButton(float preferredWidth)
+        {
+            if (spellCastPanelContentRoot == null || castSpellModeHarmButton != null)
+                return;
+
+            castSpellModeHarmButton = CreateSpellPanelButton(
+                "CastSpellModeHarmButton",
+                spellCastPanelContentRoot,
+                "Harm [1-3]",
                 preferredWidth);
         }
 
@@ -686,6 +722,8 @@ namespace PF2e.Presentation
             ConfigurePopupTileLayout(castSpellModeSnowballButton, castPopupTileWidth);
             ConfigurePopupTileLayout(castSpellModeBurningHandsButton, castPopupTileWidth);
             ConfigurePopupTileLayout(castSpellModeFearButton, castPopupTileWidth);
+            ConfigurePopupTileLayout(castSpellModeHealButton, castPopupTileWidth);
+            ConfigurePopupTileLayout(castSpellModeHarmButton, castPopupTileWidth);
 
             ConfigureStrikePopupCompactMenu();
             ConfigureTacticsPopupCompactMenu();
@@ -755,6 +793,8 @@ namespace PF2e.Presentation
             ApplyButtonTypography(castSpellModeSnowballButton);
             ApplyButtonTypography(castSpellModeBurningHandsButton);
             ApplyButtonTypography(castSpellModeFearButton);
+            ApplyButtonTypography(castSpellModeHealButton);
+            ApplyButtonTypography(castSpellModeHarmButton);
             ApplyButtonTypography(raiseShieldButton);
             ApplyButtonTypography(standButton);
             ApplyButtonTypography(tacticsLauncherButton);
@@ -1165,6 +1205,8 @@ namespace PF2e.Presentation
             boundCount += BindButton(castSpellModeSnowballButton, useLauncherLayout ? HandleCastSnowballPopupClicked : actionBarCommandCoordinator.OnCastSpellModeSnowballClicked);
             boundCount += BindButton(castSpellModeBurningHandsButton, useLauncherLayout ? HandleCastBurningHandsPopupClicked : actionBarCommandCoordinator.OnCastSpellModeBurningHandsClicked);
             boundCount += BindButton(castSpellModeFearButton, useLauncherLayout ? HandleCastFearPopupClicked : actionBarCommandCoordinator.OnCastSpellModeFearClicked);
+            boundCount += BindButton(castSpellModeHealButton, useLauncherLayout ? HandleCastHealPopupClicked : actionBarCommandCoordinator.OnCastSpellModeHealClicked);
+            boundCount += BindButton(castSpellModeHarmButton, useLauncherLayout ? HandleCastHarmPopupClicked : actionBarCommandCoordinator.OnCastSpellModeHarmClicked);
             boundCount += BindButton(raiseShieldButton, actionBarCommandCoordinator.OnRaiseShieldClicked);
             boundCount += BindButton(standButton, actionBarCommandCoordinator.OnStandClicked);
             boundCount += BindButton(tacticsLauncherButton, ToggleTacticsPopup);
@@ -1304,10 +1346,53 @@ namespace PF2e.Presentation
                 SetCastPopupVisible(true);
         }
 
+        private void HandleCastHealPopupClicked()
+        {
+            if (!useLauncherLayout)
+            {
+                actionBarCommandCoordinator.OnCastSpellModeHealClicked();
+                return;
+            }
+
+            actionBarCommandCoordinator.SelectSpell(SpellId.Heal);
+            if (actionBarCommandCoordinator.TryBeginHeal(actionBarCommandCoordinator.CurrentHealActionCount))
+                SetCastPopupVisible(true);
+        }
+
+        private void HandleCastHarmPopupClicked()
+        {
+            if (!useLauncherLayout)
+            {
+                actionBarCommandCoordinator.OnCastSpellModeHarmClicked();
+                return;
+            }
+
+            actionBarCommandCoordinator.SelectSpell(SpellId.Harm);
+            if (actionBarCommandCoordinator.TryBeginHarm(actionBarCommandCoordinator.CurrentHarmActionCount))
+                SetCastPopupVisible(true);
+        }
+
         private void HandleForceBarrageActionCountClicked(int actionCount)
         {
             if (!useLauncherLayout)
                 return;
+
+            SpellId spellId = targetingController != null
+                ? targetingController.ActiveSpellId ?? actionBarCommandCoordinator.CurrentSelectedSpell
+                : actionBarCommandCoordinator.CurrentSelectedSpell;
+
+            if (spellId == SpellId.Heal)
+            {
+                if (actionBarCommandCoordinator.TryBeginHeal(actionCount))
+                    SetCastPopupVisible(true);
+                return;
+            }
+
+            if (spellId == SpellId.Harm)
+            {
+                if (actionBarCommandCoordinator.TryBeginHarm(actionCount))
+                    SetCastPopupVisible(true);
+            }
         }
 
         private void HandleSpellConfirmClicked()
@@ -1559,12 +1644,18 @@ namespace PF2e.Presentation
                 && actionBarCommandCoordinator.CanSelectBurningHands(actorData, turnManager.ActionsRemaining);
             bool canSelectFear = canAdjustCastSpellMode
                 && actionBarCommandCoordinator.CanSelectFear(actorData, turnManager.ActionsRemaining);
-            SetCastSpellModeButtonsInteractable(canSelectForceBarrage || canSelectElectricArc || canSelectSnowball || canSelectBurningHands || canSelectFear);
+            bool canSelectHeal = canAdjustCastSpellMode
+                && actionBarCommandCoordinator.CanSelectHeal(actorData, turnManager.ActionsRemaining);
+            bool canSelectHarm = canAdjustCastSpellMode
+                && actionBarCommandCoordinator.CanSelectHarm(actorData, turnManager.ActionsRemaining);
+            SetCastSpellModeButtonsInteractable(canSelectForceBarrage || canSelectElectricArc || canSelectSnowball || canSelectBurningHands || canSelectFear || canSelectHeal || canSelectHarm);
             SetInteractable(castSpellModeStandardButton, canSelectForceBarrage);
             SetInteractable(castSpellModeGlassButton, canSelectElectricArc);
             SetInteractable(castSpellModeSnowballButton, canSelectSnowball);
             SetInteractable(castSpellModeBurningHandsButton, canSelectBurningHands);
             SetInteractable(castSpellModeFearButton, canSelectFear);
+            SetInteractable(castSpellModeHealButton, canSelectHeal);
+            SetInteractable(castSpellModeHarmButton, canSelectHarm);
             RefreshCastSpellModeButtonsVisual();
 
             RefreshCastSpellButtonLabel();
@@ -1604,6 +1695,8 @@ namespace PF2e.Presentation
                 SetInteractable(castSpellModeSnowballButton, enabled);
                 SetInteractable(castSpellModeBurningHandsButton, enabled);
                 SetInteractable(castSpellModeFearButton, enabled);
+                SetInteractable(castSpellModeHealButton, enabled);
+                SetInteractable(castSpellModeHarmButton, enabled);
                 SetInteractable(tripButton, enabled);
                 SetInteractable(shoveButton, enabled);
                 SetInteractable(grappleButton, enabled);
@@ -1636,6 +1729,8 @@ namespace PF2e.Presentation
                 SetInteractable(castSpellModeSnowballButton, enabled);
                 SetInteractable(castSpellModeBurningHandsButton, enabled);
                 SetInteractable(castSpellModeFearButton, enabled);
+                SetInteractable(castSpellModeHealButton, enabled);
+                SetInteractable(castSpellModeHarmButton, enabled);
                 SetInteractable(raiseShieldButton, enabled);
                 SetInteractable(standButton, enabled);
                 SetInteractable(spellCastOneActionButton, enabled);
@@ -1783,11 +1878,15 @@ namespace PF2e.Presentation
             SetButtonVisible(castSpellModeSnowballButton, showSelectionButtons);
             SetButtonVisible(castSpellModeBurningHandsButton, showSelectionButtons);
             SetButtonVisible(castSpellModeFearButton, showSelectionButtons);
+            SetButtonVisible(castSpellModeHealButton, showSelectionButtons);
+            SetButtonVisible(castSpellModeHarmButton, showSelectionButtons);
             SetInteractable(castSpellModeStandardButton, enabled && showSelectionButtons);
             SetInteractable(castSpellModeGlassButton, enabled && showSelectionButtons);
             SetInteractable(castSpellModeSnowballButton, enabled && showSelectionButtons);
             SetInteractable(castSpellModeBurningHandsButton, enabled && showSelectionButtons);
             SetInteractable(castSpellModeFearButton, enabled && showSelectionButtons);
+            SetInteractable(castSpellModeHealButton, enabled && showSelectionButtons);
+            SetInteractable(castSpellModeHarmButton, enabled && showSelectionButtons);
 
             if (useLauncherLayout)
                 SetSpellCastDetailVisible(!showSelectionButtons && castSpellModeSelectorRoot != null && castSpellModeSelectorRoot.gameObject.activeSelf);
@@ -1865,6 +1964,8 @@ namespace PF2e.Presentation
             SetButtonVisible(castSpellModeSnowballButton, rootVisible && !showDetailPanel);
             SetButtonVisible(castSpellModeBurningHandsButton, rootVisible && !showDetailPanel);
             SetButtonVisible(castSpellModeFearButton, rootVisible && !showDetailPanel);
+            SetButtonVisible(castSpellModeHealButton, rootVisible && !showDetailPanel);
+            SetButtonVisible(castSpellModeHarmButton, rootVisible && !showDetailPanel);
             SetSpellCastDetailVisible(rootVisible && showDetailPanel);
             SetTargetingHintPanelVisible(!showDetailPanel);
             UpdateSpellCastPanelPlacement(showDetailPanel);
@@ -1899,6 +2000,14 @@ namespace PF2e.Presentation
 
                 case SpellId.Fear:
                     RefreshFearSpellPanel();
+                    break;
+
+                case SpellId.Heal:
+                    RefreshHealSpellPanel();
+                    break;
+
+                case SpellId.Harm:
+                    RefreshHarmSpellPanel();
                     break;
             }
         }
@@ -1984,6 +2093,58 @@ namespace PF2e.Presentation
                 spellCastActionCountRow.gameObject.SetActive(false);
 
             SetButtonLabelText(spellCastConfirmButton, $"Confirm [{SpellCatalog.GetShortToken(SpellId.Fear)}]");
+            SetInteractable(spellCastConfirmButton, targetingController.CanConfirmSpellTargeting);
+            SetInteractable(spellCastCancelButton, true);
+        }
+
+        private void RefreshHealSpellPanel()
+        {
+            if (spellCastTitleLabel == null || spellCastSummaryLabel == null || targetingController == null)
+                return;
+
+            int actionCount = GetActiveHealActionCount();
+            spellCastTitleLabel.text = "Heal";
+            spellCastSummaryLabel.text = BuildHealSummary();
+
+            if (spellCastActionCountRow != null && !spellCastActionCountRow.gameObject.activeSelf)
+                spellCastActionCountRow.gameObject.SetActive(true);
+
+            SetButtonVisible(spellCastOneActionButton, true);
+            SetButtonVisible(spellCastTwoActionButton, true);
+            SetButtonVisible(spellCastThreeActionButton, true);
+
+            int actionsRemaining = turnManager != null ? turnManager.ActionsRemaining : 0;
+            ApplySpellPanelSelectorState(spellCastOneActionButton, actionCount == 1, actionsRemaining >= 1);
+            ApplySpellPanelSelectorState(spellCastTwoActionButton, actionCount == 2, actionsRemaining >= 2);
+            ApplySpellPanelSelectorState(spellCastThreeActionButton, actionCount == 3, actionsRemaining >= 3);
+
+            SetButtonLabelText(spellCastConfirmButton, $"Confirm [{SpellCatalog.GetShortToken(SpellId.Heal, actionCount)}]");
+            SetInteractable(spellCastConfirmButton, targetingController.CanConfirmSpellTargeting);
+            SetInteractable(spellCastCancelButton, true);
+        }
+
+        private void RefreshHarmSpellPanel()
+        {
+            if (spellCastTitleLabel == null || spellCastSummaryLabel == null || targetingController == null)
+                return;
+
+            int actionCount = GetActiveHarmActionCount();
+            spellCastTitleLabel.text = "Harm";
+            spellCastSummaryLabel.text = BuildHarmSummary();
+
+            if (spellCastActionCountRow != null && !spellCastActionCountRow.gameObject.activeSelf)
+                spellCastActionCountRow.gameObject.SetActive(true);
+
+            SetButtonVisible(spellCastOneActionButton, true);
+            SetButtonVisible(spellCastTwoActionButton, true);
+            SetButtonVisible(spellCastThreeActionButton, true);
+
+            int actionsRemaining = turnManager != null ? turnManager.ActionsRemaining : 0;
+            ApplySpellPanelSelectorState(spellCastOneActionButton, actionCount == 1, actionsRemaining >= 1);
+            ApplySpellPanelSelectorState(spellCastTwoActionButton, actionCount == 2, actionsRemaining >= 2);
+            ApplySpellPanelSelectorState(spellCastThreeActionButton, actionCount == 3, actionsRemaining >= 3);
+
+            SetButtonLabelText(spellCastConfirmButton, $"Confirm [{SpellCatalog.GetShortToken(SpellId.Harm, actionCount)}]");
             SetInteractable(spellCastConfirmButton, targetingController.CanConfirmSpellTargeting);
             SetInteractable(spellCastCancelButton, true);
         }
@@ -2141,6 +2302,161 @@ namespace PF2e.Presentation
             return summary.ToString();
         }
 
+        private string BuildHealSummary()
+        {
+            int actionCount = GetActiveHealActionCount();
+            var summary = new StringBuilder();
+            if (actionCount >= 3)
+            {
+                summary.Append("30 ft emanation. Living creatures heal 1d8. Undead take 1d8 vitality, basic Fort.");
+
+                if (targetingController != null && targetingController.TryGetSelectedSpellAreaPreview(out var preview))
+                {
+                    int livingCount = 0;
+                    int undeadCount = 0;
+                    for (int i = 0; i < preview.targets.Length; i++)
+                    {
+                        var data = entityManager != null && entityManager.Registry != null
+                            ? entityManager.Registry.Get(preview.targets[i])
+                            : null;
+                        if (data == null)
+                            continue;
+
+                        if (data.VitalityAffinity == VitalityAffinity.Undead)
+                            undeadCount++;
+                        else
+                            livingCount++;
+                    }
+
+                    summary.Append('\n');
+                    summary.Append(preview.TargetCount);
+                    summary.Append(" creature(s) in area (");
+                    summary.Append(livingCount);
+                    summary.Append(" living, ");
+                    summary.Append(undeadCount);
+                    summary.Append(" undead).");
+
+                    string areaTargetSummary = BuildSelectedTargetList(preview.targets);
+                    if (!string.IsNullOrEmpty(areaTargetSummary))
+                    {
+                        summary.Append('\n');
+                        summary.Append(areaTargetSummary);
+                    }
+
+                    summary.Append("\nConfirm to cast or Esc to cancel.");
+                }
+                else
+                {
+                    summary.Append("\nThe emanation is centered on the caster.");
+                }
+
+                return summary.ToString();
+            }
+
+            int selectedTargetCount = targetingController != null ? targetingController.HealSelectedTargetCount : 0;
+            if (actionCount >= 2)
+                summary.Append("Range 30 ft. Living: 1d8+8 healing. Undead: 1d8 vitality, basic Fort.");
+            else
+                summary.Append("Touch. Living: 1d8 healing. Undead: 1d8 vitality, basic Fort.");
+
+            summary.Append('\n');
+            summary.Append(selectedTargetCount);
+            summary.Append("/1 target selected.");
+
+            string targetSummary = BuildSelectedTargetList(targetingController != null ? targetingController.HealSelectedTargets : null);
+            if (!string.IsNullOrEmpty(targetSummary))
+            {
+                summary.Append('\n');
+                summary.Append(targetSummary);
+                summary.Append("\nConfirm to cast or Esc to cancel.");
+            }
+            else
+            {
+                summary.Append("\nChoose self, an ally, or an undead creature.");
+            }
+
+            return summary.ToString();
+        }
+
+        private string BuildHarmSummary()
+        {
+            int actionCount = GetActiveHarmActionCount();
+            var summary = new StringBuilder();
+            if (actionCount >= 3)
+            {
+                summary.Append("30 ft emanation. Living creatures take 1d8 void, basic Fort. Undead heal 1d8.");
+
+                if (targetingController != null && targetingController.TryGetSelectedSpellAreaPreview(out var preview))
+                {
+                    int livingCount = 0;
+                    int undeadCount = 0;
+                    for (int i = 0; i < preview.targets.Length; i++)
+                    {
+                        var data = entityManager != null && entityManager.Registry != null
+                            ? entityManager.Registry.Get(preview.targets[i])
+                            : null;
+                        if (data == null)
+                            continue;
+
+                        if (data.VitalityAffinity == VitalityAffinity.Undead)
+                            undeadCount++;
+                        else
+                            livingCount++;
+                    }
+
+                    summary.Append('\n');
+                    summary.Append(preview.TargetCount);
+                    summary.Append(" creature(s) in area (");
+                    summary.Append(livingCount);
+                    summary.Append(" living, ");
+                    summary.Append(undeadCount);
+                    summary.Append(" undead).");
+
+                    string areaTargetSummary = BuildSelectedTargetList(preview.targets);
+                    if (!string.IsNullOrEmpty(areaTargetSummary))
+                    {
+                        summary.Append('\n');
+                        summary.Append(areaTargetSummary);
+                    }
+
+                    if (preview.allyCount > 0)
+                        summary.Append("\nWarning: living allies are inside the emanation.");
+
+                    summary.Append("\nConfirm to cast or Esc to cancel.");
+                }
+                else
+                {
+                    summary.Append("\nThe emanation is centered on the caster.");
+                }
+
+                return summary.ToString();
+            }
+
+            int selectedTargetCount = targetingController != null ? targetingController.HarmSelectedTargetCount : 0;
+            if (actionCount >= 2)
+                summary.Append("Range 30 ft. Living enemy: 1d8+8 void, basic Fort. Undead: 1d8+8 healing.");
+            else
+                summary.Append("Touch. Living enemy: 1d8 void, basic Fort. Undead: 1d8 healing.");
+
+            summary.Append('\n');
+            summary.Append(selectedTargetCount);
+            summary.Append("/1 target selected.");
+
+            string targetSummary = BuildSelectedTargetList(targetingController != null ? targetingController.HarmSelectedTargets : null);
+            if (!string.IsNullOrEmpty(targetSummary))
+            {
+                summary.Append('\n');
+                summary.Append(targetSummary);
+                summary.Append("\nConfirm to cast or Esc to cancel.");
+            }
+            else
+            {
+                summary.Append("\nChoose a living enemy or an undead creature.");
+            }
+
+            return summary.ToString();
+        }
+
         private string BuildGroupedTargetSummary(IReadOnlyList<EntityHandle> targets, string countSeparator)
         {
             if (targets == null || targets.Count == 0)
@@ -2223,6 +2539,8 @@ namespace PF2e.Presentation
             ApplyCastSpellModeButtonVisual(castSpellModeSnowballButton, selectedSpell == SpellId.Snowball);
             ApplyCastSpellModeButtonVisual(castSpellModeBurningHandsButton, selectedSpell == SpellId.BurningHands);
             ApplyCastSpellModeButtonVisual(castSpellModeFearButton, selectedSpell == SpellId.Fear);
+            ApplyCastSpellModeButtonVisual(castSpellModeHealButton, selectedSpell == SpellId.Heal);
+            ApplyCastSpellModeButtonVisual(castSpellModeHarmButton, selectedSpell == SpellId.Harm);
         }
 
         private void ApplyCastSpellModeButtonVisual(Button button, bool selected)
@@ -2267,15 +2585,21 @@ namespace PF2e.Presentation
                 SetButtonLabelText(castSpellModeSnowballButton, "Snowball [2]");
                 SetButtonLabelText(castSpellModeBurningHandsButton, "Burning Hands [2]");
                 SetButtonLabelText(castSpellModeFearButton, "Fear [2]");
+                SetButtonLabelText(castSpellModeHealButton, "Heal [1-3]");
+                SetButtonLabelText(castSpellModeHarmButton, "Harm [1-3]");
                 return;
             }
 
             int forceBarrageActionCount = actionBarCommandCoordinator.CurrentForceBarrageActionCount;
+            int healActionCount = actionBarCommandCoordinator.CurrentHealActionCount;
+            int harmActionCount = actionBarCommandCoordinator.CurrentHarmActionCount;
             SetButtonLabelText(castSpellModeStandardButton, $"Force Barrage [{Mathf.Clamp(forceBarrageActionCount, 1, 3)}]");
             SetButtonLabelText(castSpellModeGlassButton, "Electric Arc [2]");
             SetButtonLabelText(castSpellModeSnowballButton, "Snowball [2]");
             SetButtonLabelText(castSpellModeBurningHandsButton, "Burning Hands [2]");
             SetButtonLabelText(castSpellModeFearButton, "Fear [2]");
+            SetButtonLabelText(castSpellModeHealButton, $"Heal [{Mathf.Clamp(healActionCount, 1, 3)}]");
+            SetButtonLabelText(castSpellModeHarmButton, $"Harm [{Mathf.Clamp(harmActionCount, 1, 3)}]");
         }
 
         private string GetActiveSpellToken()
@@ -2300,12 +2624,48 @@ namespace PF2e.Presentation
 
                     case SpellId.Fear:
                         return SpellCatalog.GetShortToken(SpellId.Fear);
+
+                    case SpellId.Heal:
+                        return SpellCatalog.GetShortToken(SpellId.Heal, GetActiveHealActionCount());
+
+                    case SpellId.Harm:
+                        return SpellCatalog.GetShortToken(SpellId.Harm, GetActiveHarmActionCount());
                 }
             }
 
-            return SpellCatalog.GetShortToken(
-                actionBarCommandCoordinator.CurrentSelectedSpell,
-                actionBarCommandCoordinator.CurrentForceBarrageActionCount);
+            return actionBarCommandCoordinator.GetSelectedSpellToken();
+        }
+
+        private int GetActiveHealActionCount()
+        {
+            if (targetingController != null && targetingController.ActiveSpellId == SpellId.Heal)
+            {
+                if (targetingController.ActiveMode == TargetingMode.HealSingle)
+                    return Mathf.Clamp(targetingController.HealActionCount, 1, 3);
+
+                if (targetingController.ActiveMode == TargetingMode.SpellAoE)
+                    return Mathf.Clamp(targetingController.SpellAoEActionCount, 1, 3);
+            }
+
+            return actionBarCommandCoordinator != null
+                ? Mathf.Clamp(actionBarCommandCoordinator.CurrentHealActionCount, 1, 3)
+                : 1;
+        }
+
+        private int GetActiveHarmActionCount()
+        {
+            if (targetingController != null && targetingController.ActiveSpellId == SpellId.Harm)
+            {
+                if (targetingController.ActiveMode == TargetingMode.HarmSingle)
+                    return Mathf.Clamp(targetingController.HarmActionCount, 1, 3);
+
+                if (targetingController.ActiveMode == TargetingMode.SpellAoE)
+                    return Mathf.Clamp(targetingController.SpellAoEActionCount, 1, 3);
+            }
+
+            return actionBarCommandCoordinator != null
+                ? Mathf.Clamp(actionBarCommandCoordinator.CurrentHarmActionCount, 1, 3)
+                : 1;
         }
 
     }

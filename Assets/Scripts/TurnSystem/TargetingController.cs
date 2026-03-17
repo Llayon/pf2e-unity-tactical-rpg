@@ -25,7 +25,8 @@ namespace PF2e.TurnSystem
         ForceBarrage = 14,
         ElectricArc = 15,
         Snowball = 16,
-        Fear = 17
+        Fear = 17,
+        HarmSingle = 18
     }
 
     public enum TargetingResult
@@ -69,13 +70,15 @@ namespace PF2e.TurnSystem
         public TargetingMode ActiveMode { get; private set; } = TargetingMode.None;
         public bool IsRepositionSelectingCell => ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectCell;
         public bool IsRepositionSelectingTarget => ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectTarget;
-        public bool IsSpellTargetingActive => ActiveMode == TargetingMode.ForceBarrage || ActiveMode == TargetingMode.ElectricArc || ActiveMode == TargetingMode.Snowball || ActiveMode == TargetingMode.Fear || ActiveMode == TargetingMode.SpellAoE;
+        public bool IsSpellTargetingActive => ActiveMode == TargetingMode.ForceBarrage || ActiveMode == TargetingMode.ElectricArc || ActiveMode == TargetingMode.Snowball || ActiveMode == TargetingMode.Fear || ActiveMode == TargetingMode.HealSingle || ActiveMode == TargetingMode.HarmSingle || ActiveMode == TargetingMode.SpellAoE;
         public SpellId? ActiveSpellId => ActiveMode switch
         {
             TargetingMode.ForceBarrage => SpellId.ForceBarrage,
             TargetingMode.ElectricArc => SpellId.ElectricArc,
             TargetingMode.Snowball => SpellId.Snowball,
             TargetingMode.Fear => SpellId.Fear,
+            TargetingMode.HealSingle => SpellId.Heal,
+            TargetingMode.HarmSingle => SpellId.Harm,
             TargetingMode.SpellAoE => _spellAoESpellId,
             _ => null
         };
@@ -85,6 +88,8 @@ namespace PF2e.TurnSystem
             TargetingMode.ElectricArc => _onElectricArcConfirmed != null && _electricArcTargets.Count > 0,
             TargetingMode.Snowball => _onSnowballConfirmed != null && _snowballTargets.Count > 0,
             TargetingMode.Fear => _onFearConfirmed != null && _fearTargets.Count > 0,
+            TargetingMode.HealSingle => _onHealConfirmed != null && _healTargets.Count > 0,
+            TargetingMode.HarmSingle => _onHarmConfirmed != null && _harmTargets.Count > 0,
             TargetingMode.SpellAoE => _onSpellAoEConfirmed != null && _spellAoESelectedCell.HasValue,
             _ => false
         };
@@ -94,6 +99,8 @@ namespace PF2e.TurnSystem
             TargetingMode.ElectricArc => _electricArcTargets.Count > 0,
             TargetingMode.Snowball => _snowballTargets.Count > 0,
             TargetingMode.Fear => _fearTargets.Count > 0,
+            TargetingMode.HealSingle => _healTargets.Count > 0,
+            TargetingMode.HarmSingle => _harmTargets.Count > 0,
             TargetingMode.SpellAoE => _spellAoESelectedCell.HasValue,
             _ => false
         };
@@ -105,12 +112,19 @@ namespace PF2e.TurnSystem
         public int ElectricArcSelectedTargetCount => ActiveMode == TargetingMode.ElectricArc ? _electricArcTargets.Count : 0;
         public int SnowballSelectedTargetCount => ActiveMode == TargetingMode.Snowball ? _snowballTargets.Count : 0;
         public int FearSelectedTargetCount => ActiveMode == TargetingMode.Fear ? _fearTargets.Count : 0;
+        public int HealSelectedTargetCount => ActiveMode == TargetingMode.HealSingle ? _healTargets.Count : 0;
+        public int HealActionCount => ActiveMode == TargetingMode.HealSingle ? _healActionCount : 0;
+        public int HarmSelectedTargetCount => ActiveMode == TargetingMode.HarmSingle ? _harmTargets.Count : 0;
+        public int HarmActionCount => ActiveMode == TargetingMode.HarmSingle ? _harmActionCount : 0;
+        public int SpellAoEActionCount => ActiveMode == TargetingMode.SpellAoE ? _spellAoEActionCount : 0;
         public bool HasSelectedSpellAreaCell => ActiveMode == TargetingMode.SpellAoE && _spellAoESelectedCell.HasValue;
         public Vector3Int? SelectedSpellAreaCell => ActiveMode == TargetingMode.SpellAoE ? _spellAoESelectedCell : null;
         public IReadOnlyList<EntityHandle> ForceBarrageAssignedTargets => _forceBarrageTargets;
         public IReadOnlyList<EntityHandle> ElectricArcSelectedTargets => _electricArcTargets;
         public IReadOnlyList<EntityHandle> SnowballSelectedTargets => _snowballTargets;
         public IReadOnlyList<EntityHandle> FearSelectedTargets => _fearTargets;
+        public IReadOnlyList<EntityHandle> HealSelectedTargets => _healTargets;
+        public IReadOnlyList<EntityHandle> HarmSelectedTargets => _harmTargets;
         public event Action<TargetingMode> OnModeChanged;
 
         // Callbacks for explicit modes (BeginTargeting).
@@ -135,9 +149,18 @@ namespace PF2e.TurnSystem
         private Func<IReadOnlyList<EntityHandle>, bool> _onFearConfirmed;
         private Action _onFearCancelled;
         private readonly List<EntityHandle> _fearTargets = new(1);
+        private Func<IReadOnlyList<EntityHandle>, bool> _onHealConfirmed;
+        private Action _onHealCancelled;
+        private readonly List<EntityHandle> _healTargets = new(1);
+        private int _healActionCount;
+        private Func<IReadOnlyList<EntityHandle>, bool> _onHarmConfirmed;
+        private Action _onHarmCancelled;
+        private readonly List<EntityHandle> _harmTargets = new(1);
+        private int _harmActionCount;
         private Func<Vector3Int, bool> _onSpellAoEConfirmed;
         private Action _onSpellAoECancelled;
         private SpellId _spellAoESpellId = SpellId.BurningHands;
+        private int _spellAoEActionCount = 2;
         private Vector3Int? _spellAoESelectedCell;
         private RepositionPhase _repositionPhase = RepositionPhase.None;
 
@@ -204,9 +227,18 @@ namespace PF2e.TurnSystem
             _onFearConfirmed = null;
             _onFearCancelled = null;
             _fearTargets.Clear();
+            _onHealConfirmed = null;
+            _onHealCancelled = null;
+            _healTargets.Clear();
+            _healActionCount = 0;
+            _onHarmConfirmed = null;
+            _onHarmCancelled = null;
+            _harmTargets.Clear();
+            _harmActionCount = 0;
             _onSpellAoEConfirmed = null;
             _onSpellAoECancelled = null;
             _spellAoESpellId = SpellId.BurningHands;
+            _spellAoEActionCount = 2;
             _spellAoESelectedCell = null;
             _repositionPhase = mode == TargetingMode.Reposition ? RepositionPhase.SelectTarget : RepositionPhase.None;
             OnModeChanged?.Invoke(ActiveMode);
@@ -237,6 +269,14 @@ namespace PF2e.TurnSystem
             _onFearConfirmed = null;
             _onFearCancelled = null;
             _fearTargets.Clear();
+            _onHealConfirmed = null;
+            _onHealCancelled = null;
+            _healTargets.Clear();
+            _healActionCount = 0;
+            _onHarmConfirmed = null;
+            _onHarmCancelled = null;
+            _harmTargets.Clear();
+            _harmActionCount = 0;
             _onSpellAoEConfirmed = null;
             _onSpellAoECancelled = null;
             _spellAoESpellId = SpellId.BurningHands;
@@ -274,6 +314,14 @@ namespace PF2e.TurnSystem
             _onFearConfirmed = null;
             _onFearCancelled = null;
             _fearTargets.Clear();
+            _onHealConfirmed = null;
+            _onHealCancelled = null;
+            _healTargets.Clear();
+            _healActionCount = 0;
+            _onHarmConfirmed = null;
+            _onHarmCancelled = null;
+            _harmTargets.Clear();
+            _harmActionCount = 0;
             _onSpellAoEConfirmed = null;
             _onSpellAoECancelled = null;
             _spellAoESpellId = SpellId.BurningHands;
@@ -307,6 +355,14 @@ namespace PF2e.TurnSystem
             _onFearConfirmed = null;
             _onFearCancelled = null;
             _fearTargets.Clear();
+            _onHealConfirmed = null;
+            _onHealCancelled = null;
+            _healTargets.Clear();
+            _healActionCount = 0;
+            _onHarmConfirmed = null;
+            _onHarmCancelled = null;
+            _harmTargets.Clear();
+            _harmActionCount = 0;
             _onSpellAoEConfirmed = null;
             _onSpellAoECancelled = null;
             _spellAoESpellId = SpellId.BurningHands;
@@ -339,6 +395,14 @@ namespace PF2e.TurnSystem
             _onFearConfirmed = null;
             _onFearCancelled = null;
             _fearTargets.Clear();
+            _onHealConfirmed = null;
+            _onHealCancelled = null;
+            _healTargets.Clear();
+            _healActionCount = 0;
+            _onHarmConfirmed = null;
+            _onHarmCancelled = null;
+            _harmTargets.Clear();
+            _harmActionCount = 0;
             _onSpellAoEConfirmed = null;
             _onSpellAoECancelled = null;
             _spellAoESpellId = SpellId.BurningHands;
@@ -371,6 +435,14 @@ namespace PF2e.TurnSystem
             _onFearConfirmed = null;
             _onFearCancelled = null;
             _fearTargets.Clear();
+            _onHealConfirmed = null;
+            _onHealCancelled = null;
+            _healTargets.Clear();
+            _healActionCount = 0;
+            _onHarmConfirmed = null;
+            _onHarmCancelled = null;
+            _harmTargets.Clear();
+            _harmActionCount = 0;
             _onSpellAoEConfirmed = null;
             _onSpellAoECancelled = null;
             _spellAoESpellId = SpellId.BurningHands;
@@ -403,6 +475,96 @@ namespace PF2e.TurnSystem
             _onFearConfirmed = onConfirmed;
             _onFearCancelled = onCancelled;
             _fearTargets.Clear();
+            _onHealConfirmed = null;
+            _onHealCancelled = null;
+            _healTargets.Clear();
+            _healActionCount = 0;
+            _onHarmConfirmed = null;
+            _onHarmCancelled = null;
+            _harmTargets.Clear();
+            _harmActionCount = 0;
+            _onSpellAoEConfirmed = null;
+            _onSpellAoECancelled = null;
+            _spellAoESpellId = SpellId.BurningHands;
+            _spellAoESelectedCell = null;
+            _repositionPhase = RepositionPhase.None;
+            OnModeChanged?.Invoke(ActiveMode);
+        }
+
+        public void BeginHealTargeting(
+            int actionCount,
+            Func<IReadOnlyList<EntityHandle>, bool> onConfirmed,
+            Action onCancelled = null)
+        {
+            ActiveMode = TargetingMode.HealSingle;
+            _onEntityConfirmed = null;
+            _onCellConfirmed = null;
+            _onCancelled = null;
+            _onRepositionTargetConfirmed = null;
+            _onRepositionCellConfirmed = null;
+            _onRepositionCellCancelled = null;
+            _onForceBarrageConfirmed = null;
+            _onForceBarrageCancelled = null;
+            _forceBarrageTargets.Clear();
+            _forceBarrageShardCount = 0;
+            _onElectricArcConfirmed = null;
+            _onElectricArcCancelled = null;
+            _electricArcTargets.Clear();
+            _onSnowballConfirmed = null;
+            _onSnowballCancelled = null;
+            _snowballTargets.Clear();
+            _onFearConfirmed = null;
+            _onFearCancelled = null;
+            _fearTargets.Clear();
+            _onHealConfirmed = onConfirmed;
+            _onHealCancelled = onCancelled;
+            _healTargets.Clear();
+            _healActionCount = Mathf.Clamp(actionCount, 1, 2);
+            _onHarmConfirmed = null;
+            _onHarmCancelled = null;
+            _harmTargets.Clear();
+            _harmActionCount = 0;
+            _onSpellAoEConfirmed = null;
+            _onSpellAoECancelled = null;
+            _spellAoESpellId = SpellId.BurningHands;
+            _spellAoESelectedCell = null;
+            _repositionPhase = RepositionPhase.None;
+            OnModeChanged?.Invoke(ActiveMode);
+        }
+
+        public void BeginHarmTargeting(
+            int actionCount,
+            Func<IReadOnlyList<EntityHandle>, bool> onConfirmed,
+            Action onCancelled = null)
+        {
+            ActiveMode = TargetingMode.HarmSingle;
+            _onEntityConfirmed = null;
+            _onCellConfirmed = null;
+            _onCancelled = null;
+            _onRepositionTargetConfirmed = null;
+            _onRepositionCellConfirmed = null;
+            _onRepositionCellCancelled = null;
+            _onForceBarrageConfirmed = null;
+            _onForceBarrageCancelled = null;
+            _forceBarrageTargets.Clear();
+            _forceBarrageShardCount = 0;
+            _onElectricArcConfirmed = null;
+            _onElectricArcCancelled = null;
+            _electricArcTargets.Clear();
+            _onSnowballConfirmed = null;
+            _onSnowballCancelled = null;
+            _snowballTargets.Clear();
+            _onFearConfirmed = null;
+            _onFearCancelled = null;
+            _fearTargets.Clear();
+            _onHealConfirmed = null;
+            _onHealCancelled = null;
+            _healTargets.Clear();
+            _healActionCount = 0;
+            _onHarmConfirmed = onConfirmed;
+            _onHarmCancelled = onCancelled;
+            _harmTargets.Clear();
+            _harmActionCount = Mathf.Clamp(actionCount, 1, 2);
             _onSpellAoEConfirmed = null;
             _onSpellAoECancelled = null;
             _spellAoESpellId = SpellId.BurningHands;
@@ -414,7 +576,9 @@ namespace PF2e.TurnSystem
         public void BeginSpellAoETargeting(
             SpellId spellId,
             Func<Vector3Int, bool> onConfirmed,
-            Action onCancelled = null)
+            Action onCancelled = null,
+            int actionCount = 0,
+            Vector3Int? initialSelectedCell = null)
         {
             ActiveMode = TargetingMode.SpellAoE;
             _onEntityConfirmed = null;
@@ -436,10 +600,21 @@ namespace PF2e.TurnSystem
             _onFearConfirmed = null;
             _onFearCancelled = null;
             _fearTargets.Clear();
+            _onHealConfirmed = null;
+            _onHealCancelled = null;
+            _healTargets.Clear();
+            _healActionCount = 0;
+            _onHarmConfirmed = null;
+            _onHarmCancelled = null;
+            _harmTargets.Clear();
+            _harmActionCount = 0;
             _onSpellAoEConfirmed = onConfirmed;
             _onSpellAoECancelled = onCancelled;
             _spellAoESpellId = spellId;
-            _spellAoESelectedCell = null;
+            _spellAoEActionCount = actionCount > 0
+                ? actionCount
+                : SpellCatalog.Get(spellId).minActionCost;
+            _spellAoESelectedCell = initialSelectedCell;
             _repositionPhase = RepositionPhase.None;
             OnModeChanged?.Invoke(ActiveMode);
         }
@@ -489,6 +664,30 @@ namespace PF2e.TurnSystem
                         return false;
 
                     if (_onFearConfirmed.Invoke(_fearTargets))
+                    {
+                        ClearTargeting();
+                        return true;
+                    }
+
+                    return false;
+
+                case TargetingMode.HealSingle:
+                    if (!CanConfirmSpellTargeting)
+                        return false;
+
+                    if (_onHealConfirmed.Invoke(_healTargets))
+                    {
+                        ClearTargeting();
+                        return true;
+                    }
+
+                    return false;
+
+                case TargetingMode.HarmSingle:
+                    if (!CanConfirmSpellTargeting)
+                        return false;
+
+                    if (_onHarmConfirmed.Invoke(_harmTargets))
                     {
                         ClearTargeting();
                         return true;
@@ -549,6 +748,22 @@ namespace PF2e.TurnSystem
                     OnModeChanged?.Invoke(ActiveMode);
                     return true;
 
+                case TargetingMode.HealSingle:
+                    if (_healTargets.Count <= 0)
+                        return false;
+
+                    _healTargets.Clear();
+                    OnModeChanged?.Invoke(ActiveMode);
+                    return true;
+
+                case TargetingMode.HarmSingle:
+                    if (_harmTargets.Count <= 0)
+                        return false;
+
+                    _harmTargets.Clear();
+                    OnModeChanged?.Invoke(ActiveMode);
+                    return true;
+
                 case TargetingMode.SpellAoE:
                     if (!_spellAoESelectedCell.HasValue)
                         return false;
@@ -575,6 +790,10 @@ namespace PF2e.TurnSystem
                 _onSnowballCancelled?.Invoke();
             else if (ActiveMode == TargetingMode.Fear)
                 _onFearCancelled?.Invoke();
+            else if (ActiveMode == TargetingMode.HealSingle)
+                _onHealCancelled?.Invoke();
+            else if (ActiveMode == TargetingMode.HarmSingle)
+                _onHarmCancelled?.Invoke();
             else if (ActiveMode == TargetingMode.SpellAoE)
                 _onSpellAoECancelled?.Invoke();
             else
@@ -680,6 +899,8 @@ namespace PF2e.TurnSystem
                 case TargetingMode.ElectricArc:
                 case TargetingMode.Snowball:
                 case TargetingMode.Fear:
+                case TargetingMode.HealSingle:
+                case TargetingMode.HarmSingle:
                 case TargetingMode.SpellAoE:
                     if (ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectCell)
                         return TargetingEvaluationResult.FromFailure(TargetingFailureReason.ModeNotSupported);
@@ -752,6 +973,30 @@ namespace PF2e.TurnSystem
 
                             OnModeChanged?.Invoke(ActiveMode);
                         }
+                        else if (ActiveMode == TargetingMode.HealSingle)
+                        {
+                            if (_healTargets.Count == 1 && _healTargets[0] == handle)
+                                _healTargets.Clear();
+                            else
+                            {
+                                _healTargets.Clear();
+                                _healTargets.Add(handle);
+                            }
+
+                            OnModeChanged?.Invoke(ActiveMode);
+                        }
+                        else if (ActiveMode == TargetingMode.HarmSingle)
+                        {
+                            if (_harmTargets.Count == 1 && _harmTargets[0] == handle)
+                                _harmTargets.Clear();
+                            else
+                            {
+                                _harmTargets.Clear();
+                                _harmTargets.Add(handle);
+                            }
+
+                            OnModeChanged?.Invoke(ActiveMode);
+                        }
                         else
                         {
                             _onEntityConfirmed?.Invoke(handle);
@@ -768,6 +1013,20 @@ namespace PF2e.TurnSystem
 
         private TargetingEvaluationResult EvaluateExplicitEntityMode(EntityHandle handle)
         {
+            if (ActiveMode == TargetingMode.HealSingle && actionExecutor != null)
+            {
+                var detailedHeal = actionExecutor.PreviewHealTargetDetailed(handle, _healActionCount);
+                if (detailedHeal.failureReason != TargetingFailureReason.InvalidState)
+                    return detailedHeal;
+            }
+
+            if (ActiveMode == TargetingMode.HarmSingle && actionExecutor != null)
+            {
+                var detailedHarm = actionExecutor.PreviewHarmTargetDetailed(handle, _harmActionCount);
+                if (detailedHarm.failureReason != TargetingFailureReason.InvalidState)
+                    return detailedHarm;
+            }
+
             if (actionExecutor != null)
             {
                 var detailed = actionExecutor.PreviewEntityTargetDetailed(ActiveMode, handle);
@@ -783,6 +1042,8 @@ namespace PF2e.TurnSystem
                 TargetingMode.ElectricArc => ValidateCreature(handle),
                 TargetingMode.Snowball => ValidateCreature(handle),
                 TargetingMode.Fear => ValidateCreature(handle),
+                TargetingMode.HealSingle => ValidateHealTarget(handle),
+                TargetingMode.HarmSingle => ValidateHarmTarget(handle),
                 _ => ValidateEnemy(handle)
             };
             return result == TargetingResult.Success
@@ -947,6 +1208,34 @@ namespace PF2e.TurnSystem
             return TargetingResult.Success;
         }
 
+        private TargetingResult ValidateHealTarget(EntityHandle handle)
+        {
+            var actor = turnManager.CurrentEntity;
+            var actorData = entityManager.Registry?.Get(actor);
+            var targetData = entityManager.Registry?.Get(handle);
+
+            if (targetData == null || actorData == null) return TargetingResult.InvalidTarget;
+            if (!targetData.IsAlive) return TargetingResult.NotAlive;
+            if (handle == actor) return TargetingResult.Success;
+            if (targetData.VitalityAffinity == VitalityAffinity.Undead) return TargetingResult.Success;
+            if (targetData.Team != actorData.Team) return TargetingResult.WrongTeam;
+            return TargetingResult.Success;
+        }
+
+        private TargetingResult ValidateHarmTarget(EntityHandle handle)
+        {
+            var actor = turnManager.CurrentEntity;
+            var actorData = entityManager.Registry?.Get(actor);
+            var targetData = entityManager.Registry?.Get(handle);
+
+            if (targetData == null || actorData == null) return TargetingResult.InvalidTarget;
+            if (!targetData.IsAlive) return TargetingResult.NotAlive;
+            if (targetData.VitalityAffinity == VitalityAffinity.Undead) return TargetingResult.Success;
+            if (handle == actor) return TargetingResult.WrongTeam;
+            if (targetData.Team == actorData.Team) return TargetingResult.WrongTeam;
+            return TargetingResult.Success;
+        }
+
         private static TargetingFailureReason MapBasicResultToFailure(TargetingResult result)
         {
             return result switch
@@ -1000,6 +1289,14 @@ namespace PF2e.TurnSystem
             _onFearConfirmed = null;
             _onFearCancelled = null;
             _fearTargets.Clear();
+            _onHealConfirmed = null;
+            _onHealCancelled = null;
+            _healTargets.Clear();
+            _healActionCount = 0;
+            _onHarmConfirmed = null;
+            _onHarmCancelled = null;
+            _harmTargets.Clear();
+            _harmActionCount = 0;
             _onSpellAoEConfirmed = null;
             _onSpellAoECancelled = null;
             _spellAoESpellId = SpellId.BurningHands;

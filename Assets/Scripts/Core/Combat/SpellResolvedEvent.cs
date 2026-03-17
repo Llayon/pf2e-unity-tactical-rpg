@@ -13,6 +13,7 @@ namespace PF2e.Core
         public readonly int appliedConditionRounds;
         public readonly int resolvedDamage;
         public readonly int appliedDamage;
+        public readonly int appliedHealing;
         public readonly int hpBefore;
         public readonly int hpAfter;
         public readonly bool targetDefeated;
@@ -31,7 +32,8 @@ namespace PF2e.Core
             int appliedDamage,
             int hpBefore,
             int hpAfter,
-            bool targetDefeated)
+            bool targetDefeated,
+            int appliedHealing = 0)
         {
             this.target = target;
             this.shardCount = shardCount;
@@ -44,6 +46,7 @@ namespace PF2e.Core
             this.appliedConditionRounds = appliedConditionRounds;
             this.resolvedDamage = resolvedDamage;
             this.appliedDamage = appliedDamage;
+            this.appliedHealing = appliedHealing;
             this.hpBefore = hpBefore;
             this.hpAfter = hpAfter;
             this.targetDefeated = targetDefeated;

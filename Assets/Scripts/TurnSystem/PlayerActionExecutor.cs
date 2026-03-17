@@ -291,6 +291,14 @@ namespace PF2e.TurnSystem
                     target,
                     SpellCatalog.Get(SpellId.Fear)),
 
+                TargetingMode.HealSingle => PreviewHealTargetDetailed(
+                    target,
+                    Mathf.Clamp(Mathf.Min(turnManager.ActionsRemaining, 2), 1, 2)).failureReason,
+
+                TargetingMode.HarmSingle => PreviewHarmTargetDetailed(
+                    target,
+                    Mathf.Clamp(Mathf.Min(turnManager.ActionsRemaining, 3), 1, 3)).failureReason,
+
                 _ => TargetingFailureReason.ModeNotSupported
             };
 
@@ -304,10 +312,30 @@ namespace PF2e.TurnSystem
             preview = spellId switch
             {
                 SpellId.BurningHands => BuildBurningHandsPreview(aimCell),
+                SpellId.Heal => BuildHealAreaPreview(aimCell),
+                SpellId.Harm => BuildHarmAreaPreview(aimCell),
                 _ => SpellAreaPreview.Invalid(spellId, aimCell, TargetingFailureReason.ModeNotSupported)
             };
 
             return preview.IsValid;
+        }
+
+        public bool TryGetCurrentActorGridPosition(out Vector3Int cell)
+        {
+            cell = default;
+            if (turnManager == null || entityManager == null || entityManager.Registry == null)
+                return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return false;
+
+            var actorData = entityManager.Registry.Get(actor);
+            if (actorData == null)
+                return false;
+
+            cell = actorData.GridPosition;
+            return true;
         }
 
         public bool TryExecuteStrideToCell(Vector3Int targetCell)
@@ -1298,6 +1326,44 @@ namespace PF2e.TurnSystem
             return turnManager.ActionsRemaining >= SpellCatalog.Get(SpellId.Fear).minActionCost;
         }
 
+        public bool TryBeginHeal(int actionCount)
+        {
+            if (turnManager == null || entityManager == null)
+                return false;
+            if (!CanActNow())
+                return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return false;
+
+            var actorData = entityManager.Registry != null ? entityManager.Registry.Get(actor) : null;
+            if (actorData == null || !actorData.IsAlive || !actorData.KnowsHeal)
+                return false;
+
+            int clampedActionCount = Mathf.Clamp(actionCount, 1, 3);
+            return turnManager.ActionsRemaining >= clampedActionCount;
+        }
+
+        public bool TryBeginHarm(int actionCount)
+        {
+            if (turnManager == null || entityManager == null)
+                return false;
+            if (!CanActNow())
+                return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return false;
+
+            var actorData = entityManager.Registry != null ? entityManager.Registry.Get(actor) : null;
+            if (actorData == null || !actorData.IsAlive || !actorData.KnowsHarm)
+                return false;
+
+            int clampedActionCount = Mathf.Clamp(actionCount, 1, 3);
+            return turnManager.ActionsRemaining >= clampedActionCount;
+        }
+
         public bool TryConfirmSnowball(EntityHandle target, IRng rng = null)
         {
             if (turnManager == null || entityManager == null || entityManager.Registry == null)
@@ -1560,6 +1626,546 @@ namespace PF2e.TurnSystem
             return true;
         }
 
+        public TargetingEvaluationResult PreviewHealTargetDetailed(EntityHandle target, int actionCount)
+        {
+            if (!target.IsValid)
+                return TargetingEvaluationResult.FromFailure(TargetingFailureReason.InvalidTarget);
+            if (turnManager == null || entityManager == null)
+                return TargetingEvaluationResult.FromFailure(TargetingFailureReason.InvalidState);
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return TargetingEvaluationResult.FromFailure(TargetingFailureReason.InvalidState);
+
+            var failure = GetHealTargetFailure(actor, target, Mathf.Clamp(actionCount, 1, 3));
+            return failure == TargetingFailureReason.None
+                ? TargetingEvaluationResult.Success()
+                : TargetingEvaluationResult.FromFailure(failure);
+        }
+
+        public bool TryConfirmHeal(EntityHandle target, int actionCount, IRng rng = null)
+        {
+            if (turnManager == null || entityManager == null || entityManager.Registry == null)
+                return false;
+            if (!CanActNow())
+                return false;
+            if (!target.IsValid)
+                return false;
+
+            int clampedActionCount = Mathf.Clamp(actionCount, 1, 2);
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return false;
+
+            var actorData = entityManager.Registry.Get(actor);
+            if (actorData == null || !actorData.IsAlive || !actorData.KnowsHeal)
+                return false;
+            if (turnManager.ActionsRemaining < clampedActionCount)
+                return false;
+            if (GetHealTargetFailure(actor, target, clampedActionCount) != TargetingFailureReason.None)
+                return false;
+
+            rng ??= UnityRng.Shared;
+
+            executingActor = actor;
+            turnManager.BeginActionExecution(actor, "Player.Heal");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = Time.time;
+#endif
+
+            var targetData = entityManager.Registry.Get(target);
+            if (targetData == null || !targetData.IsAlive)
+            {
+                executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                executionStartTime = -1f;
+#endif
+                turnManager.ActionCompleted();
+                return false;
+            }
+
+            var definition = SpellCatalog.Get(SpellId.Heal);
+            int spellDc = SpellcastingRules.ComputeWizardSpellDc(actorData);
+            int rolledAmount = rng.RollDie(8);
+            int totalHealing = rolledAmount + (clampedActionCount >= 2 ? 8 : 0);
+            int hpBefore = Mathf.Max(0, targetData.CurrentHP);
+            int resolvedDamage = 0;
+            int appliedDamage = 0;
+            int appliedHealing = 0;
+            CheckResult? saveResult = null;
+            bool canResolveReactions = turnManager != null && shieldBlockAction != null && EnsureReactionPolicy();
+
+            if (targetData.VitalityAffinity == VitalityAffinity.Undead)
+            {
+                saveResult = CheckResolver.RollSave(targetData, SaveType.Fortitude, spellDc, rng);
+                resolvedDamage = CheckResolver.ApplyBasicSaveDamage(rolledAmount, saveResult.Value.degree);
+                if (resolvedDamage > 0)
+                {
+                    appliedDamage = DamageApplicationService.ApplyDamage(
+                        actor,
+                        target,
+                        resolvedDamage,
+                        definition.damageType,
+                        definition.actionName,
+                        isCritical: saveResult.Value.degree == DegreeOfSuccess.CriticalFailure,
+                        entityManager,
+                        eventBus,
+                        initiativeOrder: canResolveReactions ? turnManager.InitiativeOrder : null,
+                        getEntity: canResolveReactions ? handle => entityManager.Registry.Get(handle) : null,
+                        canUseReaction: canResolveReactions ? handle => turnManager.CanUseReaction(handle) : null,
+                        reactionPolicy: canResolveReactions ? reactionPolicy : null,
+                        shieldBlockAction: canResolveReactions ? shieldBlockAction : null,
+                        reactionBuffer: canResolveReactions ? reactionBuffer : null,
+                        reactionPhase: ReactionTriggerPhase.PostHit,
+                        reactionOwnerTag: "PlayerActionExecutor.Heal");
+                }
+            }
+            else
+            {
+                appliedHealing = HealingApplicationService.ApplyHealing(
+                    actor,
+                    target,
+                    totalHealing,
+                    definition.actionName,
+                    entityManager,
+                    eventBus);
+            }
+
+            var outcomes = new[]
+            {
+                new SpellResolvedTargetOutcome(
+                    target,
+                    shardCount: 0,
+                    shardRolls: null,
+                    rolledDamage: targetData.VitalityAffinity == VitalityAffinity.Undead ? rolledAmount : totalHealing,
+                    attackResult: null,
+                    saveResult: saveResult,
+                    appliedConditionType: null,
+                    appliedConditionValue: 0,
+                    appliedConditionRounds: 0,
+                    resolvedDamage: resolvedDamage,
+                    appliedDamage: appliedDamage,
+                    appliedHealing: appliedHealing,
+                    hpBefore: hpBefore,
+                    hpAfter: Mathf.Max(0, targetData.CurrentHP),
+                    targetDefeated: !targetData.IsAlive)
+            };
+
+            eventBus?.PublishSpellResolved(new SpellResolvedEvent(
+                SpellId.Heal,
+                actor,
+                clampedActionCount,
+                spellDc,
+                spellAttackModifier: 0,
+                rolledDamage: targetData.VitalityAffinity == VitalityAffinity.Undead ? rolledAmount : totalHealing,
+                targetOutcomes: outcomes));
+
+            executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = -1f;
+#endif
+            turnManager.CompleteActionWithCost(clampedActionCount);
+            return true;
+        }
+
+        public bool TryConfirmHealArea(Vector3Int aimCell, IRng rng = null)
+        {
+            if (turnManager == null || entityManager == null || entityManager.Registry == null)
+                return false;
+            if (!CanActNow())
+                return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return false;
+
+            var actorData = entityManager.Registry.Get(actor);
+            if (actorData == null || !actorData.IsAlive || !actorData.KnowsHeal)
+                return false;
+
+            const int actionCost = 3;
+            if (turnManager.ActionsRemaining < actionCost)
+                return false;
+
+            var preview = BuildHealAreaPreview(aimCell);
+            if (!preview.IsValid)
+                return false;
+
+            rng ??= UnityRng.Shared;
+
+            executingActor = actor;
+            turnManager.BeginActionExecution(actor, "Player.Heal");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = Time.time;
+#endif
+
+            var definition = SpellCatalog.Get(SpellId.Heal);
+            int spellDc = SpellcastingRules.ComputeWizardSpellDc(actorData);
+            int rolledAmount = rng.RollDie(8);
+            bool canResolveReactions = turnManager != null && shieldBlockAction != null && EnsureReactionPolicy();
+            var outcomes = new SpellResolvedTargetOutcome[preview.TargetCount];
+
+            for (int i = 0; i < preview.TargetCount; i++)
+            {
+                var target = preview.targets[i];
+                var targetData = entityManager.Registry.Get(target);
+                if (targetData == null || !targetData.IsAlive)
+                {
+                    executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                    executionStartTime = -1f;
+#endif
+                    turnManager.ActionCompleted();
+                    return false;
+                }
+
+                int hpBefore = Mathf.Max(0, targetData.CurrentHP);
+                int resolvedDamage = 0;
+                int appliedDamage = 0;
+                int appliedHealing = 0;
+                CheckResult? saveResult = null;
+
+                if (targetData.VitalityAffinity == VitalityAffinity.Undead)
+                {
+                    saveResult = CheckResolver.RollSave(targetData, SaveType.Fortitude, spellDc, rng);
+                    resolvedDamage = CheckResolver.ApplyBasicSaveDamage(rolledAmount, saveResult.Value.degree);
+                    if (resolvedDamage > 0)
+                    {
+                        appliedDamage = DamageApplicationService.ApplyDamage(
+                            actor,
+                            target,
+                            resolvedDamage,
+                            definition.damageType,
+                            definition.actionName,
+                            isCritical: saveResult.Value.degree == DegreeOfSuccess.CriticalFailure,
+                            entityManager,
+                            eventBus,
+                            initiativeOrder: canResolveReactions ? turnManager.InitiativeOrder : null,
+                            getEntity: canResolveReactions ? handle => entityManager.Registry.Get(handle) : null,
+                            canUseReaction: canResolveReactions ? handle => turnManager.CanUseReaction(handle) : null,
+                            reactionPolicy: canResolveReactions ? reactionPolicy : null,
+                            shieldBlockAction: canResolveReactions ? shieldBlockAction : null,
+                            reactionBuffer: canResolveReactions ? reactionBuffer : null,
+                            reactionPhase: ReactionTriggerPhase.PostHit,
+                            reactionOwnerTag: "PlayerActionExecutor.HealArea");
+                    }
+                }
+                else
+                {
+                    appliedHealing = HealingApplicationService.ApplyHealing(
+                        actor,
+                        target,
+                        rolledAmount,
+                        definition.actionName,
+                        entityManager,
+                        eventBus);
+                }
+
+                outcomes[i] = new SpellResolvedTargetOutcome(
+                    target,
+                    shardCount: 0,
+                    shardRolls: null,
+                    rolledDamage: rolledAmount,
+                    attackResult: null,
+                    saveResult: saveResult,
+                    appliedConditionType: null,
+                    appliedConditionValue: 0,
+                    appliedConditionRounds: 0,
+                    resolvedDamage: resolvedDamage,
+                    appliedDamage: appliedDamage,
+                    hpBefore: hpBefore,
+                    hpAfter: Mathf.Max(0, targetData.CurrentHP),
+                    targetDefeated: !targetData.IsAlive,
+                    appliedHealing: appliedHealing);
+            }
+
+            eventBus?.PublishSpellResolved(new SpellResolvedEvent(
+                SpellId.Heal,
+                actor,
+                actionCost,
+                spellDc,
+                spellAttackModifier: 0,
+                rolledDamage: rolledAmount,
+                targetOutcomes: outcomes));
+
+            executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = -1f;
+#endif
+            turnManager.CompleteActionWithCost(actionCost);
+            return true;
+        }
+
+        public TargetingEvaluationResult PreviewHarmTargetDetailed(EntityHandle target, int actionCount)
+        {
+            if (!target.IsValid)
+                return TargetingEvaluationResult.FromFailure(TargetingFailureReason.InvalidTarget);
+            if (turnManager == null || entityManager == null)
+                return TargetingEvaluationResult.FromFailure(TargetingFailureReason.InvalidState);
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return TargetingEvaluationResult.FromFailure(TargetingFailureReason.InvalidState);
+
+            var failure = GetHarmTargetFailure(actor, target, Mathf.Clamp(actionCount, 1, 3));
+            return failure == TargetingFailureReason.None
+                ? TargetingEvaluationResult.Success()
+                : TargetingEvaluationResult.FromFailure(failure);
+        }
+
+        public bool TryConfirmHarm(EntityHandle target, int actionCount, IRng rng = null)
+        {
+            if (turnManager == null || entityManager == null || entityManager.Registry == null)
+                return false;
+            if (!CanActNow())
+                return false;
+            if (!target.IsValid)
+                return false;
+
+            int clampedActionCount = Mathf.Clamp(actionCount, 1, 2);
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return false;
+
+            var actorData = entityManager.Registry.Get(actor);
+            if (actorData == null || !actorData.IsAlive || !actorData.KnowsHarm)
+                return false;
+            if (turnManager.ActionsRemaining < clampedActionCount)
+                return false;
+            if (GetHarmTargetFailure(actor, target, clampedActionCount) != TargetingFailureReason.None)
+                return false;
+
+            rng ??= UnityRng.Shared;
+
+            executingActor = actor;
+            turnManager.BeginActionExecution(actor, "Player.Harm");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = Time.time;
+#endif
+
+            var targetData = entityManager.Registry.Get(target);
+            if (targetData == null || !targetData.IsAlive)
+            {
+                executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                executionStartTime = -1f;
+#endif
+                turnManager.ActionCompleted();
+                return false;
+            }
+
+            var definition = SpellCatalog.Get(SpellId.Harm);
+            int spellDc = SpellcastingRules.ComputeWizardSpellDc(actorData);
+            int rolledAmount = rng.RollDie(8);
+            int totalDamage = rolledAmount + (clampedActionCount >= 2 ? 8 : 0);
+            int hpBefore = Mathf.Max(0, targetData.CurrentHP);
+            int resolvedDamage = 0;
+            int appliedDamage = 0;
+            int appliedHealing = 0;
+            CheckResult? saveResult = null;
+            bool canResolveReactions = turnManager != null && shieldBlockAction != null && EnsureReactionPolicy();
+
+            if (targetData.VitalityAffinity == VitalityAffinity.Undead)
+            {
+                appliedHealing = HealingApplicationService.ApplyHealing(
+                    actor,
+                    target,
+                    totalDamage,
+                    definition.actionName,
+                    entityManager,
+                    eventBus);
+            }
+            else
+            {
+                saveResult = CheckResolver.RollSave(targetData, SaveType.Fortitude, spellDc, rng);
+                resolvedDamage = CheckResolver.ApplyBasicSaveDamage(totalDamage, saveResult.Value.degree);
+                if (resolvedDamage > 0)
+                {
+                    appliedDamage = DamageApplicationService.ApplyDamage(
+                        actor,
+                        target,
+                        resolvedDamage,
+                        definition.damageType,
+                        definition.actionName,
+                        isCritical: saveResult.Value.degree == DegreeOfSuccess.CriticalFailure,
+                        entityManager,
+                        eventBus,
+                        initiativeOrder: canResolveReactions ? turnManager.InitiativeOrder : null,
+                        getEntity: canResolveReactions ? handle => entityManager.Registry.Get(handle) : null,
+                        canUseReaction: canResolveReactions ? handle => turnManager.CanUseReaction(handle) : null,
+                        reactionPolicy: canResolveReactions ? reactionPolicy : null,
+                        shieldBlockAction: canResolveReactions ? shieldBlockAction : null,
+                        reactionBuffer: canResolveReactions ? reactionBuffer : null,
+                        reactionPhase: ReactionTriggerPhase.PostHit,
+                        reactionOwnerTag: "PlayerActionExecutor.Harm");
+                }
+            }
+
+            var outcomes = new[]
+            {
+                new SpellResolvedTargetOutcome(
+                    target,
+                    shardCount: 0,
+                    shardRolls: null,
+                    rolledDamage: targetData.VitalityAffinity == VitalityAffinity.Undead ? totalDamage : totalDamage,
+                    attackResult: null,
+                    saveResult: saveResult,
+                    appliedConditionType: null,
+                    appliedConditionValue: 0,
+                    appliedConditionRounds: 0,
+                    resolvedDamage: resolvedDamage,
+                    appliedDamage: appliedDamage,
+                    hpBefore: hpBefore,
+                    hpAfter: Mathf.Max(0, targetData.CurrentHP),
+                    targetDefeated: !targetData.IsAlive,
+                    appliedHealing: appliedHealing)
+            };
+
+            eventBus?.PublishSpellResolved(new SpellResolvedEvent(
+                SpellId.Harm,
+                actor,
+                clampedActionCount,
+                spellDc,
+                spellAttackModifier: 0,
+                rolledDamage: totalDamage,
+                targetOutcomes: outcomes));
+
+            executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = -1f;
+#endif
+            turnManager.CompleteActionWithCost(clampedActionCount);
+            return true;
+        }
+
+        public bool TryConfirmHarmArea(Vector3Int aimCell, IRng rng = null)
+        {
+            if (turnManager == null || entityManager == null || entityManager.Registry == null)
+                return false;
+            if (!CanActNow())
+                return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return false;
+
+            var actorData = entityManager.Registry.Get(actor);
+            if (actorData == null || !actorData.IsAlive || !actorData.KnowsHarm)
+                return false;
+
+            const int actionCost = 3;
+            if (turnManager.ActionsRemaining < actionCost)
+                return false;
+
+            var preview = BuildHarmAreaPreview(aimCell);
+            if (!preview.IsValid)
+                return false;
+
+            rng ??= UnityRng.Shared;
+
+            executingActor = actor;
+            turnManager.BeginActionExecution(actor, "Player.Harm");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = Time.time;
+#endif
+
+            var definition = SpellCatalog.Get(SpellId.Harm);
+            int spellDc = SpellcastingRules.ComputeWizardSpellDc(actorData);
+            int rolledAmount = rng.RollDie(8);
+            bool canResolveReactions = turnManager != null && shieldBlockAction != null && EnsureReactionPolicy();
+            var outcomes = new SpellResolvedTargetOutcome[preview.TargetCount];
+
+            for (int i = 0; i < preview.TargetCount; i++)
+            {
+                var target = preview.targets[i];
+                var targetData = entityManager.Registry.Get(target);
+                if (targetData == null || !targetData.IsAlive)
+                {
+                    executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                    executionStartTime = -1f;
+#endif
+                    turnManager.ActionCompleted();
+                    return false;
+                }
+
+                int hpBefore = Mathf.Max(0, targetData.CurrentHP);
+                int resolvedDamage = 0;
+                int appliedDamage = 0;
+                int appliedHealing = 0;
+                CheckResult? saveResult = null;
+
+                if (targetData.VitalityAffinity == VitalityAffinity.Undead)
+                {
+                    appliedHealing = HealingApplicationService.ApplyHealing(
+                        actor,
+                        target,
+                        rolledAmount,
+                        definition.actionName,
+                        entityManager,
+                        eventBus);
+                }
+                else
+                {
+                    saveResult = CheckResolver.RollSave(targetData, SaveType.Fortitude, spellDc, rng);
+                    resolvedDamage = CheckResolver.ApplyBasicSaveDamage(rolledAmount, saveResult.Value.degree);
+                    if (resolvedDamage > 0)
+                    {
+                        appliedDamage = DamageApplicationService.ApplyDamage(
+                            actor,
+                            target,
+                            resolvedDamage,
+                            definition.damageType,
+                            definition.actionName,
+                            isCritical: saveResult.Value.degree == DegreeOfSuccess.CriticalFailure,
+                            entityManager,
+                            eventBus,
+                            initiativeOrder: canResolveReactions ? turnManager.InitiativeOrder : null,
+                            getEntity: canResolveReactions ? handle => entityManager.Registry.Get(handle) : null,
+                            canUseReaction: canResolveReactions ? handle => turnManager.CanUseReaction(handle) : null,
+                            reactionPolicy: canResolveReactions ? reactionPolicy : null,
+                            shieldBlockAction: canResolveReactions ? shieldBlockAction : null,
+                            reactionBuffer: canResolveReactions ? reactionBuffer : null,
+                            reactionPhase: ReactionTriggerPhase.PostHit,
+                            reactionOwnerTag: "PlayerActionExecutor.HarmArea");
+                    }
+                }
+
+                outcomes[i] = new SpellResolvedTargetOutcome(
+                    target,
+                    shardCount: 0,
+                    shardRolls: null,
+                    rolledDamage: rolledAmount,
+                    attackResult: null,
+                    saveResult: saveResult,
+                    appliedConditionType: null,
+                    appliedConditionValue: 0,
+                    appliedConditionRounds: 0,
+                    resolvedDamage: resolvedDamage,
+                    appliedDamage: appliedDamage,
+                    hpBefore: hpBefore,
+                    hpAfter: Mathf.Max(0, targetData.CurrentHP),
+                    targetDefeated: !targetData.IsAlive,
+                    appliedHealing: appliedHealing);
+            }
+
+            eventBus?.PublishSpellResolved(new SpellResolvedEvent(
+                SpellId.Harm,
+                actor,
+                actionCost,
+                spellDc,
+                spellAttackModifier: 0,
+                rolledDamage: rolledAmount,
+                targetOutcomes: outcomes));
+
+            executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = -1f;
+#endif
+            turnManager.CompleteActionWithCost(actionCost);
+            return true;
+        }
+
         public bool TryConfirmBurningHands(Vector3Int aimCell, IRng rng = null)
         {
             if (turnManager == null || entityManager == null || entityManager.Registry == null)
@@ -1735,6 +2341,97 @@ namespace PF2e.TurnSystem
                 : TargetingFailureReason.NoLineOfSight;
         }
 
+        private TargetingFailureReason GetHealTargetFailure(
+            EntityHandle actor,
+            EntityHandle target,
+            int actionCount)
+        {
+            if (!actor.IsValid || !target.IsValid)
+                return TargetingFailureReason.InvalidTarget;
+            if (entityManager == null || entityManager.Registry == null)
+                return TargetingFailureReason.InvalidState;
+
+            var actorData = entityManager.Registry.Get(actor);
+            var targetData = entityManager.Registry.Get(target);
+            if (actorData == null || targetData == null)
+                return TargetingFailureReason.InvalidTarget;
+            if (!actorData.IsAlive || !targetData.IsAlive)
+                return TargetingFailureReason.NotAlive;
+            if (actorData.GridPosition.y != targetData.GridPosition.y)
+                return TargetingFailureReason.WrongElevation;
+
+            bool isUndeadTarget = targetData.VitalityAffinity == VitalityAffinity.Undead;
+            bool isSelfTarget = actor == target;
+            bool isFriendlyTarget = targetData.Team == actorData.Team;
+            if (!isUndeadTarget && !isSelfTarget && !isFriendlyTarget)
+                return TargetingFailureReason.WrongTeam;
+
+            int allowedRangeFeet = Mathf.Clamp(actionCount, 1, 3) >= 2 ? 30 : 5;
+            int distanceFeet = GridDistancePF2e.DistanceFeetXZ(actorData.GridPosition, targetData.GridPosition);
+            if (distanceFeet > allowedRangeFeet)
+                return TargetingFailureReason.OutOfRange;
+
+            if (isSelfTarget || entityManager.GridData == null)
+                return TargetingFailureReason.None;
+
+            var line = StrikeLineResolver.ResolveSameElevation(
+                entityManager.GridData,
+                entityManager.Occupancy,
+                actorData.GridPosition,
+                targetData.GridPosition,
+                actor,
+                target);
+
+            return line.hasLineOfSight
+                ? TargetingFailureReason.None
+                : TargetingFailureReason.NoLineOfSight;
+        }
+
+        private TargetingFailureReason GetHarmTargetFailure(
+            EntityHandle actor,
+            EntityHandle target,
+            int actionCount)
+        {
+            if (!actor.IsValid || !target.IsValid)
+                return TargetingFailureReason.InvalidTarget;
+            if (entityManager == null || entityManager.Registry == null)
+                return TargetingFailureReason.InvalidState;
+
+            var actorData = entityManager.Registry.Get(actor);
+            var targetData = entityManager.Registry.Get(target);
+            if (actorData == null || targetData == null)
+                return TargetingFailureReason.InvalidTarget;
+            if (!actorData.IsAlive || !targetData.IsAlive)
+                return TargetingFailureReason.NotAlive;
+            if (actorData.GridPosition.y != targetData.GridPosition.y)
+                return TargetingFailureReason.WrongElevation;
+
+            bool isUndeadTarget = targetData.VitalityAffinity == VitalityAffinity.Undead;
+            bool isLivingEnemy = targetData.Team != actorData.Team;
+            if (!isUndeadTarget && !isLivingEnemy)
+                return TargetingFailureReason.WrongTeam;
+
+            int allowedRangeFeet = Mathf.Clamp(actionCount, 1, 3) >= 2 ? 30 : 5;
+            int distanceFeet = GridDistancePF2e.DistanceFeetXZ(actorData.GridPosition, targetData.GridPosition);
+            if (distanceFeet > allowedRangeFeet)
+                return TargetingFailureReason.OutOfRange;
+
+            if (actor == target || entityManager.GridData == null)
+                return TargetingFailureReason.None;
+
+            var line = StrikeLineResolver.ResolveSameElevation(
+                entityManager.GridData,
+                entityManager.Occupancy,
+                actorData.GridPosition,
+                targetData.GridPosition,
+                actor,
+                target);
+
+            return line.hasLineOfSight
+                ? TargetingFailureReason.None
+                : TargetingFailureReason.NoLineOfSight;
+        }
+
         private SpellAreaPreview BuildBurningHandsPreview(Vector3Int aimCell)
         {
             if (turnManager == null || entityManager == null || entityManager.Registry == null)
@@ -1809,6 +2506,126 @@ namespace PF2e.TurnSystem
                 spellAreaTargetBuffer.ToArray(),
                 allyCount,
                 enemyCount);
+        }
+
+        private SpellAreaPreview BuildHealAreaPreview(Vector3Int aimCell)
+        {
+            if (turnManager == null || entityManager == null || entityManager.Registry == null)
+                return SpellAreaPreview.Invalid(SpellId.Heal, aimCell, TargetingFailureReason.InvalidState);
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return SpellAreaPreview.Invalid(SpellId.Heal, aimCell, TargetingFailureReason.InvalidState);
+
+            var actorData = entityManager.Registry.Get(actor);
+            if (actorData == null || !actorData.IsAlive || !actorData.KnowsHeal)
+                return SpellAreaPreview.Invalid(SpellId.Heal, aimCell, TargetingFailureReason.InvalidState);
+
+            if (turnManager.ActionsRemaining < 3)
+                return SpellAreaPreview.Invalid(SpellId.Heal, aimCell, TargetingFailureReason.InvalidState);
+            if (aimCell.y != actorData.GridPosition.y)
+                return SpellAreaPreview.Invalid(SpellId.Heal, aimCell, TargetingFailureReason.WrongElevation);
+
+            spellAreaCellBuffer.Clear();
+            EmanationAreaResolver.Resolve(
+                actorData.GridPosition,
+                radiusFeet: 30,
+                outCells: spellAreaCellBuffer,
+                gridData: entityManager.GridData);
+
+            if (spellAreaCellBuffer.Count <= 0)
+                return SpellAreaPreview.Invalid(SpellId.Heal, aimCell, TargetingFailureReason.InvalidState);
+
+            var areaCells = spellAreaCellBuffer.ToArray();
+            spellAreaTargetBuffer.Clear();
+            int allyCount = 0;
+            int enemyCount = 0;
+            foreach (var targetData in entityManager.Registry.GetAll())
+            {
+                if (targetData == null || !targetData.IsAlive || !targetData.Handle.IsValid)
+                    continue;
+                if (targetData.GridPosition.y != actorData.GridPosition.y)
+                    continue;
+                if (!ContainsCell(areaCells, targetData.GridPosition))
+                    continue;
+
+                spellAreaTargetBuffer.Add(targetData.Handle);
+                if (targetData.Team == actorData.Team)
+                    allyCount++;
+                else
+                    enemyCount++;
+            }
+
+            return new SpellAreaPreview(
+                SpellId.Heal,
+                aimCell,
+                TargetingFailureReason.None,
+                TargetingWarningReason.None,
+                directionIndex: -1,
+                areaCells,
+                spellAreaTargetBuffer.ToArray(),
+                allyCount,
+                enemyCount);
+        }
+
+        private SpellAreaPreview BuildHarmAreaPreview(Vector3Int aimCell)
+        {
+            if (turnManager == null || entityManager == null || entityManager.Registry == null)
+                return SpellAreaPreview.Invalid(SpellId.Harm, aimCell, TargetingFailureReason.InvalidState);
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return SpellAreaPreview.Invalid(SpellId.Harm, aimCell, TargetingFailureReason.InvalidState);
+
+            var actorData = entityManager.Registry.Get(actor);
+            if (actorData == null || !actorData.IsAlive || !actorData.KnowsHarm)
+                return SpellAreaPreview.Invalid(SpellId.Harm, aimCell, TargetingFailureReason.InvalidState);
+
+            if (turnManager.ActionsRemaining < 3)
+                return SpellAreaPreview.Invalid(SpellId.Harm, aimCell, TargetingFailureReason.InvalidState);
+            if (aimCell.y != actorData.GridPosition.y)
+                return SpellAreaPreview.Invalid(SpellId.Harm, aimCell, TargetingFailureReason.WrongElevation);
+
+            spellAreaCellBuffer.Clear();
+            EmanationAreaResolver.Resolve(
+                actorData.GridPosition,
+                radiusFeet: 30,
+                outCells: spellAreaCellBuffer,
+                gridData: entityManager.GridData);
+
+            if (spellAreaCellBuffer.Count <= 0)
+                return SpellAreaPreview.Invalid(SpellId.Harm, aimCell, TargetingFailureReason.InvalidState);
+
+            var areaCells = spellAreaCellBuffer.ToArray();
+            spellAreaTargetBuffer.Clear();
+            int livingAllyCount = 0;
+            int affectedOtherCount = 0;
+            foreach (var targetData in entityManager.Registry.GetAll())
+            {
+                if (targetData == null || !targetData.IsAlive || !targetData.Handle.IsValid)
+                    continue;
+                if (targetData.GridPosition.y != actorData.GridPosition.y)
+                    continue;
+                if (!ContainsCell(areaCells, targetData.GridPosition))
+                    continue;
+
+                spellAreaTargetBuffer.Add(targetData.Handle);
+                if (targetData.Team == actorData.Team && targetData.VitalityAffinity != VitalityAffinity.Undead)
+                    livingAllyCount++;
+                else
+                    affectedOtherCount++;
+            }
+
+            return new SpellAreaPreview(
+                SpellId.Harm,
+                aimCell,
+                TargetingFailureReason.None,
+                livingAllyCount > 0 ? TargetingWarningReason.AlliesInArea : TargetingWarningReason.None,
+                directionIndex: -1,
+                areaCells,
+                spellAreaTargetBuffer.ToArray(),
+                livingAllyCount,
+                affectedOtherCount);
         }
 
         private static bool ContainsCell(Vector3Int[] areaCells, Vector3Int cell)

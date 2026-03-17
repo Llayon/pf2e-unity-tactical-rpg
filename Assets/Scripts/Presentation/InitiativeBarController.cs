@@ -79,6 +79,7 @@ namespace PF2e.Presentation
                 eventBus.OnTurnEndedTyped += HandleTurnEnded;
                 eventBus.OnStrikeResolved  += HandleStrikeResolved;
                 eventBus.OnDamageAppliedTyped += HandleDamageApplied;
+                eventBus.OnHealingAppliedTyped += HandleHealingApplied;
                 eventBus.OnEntityDefeated  += HandleEntityDefeated;
                 eventBus.OnDelayPlacementSelectionChangedTyped += HandleDelayPlacementSelectionChanged;
                 eventBus.OnDelayReturnWindowOpenedTyped += HandleDelayReturnWindowOpened;
@@ -102,6 +103,7 @@ namespace PF2e.Presentation
                 eventBus.OnTurnEndedTyped -= HandleTurnEnded;
                 eventBus.OnStrikeResolved  -= HandleStrikeResolved;
                 eventBus.OnDamageAppliedTyped -= HandleDamageApplied;
+                eventBus.OnHealingAppliedTyped -= HandleHealingApplied;
                 eventBus.OnEntityDefeated  -= HandleEntityDefeated;
                 eventBus.OnDelayPlacementSelectionChangedTyped -= HandleDelayPlacementSelectionChanged;
                 eventBus.OnDelayReturnWindowOpenedTyped -= HandleDelayReturnWindowOpened;
@@ -233,6 +235,17 @@ namespace PF2e.Presentation
         }
 
         private void HandleDamageApplied(in DamageAppliedEvent e)
+        {
+            if (entityManager == null || entityManager.Registry == null) return;
+            if (!slotByHandle.TryGetValue(e.target, out var slot)) return;
+
+            var data = entityManager.Registry.Get(e.target);
+            if (data == null) return;
+
+            slot.RefreshHP(data.CurrentHP, data.MaxHP, data.IsAlive);
+        }
+
+        private void HandleHealingApplied(in HealingAppliedEvent e)
         {
             if (entityManager == null || entityManager.Registry == null) return;
             if (!slotByHandle.TryGetValue(e.target, out var slot)) return;

@@ -114,6 +114,32 @@ namespace PF2e.Core
                     saveType: SaveType.Will,
                     requiresLineOfSight: true),
 
+                SpellId.Heal => new SpellSliceDefinition(
+                    SpellId.Heal,
+                    "Heal",
+                    "Heal",
+                    minActionCost: 1,
+                    maxActionCost: 3,
+                    rangeFeet: 30,
+                    targetingKind: SpellTargetingKind.SingleCreature,
+                    resolutionKind: SpellResolutionKind.HealingOrSaveDamage,
+                    damageType: DamageType.Vitality,
+                    saveType: SaveType.Fortitude,
+                    requiresLineOfSight: true),
+
+                SpellId.Harm => new SpellSliceDefinition(
+                    SpellId.Harm,
+                    "Harm",
+                    "Harm",
+                    minActionCost: 1,
+                    maxActionCost: 3,
+                    rangeFeet: 30,
+                    targetingKind: SpellTargetingKind.SingleCreature,
+                    resolutionKind: SpellResolutionKind.HealingOrSaveDamage,
+                    damageType: DamageType.Void,
+                    saveType: SaveType.Fortitude,
+                    requiresLineOfSight: true),
+
                 _ => throw new ArgumentOutOfRangeException(nameof(spellId), spellId, "Unknown spell slice id.")
             };
         }
@@ -127,18 +153,22 @@ namespace PF2e.Core
                 || string.Equals(actionName, Get(SpellId.ElectricArc).actionName, StringComparison.Ordinal)
                 || string.Equals(actionName, Get(SpellId.Snowball).actionName, StringComparison.Ordinal)
                 || string.Equals(actionName, Get(SpellId.BurningHands).actionName, StringComparison.Ordinal)
-                || string.Equals(actionName, Get(SpellId.Fear).actionName, StringComparison.Ordinal);
+                || string.Equals(actionName, Get(SpellId.Fear).actionName, StringComparison.Ordinal)
+                || string.Equals(actionName, Get(SpellId.Heal).actionName, StringComparison.Ordinal)
+                || string.Equals(actionName, Get(SpellId.Harm).actionName, StringComparison.Ordinal);
         }
 
-        public static string GetShortToken(SpellId spellId, int forceBarrageActionCount = 1)
+        public static string GetShortToken(SpellId spellId, int actionCount = 1)
         {
             return spellId switch
             {
-                SpellId.ForceBarrage => $"FBR{Math.Clamp(forceBarrageActionCount, 1, 3)}",
+                SpellId.ForceBarrage => $"FBR{Math.Clamp(actionCount, 1, 3)}",
                 SpellId.ElectricArc => "ARC",
                 SpellId.Snowball => "SNW",
                 SpellId.BurningHands => "BRN",
                 SpellId.Fear => "FER",
+                SpellId.Heal => $"HEL{Math.Clamp(actionCount, 1, 3)}",
+                SpellId.Harm => $"HRM{Math.Clamp(actionCount, 1, 3)}",
                 _ => "SPL"
             };
         }

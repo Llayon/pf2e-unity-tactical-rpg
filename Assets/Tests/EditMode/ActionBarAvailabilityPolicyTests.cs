@@ -245,6 +245,70 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void BuildForActor_HealKnownWithOneAction_EnablesCastSpellSlot()
+        {
+            var policy = new ActionBarAvailabilityPolicy();
+            var actor = new EntityData
+            {
+                Team = Team.Player,
+                CurrentHP = 10,
+                MaxHP = 10,
+                KnowsHeal = true
+            };
+
+            var state = policy.BuildForActor(actor, actionsRemaining: 1);
+            Assert.IsTrue(state.castSpellInteractable);
+        }
+
+        [Test]
+        public void BuildForActor_HealKnownWithZeroActions_DisablesCastSpellSlot()
+        {
+            var policy = new ActionBarAvailabilityPolicy();
+            var actor = new EntityData
+            {
+                Team = Team.Player,
+                CurrentHP = 10,
+                MaxHP = 10,
+                KnowsHeal = true
+            };
+
+            var state = policy.BuildForActor(actor, actionsRemaining: 0);
+            Assert.IsFalse(state.castSpellInteractable);
+        }
+
+        [Test]
+        public void BuildForActor_HarmKnownWithOneAction_EnablesCastSpellSlot()
+        {
+            var policy = new ActionBarAvailabilityPolicy();
+            var actor = new EntityData
+            {
+                Team = Team.Player,
+                CurrentHP = 10,
+                MaxHP = 10,
+                KnowsHarm = true
+            };
+
+            var state = policy.BuildForActor(actor, actionsRemaining: 1);
+            Assert.IsTrue(state.castSpellInteractable);
+        }
+
+        [Test]
+        public void BuildForActor_HarmKnownWithZeroActions_DisablesCastSpellSlot()
+        {
+            var policy = new ActionBarAvailabilityPolicy();
+            var actor = new EntityData
+            {
+                Team = Team.Player,
+                CurrentHP = 10,
+                MaxHP = 10,
+                KnowsHarm = true
+            };
+
+            var state = policy.BuildForActor(actor, actionsRemaining: 0);
+            Assert.IsFalse(state.castSpellInteractable);
+        }
+
+        [Test]
         public void BuildForActor_Fleeing_DisablesNonEscapeActions()
         {
             var policy = new ActionBarAvailabilityPolicy();

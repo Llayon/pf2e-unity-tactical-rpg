@@ -332,6 +332,230 @@ namespace PF2e.Tests
             }
         }
 
+        [Test]
+        public void Heal_PublishesHealingBreakdownTooltip()
+        {
+            using var ctx = new SpellLogContext();
+
+            var caster = ctx.RegisterEntity("Wizard", Team.Player);
+            var target = ctx.RegisterEntity("Fighter", Team.Player);
+
+            var ev = new SpellResolvedEvent(
+                SpellId.Heal,
+                caster,
+                actionCost: 2,
+                spellDc: 17,
+                spellAttackModifier: 0,
+                rolledDamage: 12,
+                targetOutcomes: new[]
+                {
+                    new SpellResolvedTargetOutcome(
+                        target,
+                        shardCount: 0,
+                        shardRolls: null,
+                        rolledDamage: 12,
+                        attackResult: null,
+                        saveResult: null,
+                        appliedConditionType: null,
+                        appliedConditionValue: 0,
+                        appliedConditionRounds: 0,
+                        resolvedDamage: 0,
+                        appliedDamage: 0,
+                        hpBefore: 6,
+                        hpAfter: 18,
+                        targetDefeated: false,
+                        appliedHealing: 12)
+                });
+
+            CombatLogEntry lastEntry = default;
+            CombatLogTooltipPayload? lastTooltip = null;
+            ctx.EventBus.OnLogEntryWithTooltip += HandleLog;
+            try
+            {
+                ctx.EventBus.PublishSpellResolved(in ev);
+
+                StringAssert.Contains("Heal", Strip(lastEntry.Message));
+                StringAssert.Contains("regains", Strip(lastEntry.Message));
+                Assert.IsTrue(lastTooltip.HasValue);
+                StringAssert.Contains("30 ft", lastTooltip.Value.entries[0].body);
+                StringAssert.Contains("healed 12 HP", lastTooltip.Value.entries[0].body);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntryWithTooltip -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry, CombatLogTooltipPayload? tooltipPayload)
+            {
+                lastEntry = entry;
+                lastTooltip = tooltipPayload;
+            }
+        }
+
+        [Test]
+        public void HealArea_PublishesMixedBreakdownTooltip()
+        {
+            using var ctx = new SpellLogContext();
+
+            var caster = ctx.RegisterEntity("Wizard", Team.Player);
+            var ally = ctx.RegisterEntity("Fighter", Team.Player);
+            var undead = ctx.RegisterEntity("Skeleton", Team.Enemy);
+            ctx.Registry.Get(undead).VitalityAffinity = VitalityAffinity.Undead;
+
+            var ev = new SpellResolvedEvent(
+                SpellId.Heal,
+                caster,
+                actionCost: 3,
+                spellDc: 17,
+                spellAttackModifier: 0,
+                rolledDamage: 5,
+                targetOutcomes: new[]
+                {
+                    new SpellResolvedTargetOutcome(
+                        ally,
+                        shardCount: 0,
+                        shardRolls: null,
+                        rolledDamage: 5,
+                        attackResult: null,
+                        saveResult: null,
+                        appliedConditionType: null,
+                        appliedConditionValue: 0,
+                        appliedConditionRounds: 0,
+                        resolvedDamage: 0,
+                        appliedDamage: 0,
+                        hpBefore: 7,
+                        hpAfter: 12,
+                        targetDefeated: false,
+                        appliedHealing: 5),
+                    new SpellResolvedTargetOutcome(
+                        undead,
+                        shardCount: 0,
+                        shardRolls: null,
+                        rolledDamage: 5,
+                        attackResult: null,
+                        saveResult: new CheckResult(
+                            new CheckRoll(5, 4, CheckSource.Save(SaveType.Fortitude)),
+                            dc: 17,
+                            degree: DegreeOfSuccess.Failure),
+                        appliedConditionType: null,
+                        appliedConditionValue: 0,
+                        appliedConditionRounds: 0,
+                        resolvedDamage: 5,
+                        appliedDamage: 5,
+                        hpBefore: 12,
+                        hpAfter: 7,
+                        targetDefeated: false)
+                });
+
+            CombatLogEntry lastEntry = default;
+            CombatLogTooltipPayload? lastTooltip = null;
+            ctx.EventBus.OnLogEntryWithTooltip += HandleLog;
+            try
+            {
+                ctx.EventBus.PublishSpellResolved(in ev);
+
+                StringAssert.Contains("Heal", Strip(lastEntry.Message));
+                StringAssert.Contains("Fighter", Strip(lastEntry.Message));
+                StringAssert.Contains("Skeleton", Strip(lastEntry.Message));
+                Assert.IsTrue(lastTooltip.HasValue);
+                StringAssert.Contains("30 ft emanation", lastTooltip.Value.entries[0].body);
+                StringAssert.Contains("healed 5 HP", lastTooltip.Value.entries[0].body);
+                StringAssert.Contains("5 vitality", lastTooltip.Value.entries[0].body);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntryWithTooltip -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry, CombatLogTooltipPayload? tooltipPayload)
+            {
+                lastEntry = entry;
+                lastTooltip = tooltipPayload;
+            }
+        }
+
+        [Test]
+        public void Harm_PublishesMixedBreakdownTooltip()
+        {
+            using var ctx = new SpellLogContext();
+
+            var caster = ctx.RegisterEntity("Wizard", Team.Player);
+            var living = ctx.RegisterEntity("Goblin", Team.Enemy);
+            var undead = ctx.RegisterEntity("Skeleton", Team.Enemy);
+            ctx.Registry.Get(undead).VitalityAffinity = VitalityAffinity.Undead;
+
+            var ev = new SpellResolvedEvent(
+                SpellId.Harm,
+                caster,
+                actionCost: 2,
+                spellDc: 17,
+                spellAttackModifier: 0,
+                rolledDamage: 12,
+                targetOutcomes: new[]
+                {
+                    new SpellResolvedTargetOutcome(
+                        living,
+                        shardCount: 0,
+                        shardRolls: null,
+                        rolledDamage: 12,
+                        attackResult: null,
+                        saveResult: new CheckResult(
+                            new CheckRoll(5, 4, CheckSource.Save(SaveType.Fortitude)),
+                            dc: 17,
+                            degree: DegreeOfSuccess.Failure),
+                        appliedConditionType: null,
+                        appliedConditionValue: 0,
+                        appliedConditionRounds: 0,
+                        resolvedDamage: 12,
+                        appliedDamage: 12,
+                        hpBefore: 15,
+                        hpAfter: 3,
+                        targetDefeated: false),
+                    new SpellResolvedTargetOutcome(
+                        undead,
+                        shardCount: 0,
+                        shardRolls: null,
+                        rolledDamage: 12,
+                        attackResult: null,
+                        saveResult: null,
+                        appliedConditionType: null,
+                        appliedConditionValue: 0,
+                        appliedConditionRounds: 0,
+                        resolvedDamage: 0,
+                        appliedDamage: 0,
+                        hpBefore: 2,
+                        hpAfter: 14,
+                        targetDefeated: false,
+                        appliedHealing: 12)
+                });
+
+            CombatLogEntry lastEntry = default;
+            CombatLogTooltipPayload? lastTooltip = null;
+            ctx.EventBus.OnLogEntryWithTooltip += HandleLog;
+            try
+            {
+                ctx.EventBus.PublishSpellResolved(in ev);
+
+                StringAssert.Contains("Harm", Strip(lastEntry.Message));
+                StringAssert.Contains("Goblin", Strip(lastEntry.Message));
+                StringAssert.Contains("Skeleton", Strip(lastEntry.Message));
+                Assert.IsTrue(lastTooltip.HasValue);
+                StringAssert.Contains("30 ft", lastTooltip.Value.entries[0].body);
+                StringAssert.Contains("12 void", lastTooltip.Value.entries[0].body);
+                StringAssert.Contains("healed 12 HP", lastTooltip.Value.entries[0].body);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntryWithTooltip -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry, CombatLogTooltipPayload? tooltipPayload)
+            {
+                lastEntry = entry;
+                lastTooltip = tooltipPayload;
+            }
+        }
+
         private sealed class SpellLogContext : System.IDisposable
         {
             private readonly bool oldIgnoreLogs;

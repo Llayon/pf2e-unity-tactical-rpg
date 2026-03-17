@@ -207,6 +207,8 @@ namespace PF2e.Tests
             Assert.IsTrue(ctx.CastSpellModeSnowballButton.gameObject.activeInHierarchy);
             Assert.IsTrue(ctx.CastSpellModeBurningHandsButton.gameObject.activeInHierarchy);
             Assert.IsTrue(ctx.CastSpellModeFearButton.gameObject.activeInHierarchy);
+            Assert.IsTrue(ctx.CastSpellModeHealButton.gameObject.activeInHierarchy);
+            Assert.IsTrue(ctx.CastSpellModeHarmButton.gameObject.activeInHierarchy);
             Assert.IsTrue(ctx.CastSpellButton.interactable);
             Assert.IsFalse(ctx.RaiseShieldButton.interactable);
         }
@@ -299,6 +301,72 @@ namespace PF2e.Tests
             ctx.CastSpellModeFearButton.onClick.Invoke();
 
             Assert.AreEqual("Cast [FER]", ctx.GetCastSpellButtonLabelText());
+            Assert.AreEqual(TargetingMode.None, ctx.TargetingController.ActiveMode);
+        }
+
+        [Test]
+        public void CastSpellModeHeal_Click_SelectsHealAndUpdatesCastLabel()
+        {
+            using var ctx = new ActionBarTestContext();
+            var actor = ctx.RegisterEntity("Wizard", Team.Player);
+            ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
+            ctx.EnableActionBarSpells(actor);
+
+            ctx.RefreshAvailability();
+            Assert.IsTrue(ctx.CastSpellModeHealButton.interactable);
+
+            ctx.CastSpellModeHealButton.onClick.Invoke();
+
+            Assert.AreEqual("Cast [HEL2]", ctx.GetCastSpellButtonLabelText());
+            Assert.AreEqual(TargetingMode.None, ctx.TargetingController.ActiveMode);
+        }
+
+        [Test]
+        public void CastSpellModeHeal_ClickTwice_CyclesToHealThreeActionToken()
+        {
+            using var ctx = new ActionBarTestContext();
+            var actor = ctx.RegisterEntity("Wizard", Team.Player);
+            ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
+            ctx.EnableActionBarSpells(actor);
+
+            ctx.RefreshAvailability();
+            ctx.CastSpellModeHealButton.onClick.Invoke();
+            ctx.CastSpellModeHealButton.onClick.Invoke();
+
+            Assert.AreEqual("Cast [HEL3]", ctx.GetCastSpellButtonLabelText());
+            Assert.AreEqual(TargetingMode.None, ctx.TargetingController.ActiveMode);
+        }
+
+        [Test]
+        public void CastSpellModeHarm_Click_SelectsHarmAndUpdatesCastLabel()
+        {
+            using var ctx = new ActionBarTestContext();
+            var actor = ctx.RegisterEntity("Wizard", Team.Player);
+            ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
+            ctx.EnableActionBarSpells(actor);
+
+            ctx.RefreshAvailability();
+            Assert.IsTrue(ctx.CastSpellModeHarmButton.interactable);
+
+            ctx.CastSpellModeHarmButton.onClick.Invoke();
+
+            Assert.AreEqual("Cast [HRM2]", ctx.GetCastSpellButtonLabelText());
+            Assert.AreEqual(TargetingMode.None, ctx.TargetingController.ActiveMode);
+        }
+
+        [Test]
+        public void CastSpellModeHarm_ClickTwice_CyclesToHarmThreeActionToken()
+        {
+            using var ctx = new ActionBarTestContext();
+            var actor = ctx.RegisterEntity("Wizard", Team.Player);
+            ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
+            ctx.EnableActionBarSpells(actor);
+
+            ctx.RefreshAvailability();
+            ctx.CastSpellModeHarmButton.onClick.Invoke();
+            ctx.CastSpellModeHarmButton.onClick.Invoke();
+
+            Assert.AreEqual("Cast [HRM3]", ctx.GetCastSpellButtonLabelText());
             Assert.AreEqual(TargetingMode.None, ctx.TargetingController.ActiveMode);
         }
 
@@ -527,6 +595,8 @@ namespace PF2e.Tests
             public Button CastSpellModeSnowballButton { get; private set; }
             public Button CastSpellModeBurningHandsButton { get; private set; }
             public Button CastSpellModeFearButton { get; private set; }
+            public Button CastSpellModeHealButton { get; private set; }
+            public Button CastSpellModeHarmButton { get; private set; }
             public Button RaiseShieldButton { get; }
             public Button StandButton { get; }
 
@@ -677,6 +747,8 @@ namespace PF2e.Tests
                 CastSpellModeSnowballButton = GetPrivateField<Button>(ActionBar, "castSpellModeSnowballButton");
                 CastSpellModeBurningHandsButton = GetPrivateField<Button>(ActionBar, "castSpellModeBurningHandsButton");
                 CastSpellModeFearButton = GetPrivateField<Button>(ActionBar, "castSpellModeFearButton");
+                CastSpellModeHealButton = GetPrivateField<Button>(ActionBar, "castSpellModeHealButton");
+                CastSpellModeHarmButton = GetPrivateField<Button>(ActionBar, "castSpellModeHarmButton");
 
                 Root.SetActive(true);
                 targetingGo.SetActive(true);
@@ -841,6 +913,8 @@ namespace PF2e.Tests
                 data.KnowsSnowball = true;
                 data.KnowsBurningHands = true;
                 data.KnowsFear = true;
+                data.KnowsHeal = true;
+                data.KnowsHarm = true;
             }
 
             public void RefreshAvailability()
@@ -904,6 +978,8 @@ namespace PF2e.Tests
                 Assert.IsFalse(CastSpellModeSnowballButton.interactable);
                 Assert.IsFalse(CastSpellModeBurningHandsButton.interactable);
                 Assert.IsFalse(CastSpellModeFearButton.interactable);
+                Assert.IsFalse(CastSpellModeHealButton.interactable);
+                Assert.IsFalse(CastSpellModeHarmButton.interactable);
                 Assert.IsFalse(RaiseShieldButton.interactable);
                 Assert.IsFalse(StandButton.interactable);
             }

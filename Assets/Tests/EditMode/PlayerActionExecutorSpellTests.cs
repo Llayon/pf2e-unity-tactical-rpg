@@ -479,6 +479,340 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void TryConfirmHeal_LivingTarget_RestoresHitPointsAndSpendsSelectedActions()
+        {
+            using var ctx = new SpellExecutorContext();
+
+            var actor = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(0, 0, 0), hp: 14, intelligence: 18);
+            var ally = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(3, 0, 0), hp: 20);
+            ctx.Registry.Get(actor).KnowsHeal = true;
+            ctx.Registry.Get(ally).CurrentHP = 6;
+            ctx.SetCurrentActor(actor, actionsRemaining: 3);
+
+            HealingAppliedEvent lastHealing = default;
+            SpellResolvedEvent lastSpell = default;
+            int healingCount = 0;
+            ctx.EventBus.OnHealingAppliedTyped += HandleHealing;
+            ctx.EventBus.OnSpellResolvedTyped += HandleSpell;
+            try
+            {
+                bool executed = ctx.Executor.TryConfirmHeal(
+                    ally,
+                    actionCount: 2,
+                    rng: new FixedRng(dieRolls: new[] { 4 }));
+
+                Assert.IsTrue(executed);
+                Assert.AreEqual(1, healingCount);
+                Assert.AreEqual(12, lastHealing.amount);
+                Assert.AreEqual(18, ctx.Registry.Get(ally).CurrentHP);
+                Assert.AreEqual(1, ctx.Registry.Get(actor).ActionsRemaining);
+                Assert.AreEqual(SpellId.Heal, lastSpell.spellId);
+                Assert.AreEqual(2, lastSpell.actionCost);
+                Assert.AreEqual(12, lastSpell.rolledDamage);
+                Assert.AreEqual(12, lastSpell.targetOutcomes[0].appliedHealing);
+                Assert.AreEqual(0, lastSpell.targetOutcomes[0].appliedDamage);
+            }
+            finally
+            {
+                ctx.EventBus.OnHealingAppliedTyped -= HandleHealing;
+                ctx.EventBus.OnSpellResolvedTyped -= HandleSpell;
+            }
+
+            void HandleHealing(in HealingAppliedEvent e)
+            {
+                healingCount++;
+                lastHealing = e;
+            }
+
+            void HandleSpell(in SpellResolvedEvent e)
+            {
+                lastSpell = e;
+            }
+        }
+
+        [Test]
+        public void TryConfirmHeal_UndeadTarget_DealsVitalityDamageWithBasicFortitude()
+        {
+            using var ctx = new SpellExecutorContext();
+
+            var actor = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(0, 0, 0), hp: 14, intelligence: 18);
+            var undead = ctx.RegisterEntity("Skeleton", Team.Enemy, new Vector3Int(2, 0, 0), hp: 12);
+            ctx.Registry.Get(actor).KnowsHeal = true;
+            ctx.Registry.Get(undead).VitalityAffinity = VitalityAffinity.Undead;
+            ctx.SetCurrentActor(actor, actionsRemaining: 3);
+
+            DamageAppliedEvent lastDamage = default;
+            SpellResolvedEvent lastSpell = default;
+            int damageCount = 0;
+            ctx.EventBus.OnDamageAppliedTyped += HandleDamage;
+            ctx.EventBus.OnSpellResolvedTyped += HandleSpell;
+            try
+            {
+                bool executed = ctx.Executor.TryConfirmHeal(
+                    undead,
+                    actionCount: 2,
+                    rng: new FixedRng(d20Rolls: new[] { 5 }, dieRolls: new[] { 6 }));
+
+                Assert.IsTrue(executed);
+                Assert.AreEqual(1, damageCount);
+                Assert.AreEqual(6, lastDamage.amount);
+                Assert.AreEqual(DamageType.Vitality, lastDamage.damageType);
+                Assert.AreEqual(6, ctx.Registry.Get(undead).CurrentHP);
+                Assert.AreEqual(1, ctx.Registry.Get(actor).ActionsRemaining);
+                Assert.AreEqual(SpellId.Heal, lastSpell.spellId);
+                Assert.AreEqual(DegreeOfSuccess.Failure, lastSpell.targetOutcomes[0].saveResult.Value.degree);
+                Assert.AreEqual(6, lastSpell.targetOutcomes[0].appliedDamage);
+                Assert.AreEqual(0, lastSpell.targetOutcomes[0].appliedHealing);
+            }
+            finally
+            {
+                ctx.EventBus.OnDamageAppliedTyped -= HandleDamage;
+                ctx.EventBus.OnSpellResolvedTyped -= HandleSpell;
+            }
+
+            void HandleDamage(in DamageAppliedEvent e)
+            {
+                damageCount++;
+                lastDamage = e;
+            }
+
+            void HandleSpell(in SpellResolvedEvent e)
+            {
+                lastSpell = e;
+            }
+        }
+
+        [Test]
+        public void TryConfirmHealArea_MixedTargets_HealsLivingDamagesUndeadAndSpendsThreeActions()
+        {
+            using var ctx = new SpellExecutorContext();
+
+            var actor = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(0, 0, 0), hp: 14, intelligence: 18);
+            var ally = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(3, 0, 0), hp: 20);
+            var undead = ctx.RegisterEntity("Skeleton", Team.Enemy, new Vector3Int(4, 0, 0), hp: 12);
+            ctx.Registry.Get(actor).KnowsHeal = true;
+            ctx.Registry.Get(actor).CurrentHP = 8;
+            ctx.Registry.Get(ally).CurrentHP = 7;
+            ctx.Registry.Get(undead).VitalityAffinity = VitalityAffinity.Undead;
+            ctx.SetCurrentActor(actor, actionsRemaining: 3);
+
+            var healingEvents = new List<HealingAppliedEvent>();
+            var damageEvents = new List<DamageAppliedEvent>();
+            SpellResolvedEvent lastSpell = default;
+            ctx.EventBus.OnHealingAppliedTyped += HandleHealing;
+            ctx.EventBus.OnDamageAppliedTyped += HandleDamage;
+            ctx.EventBus.OnSpellResolvedTyped += HandleSpell;
+            try
+            {
+                bool executed = ctx.Executor.TryConfirmHealArea(
+                    ctx.Registry.Get(actor).GridPosition,
+                    rng: new FixedRng(d20Rolls: new[] { 5 }, dieRolls: new[] { 5 }));
+
+                Assert.IsTrue(executed);
+                Assert.AreEqual(2, healingEvents.Count);
+                Assert.AreEqual(13, ctx.Registry.Get(actor).CurrentHP);
+                Assert.AreEqual(12, ctx.Registry.Get(ally).CurrentHP);
+                Assert.AreEqual(7, ctx.Registry.Get(undead).CurrentHP);
+                Assert.AreEqual(0, ctx.Registry.Get(actor).ActionsRemaining);
+
+                Assert.AreEqual(1, damageEvents.Count);
+                Assert.AreEqual(DamageType.Vitality, damageEvents[0].damageType);
+                Assert.AreEqual(5, damageEvents[0].amount);
+
+                Assert.AreEqual(SpellId.Heal, lastSpell.spellId);
+                Assert.AreEqual(3, lastSpell.actionCost);
+                Assert.AreEqual(5, lastSpell.rolledDamage);
+                Assert.AreEqual(3, lastSpell.targetOutcomes.Length);
+                Assert.AreEqual(2, System.Array.FindAll(lastSpell.targetOutcomes, outcome => outcome.appliedHealing > 0).Length);
+                Assert.AreEqual(1, System.Array.FindAll(lastSpell.targetOutcomes, outcome => outcome.appliedDamage > 0).Length);
+            }
+            finally
+            {
+                ctx.EventBus.OnHealingAppliedTyped -= HandleHealing;
+                ctx.EventBus.OnDamageAppliedTyped -= HandleDamage;
+                ctx.EventBus.OnSpellResolvedTyped -= HandleSpell;
+            }
+
+            void HandleHealing(in HealingAppliedEvent e)
+            {
+                healingEvents.Add(e);
+            }
+
+            void HandleDamage(in DamageAppliedEvent e)
+            {
+                damageEvents.Add(e);
+            }
+
+            void HandleSpell(in SpellResolvedEvent e)
+            {
+                lastSpell = e;
+            }
+        }
+
+        [Test]
+        public void TryConfirmHarm_LivingTarget_DealsVoidDamageWithBasicFortitude()
+        {
+            using var ctx = new SpellExecutorContext();
+
+            var actor = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(0, 0, 0), intelligence: 18);
+            var target = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(6, 0, 0), hp: 18);
+            ctx.Registry.Get(actor).KnowsHarm = true;
+            ctx.SetCurrentActor(actor, actionsRemaining: 3);
+
+            DamageAppliedEvent lastDamage = default;
+            SpellResolvedEvent lastSpell = default;
+            int damageCount = 0;
+            ctx.EventBus.OnDamageAppliedTyped += HandleDamage;
+            ctx.EventBus.OnSpellResolvedTyped += HandleSpell;
+            try
+            {
+                bool executed = ctx.Executor.TryConfirmHarm(
+                    target,
+                    actionCount: 2,
+                    rng: new FixedRng(d20Rolls: new[] { 5 }, dieRolls: new[] { 4 }));
+
+                Assert.IsTrue(executed);
+                Assert.AreEqual(1, damageCount);
+                Assert.AreEqual(DamageType.Void, lastDamage.damageType);
+                Assert.AreEqual(12, lastDamage.amount);
+                Assert.AreEqual(1, ctx.Registry.Get(actor).ActionsRemaining);
+
+                Assert.AreEqual(SpellId.Harm, lastSpell.spellId);
+                Assert.AreEqual(DegreeOfSuccess.Failure, lastSpell.targetOutcomes[0].saveResult.Value.degree);
+                Assert.AreEqual(12, lastSpell.targetOutcomes[0].appliedDamage);
+                Assert.AreEqual(0, lastSpell.targetOutcomes[0].appliedHealing);
+            }
+            finally
+            {
+                ctx.EventBus.OnDamageAppliedTyped -= HandleDamage;
+                ctx.EventBus.OnSpellResolvedTyped -= HandleSpell;
+            }
+
+            void HandleDamage(in DamageAppliedEvent e)
+            {
+                damageCount++;
+                lastDamage = e;
+            }
+
+            void HandleSpell(in SpellResolvedEvent e)
+            {
+                lastSpell = e;
+            }
+        }
+
+        [Test]
+        public void TryConfirmHarm_UndeadTarget_RestoresHitPointsAndSpendsSelectedActions()
+        {
+            using var ctx = new SpellExecutorContext();
+
+            var actor = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(0, 0, 0), intelligence: 18);
+            var undead = ctx.RegisterEntity("Skeleton", Team.Enemy, new Vector3Int(1, 0, 0), hp: 20);
+            ctx.Registry.Get(actor).KnowsHarm = true;
+            ctx.Registry.Get(undead).VitalityAffinity = VitalityAffinity.Undead;
+            ctx.Registry.Get(undead).CurrentHP = 3;
+            ctx.SetCurrentActor(actor, actionsRemaining: 2);
+
+            var healingEvents = new List<HealingAppliedEvent>();
+            SpellResolvedEvent lastSpell = default;
+            ctx.EventBus.OnHealingAppliedTyped += HandleHealing;
+            ctx.EventBus.OnSpellResolvedTyped += HandleSpell;
+            try
+            {
+                bool executed = ctx.Executor.TryConfirmHarm(
+                    undead,
+                    actionCount: 1,
+                    rng: new FixedRng(dieRolls: new[] { 6 }));
+
+                Assert.IsTrue(executed);
+                Assert.AreEqual(1, healingEvents.Count);
+                Assert.AreEqual(9, ctx.Registry.Get(undead).CurrentHP);
+                Assert.AreEqual(1, ctx.Registry.Get(actor).ActionsRemaining);
+                Assert.AreEqual(SpellId.Harm, lastSpell.spellId);
+                Assert.AreEqual(6, lastSpell.targetOutcomes[0].appliedHealing);
+                Assert.AreEqual(0, lastSpell.targetOutcomes[0].appliedDamage);
+            }
+            finally
+            {
+                ctx.EventBus.OnHealingAppliedTyped -= HandleHealing;
+                ctx.EventBus.OnSpellResolvedTyped -= HandleSpell;
+            }
+
+            void HandleHealing(in HealingAppliedEvent e)
+            {
+                healingEvents.Add(e);
+            }
+
+            void HandleSpell(in SpellResolvedEvent e)
+            {
+                lastSpell = e;
+            }
+        }
+
+        [Test]
+        public void TryConfirmHarmArea_MixedTargets_DamagesLivingHealsUndeadAndSpendsThreeActions()
+        {
+            using var ctx = new SpellExecutorContext();
+
+            var actor = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(0, 0, 0), hp: 14, intelligence: 18);
+            var ally = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(3, 0, 0), hp: 20);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(4, 0, 0), hp: 14);
+            var undead = ctx.RegisterEntity("Skeleton", Team.Enemy, new Vector3Int(5, 0, 0), hp: 12);
+            ctx.Registry.Get(actor).KnowsHarm = true;
+            ctx.Registry.Get(undead).VitalityAffinity = VitalityAffinity.Undead;
+            ctx.Registry.Get(undead).CurrentHP = 4;
+            ctx.SetCurrentActor(actor, actionsRemaining: 3);
+
+            var healingEvents = new List<HealingAppliedEvent>();
+            var damageEvents = new List<DamageAppliedEvent>();
+            SpellResolvedEvent lastSpell = default;
+            ctx.EventBus.OnHealingAppliedTyped += HandleHealing;
+            ctx.EventBus.OnDamageAppliedTyped += HandleDamage;
+            ctx.EventBus.OnSpellResolvedTyped += HandleSpell;
+            try
+            {
+                bool executed = ctx.Executor.TryConfirmHarmArea(
+                    ctx.Registry.Get(actor).GridPosition,
+                    rng: new FixedRng(d20Rolls: new[] { 5, 10, 5 }, dieRolls: new[] { 5 }));
+
+                Assert.IsTrue(executed);
+                Assert.AreEqual(1, healingEvents.Count);
+                Assert.AreEqual(3, damageEvents.Count);
+                Assert.AreEqual(9, ctx.Registry.Get(undead).CurrentHP);
+                Assert.AreEqual(15, ctx.Registry.Get(ally).CurrentHP);
+                Assert.AreEqual(9, ctx.Registry.Get(enemy).CurrentHP);
+                Assert.AreEqual(0, ctx.Registry.Get(actor).ActionsRemaining);
+
+                Assert.AreEqual(SpellId.Harm, lastSpell.spellId);
+                Assert.AreEqual(3, lastSpell.actionCost);
+                Assert.AreEqual(5, lastSpell.rolledDamage);
+                Assert.AreEqual(4, lastSpell.targetOutcomes.Length);
+                Assert.AreEqual(1, System.Array.FindAll(lastSpell.targetOutcomes, outcome => outcome.appliedHealing > 0).Length);
+                Assert.AreEqual(3, System.Array.FindAll(lastSpell.targetOutcomes, outcome => outcome.appliedDamage > 0).Length);
+            }
+            finally
+            {
+                ctx.EventBus.OnHealingAppliedTyped -= HandleHealing;
+                ctx.EventBus.OnDamageAppliedTyped -= HandleDamage;
+                ctx.EventBus.OnSpellResolvedTyped -= HandleSpell;
+            }
+
+            void HandleHealing(in HealingAppliedEvent e)
+            {
+                healingEvents.Add(e);
+            }
+
+            void HandleDamage(in DamageAppliedEvent e)
+            {
+                damageEvents.Add(e);
+            }
+
+            void HandleSpell(in SpellResolvedEvent e)
+            {
+                lastSpell = e;
+            }
+        }
+
+        [Test]
         public void TryConfirmBurningHands_MultipleTargets_UsesBasicSavesAndSpendsTwoActions()
         {
             using var ctx = new SpellExecutorContext();

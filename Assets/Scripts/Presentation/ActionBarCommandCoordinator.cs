@@ -15,9 +15,13 @@ namespace PF2e.Presentation
         private Action refreshAvailability;
         private SpellId selectedSpell = SpellId.ForceBarrage;
         private int forceBarrageActionCount = 1;
+        private int healActionCount = 2;
+        private int harmActionCount = 2;
 
         public SpellId CurrentSelectedSpell => selectedSpell;
         public int CurrentForceBarrageActionCount => forceBarrageActionCount;
+        public int CurrentHealActionCount => healActionCount;
+        public int CurrentHarmActionCount => harmActionCount;
 
         public void Bind(
             TargetingController targetingController,
@@ -35,17 +39,25 @@ namespace PF2e.Presentation
             {
                 selectedSpell = SpellId.ForceBarrage;
                 forceBarrageActionCount = 1;
+                healActionCount = 2;
+                harmActionCount = 2;
                 return;
             }
 
             int maxForceBarrageActions = Math.Clamp(actionsRemaining, 1, 3);
             forceBarrageActionCount = Math.Clamp(forceBarrageActionCount, 1, maxForceBarrageActions);
+            int maxHealActions = Math.Clamp(actionsRemaining, 1, 3);
+            healActionCount = Math.Clamp(healActionCount, 1, maxHealActions);
+            int maxHarmActions = Math.Clamp(actionsRemaining, 1, 3);
+            harmActionCount = Math.Clamp(harmActionCount, 1, maxHarmActions);
 
             bool forceBarrageAvailable = CanSelectForceBarrage(actorData, actionsRemaining);
             bool electricArcAvailable = CanSelectElectricArc(actorData, actionsRemaining);
             bool snowballAvailable = CanSelectSnowball(actorData, actionsRemaining);
             bool burningHandsAvailable = CanSelectBurningHands(actorData, actionsRemaining);
             bool fearAvailable = CanSelectFear(actorData, actionsRemaining);
+            bool healAvailable = CanSelectHeal(actorData, actionsRemaining);
+            bool harmAvailable = CanSelectHarm(actorData, actionsRemaining);
 
             bool selectedAvailable = selectedSpell switch
             {
@@ -54,6 +66,8 @@ namespace PF2e.Presentation
                 SpellId.Snowball => snowballAvailable,
                 SpellId.BurningHands => burningHandsAvailable,
                 SpellId.Fear => fearAvailable,
+                SpellId.Heal => healAvailable,
+                SpellId.Harm => harmAvailable,
                 _ => false
             };
 
@@ -70,6 +84,10 @@ namespace PF2e.Presentation
                 selectedSpell = SpellId.BurningHands;
             else if (fearAvailable)
                 selectedSpell = SpellId.Fear;
+            else if (healAvailable)
+                selectedSpell = SpellId.Heal;
+            else if (harmAvailable)
+                selectedSpell = SpellId.Harm;
         }
 
         public bool CanSelectForceBarrage(EntityData actorData, int actionsRemaining)
@@ -110,6 +128,22 @@ namespace PF2e.Presentation
                 && actorData.IsAlive
                 && actorData.KnowsFear
                 && actionsRemaining >= SpellCatalog.Get(SpellId.Fear).minActionCost;
+        }
+
+        public bool CanSelectHeal(EntityData actorData, int actionsRemaining)
+        {
+            return actorData != null
+                && actorData.IsAlive
+                && actorData.KnowsHeal
+                && actionsRemaining >= SpellCatalog.Get(SpellId.Heal).minActionCost;
+        }
+
+        public bool CanSelectHarm(EntityData actorData, int actionsRemaining)
+        {
+            return actorData != null
+                && actorData.IsAlive
+                && actorData.KnowsHarm
+                && actionsRemaining >= SpellCatalog.Get(SpellId.Harm).minActionCost;
         }
 
         public bool HasAnyActionBarSpell(EntityData actorData)
@@ -241,6 +275,58 @@ namespace PF2e.Presentation
                             && targets.Count > 0
                             && actionExecutor.TryConfirmFear(targets[0]));
                     return;
+
+                case SpellId.Heal:
+                    if (!actionExecutor.TryBeginHeal(healActionCount))
+                        return;
+
+                    int selectedHealActionCount = healActionCount;
+                    if (selectedHealActionCount >= 3)
+                    {
+                        if (!actionExecutor.TryGetCurrentActorGridPosition(out var actorCell))
+                            return;
+
+                        targetingController.BeginSpellAoETargeting(
+                            SpellId.Heal,
+                            cell => actionExecutor.TryConfirmHealArea(cell),
+                            actionCount: selectedHealActionCount,
+                            initialSelectedCell: actorCell);
+                    }
+                    else
+                    {
+                        targetingController.BeginHealTargeting(
+                            selectedHealActionCount,
+                            targets => targets != null
+                                && targets.Count > 0
+                                && actionExecutor.TryConfirmHeal(targets[0], selectedHealActionCount));
+                    }
+                    return;
+
+                case SpellId.Harm:
+                    if (!actionExecutor.TryBeginHarm(harmActionCount))
+                        return;
+
+                    int selectedHarmActionCount = harmActionCount;
+                    if (selectedHarmActionCount >= 3)
+                    {
+                        if (!actionExecutor.TryGetCurrentActorGridPosition(out var actorCell))
+                            return;
+
+                        targetingController.BeginSpellAoETargeting(
+                            SpellId.Harm,
+                            cell => actionExecutor.TryConfirmHarmArea(cell),
+                            actionCount: selectedHarmActionCount,
+                            initialSelectedCell: actorCell);
+                    }
+                    else
+                    {
+                        targetingController.BeginHarmTargeting(
+                            selectedHarmActionCount,
+                            targets => targets != null
+                                && targets.Count > 0
+                                && actionExecutor.TryConfirmHarm(targets[0], selectedHarmActionCount));
+                    }
+                    return;
             }
         }
 
@@ -331,6 +417,76 @@ namespace PF2e.Presentation
             return true;
         }
 
+        public bool TryBeginHeal(int actionCount)
+        {
+            if (targetingController == null || actionExecutor == null)
+                return false;
+
+            healActionCount = Math.Clamp(actionCount, 1, 3);
+            selectedSpell = SpellId.Heal;
+
+            if (!actionExecutor.TryBeginHeal(healActionCount))
+                return false;
+
+            int selectedHealActionCount = healActionCount;
+            if (selectedHealActionCount >= 3)
+            {
+                if (!actionExecutor.TryGetCurrentActorGridPosition(out var actorCell))
+                    return false;
+
+                targetingController.BeginSpellAoETargeting(
+                    SpellId.Heal,
+                    cell => actionExecutor.TryConfirmHealArea(cell),
+                    actionCount: selectedHealActionCount,
+                    initialSelectedCell: actorCell);
+            }
+            else
+            {
+                targetingController.BeginHealTargeting(
+                    selectedHealActionCount,
+                    targets => targets != null
+                        && targets.Count > 0
+                        && actionExecutor.TryConfirmHeal(targets[0], selectedHealActionCount));
+            }
+            refreshAvailability?.Invoke();
+            return true;
+        }
+
+        public bool TryBeginHarm(int actionCount)
+        {
+            if (targetingController == null || actionExecutor == null)
+                return false;
+
+            harmActionCount = Math.Clamp(actionCount, 1, 3);
+            selectedSpell = SpellId.Harm;
+
+            if (!actionExecutor.TryBeginHarm(harmActionCount))
+                return false;
+
+            int selectedHarmActionCount = harmActionCount;
+            if (selectedHarmActionCount >= 3)
+            {
+                if (!actionExecutor.TryGetCurrentActorGridPosition(out var actorCell))
+                    return false;
+
+                targetingController.BeginSpellAoETargeting(
+                    SpellId.Harm,
+                    cell => actionExecutor.TryConfirmHarmArea(cell),
+                    actionCount: selectedHarmActionCount,
+                    initialSelectedCell: actorCell);
+            }
+            else
+            {
+                targetingController.BeginHarmTargeting(
+                    selectedHarmActionCount,
+                    targets => targets != null
+                        && targets.Count > 0
+                        && actionExecutor.TryConfirmHarm(targets[0], selectedHarmActionCount));
+            }
+            refreshAvailability?.Invoke();
+            return true;
+        }
+
         public bool TryConfirmSpellTargeting()
         {
             return targetingController != null
@@ -387,6 +543,37 @@ namespace PF2e.Presentation
         {
             selectedSpell = SpellId.Fear;
             refreshAvailability?.Invoke();
+        }
+
+        public void OnCastSpellModeHealClicked()
+        {
+            if (selectedSpell == SpellId.Heal)
+                healActionCount = healActionCount >= 3 ? 1 : healActionCount + 1;
+            else
+                selectedSpell = SpellId.Heal;
+
+            refreshAvailability?.Invoke();
+        }
+
+        public void OnCastSpellModeHarmClicked()
+        {
+            if (selectedSpell == SpellId.Harm)
+                harmActionCount = harmActionCount >= 3 ? 1 : harmActionCount + 1;
+            else
+                selectedSpell = SpellId.Harm;
+
+            refreshAvailability?.Invoke();
+        }
+
+        public string GetSelectedSpellToken()
+        {
+            return selectedSpell switch
+            {
+                SpellId.ForceBarrage => SpellCatalog.GetShortToken(selectedSpell, forceBarrageActionCount),
+                SpellId.Heal => SpellCatalog.GetShortToken(selectedSpell, healActionCount),
+                SpellId.Harm => SpellCatalog.GetShortToken(selectedSpell, harmActionCount),
+                _ => SpellCatalog.GetShortToken(selectedSpell)
+            };
         }
 
         public void OnStandClicked()

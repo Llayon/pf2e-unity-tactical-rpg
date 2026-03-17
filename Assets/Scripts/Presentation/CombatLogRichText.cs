@@ -39,6 +39,8 @@ namespace PF2e.Presentation
         public const string ElectricityColor = CombatUiPalette.ElectricityHex;
         public const string ColdColor = CombatUiPalette.ColdHex;
         public const string FireColor = CombatUiPalette.FireHex;
+        public const string VitalityColor = CombatUiPalette.HealHex;
+        public const string VoidColor = CombatUiPalette.VoidHex;
 
         public static string EntityName(string name, Team team)
         {
@@ -114,6 +116,9 @@ namespace PF2e.Presentation
 
         public static string Damage(int amount) =>
             $"<size=110%><color={CombatUiPalette.TooltipValueHex}><b>{amount}</b></color></size>";
+
+        public static string HealAmount(int amount) =>
+            $"<size=110%><color={HealColor}><b>{amount}</b></color></size>";
 
         public static string DamageAmountAndType(int amount, DamageType type)
         {
@@ -207,6 +212,8 @@ namespace PF2e.Presentation
                 DamageType.Electricity => ElectricityColor,
                 DamageType.Cold => ColdColor,
                 DamageType.Fire => FireColor,
+                DamageType.Vitality => VitalityColor,
+                DamageType.Void => VoidColor,
                 _ => CombatUiPalette.TooltipBodyHex
             };
         }

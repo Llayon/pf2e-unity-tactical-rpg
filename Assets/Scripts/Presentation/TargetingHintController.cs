@@ -233,6 +233,18 @@ namespace PF2e.Presentation
                 return;
             }
 
+            if (mode == TargetingMode.SpellAoE && targetingController.ActiveSpellId == SpellId.Heal)
+            {
+                ApplyMessage(GetHealEmanationHintMessage());
+                return;
+            }
+
+            if (mode == TargetingMode.SpellAoE && targetingController.ActiveSpellId == SpellId.Harm)
+            {
+                ApplyMessage(GetHarmEmanationHintMessage());
+                return;
+            }
+
             TargetingHintMessage message;
             bool strikeIsRanged = mode == TargetingMode.Strike && targetingController.IsCurrentStrikeWeaponRanged();
             if (mode != TargetingMode.None && hoveredEntity.HasValue && hoveredEntity.Value.IsValid)
@@ -275,10 +287,30 @@ namespace PF2e.Presentation
                         TargetingHintTone.Info,
                         $"Fear: choose 1 visible creature within 30 ft ({targetingController.FearSelectedTargetCount}/1 selected, Confirm/Esc/Backspace)");
 
-                case TargetingMode.SpellAoE:
+                case TargetingMode.HealSingle:
+                    string rangeText = targetingController.HealActionCount >= 2 ? "30 ft" : "touch";
                     return new TargetingHintMessage(
                         TargetingHintTone.Info,
-                        "Burning Hands: choose a cell or creature to set the cone (Click to lock, Confirm/Esc)");
+                        $"Heal: choose self, ally, or undead creature within {rangeText} ({targetingController.HealSelectedTargetCount}/1 selected, Confirm/Esc/Backspace)");
+
+                case TargetingMode.HarmSingle:
+                    string harmRangeText = targetingController.HarmActionCount >= 2 ? "30 ft" : "touch";
+                    return new TargetingHintMessage(
+                        TargetingHintTone.Info,
+                        $"Harm: choose a living enemy or undead creature within {harmRangeText} ({targetingController.HarmSelectedTargetCount}/1 selected, Confirm/Esc/Backspace)");
+
+                case TargetingMode.SpellAoE:
+                    return targetingController.ActiveSpellId == SpellId.Heal
+                        ? new TargetingHintMessage(
+                            TargetingHintTone.Info,
+                            "Heal: 30 ft emanation centered on the caster (Confirm/Esc/Backspace)")
+                        : targetingController.ActiveSpellId == SpellId.Harm
+                            ? new TargetingHintMessage(
+                                TargetingHintTone.Info,
+                                "Harm: 30 ft emanation centered on the caster (Confirm/Esc/Backspace)")
+                        : new TargetingHintMessage(
+                            TargetingHintTone.Info,
+                            "Burning Hands: choose a cell or creature to set the cone (Click to lock, Confirm/Esc)");
 
                 default:
                     return TargetingReasonFormatter.ForModeNoHover(mode, strikeIsRanged);
@@ -337,6 +369,80 @@ namespace PF2e.Presentation
                 locked
                     ? "Burning Hands: cone locked (Confirm/Esc/Backspace)"
                     : "Burning Hands: choose a cell or creature to set the cone");
+        }
+
+        private TargetingHintMessage GetHealEmanationHintMessage()
+        {
+            if (targetingController == null)
+                return new TargetingHintMessage(TargetingHintTone.Info, "Heal: 30 ft emanation centered on the caster");
+
+            SpellAreaPreview preview = default;
+            bool locked = targetingController.HasSelectedSpellAreaCell;
+            bool hasPreview = locked
+                ? targetingController.TryGetSelectedSpellAreaPreview(out preview)
+                : hoveredCell.HasValue && targetingController.TryPreviewSpellAreaCell(hoveredCell.Value, out preview);
+
+            if (hasPreview)
+            {
+                string prefix = locked
+                    ? "Heal: emanation locked"
+                    : "Heal: preview";
+
+                string suffix = locked
+                    ? "Confirm/Esc/Backspace"
+                    : "Click to lock, Confirm/Esc";
+
+                return new TargetingHintMessage(
+                    TargetingHintTone.Valid,
+                    $"{prefix} ({preview.TargetCount} creature(s) in area). {suffix}.");
+            }
+
+            return new TargetingHintMessage(
+                TargetingHintTone.Info,
+                locked
+                    ? "Heal: emanation locked (Confirm/Esc/Backspace)"
+                    : "Heal: 30 ft emanation centered on the caster");
+        }
+
+        private TargetingHintMessage GetHarmEmanationHintMessage()
+        {
+            if (targetingController == null)
+                return new TargetingHintMessage(TargetingHintTone.Info, "Harm: 30 ft emanation centered on the caster");
+
+            SpellAreaPreview preview = default;
+            bool locked = targetingController.HasSelectedSpellAreaCell;
+            bool hasPreview = locked
+                ? targetingController.TryGetSelectedSpellAreaPreview(out preview)
+                : hoveredCell.HasValue && targetingController.TryPreviewSpellAreaCell(hoveredCell.Value, out preview);
+
+            if (hasPreview)
+            {
+                var tone = preview.HasWarning
+                    ? TargetingHintTone.Warning
+                    : TargetingHintTone.Valid;
+
+                string prefix = locked
+                    ? "Harm: emanation locked"
+                    : "Harm: preview";
+
+                string suffix = locked
+                    ? "Confirm/Esc/Backspace"
+                    : "Click to lock, Confirm/Esc";
+
+                string warning = preview.allyCount > 0
+                    ? " Warning: living ally in area."
+                    : string.Empty;
+
+                return new TargetingHintMessage(
+                    tone,
+                    $"{prefix} ({preview.TargetCount} creature(s) in area). {suffix}.{warning}");
+            }
+
+            return new TargetingHintMessage(
+                TargetingHintTone.Info,
+                locked
+                    ? "Harm: emanation locked (Confirm/Esc/Backspace)"
+                    : "Harm: 30 ft emanation centered on the caster");
         }
 
         private void ApplyMessage(TargetingHintMessage message)

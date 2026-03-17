@@ -72,6 +72,7 @@ namespace PF2e.Presentation
             eventBus.OnConditionChangedTyped += HandleConditionChanged;
             eventBus.OnStrikeResolved += HandleStrikeResolved;
             eventBus.OnDamageAppliedTyped += HandleDamageApplied;
+            eventBus.OnHealingAppliedTyped += HandleHealingApplied;
 
             if (gridManager != null)
             {
@@ -96,6 +97,7 @@ namespace PF2e.Presentation
                 eventBus.OnConditionChangedTyped -= HandleConditionChanged;
                 eventBus.OnStrikeResolved -= HandleStrikeResolved;
                 eventBus.OnDamageAppliedTyped -= HandleDamageApplied;
+                eventBus.OnHealingAppliedTyped -= HandleHealingApplied;
             }
 
             if (gridManager != null)
@@ -270,6 +272,12 @@ namespace PF2e.Presentation
         }
 
         private void HandleDamageApplied(in DamageAppliedEvent e)
+        {
+            if (e.target == displayedEntity || e.target == activeActor)
+                Refresh(force: true);
+        }
+
+        private void HandleHealingApplied(in HealingAppliedEvent e)
         {
             if (e.target == displayedEntity || e.target == activeActor)
                 Refresh(force: true);

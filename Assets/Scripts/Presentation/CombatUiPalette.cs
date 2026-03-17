@@ -55,6 +55,7 @@ namespace PF2e.Presentation
         public const string ElectricityHex = "#7CBED9";
         public const string ColdHex = "#8FC8EA";
         public const string FireHex = "#E39A62";
+        public const string VoidHex = "#A189B8";
         public const string DamageAccentHex = "#DEC38D";
 
         public const string ActionDiamondHex = "#D4B366";

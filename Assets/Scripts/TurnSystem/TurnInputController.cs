@@ -279,6 +279,17 @@ namespace PF2e.TurnSystem
                 targetingController.BeginSpellAoETargeting(
                     SpellId.BurningHands,
                     cell => actionExecutor.TryConfirmBurningHands(cell));
+                return;
+            }
+
+            int healActionCount = Mathf.Clamp(Mathf.Min(turnManager.ActionsRemaining, 2), 1, 2);
+            if (actorData.KnowsHeal && actionExecutor.TryBeginHeal(healActionCount))
+            {
+                targetingController.BeginHealTargeting(
+                    healActionCount,
+                    targets => targets != null
+                        && targets.Count > 0
+                        && actionExecutor.TryConfirmHeal(targets[0], healActionCount));
             }
         }
 

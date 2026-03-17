@@ -278,6 +278,8 @@ private void OnValidate()
             wizard.KnowsSnowball = true;
             wizard.KnowsBurningHands = true;
             wizard.KnowsFear = true;
+            wizard.KnowsHeal = true;
+            wizard.KnowsHarm = true;
             wizard.Portrait = ResolvePortrait(wizard.EncounterActorId);
             CreateEntity(wizard, new Vector3Int(1, 0, 5));
 

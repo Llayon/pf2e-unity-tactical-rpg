@@ -8,6 +8,8 @@ namespace PF2e.Core
         Force,
         Electricity,
         Cold,
-        Fire
+        Fire,
+        Vitality,
+        Void
     }
 }

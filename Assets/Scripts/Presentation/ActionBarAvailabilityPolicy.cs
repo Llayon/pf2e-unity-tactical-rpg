@@ -127,7 +127,9 @@ namespace PF2e.Presentation
             bool canCastSnowball = data.KnowsSnowball && actionsRemaining >= SpellCatalog.Get(SpellId.Snowball).minActionCost;
             bool canCastBurningHands = data.KnowsBurningHands && actionsRemaining >= SpellCatalog.Get(SpellId.BurningHands).minActionCost;
             bool canCastFear = data.KnowsFear && actionsRemaining >= SpellCatalog.Get(SpellId.Fear).minActionCost;
-            return canCastForceBarrage || canCastElectricArc || canCastSnowball || canCastBurningHands || canCastFear;
+            bool canCastHeal = data.KnowsHeal && actionsRemaining >= SpellCatalog.Get(SpellId.Heal).minActionCost;
+            bool canCastHarm = data.KnowsHarm && actionsRemaining >= SpellCatalog.Get(SpellId.Harm).minActionCost;
+            return canCastForceBarrage || canCastElectricArc || canCastSnowball || canCastBurningHands || canCastFear || canCastHeal || canCastHarm;
         }
 
         private static bool IsGuardVisible(EntityData data)

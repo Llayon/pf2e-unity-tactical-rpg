@@ -55,6 +55,8 @@ namespace PF2e.Presentation
                 SpellId.Snowball => BuildSnowballSummary(in e),
                 SpellId.BurningHands => BuildBurningHandsSummary(in e),
                 SpellId.Fear => BuildFearSummary(in e),
+                SpellId.Heal => BuildHealSummary(in e),
+                SpellId.Harm => BuildHarmSummary(in e),
                 _ => CombatLogRichText.Verb("resolves.")
             };
 
@@ -225,6 +227,88 @@ namespace PF2e.Presentation
             return sb.ToString();
         }
 
+        private string BuildHealSummary(in SpellResolvedEvent e)
+        {
+            if (e.targetOutcomes == null || e.targetOutcomes.Length <= 0)
+                return CombatLogRichText.Verb("no effect.");
+
+            var sb = new StringBuilder(256);
+            for (int i = 0; i < e.targetOutcomes.Length; i++)
+            {
+                if (i > 0)
+                    sb.Append(CombatLogRichText.Verb("; "));
+
+                ref readonly var outcome = ref e.targetOutcomes[i];
+                sb.Append(GetTargetName(outcome.target, rich: true));
+                sb.Append(' ');
+
+                if (outcome.saveResult.HasValue)
+                {
+                    sb.Append(CombatLogRichText.DegreeShort(outcome.saveResult.Value.degree));
+                    sb.Append(CombatLogRichText.Verb(", "));
+
+                    if (outcome.appliedDamage > 0)
+                        sb.Append(CombatLogRichText.DamageAmountAndType(outcome.appliedDamage, DamageType.Vitality));
+                    else
+                        sb.Append(CombatLogRichText.Verb("no damage"));
+                }
+                else if (outcome.appliedHealing > 0)
+                {
+                    sb.Append(CombatLogRichText.Verb("regains "));
+                    sb.Append(CombatLogRichText.HealAmount(outcome.appliedHealing));
+                    sb.Append(CombatLogRichText.Verb(" HP"));
+                }
+                else
+                {
+                    sb.Append(CombatLogRichText.Verb("gains no healing"));
+                }
+            }
+
+            sb.Append('.');
+            return sb.ToString();
+        }
+
+        private string BuildHarmSummary(in SpellResolvedEvent e)
+        {
+            if (e.targetOutcomes == null || e.targetOutcomes.Length <= 0)
+                return CombatLogRichText.Verb("no effect.");
+
+            var sb = new StringBuilder(256);
+            for (int i = 0; i < e.targetOutcomes.Length; i++)
+            {
+                if (i > 0)
+                    sb.Append(CombatLogRichText.Verb("; "));
+
+                ref readonly var outcome = ref e.targetOutcomes[i];
+                sb.Append(GetTargetName(outcome.target, rich: true));
+                sb.Append(' ');
+
+                if (outcome.saveResult.HasValue)
+                {
+                    sb.Append(CombatLogRichText.DegreeShort(outcome.saveResult.Value.degree));
+                    sb.Append(CombatLogRichText.Verb(", "));
+
+                    if (outcome.appliedDamage > 0)
+                        sb.Append(CombatLogRichText.DamageAmountAndType(outcome.appliedDamage, DamageType.Void));
+                    else
+                        sb.Append(CombatLogRichText.Verb("no damage"));
+                }
+                else if (outcome.appliedHealing > 0)
+                {
+                    sb.Append(CombatLogRichText.Verb("regains "));
+                    sb.Append(CombatLogRichText.HealAmount(outcome.appliedHealing));
+                    sb.Append(CombatLogRichText.Verb(" HP"));
+                }
+                else
+                {
+                    sb.Append(CombatLogRichText.Verb("no effect"));
+                }
+            }
+
+            sb.Append('.');
+            return sb.ToString();
+        }
+
         private string BuildTooltipBody(in SpellResolvedEvent e)
         {
             string[] targetLines = new string[e.targetOutcomes.Length];
@@ -240,6 +324,8 @@ namespace PF2e.Presentation
                     SpellId.Snowball => $"{targetName}: {FormatAttackResult(outcome.attackResult)} => {BuildSnowballEffectSummary(in outcome)} ({outcome.hpBefore}->{outcome.hpAfter} HP)",
                     SpellId.BurningHands => $"{targetName}: {FormatSaveResult(outcome.saveResult)} => {outcome.appliedDamage} fire ({outcome.hpBefore}->{outcome.hpAfter} HP)",
                     SpellId.Fear => $"{targetName}: {FormatSaveResult(outcome.saveResult)} => {BuildFearEffectSummary(in outcome)}",
+                    SpellId.Heal => BuildHealTooltipLine(targetName, in outcome),
+                    SpellId.Harm => BuildHarmTooltipLine(targetName, in outcome),
                     _ => targetName
                 };
             }
@@ -251,6 +337,8 @@ namespace PF2e.Presentation
                 SpellId.Snowball => TooltipTextBuilder.SnowballBreakdown(e.spellAttackModifier, e.rolledDamage, targetLines),
                 SpellId.BurningHands => TooltipTextBuilder.BurningHandsBreakdown(e.spellDc, e.rolledDamage, targetLines),
                 SpellId.Fear => TooltipTextBuilder.FearBreakdown(e.spellDc, targetLines),
+                SpellId.Heal => TooltipTextBuilder.HealBreakdown(e.actionCost, e.spellDc, e.rolledDamage, targetLines),
+                SpellId.Harm => TooltipTextBuilder.HarmBreakdown(e.actionCost, e.spellDc, e.rolledDamage, targetLines),
                 _ => string.Empty
             };
         }
@@ -322,6 +410,22 @@ namespace PF2e.Presentation
             }
 
             return "no effect";
+        }
+
+        private static string BuildHealTooltipLine(string targetName, in SpellResolvedTargetOutcome outcome)
+        {
+            if (outcome.saveResult.HasValue)
+                return $"{targetName}: {FormatSaveResult(outcome.saveResult)} => {outcome.appliedDamage} vitality ({outcome.hpBefore}->{outcome.hpAfter} HP)";
+
+            return $"{targetName}: healed {outcome.appliedHealing} HP ({outcome.hpBefore}->{outcome.hpAfter} HP)";
+        }
+
+        private static string BuildHarmTooltipLine(string targetName, in SpellResolvedTargetOutcome outcome)
+        {
+            if (outcome.saveResult.HasValue)
+                return $"{targetName}: {FormatSaveResult(outcome.saveResult)} => {outcome.appliedDamage} void ({outcome.hpBefore}->{outcome.hpAfter} HP)";
+
+            return $"{targetName}: healed {outcome.appliedHealing} HP ({outcome.hpBefore}->{outcome.hpAfter} HP)";
         }
     }
 }

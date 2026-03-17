@@ -85,6 +85,8 @@ namespace PF2e.Presentation
                 TargetingMode.ElectricArc => "Electric Arc: choose 1 or 2 visible creatures within 30 ft",
                 TargetingMode.Snowball => "Snowball: choose a visible creature within 30 ft",
                 TargetingMode.Fear => "Fear: choose a visible creature within 30 ft",
+                TargetingMode.HealSingle => "Heal: choose self, ally, or undead creature",
+                TargetingMode.HarmSingle => "Harm: choose a living enemy or undead creature",
                 _ => "Choose a target"
             };
         }
@@ -107,6 +109,8 @@ namespace PF2e.Presentation
                 TargetingMode.ElectricArc => "Electric Arc: valid target (basic Reflex)",
                 TargetingMode.Snowball => "Snowball: valid target (spell attack vs AC)",
                 TargetingMode.Fear => "Fear: valid target (Will save)",
+                TargetingMode.HealSingle => "Heal: valid target (living heal / undead basic Fortitude)",
+                TargetingMode.HarmSingle => "Harm: valid target (living basic Fortitude / undead healing)",
                 _ => "Valid target"
             };
         }
@@ -160,6 +164,10 @@ namespace PF2e.Presentation
                     ? "Escape: choose the creature grappling you"
                     : mode == TargetingMode.Aid
                         ? "Aid: choose an ally"
+                    : mode == TargetingMode.HealSingle
+                        ? "Heal: choose self, an ally, or an undead creature"
+                    : mode == TargetingMode.HarmSingle
+                        ? "Harm: choose a living enemy or undead creature"
                     : $"{action}: choose an enemy",
 
                 TargetingFailureReason.NoGrappleRelation => "Escape: choose the creature grappling you",
@@ -175,6 +183,10 @@ namespace PF2e.Presentation
                         ? "Snowball: target is out of range (30 ft)"
                     : mode == TargetingMode.Fear
                         ? "Fear: target is out of range (30 ft)"
+                    : mode == TargetingMode.HealSingle
+                        ? "Heal: target is out of range"
+                    : mode == TargetingMode.HarmSingle
+                        ? "Harm: target is out of range"
                     : mode == TargetingMode.Aid
                         ? "Aid: ally is out of reach"
                     : mode == TargetingMode.Strike
@@ -190,6 +202,10 @@ namespace PF2e.Presentation
                         ? "Snowball: target is not visible"
                     : mode == TargetingMode.Fear
                         ? "Fear: target is not visible"
+                    : mode == TargetingMode.HealSingle
+                        ? "Heal: target is not visible"
+                    : mode == TargetingMode.HarmSingle
+                        ? "Harm: target is not visible"
                     : $"{action}: no line of sight",
                 TargetingFailureReason.WrongElevation => $"{action}: target is on a different elevation",
                 TargetingFailureReason.TargetTooLarge => $"{action}: target is too large",
@@ -222,6 +238,8 @@ namespace PF2e.Presentation
                 TargetingMode.ElectricArc => "Electric Arc",
                 TargetingMode.Snowball => "Snowball",
                 TargetingMode.Fear => "Fear",
+                TargetingMode.HealSingle => "Heal",
+                TargetingMode.HarmSingle => "Harm",
                 _ => "Action"
             };
         }

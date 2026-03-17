@@ -218,6 +218,65 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void Heal_TargetSelection_AllowsSelf_AndRequiresExplicitConfirm()
+        {
+            using var ctx = new SpellTargetingContext();
+            var actor = ctx.RegisterEntity("Wizard", Team.Player);
+            ctx.SetCurrentActor(actor);
+
+            int confirmCalls = 0;
+            IReadOnlyList<EntityHandle> confirmedTargets = null;
+            ctx.Controller.BeginHealTargeting(
+                actionCount: 2,
+                onConfirmed: targets =>
+                {
+                    confirmCalls++;
+                    confirmedTargets = new List<EntityHandle>(targets);
+                    return true;
+                });
+
+            Assert.AreEqual(TargetingResult.Success, ctx.Controller.TryConfirmEntity(actor));
+            Assert.AreEqual(TargetingMode.HealSingle, ctx.Controller.ActiveMode);
+            Assert.AreEqual(1, ctx.Controller.HealSelectedTargetCount);
+            Assert.AreEqual(0, confirmCalls);
+
+            Assert.IsTrue(ctx.Controller.TryConfirmSpellTargeting());
+            Assert.AreEqual(1, confirmCalls);
+            CollectionAssert.AreEqual(new[] { actor }, confirmedTargets);
+            Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
+        }
+
+        [Test]
+        public void Harm_TargetSelection_RequiresExplicitConfirm()
+        {
+            using var ctx = new SpellTargetingContext();
+            var actor = ctx.RegisterEntity("Wizard", Team.Player);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(actor);
+
+            int confirmCalls = 0;
+            IReadOnlyList<EntityHandle> confirmedTargets = null;
+            ctx.Controller.BeginHarmTargeting(
+                actionCount: 2,
+                onConfirmed: targets =>
+                {
+                    confirmCalls++;
+                    confirmedTargets = new List<EntityHandle>(targets);
+                    return true;
+                });
+
+            Assert.AreEqual(TargetingResult.Success, ctx.Controller.TryConfirmEntity(enemy));
+            Assert.AreEqual(TargetingMode.HarmSingle, ctx.Controller.ActiveMode);
+            Assert.AreEqual(1, ctx.Controller.HarmSelectedTargetCount);
+            Assert.AreEqual(0, confirmCalls);
+
+            Assert.IsTrue(ctx.Controller.TryConfirmSpellTargeting());
+            Assert.AreEqual(1, confirmCalls);
+            CollectionAssert.AreEqual(new[] { enemy }, confirmedTargets);
+            Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
+        }
+
+        [Test]
         public void BurningHands_CellSelection_RequiresExplicitConfirm()
         {
             using var ctx = new SpellTargetingContext();
@@ -246,6 +305,74 @@ namespace PF2e.Tests
             Assert.IsTrue(ctx.Controller.TryConfirmSpellTargeting());
             Assert.AreEqual(1, confirmCalls);
             Assert.AreEqual(aimCell, confirmedCell);
+            Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
+        }
+
+        [Test]
+        public void HealArea_TargetingStartsLockedAndConfirmsWithoutManualCellClick()
+        {
+            using var ctx = new SpellTargetingContext();
+            var actor = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(0, 0, 0));
+            ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(2, 0, 0));
+            ctx.SetCurrentActor(actor);
+
+            int confirmCalls = 0;
+            Vector3Int confirmedCell = default;
+            ctx.Controller.BeginSpellAoETargeting(
+                SpellId.Heal,
+                cell =>
+                {
+                    confirmCalls++;
+                    confirmedCell = cell;
+                    return true;
+                },
+                actionCount: 3,
+                initialSelectedCell: new Vector3Int(0, 0, 0));
+
+            Assert.AreEqual(TargetingMode.SpellAoE, ctx.Controller.ActiveMode);
+            Assert.AreEqual(SpellId.Heal, ctx.Controller.ActiveSpellId);
+            Assert.AreEqual(3, ctx.Controller.SpellAoEActionCount);
+            Assert.IsTrue(ctx.Controller.HasSelectedSpellAreaCell);
+            Assert.AreEqual(new Vector3Int(0, 0, 0), ctx.Controller.SelectedSpellAreaCell.Value);
+            Assert.AreEqual(0, confirmCalls);
+
+            Assert.IsTrue(ctx.Controller.TryConfirmSpellTargeting());
+            Assert.AreEqual(1, confirmCalls);
+            Assert.AreEqual(new Vector3Int(0, 0, 0), confirmedCell);
+            Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
+        }
+
+        [Test]
+        public void HarmArea_TargetingStartsLockedAndConfirmsWithoutManualCellClick()
+        {
+            using var ctx = new SpellTargetingContext();
+            var actor = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(0, 0, 0));
+            ctx.RegisterEntity("Skeleton", Team.Enemy, new Vector3Int(2, 0, 0));
+            ctx.SetCurrentActor(actor);
+
+            int confirmCalls = 0;
+            Vector3Int confirmedCell = default;
+            ctx.Controller.BeginSpellAoETargeting(
+                SpellId.Harm,
+                cell =>
+                {
+                    confirmCalls++;
+                    confirmedCell = cell;
+                    return true;
+                },
+                actionCount: 3,
+                initialSelectedCell: new Vector3Int(0, 0, 0));
+
+            Assert.AreEqual(TargetingMode.SpellAoE, ctx.Controller.ActiveMode);
+            Assert.AreEqual(SpellId.Harm, ctx.Controller.ActiveSpellId);
+            Assert.AreEqual(3, ctx.Controller.SpellAoEActionCount);
+            Assert.IsTrue(ctx.Controller.HasSelectedSpellAreaCell);
+            Assert.AreEqual(new Vector3Int(0, 0, 0), ctx.Controller.SelectedSpellAreaCell.Value);
+            Assert.AreEqual(0, confirmCalls);
+
+            Assert.IsTrue(ctx.Controller.TryConfirmSpellTargeting());
+            Assert.AreEqual(1, confirmCalls);
+            Assert.AreEqual(new Vector3Int(0, 0, 0), confirmedCell);
             Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
         }
 

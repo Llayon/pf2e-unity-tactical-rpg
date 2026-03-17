@@ -41,6 +41,7 @@ namespace PF2e.Core
         public delegate void StrikePreDamageHandler(in StrikePreDamageEvent e);
         public delegate void StrikeResolvedHandler(in StrikeResolvedEvent e);
         public delegate void DamageAppliedHandler(in DamageAppliedEvent e);
+        public delegate void HealingAppliedHandler(in HealingAppliedEvent e);
         public delegate void JumpResolvedHandler(in JumpResolvedEvent e);
         public delegate void SkillCheckResolvedHandler(in SkillCheckResolvedEvent e);
         public delegate void OpposedCheckResolvedHandler(in OpposedCheckResolvedEvent e);
@@ -75,6 +76,7 @@ namespace PF2e.Core
         public event StrikePreDamageHandler OnStrikePreDamageTyped;
         public event StrikeResolvedHandler OnStrikeResolved;
         public event DamageAppliedHandler OnDamageAppliedTyped;
+        public event HealingAppliedHandler OnHealingAppliedTyped;
         public event JumpResolvedHandler OnJumpResolvedTyped;
         public event SkillCheckResolvedHandler OnSkillCheckResolvedTyped;
         public event OpposedCheckResolvedHandler OnOpposedCheckResolvedTyped;
@@ -169,6 +171,11 @@ namespace PF2e.Core
         public void PublishDamageApplied(in DamageAppliedEvent ev)
         {
             OnDamageAppliedTyped?.Invoke(in ev);
+        }
+
+        public void PublishHealingApplied(in HealingAppliedEvent ev)
+        {
+            OnHealingAppliedTyped?.Invoke(in ev);
         }
 
         public void PublishJumpResolved(in JumpResolvedEvent ev)
