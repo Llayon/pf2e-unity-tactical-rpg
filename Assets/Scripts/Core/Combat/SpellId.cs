@@ -5,7 +5,8 @@ namespace PF2e.Core
         ForceBarrage = 0,
         ElectricArc = 1,
         Snowball = 2,
-        BurningHands = 3
+        BurningHands = 3,
+        Fear = 4
     }
 
     public enum SpellTargetingKind : byte
@@ -21,6 +22,7 @@ namespace PF2e.Core
         AutoHitDamage = 0,
         BasicSaveDamage = 1,
         SpellAttackDamage = 2,
-        BasicSaveAreaDamage = 3
+        BasicSaveAreaDamage = 3,
+        SaveCondition = 4
     }
 }

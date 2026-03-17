@@ -318,6 +318,31 @@ namespace PF2e.Presentation
             return sb.ToString();
         }
 
+        public static string FearBreakdown(int spellDc, string[] targetLines)
+        {
+            var sb = new StringBuilder(384);
+            AppendSectionHeader(sb, "Fear");
+            sb.Append('\n');
+            AppendContextLine(sb, $"2 actions • 30 ft • Will DC {spellDc} • critical success avoids frightened");
+
+            if (targetLines != null && targetLines.Length > 0)
+            {
+                sb.Append('\n');
+                sb.Append('\n');
+                AppendSectionHeader(sb, "Targets");
+                for (int i = 0; i < targetLines.Length; i++)
+                {
+                    if (string.IsNullOrEmpty(targetLines[i]))
+                        continue;
+
+                    sb.Append('\n');
+                    sb.Append(BuildDescriptionText($"• {targetLines[i]}"));
+                }
+            }
+
+            return sb.ToString();
+        }
+
         public static string BuildResultExtendedBody(
             string coreBody,
             string ruleTitle,

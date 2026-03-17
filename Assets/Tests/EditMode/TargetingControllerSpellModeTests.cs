@@ -189,6 +189,35 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void Fear_TargetSelection_RequiresExplicitConfirm()
+        {
+            using var ctx = new SpellTargetingContext();
+            var actor = ctx.RegisterEntity("Wizard", Team.Player);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy);
+            ctx.SetCurrentActor(actor);
+
+            int confirmCalls = 0;
+            IReadOnlyList<EntityHandle> confirmedTargets = null;
+            ctx.Controller.BeginFearTargeting(
+                onConfirmed: targets =>
+                {
+                    confirmCalls++;
+                    confirmedTargets = new List<EntityHandle>(targets);
+                    return true;
+                });
+
+            Assert.AreEqual(TargetingResult.Success, ctx.Controller.TryConfirmEntity(enemy));
+            Assert.AreEqual(TargetingMode.Fear, ctx.Controller.ActiveMode);
+            Assert.AreEqual(1, ctx.Controller.FearSelectedTargetCount);
+            Assert.AreEqual(0, confirmCalls);
+
+            Assert.IsTrue(ctx.Controller.TryConfirmSpellTargeting());
+            Assert.AreEqual(1, confirmCalls);
+            CollectionAssert.AreEqual(new[] { enemy }, confirmedTargets);
+            Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
+        }
+
+        [Test]
         public void BurningHands_CellSelection_RequiresExplicitConfirm()
         {
             using var ctx = new SpellTargetingContext();

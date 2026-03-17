@@ -233,6 +233,11 @@ namespace PF2e.TurnSystem
                     target,
                     SpellCatalog.Get(SpellId.Snowball)),
 
+                TargetingMode.Fear => GetSpellTargetFailure(
+                    actor,
+                    target,
+                    SpellCatalog.Get(SpellId.Fear)),
+
                 _ => TargetingFailureReason.ModeNotSupported
             };
 
@@ -1211,6 +1216,24 @@ namespace PF2e.TurnSystem
             return turnManager.ActionsRemaining >= SpellCatalog.Get(SpellId.BurningHands).minActionCost;
         }
 
+        public bool TryBeginFear()
+        {
+            if (turnManager == null || entityManager == null)
+                return false;
+            if (!CanActNow())
+                return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return false;
+
+            var actorData = entityManager.Registry != null ? entityManager.Registry.Get(actor) : null;
+            if (actorData == null || !actorData.IsAlive || !actorData.KnowsFear)
+                return false;
+
+            return turnManager.ActionsRemaining >= SpellCatalog.Get(SpellId.Fear).minActionCost;
+        }
+
         public bool TryConfirmSnowball(EntityHandle target, IRng rng = null)
         {
             if (turnManager == null || entityManager == null || entityManager.Registry == null)
@@ -1346,6 +1369,110 @@ namespace PF2e.TurnSystem
                 spellDc: 0,
                 spellAttackModifier: spellAttackModifier,
                 rolledDamage: rolledDamage,
+                targetOutcomes: outcomes));
+            PublishConditionDeltas();
+
+            executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = -1f;
+#endif
+            turnManager.CompleteActionWithCost(definition.minActionCost);
+            return true;
+        }
+
+        public bool TryConfirmFear(EntityHandle target, IRng rng = null)
+        {
+            if (turnManager == null || entityManager == null || entityManager.Registry == null)
+                return false;
+            if (!CanActNow())
+                return false;
+            if (!target.IsValid)
+                return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return false;
+
+            var actorData = entityManager.Registry.Get(actor);
+            if (actorData == null || !actorData.IsAlive || !actorData.KnowsFear)
+                return false;
+
+            var definition = SpellCatalog.Get(SpellId.Fear);
+            if (turnManager.ActionsRemaining < definition.minActionCost)
+                return false;
+            if (GetSpellTargetFailure(actor, target, definition) != TargetingFailureReason.None)
+                return false;
+
+            rng ??= UnityRng.Shared;
+
+            executingActor = actor;
+            turnManager.BeginActionExecution(actor, "Player.Fear");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = Time.time;
+#endif
+
+            var targetData = entityManager.Registry.Get(target);
+            if (targetData == null || !targetData.IsAlive)
+            {
+                executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                executionStartTime = -1f;
+#endif
+                turnManager.ActionCompleted();
+                return false;
+            }
+
+            int spellDc = SpellcastingRules.ComputeWizardSpellDc(actorData);
+            var save = CheckResolver.RollSave(targetData, SaveType.Will, spellDc, rng);
+            int hpBefore = Mathf.Max(0, targetData.CurrentHP);
+
+            ConditionType? appliedConditionType = null;
+            int appliedConditionValue = save.degree switch
+            {
+                DegreeOfSuccess.Success => 1,
+                DegreeOfSuccess.Failure => 2,
+                DegreeOfSuccess.CriticalFailure => 3,
+                _ => 0
+            };
+
+            conditionDeltaBuffer.Clear();
+            if (appliedConditionValue > 0)
+            {
+                appliedConditionType = ConditionType.Frightened;
+                conditionService.AddOrRefresh(
+                    targetData,
+                    ConditionType.Frightened,
+                    appliedConditionValue,
+                    rounds: -1,
+                    conditionDeltaBuffer);
+            }
+
+            var outcomes = new[]
+            {
+                new SpellResolvedTargetOutcome(
+                    target,
+                    shardCount: 0,
+                    shardRolls: null,
+                    rolledDamage: 0,
+                    attackResult: null,
+                    saveResult: save,
+                    appliedConditionType: appliedConditionType,
+                    appliedConditionValue: appliedConditionValue,
+                    appliedConditionRounds: appliedConditionValue > 0 ? -1 : 0,
+                    resolvedDamage: 0,
+                    appliedDamage: 0,
+                    hpBefore: hpBefore,
+                    hpAfter: Mathf.Max(0, targetData.CurrentHP),
+                    targetDefeated: !targetData.IsAlive)
+            };
+
+            eventBus?.PublishSpellResolved(new SpellResolvedEvent(
+                SpellId.Fear,
+                actor,
+                definition.minActionCost,
+                spellDc,
+                spellAttackModifier: 0,
+                rolledDamage: 0,
                 targetOutcomes: outcomes));
             PublishConditionDeltas();
 

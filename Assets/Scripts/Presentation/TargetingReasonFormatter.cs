@@ -84,6 +84,7 @@ namespace PF2e.Presentation
                 TargetingMode.ForceBarrage => "Force Barrage: choose a visible creature within 120 ft",
                 TargetingMode.ElectricArc => "Electric Arc: choose 1 or 2 visible creatures within 30 ft",
                 TargetingMode.Snowball => "Snowball: choose a visible creature within 30 ft",
+                TargetingMode.Fear => "Fear: choose a visible creature within 30 ft",
                 _ => "Choose a target"
             };
         }
@@ -105,6 +106,7 @@ namespace PF2e.Presentation
                 TargetingMode.ForceBarrage => "Force Barrage: valid target (auto-hit force shard)",
                 TargetingMode.ElectricArc => "Electric Arc: valid target (basic Reflex)",
                 TargetingMode.Snowball => "Snowball: valid target (spell attack vs AC)",
+                TargetingMode.Fear => "Fear: valid target (Will save)",
                 _ => "Valid target"
             };
         }
@@ -171,6 +173,8 @@ namespace PF2e.Presentation
                         ? "Electric Arc: target is out of range (30 ft)"
                     : mode == TargetingMode.Snowball
                         ? "Snowball: target is out of range (30 ft)"
+                    : mode == TargetingMode.Fear
+                        ? "Fear: target is out of range (30 ft)"
                     : mode == TargetingMode.Aid
                         ? "Aid: ally is out of reach"
                     : mode == TargetingMode.Strike
@@ -184,6 +188,8 @@ namespace PF2e.Presentation
                         ? "Electric Arc: target is not visible"
                     : mode == TargetingMode.Snowball
                         ? "Snowball: target is not visible"
+                    : mode == TargetingMode.Fear
+                        ? "Fear: target is not visible"
                     : $"{action}: no line of sight",
                 TargetingFailureReason.WrongElevation => $"{action}: target is on a different elevation",
                 TargetingFailureReason.TargetTooLarge => $"{action}: target is too large",
@@ -215,6 +221,7 @@ namespace PF2e.Presentation
                 TargetingMode.ForceBarrage => "Force Barrage",
                 TargetingMode.ElectricArc => "Electric Arc",
                 TargetingMode.Snowball => "Snowball",
+                TargetingMode.Fear => "Fear",
                 _ => "Action"
             };
         }

@@ -45,6 +45,7 @@ namespace PF2e.Presentation
             bool electricArcAvailable = CanSelectElectricArc(actorData, actionsRemaining);
             bool snowballAvailable = CanSelectSnowball(actorData, actionsRemaining);
             bool burningHandsAvailable = CanSelectBurningHands(actorData, actionsRemaining);
+            bool fearAvailable = CanSelectFear(actorData, actionsRemaining);
 
             bool selectedAvailable = selectedSpell switch
             {
@@ -52,6 +53,7 @@ namespace PF2e.Presentation
                 SpellId.ElectricArc => electricArcAvailable,
                 SpellId.Snowball => snowballAvailable,
                 SpellId.BurningHands => burningHandsAvailable,
+                SpellId.Fear => fearAvailable,
                 _ => false
             };
 
@@ -66,6 +68,8 @@ namespace PF2e.Presentation
                 selectedSpell = SpellId.Snowball;
             else if (burningHandsAvailable)
                 selectedSpell = SpellId.BurningHands;
+            else if (fearAvailable)
+                selectedSpell = SpellId.Fear;
         }
 
         public bool CanSelectForceBarrage(EntityData actorData, int actionsRemaining)
@@ -98,6 +102,14 @@ namespace PF2e.Presentation
                 && actorData.IsAlive
                 && actorData.KnowsBurningHands
                 && actionsRemaining >= SpellCatalog.Get(SpellId.BurningHands).minActionCost;
+        }
+
+        public bool CanSelectFear(EntityData actorData, int actionsRemaining)
+        {
+            return actorData != null
+                && actorData.IsAlive
+                && actorData.KnowsFear
+                && actionsRemaining >= SpellCatalog.Get(SpellId.Fear).minActionCost;
         }
 
         public bool HasAnyActionBarSpell(EntityData actorData)
@@ -219,6 +231,16 @@ namespace PF2e.Presentation
                         SpellId.BurningHands,
                         cell => actionExecutor.TryConfirmBurningHands(cell));
                     return;
+
+                case SpellId.Fear:
+                    if (!actionExecutor.TryBeginFear())
+                        return;
+
+                    targetingController.BeginFearTargeting(
+                        targets => targets != null
+                            && targets.Count > 0
+                            && actionExecutor.TryConfirmFear(targets[0]));
+                    return;
             }
         }
 
@@ -291,6 +313,24 @@ namespace PF2e.Presentation
             return true;
         }
 
+        public bool TryBeginFear()
+        {
+            if (targetingController == null || actionExecutor == null)
+                return false;
+
+            selectedSpell = SpellId.Fear;
+
+            if (!actionExecutor.TryBeginFear())
+                return false;
+
+            targetingController.BeginFearTargeting(
+                targets => targets != null
+                    && targets.Count > 0
+                    && actionExecutor.TryConfirmFear(targets[0]));
+            refreshAvailability?.Invoke();
+            return true;
+        }
+
         public bool TryConfirmSpellTargeting()
         {
             return targetingController != null
@@ -340,6 +380,12 @@ namespace PF2e.Presentation
         public void OnCastSpellModeBurningHandsClicked()
         {
             selectedSpell = SpellId.BurningHands;
+            refreshAvailability?.Invoke();
+        }
+
+        public void OnCastSpellModeFearClicked()
+        {
+            selectedSpell = SpellId.Fear;
             refreshAvailability?.Invoke();
         }
 

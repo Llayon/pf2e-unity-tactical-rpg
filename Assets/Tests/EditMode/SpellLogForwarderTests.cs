@@ -268,6 +268,70 @@ namespace PF2e.Tests
             }
         }
 
+        [Test]
+        public void Fear_PublishesConditionSaveBreakdownTooltip()
+        {
+            using var ctx = new SpellLogContext();
+
+            var caster = ctx.RegisterEntity("Wizard", Team.Player);
+            var target = ctx.RegisterEntity("Goblin", Team.Enemy);
+            var save = new CheckResult(
+                new CheckRoll(4, 3, CheckSource.Save(SaveType.Will)),
+                dc: 17,
+                degree: DegreeOfSuccess.Failure);
+
+            var ev = new SpellResolvedEvent(
+                SpellId.Fear,
+                caster,
+                actionCost: 2,
+                spellDc: 17,
+                spellAttackModifier: 0,
+                rolledDamage: 0,
+                targetOutcomes: new[]
+                {
+                    new SpellResolvedTargetOutcome(
+                        target,
+                        shardCount: 0,
+                        shardRolls: null,
+                        rolledDamage: 0,
+                        attackResult: null,
+                        saveResult: save,
+                        appliedConditionType: ConditionType.Frightened,
+                        appliedConditionValue: 2,
+                        appliedConditionRounds: -1,
+                        resolvedDamage: 0,
+                        appliedDamage: 0,
+                        hpBefore: 10,
+                        hpAfter: 10,
+                        targetDefeated: false)
+                });
+
+            CombatLogEntry lastEntry = default;
+            CombatLogTooltipPayload? lastTooltip = null;
+            ctx.EventBus.OnLogEntryWithTooltip += HandleLog;
+            try
+            {
+                ctx.EventBus.PublishSpellResolved(in ev);
+
+                StringAssert.Contains("Fear", Strip(lastEntry.Message));
+                StringAssert.Contains("frightened 2", Strip(lastEntry.Message));
+                Assert.IsTrue(lastTooltip.HasValue);
+                StringAssert.Contains("Will DC 17", lastTooltip.Value.entries[0].body);
+                StringAssert.Contains("Failure", lastTooltip.Value.entries[0].body);
+                StringAssert.Contains("frightened 2", lastTooltip.Value.entries[0].body);
+            }
+            finally
+            {
+                ctx.EventBus.OnLogEntryWithTooltip -= HandleLog;
+            }
+
+            void HandleLog(CombatLogEntry entry, CombatLogTooltipPayload? tooltipPayload)
+            {
+                lastEntry = entry;
+                lastTooltip = tooltipPayload;
+            }
+        }
+
         private sealed class SpellLogContext : System.IDisposable
         {
             private readonly bool oldIgnoreLogs;

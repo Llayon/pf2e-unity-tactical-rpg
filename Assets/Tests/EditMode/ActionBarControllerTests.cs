@@ -206,6 +206,7 @@ namespace PF2e.Tests
             Assert.IsTrue(ctx.CastSpellModeGlassButton.gameObject.activeInHierarchy);
             Assert.IsTrue(ctx.CastSpellModeSnowballButton.gameObject.activeInHierarchy);
             Assert.IsTrue(ctx.CastSpellModeBurningHandsButton.gameObject.activeInHierarchy);
+            Assert.IsTrue(ctx.CastSpellModeFearButton.gameObject.activeInHierarchy);
             Assert.IsTrue(ctx.CastSpellButton.interactable);
             Assert.IsFalse(ctx.RaiseShieldButton.interactable);
         }
@@ -281,6 +282,23 @@ namespace PF2e.Tests
             ctx.CastSpellModeBurningHandsButton.onClick.Invoke();
 
             Assert.AreEqual("Cast [BRN]", ctx.GetCastSpellButtonLabelText());
+            Assert.AreEqual(TargetingMode.None, ctx.TargetingController.ActiveMode);
+        }
+
+        [Test]
+        public void CastSpellModeFear_Click_SelectsFearAndUpdatesCastLabel()
+        {
+            using var ctx = new ActionBarTestContext();
+            var actor = ctx.RegisterEntity("Wizard", Team.Player);
+            ctx.SetCurrentActor(actor, TurnState.PlayerTurn, actionsRemaining: 3);
+            ctx.EnableActionBarSpells(actor);
+
+            ctx.RefreshAvailability();
+            Assert.IsTrue(ctx.CastSpellModeFearButton.interactable);
+
+            ctx.CastSpellModeFearButton.onClick.Invoke();
+
+            Assert.AreEqual("Cast [FER]", ctx.GetCastSpellButtonLabelText());
             Assert.AreEqual(TargetingMode.None, ctx.TargetingController.ActiveMode);
         }
 
@@ -508,6 +526,7 @@ namespace PF2e.Tests
             public Button CastSpellModeGlassButton { get; private set; }
             public Button CastSpellModeSnowballButton { get; private set; }
             public Button CastSpellModeBurningHandsButton { get; private set; }
+            public Button CastSpellModeFearButton { get; private set; }
             public Button RaiseShieldButton { get; }
             public Button StandButton { get; }
 
@@ -657,6 +676,7 @@ namespace PF2e.Tests
                 InvokePrivate(ActionBar, "ValidateAndApplyUiWiring");
                 CastSpellModeSnowballButton = GetPrivateField<Button>(ActionBar, "castSpellModeSnowballButton");
                 CastSpellModeBurningHandsButton = GetPrivateField<Button>(ActionBar, "castSpellModeBurningHandsButton");
+                CastSpellModeFearButton = GetPrivateField<Button>(ActionBar, "castSpellModeFearButton");
 
                 Root.SetActive(true);
                 targetingGo.SetActive(true);
@@ -820,6 +840,7 @@ namespace PF2e.Tests
                 data.KnowsElectricArc = true;
                 data.KnowsSnowball = true;
                 data.KnowsBurningHands = true;
+                data.KnowsFear = true;
             }
 
             public void RefreshAvailability()
@@ -882,6 +903,7 @@ namespace PF2e.Tests
                 Assert.IsFalse(CastSpellModeGlassButton.interactable);
                 Assert.IsFalse(CastSpellModeSnowballButton.interactable);
                 Assert.IsFalse(CastSpellModeBurningHandsButton.interactable);
+                Assert.IsFalse(CastSpellModeFearButton.interactable);
                 Assert.IsFalse(RaiseShieldButton.interactable);
                 Assert.IsFalse(StandButton.interactable);
             }

@@ -24,7 +24,8 @@ namespace PF2e.TurnSystem
         Jump = 13,       // explicit mode: choose landing cell
         ForceBarrage = 14,
         ElectricArc = 15,
-        Snowball = 16
+        Snowball = 16,
+        Fear = 17
     }
 
     public enum TargetingResult
@@ -68,12 +69,13 @@ namespace PF2e.TurnSystem
         public TargetingMode ActiveMode { get; private set; } = TargetingMode.None;
         public bool IsRepositionSelectingCell => ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectCell;
         public bool IsRepositionSelectingTarget => ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectTarget;
-        public bool IsSpellTargetingActive => ActiveMode == TargetingMode.ForceBarrage || ActiveMode == TargetingMode.ElectricArc || ActiveMode == TargetingMode.Snowball || ActiveMode == TargetingMode.SpellAoE;
+        public bool IsSpellTargetingActive => ActiveMode == TargetingMode.ForceBarrage || ActiveMode == TargetingMode.ElectricArc || ActiveMode == TargetingMode.Snowball || ActiveMode == TargetingMode.Fear || ActiveMode == TargetingMode.SpellAoE;
         public SpellId? ActiveSpellId => ActiveMode switch
         {
             TargetingMode.ForceBarrage => SpellId.ForceBarrage,
             TargetingMode.ElectricArc => SpellId.ElectricArc,
             TargetingMode.Snowball => SpellId.Snowball,
+            TargetingMode.Fear => SpellId.Fear,
             TargetingMode.SpellAoE => _spellAoESpellId,
             _ => null
         };
@@ -82,6 +84,7 @@ namespace PF2e.TurnSystem
             TargetingMode.ForceBarrage => _onForceBarrageConfirmed != null && _forceBarrageTargets.Count > 0 && _forceBarrageTargets.Count <= _forceBarrageShardCount,
             TargetingMode.ElectricArc => _onElectricArcConfirmed != null && _electricArcTargets.Count > 0,
             TargetingMode.Snowball => _onSnowballConfirmed != null && _snowballTargets.Count > 0,
+            TargetingMode.Fear => _onFearConfirmed != null && _fearTargets.Count > 0,
             TargetingMode.SpellAoE => _onSpellAoEConfirmed != null && _spellAoESelectedCell.HasValue,
             _ => false
         };
@@ -90,6 +93,7 @@ namespace PF2e.TurnSystem
             TargetingMode.ForceBarrage => _forceBarrageTargets.Count > 0,
             TargetingMode.ElectricArc => _electricArcTargets.Count > 0,
             TargetingMode.Snowball => _snowballTargets.Count > 0,
+            TargetingMode.Fear => _fearTargets.Count > 0,
             TargetingMode.SpellAoE => _spellAoESelectedCell.HasValue,
             _ => false
         };
@@ -100,11 +104,13 @@ namespace PF2e.TurnSystem
             : 0;
         public int ElectricArcSelectedTargetCount => ActiveMode == TargetingMode.ElectricArc ? _electricArcTargets.Count : 0;
         public int SnowballSelectedTargetCount => ActiveMode == TargetingMode.Snowball ? _snowballTargets.Count : 0;
+        public int FearSelectedTargetCount => ActiveMode == TargetingMode.Fear ? _fearTargets.Count : 0;
         public bool HasSelectedSpellAreaCell => ActiveMode == TargetingMode.SpellAoE && _spellAoESelectedCell.HasValue;
         public Vector3Int? SelectedSpellAreaCell => ActiveMode == TargetingMode.SpellAoE ? _spellAoESelectedCell : null;
         public IReadOnlyList<EntityHandle> ForceBarrageAssignedTargets => _forceBarrageTargets;
         public IReadOnlyList<EntityHandle> ElectricArcSelectedTargets => _electricArcTargets;
         public IReadOnlyList<EntityHandle> SnowballSelectedTargets => _snowballTargets;
+        public IReadOnlyList<EntityHandle> FearSelectedTargets => _fearTargets;
         public event Action<TargetingMode> OnModeChanged;
 
         // Callbacks for explicit modes (BeginTargeting).
@@ -126,6 +132,9 @@ namespace PF2e.TurnSystem
         private Func<IReadOnlyList<EntityHandle>, bool> _onSnowballConfirmed;
         private Action _onSnowballCancelled;
         private readonly List<EntityHandle> _snowballTargets = new(1);
+        private Func<IReadOnlyList<EntityHandle>, bool> _onFearConfirmed;
+        private Action _onFearCancelled;
+        private readonly List<EntityHandle> _fearTargets = new(1);
         private Func<Vector3Int, bool> _onSpellAoEConfirmed;
         private Action _onSpellAoECancelled;
         private SpellId _spellAoESpellId = SpellId.BurningHands;
@@ -192,6 +201,9 @@ namespace PF2e.TurnSystem
             _onSnowballConfirmed = null;
             _onSnowballCancelled = null;
             _snowballTargets.Clear();
+            _onFearConfirmed = null;
+            _onFearCancelled = null;
+            _fearTargets.Clear();
             _onSpellAoEConfirmed = null;
             _onSpellAoECancelled = null;
             _spellAoESpellId = SpellId.BurningHands;
@@ -222,6 +234,9 @@ namespace PF2e.TurnSystem
             _onSnowballConfirmed = null;
             _onSnowballCancelled = null;
             _snowballTargets.Clear();
+            _onFearConfirmed = null;
+            _onFearCancelled = null;
+            _fearTargets.Clear();
             _onSpellAoEConfirmed = null;
             _onSpellAoECancelled = null;
             _spellAoESpellId = SpellId.BurningHands;
@@ -256,6 +271,9 @@ namespace PF2e.TurnSystem
             _onSnowballConfirmed = null;
             _onSnowballCancelled = null;
             _snowballTargets.Clear();
+            _onFearConfirmed = null;
+            _onFearCancelled = null;
+            _fearTargets.Clear();
             _onSpellAoEConfirmed = null;
             _onSpellAoECancelled = null;
             _spellAoESpellId = SpellId.BurningHands;
@@ -286,6 +304,9 @@ namespace PF2e.TurnSystem
             _onSnowballConfirmed = null;
             _onSnowballCancelled = null;
             _snowballTargets.Clear();
+            _onFearConfirmed = null;
+            _onFearCancelled = null;
+            _fearTargets.Clear();
             _onSpellAoEConfirmed = null;
             _onSpellAoECancelled = null;
             _spellAoESpellId = SpellId.BurningHands;
@@ -315,6 +336,9 @@ namespace PF2e.TurnSystem
             _onSnowballConfirmed = null;
             _onSnowballCancelled = null;
             _snowballTargets.Clear();
+            _onFearConfirmed = null;
+            _onFearCancelled = null;
+            _fearTargets.Clear();
             _onSpellAoEConfirmed = null;
             _onSpellAoECancelled = null;
             _spellAoESpellId = SpellId.BurningHands;
@@ -344,6 +368,41 @@ namespace PF2e.TurnSystem
             _onSnowballConfirmed = onConfirmed;
             _onSnowballCancelled = onCancelled;
             _snowballTargets.Clear();
+            _onFearConfirmed = null;
+            _onFearCancelled = null;
+            _fearTargets.Clear();
+            _onSpellAoEConfirmed = null;
+            _onSpellAoECancelled = null;
+            _spellAoESpellId = SpellId.BurningHands;
+            _spellAoESelectedCell = null;
+            _repositionPhase = RepositionPhase.None;
+            OnModeChanged?.Invoke(ActiveMode);
+        }
+
+        public void BeginFearTargeting(
+            Func<IReadOnlyList<EntityHandle>, bool> onConfirmed,
+            Action onCancelled = null)
+        {
+            ActiveMode = TargetingMode.Fear;
+            _onEntityConfirmed = null;
+            _onCellConfirmed = null;
+            _onCancelled = null;
+            _onRepositionTargetConfirmed = null;
+            _onRepositionCellConfirmed = null;
+            _onRepositionCellCancelled = null;
+            _onForceBarrageConfirmed = null;
+            _onForceBarrageCancelled = null;
+            _forceBarrageTargets.Clear();
+            _forceBarrageShardCount = 0;
+            _onElectricArcConfirmed = null;
+            _onElectricArcCancelled = null;
+            _electricArcTargets.Clear();
+            _onSnowballConfirmed = null;
+            _onSnowballCancelled = null;
+            _snowballTargets.Clear();
+            _onFearConfirmed = onConfirmed;
+            _onFearCancelled = onCancelled;
+            _fearTargets.Clear();
             _onSpellAoEConfirmed = null;
             _onSpellAoECancelled = null;
             _spellAoESpellId = SpellId.BurningHands;
@@ -374,6 +433,9 @@ namespace PF2e.TurnSystem
             _onSnowballConfirmed = null;
             _onSnowballCancelled = null;
             _snowballTargets.Clear();
+            _onFearConfirmed = null;
+            _onFearCancelled = null;
+            _fearTargets.Clear();
             _onSpellAoEConfirmed = onConfirmed;
             _onSpellAoECancelled = onCancelled;
             _spellAoESpellId = spellId;
@@ -415,6 +477,18 @@ namespace PF2e.TurnSystem
                         return false;
 
                     if (_onSnowballConfirmed.Invoke(_snowballTargets))
+                    {
+                        ClearTargeting();
+                        return true;
+                    }
+
+                    return false;
+
+                case TargetingMode.Fear:
+                    if (!CanConfirmSpellTargeting)
+                        return false;
+
+                    if (_onFearConfirmed.Invoke(_fearTargets))
                     {
                         ClearTargeting();
                         return true;
@@ -467,6 +541,14 @@ namespace PF2e.TurnSystem
                     OnModeChanged?.Invoke(ActiveMode);
                     return true;
 
+                case TargetingMode.Fear:
+                    if (_fearTargets.Count <= 0)
+                        return false;
+
+                    _fearTargets.Clear();
+                    OnModeChanged?.Invoke(ActiveMode);
+                    return true;
+
                 case TargetingMode.SpellAoE:
                     if (!_spellAoESelectedCell.HasValue)
                         return false;
@@ -491,6 +573,8 @@ namespace PF2e.TurnSystem
                 _onElectricArcCancelled?.Invoke();
             else if (ActiveMode == TargetingMode.Snowball)
                 _onSnowballCancelled?.Invoke();
+            else if (ActiveMode == TargetingMode.Fear)
+                _onFearCancelled?.Invoke();
             else if (ActiveMode == TargetingMode.SpellAoE)
                 _onSpellAoECancelled?.Invoke();
             else
@@ -595,6 +679,7 @@ namespace PF2e.TurnSystem
                 case TargetingMode.ForceBarrage:
                 case TargetingMode.ElectricArc:
                 case TargetingMode.Snowball:
+                case TargetingMode.Fear:
                 case TargetingMode.SpellAoE:
                     if (ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectCell)
                         return TargetingEvaluationResult.FromFailure(TargetingFailureReason.ModeNotSupported);
@@ -655,6 +740,18 @@ namespace PF2e.TurnSystem
 
                             OnModeChanged?.Invoke(ActiveMode);
                         }
+                        else if (ActiveMode == TargetingMode.Fear)
+                        {
+                            if (_fearTargets.Count == 1 && _fearTargets[0] == handle)
+                                _fearTargets.Clear();
+                            else
+                            {
+                                _fearTargets.Clear();
+                                _fearTargets.Add(handle);
+                            }
+
+                            OnModeChanged?.Invoke(ActiveMode);
+                        }
                         else
                         {
                             _onEntityConfirmed?.Invoke(handle);
@@ -685,6 +782,7 @@ namespace PF2e.TurnSystem
                 TargetingMode.ForceBarrage => ValidateCreature(handle),
                 TargetingMode.ElectricArc => ValidateCreature(handle),
                 TargetingMode.Snowball => ValidateCreature(handle),
+                TargetingMode.Fear => ValidateCreature(handle),
                 _ => ValidateEnemy(handle)
             };
             return result == TargetingResult.Success
@@ -899,6 +997,9 @@ namespace PF2e.TurnSystem
             _onSnowballConfirmed = null;
             _onSnowballCancelled = null;
             _snowballTargets.Clear();
+            _onFearConfirmed = null;
+            _onFearCancelled = null;
+            _fearTargets.Clear();
             _onSpellAoEConfirmed = null;
             _onSpellAoECancelled = null;
             _spellAoESpellId = SpellId.BurningHands;

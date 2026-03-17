@@ -265,6 +265,15 @@ namespace PF2e.TurnSystem
                 return;
             }
 
+            if (actorData.KnowsFear && actionExecutor.TryBeginFear())
+            {
+                targetingController.BeginFearTargeting(
+                    targets => targets != null
+                        && targets.Count > 0
+                        && actionExecutor.TryConfirmFear(targets[0]));
+                return;
+            }
+
             if (actorData.KnowsBurningHands && actionExecutor.TryBeginBurningHands())
             {
                 targetingController.BeginSpellAoETargeting(

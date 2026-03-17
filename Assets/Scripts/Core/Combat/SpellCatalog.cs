@@ -101,6 +101,19 @@ namespace PF2e.Core
                     saveType: SaveType.Reflex,
                     requiresLineOfSight: false),
 
+                SpellId.Fear => new SpellSliceDefinition(
+                    SpellId.Fear,
+                    "Fear",
+                    "Fear",
+                    minActionCost: 2,
+                    maxActionCost: 2,
+                    rangeFeet: 30,
+                    targetingKind: SpellTargetingKind.SingleCreature,
+                    resolutionKind: SpellResolutionKind.SaveCondition,
+                    damageType: DamageType.Force,
+                    saveType: SaveType.Will,
+                    requiresLineOfSight: true),
+
                 _ => throw new ArgumentOutOfRangeException(nameof(spellId), spellId, "Unknown spell slice id.")
             };
         }
@@ -113,7 +126,8 @@ namespace PF2e.Core
             return string.Equals(actionName, Get(SpellId.ForceBarrage).actionName, StringComparison.Ordinal)
                 || string.Equals(actionName, Get(SpellId.ElectricArc).actionName, StringComparison.Ordinal)
                 || string.Equals(actionName, Get(SpellId.Snowball).actionName, StringComparison.Ordinal)
-                || string.Equals(actionName, Get(SpellId.BurningHands).actionName, StringComparison.Ordinal);
+                || string.Equals(actionName, Get(SpellId.BurningHands).actionName, StringComparison.Ordinal)
+                || string.Equals(actionName, Get(SpellId.Fear).actionName, StringComparison.Ordinal);
         }
 
         public static string GetShortToken(SpellId spellId, int forceBarrageActionCount = 1)
@@ -124,6 +138,7 @@ namespace PF2e.Core
                 SpellId.ElectricArc => "ARC",
                 SpellId.Snowball => "SNW",
                 SpellId.BurningHands => "BRN",
+                SpellId.Fear => "FER",
                 _ => "SPL"
             };
         }

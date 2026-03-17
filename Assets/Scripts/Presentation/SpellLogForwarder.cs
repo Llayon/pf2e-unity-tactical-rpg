@@ -54,6 +54,7 @@ namespace PF2e.Presentation
                 SpellId.ElectricArc => BuildElectricArcSummary(in e),
                 SpellId.Snowball => BuildSnowballSummary(in e),
                 SpellId.BurningHands => BuildBurningHandsSummary(in e),
+                SpellId.Fear => BuildFearSummary(in e),
                 _ => CombatLogRichText.Verb("resolves.")
             };
 
@@ -194,6 +195,36 @@ namespace PF2e.Presentation
             return sb.ToString();
         }
 
+        private string BuildFearSummary(in SpellResolvedEvent e)
+        {
+            if (e.targetOutcomes == null || e.targetOutcomes.Length <= 0)
+                return CombatLogRichText.Verb("no effect.");
+
+            ref readonly var outcome = ref e.targetOutcomes[0];
+            var sb = new StringBuilder(192);
+            sb.Append(GetTargetName(outcome.target, rich: true));
+            sb.Append(' ');
+
+            if (outcome.saveResult.HasValue)
+            {
+                sb.Append(CombatLogRichText.DegreeShort(outcome.saveResult.Value.degree));
+                sb.Append(CombatLogRichText.Verb(", "));
+            }
+
+            if (outcome.appliedConditionType == ConditionType.Frightened && outcome.appliedConditionValue > 0)
+            {
+                sb.Append(CombatLogRichText.Verb("gains "));
+                sb.Append(CombatLogRichText.ConditionGain($"frightened {outcome.appliedConditionValue}"));
+            }
+            else
+            {
+                sb.Append(CombatLogRichText.Verb("no effect"));
+            }
+
+            sb.Append('.');
+            return sb.ToString();
+        }
+
         private string BuildTooltipBody(in SpellResolvedEvent e)
         {
             string[] targetLines = new string[e.targetOutcomes.Length];
@@ -208,6 +239,7 @@ namespace PF2e.Presentation
                     SpellId.ElectricArc => $"{targetName}: {FormatSaveResult(outcome.saveResult)} => {outcome.appliedDamage} electricity ({outcome.hpBefore}->{outcome.hpAfter} HP)",
                     SpellId.Snowball => $"{targetName}: {FormatAttackResult(outcome.attackResult)} => {BuildSnowballEffectSummary(in outcome)} ({outcome.hpBefore}->{outcome.hpAfter} HP)",
                     SpellId.BurningHands => $"{targetName}: {FormatSaveResult(outcome.saveResult)} => {outcome.appliedDamage} fire ({outcome.hpBefore}->{outcome.hpAfter} HP)",
+                    SpellId.Fear => $"{targetName}: {FormatSaveResult(outcome.saveResult)} => {BuildFearEffectSummary(in outcome)}",
                     _ => targetName
                 };
             }
@@ -218,6 +250,7 @@ namespace PF2e.Presentation
                 SpellId.ElectricArc => TooltipTextBuilder.ElectricArcBreakdown(e.spellDc, e.rolledDamage, targetLines),
                 SpellId.Snowball => TooltipTextBuilder.SnowballBreakdown(e.spellAttackModifier, e.rolledDamage, targetLines),
                 SpellId.BurningHands => TooltipTextBuilder.BurningHandsBreakdown(e.spellDc, e.rolledDamage, targetLines),
+                SpellId.Fear => TooltipTextBuilder.FearBreakdown(e.spellDc, targetLines),
                 _ => string.Empty
             };
         }
@@ -276,6 +309,14 @@ namespace PF2e.Presentation
             }
 
             return sb.ToString();
+        }
+
+        private static string BuildFearEffectSummary(in SpellResolvedTargetOutcome outcome)
+        {
+            if (outcome.appliedConditionType == ConditionType.Frightened && outcome.appliedConditionValue > 0)
+                return $"frightened {outcome.appliedConditionValue}";
+
+            return "no effect";
         }
     }
 }

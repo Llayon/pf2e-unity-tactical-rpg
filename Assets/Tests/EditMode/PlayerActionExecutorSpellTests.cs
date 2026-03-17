@@ -360,6 +360,111 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void TryConfirmFear_Success_AppliesFrightenedOneAndSpendsTwoActions()
+        {
+            using var ctx = new SpellExecutorContext();
+
+            var actor = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(0, 0, 0), intelligence: 18);
+            var target = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(1, 0, 0), hp: 12);
+            ctx.Registry.Get(actor).KnowsFear = true;
+            ctx.SetCurrentActor(actor, actionsRemaining: 3);
+
+            int damageCount = 0;
+            int conditionCount = 0;
+            ConditionChangedEvent lastCondition = default;
+            SpellResolvedEvent lastSpell = default;
+            ctx.EventBus.OnDamageAppliedTyped += HandleDamage;
+            ctx.EventBus.OnConditionChangedTyped += HandleCondition;
+            ctx.EventBus.OnSpellResolvedTyped += HandleSpell;
+            try
+            {
+                bool executed = ctx.Executor.TryConfirmFear(
+                    target,
+                    rng: new FixedRng(d20Rolls: new[] { 14 }));
+
+                Assert.IsTrue(executed);
+                Assert.AreEqual(0, damageCount);
+                Assert.AreEqual(1, conditionCount);
+                Assert.AreEqual(ConditionType.Frightened, lastCondition.conditionType);
+                Assert.AreEqual(1, lastCondition.newValue);
+                Assert.AreEqual(1, ctx.Registry.Get(target).GetConditionValue(ConditionType.Frightened));
+                Assert.AreEqual(1, ctx.Registry.Get(actor).ActionsRemaining);
+                Assert.AreEqual(DegreeOfSuccess.Success, lastSpell.targetOutcomes[0].saveResult.Value.degree);
+                Assert.AreEqual(ConditionType.Frightened, lastSpell.targetOutcomes[0].appliedConditionType);
+                Assert.AreEqual(1, lastSpell.targetOutcomes[0].appliedConditionValue);
+                Assert.AreEqual(0, lastSpell.targetOutcomes[0].appliedDamage);
+            }
+            finally
+            {
+                ctx.EventBus.OnDamageAppliedTyped -= HandleDamage;
+                ctx.EventBus.OnConditionChangedTyped -= HandleCondition;
+                ctx.EventBus.OnSpellResolvedTyped -= HandleSpell;
+            }
+
+            void HandleDamage(in DamageAppliedEvent e)
+            {
+                damageCount++;
+            }
+
+            void HandleCondition(in ConditionChangedEvent e)
+            {
+                conditionCount++;
+                lastCondition = e;
+            }
+
+            void HandleSpell(in SpellResolvedEvent e)
+            {
+                lastSpell = e;
+            }
+        }
+
+        [Test]
+        public void TryConfirmFear_CriticalFailure_AppliesFrightenedThreeAndNoDamage()
+        {
+            using var ctx = new SpellExecutorContext();
+
+            var actor = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(0, 0, 0), intelligence: 18);
+            var target = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(1, 0, 0), hp: 12);
+            ctx.Registry.Get(actor).KnowsFear = true;
+            ctx.SetCurrentActor(actor, actionsRemaining: 3);
+
+            int damageCount = 0;
+            SpellResolvedEvent lastSpell = default;
+            ctx.EventBus.OnDamageAppliedTyped += HandleDamage;
+            ctx.EventBus.OnSpellResolvedTyped += HandleSpell;
+            try
+            {
+                bool executed = ctx.Executor.TryConfirmFear(
+                    target,
+                    rng: new FixedRng(d20Rolls: new[] { 1 }));
+
+                Assert.IsTrue(executed);
+                Assert.AreEqual(0, damageCount);
+                Assert.AreEqual(3, ctx.Registry.Get(target).GetConditionValue(ConditionType.Frightened));
+                Assert.AreEqual(1, ctx.Registry.Get(actor).ActionsRemaining);
+                Assert.AreEqual(DegreeOfSuccess.CriticalFailure, lastSpell.targetOutcomes[0].saveResult.Value.degree);
+                Assert.AreEqual(ConditionType.Frightened, lastSpell.targetOutcomes[0].appliedConditionType);
+                Assert.AreEqual(3, lastSpell.targetOutcomes[0].appliedConditionValue);
+                Assert.AreEqual(0, lastSpell.targetOutcomes[0].appliedDamage);
+            }
+            finally
+            {
+                ctx.EventBus.OnDamageAppliedTyped -= HandleDamage;
+                ctx.EventBus.OnSpellResolvedTyped -= HandleSpell;
+            }
+
+            void HandleDamage(in DamageAppliedEvent e)
+            {
+                damageCount++;
+            }
+
+            void HandleSpell(in SpellResolvedEvent e)
+            {
+                lastSpell = e;
+            }
+        }
+
+        [Test]
         public void TryConfirmBurningHands_MultipleTargets_UsesBasicSavesAndSpendsTwoActions()
         {
             using var ctx = new SpellExecutorContext();

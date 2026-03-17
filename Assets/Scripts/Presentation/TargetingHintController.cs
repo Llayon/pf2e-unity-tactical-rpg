@@ -270,6 +270,11 @@ namespace PF2e.Presentation
                         TargetingHintTone.Info,
                         $"Snowball: choose 1 visible creature within 30 ft ({targetingController.SnowballSelectedTargetCount}/1 selected, Confirm/Esc/Backspace)");
 
+                case TargetingMode.Fear:
+                    return new TargetingHintMessage(
+                        TargetingHintTone.Info,
+                        $"Fear: choose 1 visible creature within 30 ft ({targetingController.FearSelectedTargetCount}/1 selected, Confirm/Esc/Backspace)");
+
                 case TargetingMode.SpellAoE:
                     return new TargetingHintMessage(
                         TargetingHintTone.Info,

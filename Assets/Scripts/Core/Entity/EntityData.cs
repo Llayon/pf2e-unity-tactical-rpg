@@ -98,6 +98,7 @@ namespace PF2e.Core
         public bool KnowsElectricArc;
         public bool KnowsSnowball;
         public bool KnowsBurningHands;
+        public bool KnowsFear;
         public int GlassShieldCooldownRoundsRemaining;
         public int StandardShieldCooldownRoundsRemaining;
 
@@ -340,7 +341,7 @@ namespace PF2e.Core
             && !EquippedShield.IsEquipped;
 
         public bool KnowsAnyActionBarSpell =>
-            KnowsForceBarrage || KnowsElectricArc || KnowsSnowball || KnowsBurningHands;
+            KnowsForceBarrage || KnowsElectricArc || KnowsSnowball || KnowsBurningHands || KnowsFear;
 
         // ─── State Queries ───
         public bool IsAlive => CurrentHP > 0;
