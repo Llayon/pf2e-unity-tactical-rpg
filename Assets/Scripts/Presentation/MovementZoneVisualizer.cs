@@ -24,6 +24,7 @@ namespace PF2e.Presentation
         [SerializeField] private EntityManager entityManager;
         [SerializeField] private GridManager gridManager;
         [SerializeField] private CellHighlightPool highlightPool;
+        [SerializeField] private TargetingController targetingController;
 
         [Header("Combat")]
         [SerializeField] private TurnManager turnManager;
@@ -101,6 +102,9 @@ namespace PF2e.Presentation
                 return;
             }
 
+            if (targetingController == null)
+                targetingController = FindFirstObjectByType<TargetingController>();
+
             // Selection-driven zone (exploration mode; guarded in handlers for combat)
             entityManager.OnEntitySelected += OnEntitySelected;
             entityManager.OnEntityDeselected += OnEntityDeselected;
@@ -121,6 +125,9 @@ namespace PF2e.Presentation
                 entityMover.OnCellReached += HandleCellReached;
                 entityMover.OnMovementComplete += HandleMovementComplete;
             }
+
+            if (targetingController != null)
+                targetingController.OnModeChanged += HandleTargetingModeChanged;
 
             floorController.OnGridVisualsToggled += SetVisualsEnabled;
             SetVisualsEnabled(floorController.GridVisualsEnabled);
@@ -147,6 +154,8 @@ namespace PF2e.Presentation
                 entityMover.OnCellReached -= HandleCellReached;
                 entityMover.OnMovementComplete -= HandleMovementComplete;
             }
+            if (targetingController != null)
+                targetingController.OnModeChanged -= HandleTargetingModeChanged;
             if (floorController != null)
                 floorController.OnGridVisualsToggled -= SetVisualsEnabled;
         }
@@ -175,11 +184,33 @@ namespace PF2e.Presentation
             ClearZone();
         }
 
+        private void HandleTargetingModeChanged(TargetingMode mode)
+        {
+            if (!visualsEnabled)
+                return;
+
+            if (ShouldSuppressZoneForTargeting())
+            {
+                ClearZone();
+                return;
+            }
+
+            if (IsCombatMode)
+            {
+                RefreshCombatZone();
+            }
+            else if (entityManager != null && entityManager.SelectedEntity.IsValid)
+            {
+                OnEntitySelected(entityManager.SelectedEntity);
+            }
+        }
+
         // ─── Combat zone refresh ────────────────────────────────────────────
 
         private void RefreshCombatZone()
         {
             if (!visualsEnabled) { ClearZone(); return; }
+            if (ShouldSuppressZoneForTargeting()) { ClearZone(); return; }
 
             if (turnManager == null || turnManager.State != TurnState.PlayerTurn)
             { ClearZone(); return; }
@@ -203,6 +234,7 @@ namespace PF2e.Presentation
         {
             if (IsCombatMode) return;
             if (!visualsEnabled) return;
+            if (ShouldSuppressZoneForTargeting()) { ClearZone(); return; }
 
             var data = entityManager.Registry.Get(handle);
             if (data == null || data.Team != Team.Player)
@@ -247,8 +279,18 @@ namespace PF2e.Presentation
         private void Update()
         {
             if (!visualsEnabled || !showingFor.IsValid) return;
+            if (ShouldSuppressZoneForTargeting())
+            {
+                ClearPathPreview();
+                return;
+            }
             if (movementPlaybackActive) return;
             UpdatePathPreview();
+        }
+
+        private bool ShouldSuppressZoneForTargeting()
+        {
+            return targetingController != null && targetingController.IsSpellTargetingActive;
         }
 
         private void ShowZoneFor(EntityHandle handle, int maxActions)

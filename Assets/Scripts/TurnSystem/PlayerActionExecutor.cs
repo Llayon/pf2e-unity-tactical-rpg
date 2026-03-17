@@ -44,6 +44,8 @@ namespace PF2e.TurnSystem
         private readonly List<ReactionOption> reactionBuffer = new(2);
         private readonly ConditionService conditionService = new();
         private readonly List<ConditionDelta> conditionDeltaBuffer = new(4);
+        private readonly List<Vector3Int> spellAreaCellBuffer = new(8);
+        private readonly List<EntityHandle> spellAreaTargetBuffer = new(8);
         private IReactionDecisionPolicy reactionPolicy;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -237,6 +239,17 @@ namespace PF2e.TurnSystem
             return reason == TargetingFailureReason.None
                 ? TargetingEvaluationResult.Success()
                 : TargetingEvaluationResult.FromFailure(reason);
+        }
+
+        public bool TryPreviewSpellAreaCell(SpellId spellId, Vector3Int aimCell, out SpellAreaPreview preview)
+        {
+            preview = spellId switch
+            {
+                SpellId.BurningHands => BuildBurningHandsPreview(aimCell),
+                _ => SpellAreaPreview.Invalid(spellId, aimCell, TargetingFailureReason.ModeNotSupported)
+            };
+
+            return preview.IsValid;
         }
 
         public bool TryExecuteStrideToCell(Vector3Int targetCell)
@@ -1180,6 +1193,24 @@ namespace PF2e.TurnSystem
             return turnManager.ActionsRemaining >= SpellCatalog.Get(SpellId.Snowball).minActionCost;
         }
 
+        public bool TryBeginBurningHands()
+        {
+            if (turnManager == null || entityManager == null)
+                return false;
+            if (!CanActNow())
+                return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return false;
+
+            var actorData = entityManager.Registry != null ? entityManager.Registry.Get(actor) : null;
+            if (actorData == null || !actorData.IsAlive || !actorData.KnowsBurningHands)
+                return false;
+
+            return turnManager.ActionsRemaining >= SpellCatalog.Get(SpellId.BurningHands).minActionCost;
+        }
+
         public bool TryConfirmSnowball(EntityHandle target, IRng rng = null)
         {
             if (turnManager == null || entityManager == null || entityManager.Registry == null)
@@ -1326,6 +1357,115 @@ namespace PF2e.TurnSystem
             return true;
         }
 
+        public bool TryConfirmBurningHands(Vector3Int aimCell, IRng rng = null)
+        {
+            if (turnManager == null || entityManager == null || entityManager.Registry == null)
+                return false;
+            if (!CanActNow())
+                return false;
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return false;
+
+            var actorData = entityManager.Registry.Get(actor);
+            if (actorData == null || !actorData.IsAlive || !actorData.KnowsBurningHands)
+                return false;
+
+            var definition = SpellCatalog.Get(SpellId.BurningHands);
+            if (turnManager.ActionsRemaining < definition.minActionCost)
+                return false;
+
+            var preview = BuildBurningHandsPreview(aimCell);
+            if (!preview.IsValid)
+                return false;
+
+            rng ??= UnityRng.Shared;
+
+            executingActor = actor;
+            turnManager.BeginActionExecution(actor, "Player.BurningHands");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = Time.time;
+#endif
+
+            int spellDc = SpellcastingRules.ComputeWizardSpellDc(actorData);
+            int rolledDamage = rng.RollDie(6) + rng.RollDie(6);
+            bool canResolveReactions = turnManager != null && shieldBlockAction != null && EnsureReactionPolicy();
+            var outcomes = new SpellResolvedTargetOutcome[preview.TargetCount];
+
+            for (int i = 0; i < preview.TargetCount; i++)
+            {
+                var target = preview.targets[i];
+                var targetData = entityManager.Registry.Get(target);
+                if (targetData == null || !targetData.IsAlive)
+                {
+                    executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                    executionStartTime = -1f;
+#endif
+                    turnManager.ActionCompleted();
+                    return false;
+                }
+
+                var save = CheckResolver.RollSave(targetData, SaveType.Reflex, spellDc, rng);
+                int resolvedDamage = CheckResolver.ApplyBasicSaveDamage(rolledDamage, save.degree);
+                int hpBefore = Mathf.Max(0, targetData.CurrentHP);
+                int appliedDamage = 0;
+                if (resolvedDamage > 0)
+                {
+                    appliedDamage = DamageApplicationService.ApplyDamage(
+                        actor,
+                        target,
+                        resolvedDamage,
+                        definition.damageType,
+                        definition.actionName,
+                        isCritical: save.degree == DegreeOfSuccess.CriticalFailure,
+                        entityManager,
+                        eventBus,
+                        initiativeOrder: canResolveReactions ? turnManager.InitiativeOrder : null,
+                        getEntity: canResolveReactions ? handle => entityManager.Registry.Get(handle) : null,
+                        canUseReaction: canResolveReactions ? handle => turnManager.CanUseReaction(handle) : null,
+                        reactionPolicy: canResolveReactions ? reactionPolicy : null,
+                        shieldBlockAction: canResolveReactions ? shieldBlockAction : null,
+                        reactionBuffer: canResolveReactions ? reactionBuffer : null,
+                        reactionPhase: ReactionTriggerPhase.PostHit,
+                        reactionOwnerTag: "PlayerActionExecutor.BurningHands");
+                }
+
+                outcomes[i] = new SpellResolvedTargetOutcome(
+                    target,
+                    shardCount: 0,
+                    shardRolls: null,
+                    rolledDamage: rolledDamage,
+                    attackResult: null,
+                    saveResult: save,
+                    appliedConditionType: null,
+                    appliedConditionValue: 0,
+                    appliedConditionRounds: 0,
+                    resolvedDamage: resolvedDamage,
+                    appliedDamage: appliedDamage,
+                    hpBefore: hpBefore,
+                    hpAfter: Mathf.Max(0, targetData.CurrentHP),
+                    targetDefeated: !targetData.IsAlive);
+            }
+
+            eventBus?.PublishSpellResolved(new SpellResolvedEvent(
+                SpellId.BurningHands,
+                actor,
+                definition.minActionCost,
+                spellDc,
+                spellAttackModifier: 0,
+                rolledDamage,
+                targetOutcomes: outcomes));
+
+            executingActor = EntityHandle.None;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            executionStartTime = -1f;
+#endif
+            turnManager.CompleteActionWithCost(definition.minActionCost);
+            return true;
+        }
+
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         private void Update()
         {
@@ -1390,6 +1530,96 @@ namespace PF2e.TurnSystem
             return line.hasLineOfSight
                 ? TargetingFailureReason.None
                 : TargetingFailureReason.NoLineOfSight;
+        }
+
+        private SpellAreaPreview BuildBurningHandsPreview(Vector3Int aimCell)
+        {
+            if (turnManager == null || entityManager == null || entityManager.Registry == null)
+                return SpellAreaPreview.Invalid(SpellId.BurningHands, aimCell, TargetingFailureReason.InvalidState);
+
+            var actor = turnManager.CurrentEntity;
+            if (!actor.IsValid)
+                return SpellAreaPreview.Invalid(SpellId.BurningHands, aimCell, TargetingFailureReason.InvalidState);
+
+            var actorData = entityManager.Registry.Get(actor);
+            if (actorData == null || !actorData.IsAlive)
+                return SpellAreaPreview.Invalid(SpellId.BurningHands, aimCell, TargetingFailureReason.InvalidState);
+
+            var definition = SpellCatalog.Get(SpellId.BurningHands);
+            if (aimCell == actorData.GridPosition)
+                return SpellAreaPreview.Invalid(SpellId.BurningHands, aimCell, TargetingFailureReason.InvalidTarget);
+            if (aimCell.y != actorData.GridPosition.y)
+                return SpellAreaPreview.Invalid(SpellId.BurningHands, aimCell, TargetingFailureReason.WrongElevation);
+
+            int distanceFeet = GridDistancePF2e.DistanceFeetXZ(actorData.GridPosition, aimCell);
+            if (distanceFeet > definition.rangeFeet)
+                return SpellAreaPreview.Invalid(SpellId.BurningHands, aimCell, TargetingFailureReason.OutOfRange);
+
+            spellAreaCellBuffer.Clear();
+            if (!BurningHandsConeResolver.TryResolve(actorData.GridPosition, aimCell, spellAreaCellBuffer, out int directionIndex))
+                return SpellAreaPreview.Invalid(SpellId.BurningHands, aimCell, TargetingFailureReason.InvalidTarget);
+
+            var gridData = entityManager.GridData;
+            int filteredCellCount = 0;
+            for (int i = 0; i < spellAreaCellBuffer.Count; i++)
+            {
+                if (gridData == null || gridData.HasCell(spellAreaCellBuffer[i]))
+                    filteredCellCount++;
+            }
+
+            var areaCells = new Vector3Int[filteredCellCount];
+            int areaCellIndex = 0;
+            for (int i = 0; i < spellAreaCellBuffer.Count; i++)
+            {
+                if (gridData == null || gridData.HasCell(spellAreaCellBuffer[i]))
+                    areaCells[areaCellIndex++] = spellAreaCellBuffer[i];
+            }
+
+            spellAreaTargetBuffer.Clear();
+            int allyCount = 0;
+            int enemyCount = 0;
+            foreach (var targetData in entityManager.Registry.GetAll())
+            {
+                if (targetData == null || !targetData.IsAlive || !targetData.Handle.IsValid)
+                    continue;
+                if (!ContainsCell(areaCells, targetData.GridPosition))
+                    continue;
+
+                spellAreaTargetBuffer.Add(targetData.Handle);
+                if (targetData.Team == actorData.Team)
+                    allyCount++;
+                else
+                    enemyCount++;
+            }
+
+            var warning = allyCount > 0
+                ? TargetingWarningReason.AlliesInArea
+                : TargetingWarningReason.None;
+
+            return new SpellAreaPreview(
+                SpellId.BurningHands,
+                aimCell,
+                TargetingFailureReason.None,
+                warning,
+                directionIndex,
+                areaCells,
+                spellAreaTargetBuffer.ToArray(),
+                allyCount,
+                enemyCount);
+        }
+
+        private static bool ContainsCell(Vector3Int[] areaCells, Vector3Int cell)
+        {
+            if (areaCells == null)
+                return false;
+
+            for (int i = 0; i < areaCells.Length; i++)
+            {
+                if (areaCells[i] == cell)
+                    return true;
+            }
+
+            return false;
         }
 
         private void ResetPendingRepositionState(bool rollbackActionLock)

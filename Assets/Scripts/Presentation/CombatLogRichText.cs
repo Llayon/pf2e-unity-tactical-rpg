@@ -38,6 +38,7 @@ namespace PF2e.Presentation
         public const string ForceColor = CombatUiPalette.ForceHex;
         public const string ElectricityColor = CombatUiPalette.ElectricityHex;
         public const string ColdColor = CombatUiPalette.ColdHex;
+        public const string FireColor = CombatUiPalette.FireHex;
 
         public static string EntityName(string name, Team team)
         {
@@ -205,6 +206,7 @@ namespace PF2e.Presentation
                 DamageType.Force => ForceColor,
                 DamageType.Electricity => ElectricityColor,
                 DamageType.Cold => ColdColor,
+                DamageType.Fire => FireColor,
                 _ => CombatUiPalette.TooltipBodyHex
             };
         }

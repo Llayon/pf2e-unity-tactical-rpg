@@ -68,12 +68,21 @@ namespace PF2e.TurnSystem
         public TargetingMode ActiveMode { get; private set; } = TargetingMode.None;
         public bool IsRepositionSelectingCell => ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectCell;
         public bool IsRepositionSelectingTarget => ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectTarget;
-        public bool IsSpellTargetingActive => ActiveMode == TargetingMode.ForceBarrage || ActiveMode == TargetingMode.ElectricArc || ActiveMode == TargetingMode.Snowball;
+        public bool IsSpellTargetingActive => ActiveMode == TargetingMode.ForceBarrage || ActiveMode == TargetingMode.ElectricArc || ActiveMode == TargetingMode.Snowball || ActiveMode == TargetingMode.SpellAoE;
+        public SpellId? ActiveSpellId => ActiveMode switch
+        {
+            TargetingMode.ForceBarrage => SpellId.ForceBarrage,
+            TargetingMode.ElectricArc => SpellId.ElectricArc,
+            TargetingMode.Snowball => SpellId.Snowball,
+            TargetingMode.SpellAoE => _spellAoESpellId,
+            _ => null
+        };
         public bool CanConfirmSpellTargeting => ActiveMode switch
         {
             TargetingMode.ForceBarrage => _onForceBarrageConfirmed != null && _forceBarrageTargets.Count > 0 && _forceBarrageTargets.Count <= _forceBarrageShardCount,
             TargetingMode.ElectricArc => _onElectricArcConfirmed != null && _electricArcTargets.Count > 0,
             TargetingMode.Snowball => _onSnowballConfirmed != null && _snowballTargets.Count > 0,
+            TargetingMode.SpellAoE => _onSpellAoEConfirmed != null && _spellAoESelectedCell.HasValue,
             _ => false
         };
         public bool CanUndoSpellSelection => ActiveMode switch
@@ -81,6 +90,7 @@ namespace PF2e.TurnSystem
             TargetingMode.ForceBarrage => _forceBarrageTargets.Count > 0,
             TargetingMode.ElectricArc => _electricArcTargets.Count > 0,
             TargetingMode.Snowball => _snowballTargets.Count > 0,
+            TargetingMode.SpellAoE => _spellAoESelectedCell.HasValue,
             _ => false
         };
         public int ForceBarrageAssignedShardCount => ActiveMode == TargetingMode.ForceBarrage ? _forceBarrageTargets.Count : 0;
@@ -90,6 +100,8 @@ namespace PF2e.TurnSystem
             : 0;
         public int ElectricArcSelectedTargetCount => ActiveMode == TargetingMode.ElectricArc ? _electricArcTargets.Count : 0;
         public int SnowballSelectedTargetCount => ActiveMode == TargetingMode.Snowball ? _snowballTargets.Count : 0;
+        public bool HasSelectedSpellAreaCell => ActiveMode == TargetingMode.SpellAoE && _spellAoESelectedCell.HasValue;
+        public Vector3Int? SelectedSpellAreaCell => ActiveMode == TargetingMode.SpellAoE ? _spellAoESelectedCell : null;
         public IReadOnlyList<EntityHandle> ForceBarrageAssignedTargets => _forceBarrageTargets;
         public IReadOnlyList<EntityHandle> ElectricArcSelectedTargets => _electricArcTargets;
         public IReadOnlyList<EntityHandle> SnowballSelectedTargets => _snowballTargets;
@@ -114,6 +126,10 @@ namespace PF2e.TurnSystem
         private Func<IReadOnlyList<EntityHandle>, bool> _onSnowballConfirmed;
         private Action _onSnowballCancelled;
         private readonly List<EntityHandle> _snowballTargets = new(1);
+        private Func<Vector3Int, bool> _onSpellAoEConfirmed;
+        private Action _onSpellAoECancelled;
+        private SpellId _spellAoESpellId = SpellId.BurningHands;
+        private Vector3Int? _spellAoESelectedCell;
         private RepositionPhase _repositionPhase = RepositionPhase.None;
 
 #if UNITY_EDITOR
@@ -176,6 +192,10 @@ namespace PF2e.TurnSystem
             _onSnowballConfirmed = null;
             _onSnowballCancelled = null;
             _snowballTargets.Clear();
+            _onSpellAoEConfirmed = null;
+            _onSpellAoECancelled = null;
+            _spellAoESpellId = SpellId.BurningHands;
+            _spellAoESelectedCell = null;
             _repositionPhase = mode == TargetingMode.Reposition ? RepositionPhase.SelectTarget : RepositionPhase.None;
             OnModeChanged?.Invoke(ActiveMode);
         }
@@ -202,6 +222,10 @@ namespace PF2e.TurnSystem
             _onSnowballConfirmed = null;
             _onSnowballCancelled = null;
             _snowballTargets.Clear();
+            _onSpellAoEConfirmed = null;
+            _onSpellAoECancelled = null;
+            _spellAoESpellId = SpellId.BurningHands;
+            _spellAoESelectedCell = null;
             _repositionPhase = RepositionPhase.None;
             OnModeChanged?.Invoke(ActiveMode);
         }
@@ -232,6 +256,10 @@ namespace PF2e.TurnSystem
             _onSnowballConfirmed = null;
             _onSnowballCancelled = null;
             _snowballTargets.Clear();
+            _onSpellAoEConfirmed = null;
+            _onSpellAoECancelled = null;
+            _spellAoESpellId = SpellId.BurningHands;
+            _spellAoESelectedCell = null;
             _repositionPhase = RepositionPhase.SelectTarget;
             OnModeChanged?.Invoke(ActiveMode);
         }
@@ -258,6 +286,10 @@ namespace PF2e.TurnSystem
             _onSnowballConfirmed = null;
             _onSnowballCancelled = null;
             _snowballTargets.Clear();
+            _onSpellAoEConfirmed = null;
+            _onSpellAoECancelled = null;
+            _spellAoESpellId = SpellId.BurningHands;
+            _spellAoESelectedCell = null;
             _repositionPhase = RepositionPhase.None;
             OnModeChanged?.Invoke(ActiveMode);
         }
@@ -283,6 +315,10 @@ namespace PF2e.TurnSystem
             _onSnowballConfirmed = null;
             _onSnowballCancelled = null;
             _snowballTargets.Clear();
+            _onSpellAoEConfirmed = null;
+            _onSpellAoECancelled = null;
+            _spellAoESpellId = SpellId.BurningHands;
+            _spellAoESelectedCell = null;
             _repositionPhase = RepositionPhase.None;
             OnModeChanged?.Invoke(ActiveMode);
         }
@@ -308,6 +344,40 @@ namespace PF2e.TurnSystem
             _onSnowballConfirmed = onConfirmed;
             _onSnowballCancelled = onCancelled;
             _snowballTargets.Clear();
+            _onSpellAoEConfirmed = null;
+            _onSpellAoECancelled = null;
+            _spellAoESpellId = SpellId.BurningHands;
+            _spellAoESelectedCell = null;
+            _repositionPhase = RepositionPhase.None;
+            OnModeChanged?.Invoke(ActiveMode);
+        }
+
+        public void BeginSpellAoETargeting(
+            SpellId spellId,
+            Func<Vector3Int, bool> onConfirmed,
+            Action onCancelled = null)
+        {
+            ActiveMode = TargetingMode.SpellAoE;
+            _onEntityConfirmed = null;
+            _onCellConfirmed = null;
+            _onCancelled = null;
+            _onRepositionTargetConfirmed = null;
+            _onRepositionCellConfirmed = null;
+            _onRepositionCellCancelled = null;
+            _onForceBarrageConfirmed = null;
+            _onForceBarrageCancelled = null;
+            _forceBarrageTargets.Clear();
+            _forceBarrageShardCount = 0;
+            _onElectricArcConfirmed = null;
+            _onElectricArcCancelled = null;
+            _electricArcTargets.Clear();
+            _onSnowballConfirmed = null;
+            _onSnowballCancelled = null;
+            _snowballTargets.Clear();
+            _onSpellAoEConfirmed = onConfirmed;
+            _onSpellAoECancelled = onCancelled;
+            _spellAoESpellId = spellId;
+            _spellAoESelectedCell = null;
             _repositionPhase = RepositionPhase.None;
             OnModeChanged?.Invoke(ActiveMode);
         }
@@ -352,6 +422,18 @@ namespace PF2e.TurnSystem
 
                     return false;
 
+                case TargetingMode.SpellAoE:
+                    if (!CanConfirmSpellTargeting || !_spellAoESelectedCell.HasValue)
+                        return false;
+
+                    if (_onSpellAoEConfirmed.Invoke(_spellAoESelectedCell.Value))
+                    {
+                        ClearTargeting();
+                        return true;
+                    }
+
+                    return false;
+
                 default:
                     return false;
             }
@@ -385,6 +467,14 @@ namespace PF2e.TurnSystem
                     OnModeChanged?.Invoke(ActiveMode);
                     return true;
 
+                case TargetingMode.SpellAoE:
+                    if (!_spellAoESelectedCell.HasValue)
+                        return false;
+
+                    _spellAoESelectedCell = null;
+                    OnModeChanged?.Invoke(ActiveMode);
+                    return true;
+
                 default:
                     return false;
             }
@@ -401,9 +491,33 @@ namespace PF2e.TurnSystem
                 _onElectricArcCancelled?.Invoke();
             else if (ActiveMode == TargetingMode.Snowball)
                 _onSnowballCancelled?.Invoke();
+            else if (ActiveMode == TargetingMode.SpellAoE)
+                _onSpellAoECancelled?.Invoke();
             else
                 _onCancelled?.Invoke();
             ClearTargeting();
+        }
+
+        public bool TryPreviewSpellAreaCell(Vector3Int cell, out SpellAreaPreview preview)
+        {
+            if (ActiveMode != TargetingMode.SpellAoE || actionExecutor == null)
+            {
+                preview = SpellAreaPreview.Invalid(_spellAoESpellId, cell, TargetingFailureReason.ModeNotSupported);
+                return false;
+            }
+
+            return actionExecutor.TryPreviewSpellAreaCell(_spellAoESpellId, cell, out preview);
+        }
+
+        public bool TryGetSelectedSpellAreaPreview(out SpellAreaPreview preview)
+        {
+            if (ActiveMode != TargetingMode.SpellAoE || !_spellAoESelectedCell.HasValue)
+            {
+                preview = SpellAreaPreview.Invalid(_spellAoESpellId, Vector3Int.zero, TargetingFailureReason.InvalidTarget);
+                return false;
+            }
+
+            return TryPreviewSpellAreaCell(_spellAoESelectedCell.Value, out preview);
         }
 
         /// <summary>
@@ -481,6 +595,7 @@ namespace PF2e.TurnSystem
                 case TargetingMode.ForceBarrage:
                 case TargetingMode.ElectricArc:
                 case TargetingMode.Snowball:
+                case TargetingMode.SpellAoE:
                     if (ActiveMode == TargetingMode.Reposition && _repositionPhase == RepositionPhase.SelectCell)
                         return TargetingEvaluationResult.FromFailure(TargetingFailureReason.ModeNotSupported);
 
@@ -656,6 +771,18 @@ namespace PF2e.TurnSystem
                     }
                     return TargetingResult.InvalidTarget;
 
+                case TargetingMode.SpellAoE:
+                    if (!TryPreviewSpellAreaCell(cell, out var spellAreaPreview))
+                        return MapFailureReasonToResult(spellAreaPreview.failureReason);
+
+                    if (_spellAoESelectedCell.HasValue && _spellAoESelectedCell.Value == cell)
+                        _spellAoESelectedCell = null;
+                    else
+                        _spellAoESelectedCell = cell;
+
+                    OnModeChanged?.Invoke(ActiveMode);
+                    return TargetingResult.Success;
+
                 // future: SpellAoE (place template at cell)
                 default:
                     return TargetingResult.ModeNotSupported;
@@ -737,6 +864,21 @@ namespace PF2e.TurnSystem
             };
         }
 
+        private static TargetingResult MapFailureReasonToResult(TargetingFailureReason reason)
+        {
+            return reason switch
+            {
+                TargetingFailureReason.None => TargetingResult.Success,
+                TargetingFailureReason.InvalidTarget => TargetingResult.InvalidTarget,
+                TargetingFailureReason.NotAlive => TargetingResult.NotAlive,
+                TargetingFailureReason.SelfTarget => TargetingResult.SelfTarget,
+                TargetingFailureReason.WrongTeam => TargetingResult.WrongTeam,
+                TargetingFailureReason.OutOfRange => TargetingResult.OutOfRange,
+                TargetingFailureReason.ModeNotSupported => TargetingResult.ModeNotSupported,
+                _ => TargetingResult.InvalidTarget
+            };
+        }
+
         private void ClearTargeting()
         {
             bool modeChanged = ActiveMode != TargetingMode.None;
@@ -757,6 +899,10 @@ namespace PF2e.TurnSystem
             _onSnowballConfirmed = null;
             _onSnowballCancelled = null;
             _snowballTargets.Clear();
+            _onSpellAoEConfirmed = null;
+            _onSpellAoECancelled = null;
+            _spellAoESpellId = SpellId.BurningHands;
+            _spellAoESelectedCell = null;
             _repositionPhase = RepositionPhase.None;
             if (modeChanged)
                 OnModeChanged?.Invoke(TargetingMode.None);

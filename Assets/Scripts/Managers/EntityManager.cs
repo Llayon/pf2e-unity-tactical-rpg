@@ -276,6 +276,7 @@ private void OnValidate()
             wizard.KnowsForceBarrage = true;
             wizard.KnowsElectricArc = true;
             wizard.KnowsSnowball = true;
+            wizard.KnowsBurningHands = true;
             wizard.Portrait = ResolvePortrait(wizard.EncounterActorId);
             CreateEntity(wizard, new Vector3Int(1, 0, 5));
 

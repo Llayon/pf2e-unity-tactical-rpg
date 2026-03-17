@@ -227,6 +227,12 @@ namespace PF2e.Presentation
                 return;
             }
 
+            if (mode == TargetingMode.SpellAoE && targetingController.ActiveSpellId == SpellId.BurningHands)
+            {
+                ApplyMessage(GetBurningHandsHintMessage());
+                return;
+            }
+
             TargetingHintMessage message;
             bool strikeIsRanged = mode == TargetingMode.Strike && targetingController.IsCurrentStrikeWeaponRanged();
             if (mode != TargetingMode.None && hoveredEntity.HasValue && hoveredEntity.Value.IsValid)
@@ -264,9 +270,68 @@ namespace PF2e.Presentation
                         TargetingHintTone.Info,
                         $"Snowball: choose 1 visible creature within 30 ft ({targetingController.SnowballSelectedTargetCount}/1 selected, Confirm/Esc/Backspace)");
 
+                case TargetingMode.SpellAoE:
+                    return new TargetingHintMessage(
+                        TargetingHintTone.Info,
+                        "Burning Hands: choose a cell or creature to set the cone (Click to lock, Confirm/Esc)");
+
                 default:
                     return TargetingReasonFormatter.ForModeNoHover(mode, strikeIsRanged);
             }
+        }
+
+        private TargetingHintMessage GetBurningHandsHintMessage()
+        {
+            if (targetingController == null)
+                return new TargetingHintMessage(TargetingHintTone.Info, "Burning Hands: choose a cone direction");
+
+            SpellAreaPreview preview = default;
+            bool locked = targetingController.HasSelectedSpellAreaCell;
+            bool hasPreview = locked
+                ? targetingController.TryGetSelectedSpellAreaPreview(out preview)
+                : hoveredCell.HasValue && targetingController.TryPreviewSpellAreaCell(hoveredCell.Value, out preview);
+
+            if (hasPreview)
+            {
+                var tone = preview.HasWarning
+                    ? TargetingHintTone.Warning
+                    : TargetingHintTone.Valid;
+
+                string prefix = locked
+                    ? "Burning Hands: cone locked"
+                    : "Burning Hands: preview";
+
+                string suffix = locked
+                    ? "Confirm/Esc/Backspace"
+                    : "Click to lock, Confirm/Esc";
+
+                string warning = preview.allyCount > 0
+                    ? " Warning: ally in area."
+                    : string.Empty;
+
+                return new TargetingHintMessage(
+                    tone,
+                    $"{prefix} ({preview.TargetCount} target(s): {preview.enemyCount} enemy, {preview.allyCount} ally). {suffix}.{warning}");
+            }
+
+            if (hoveredCell.HasValue && targetingController.TryPreviewSpellAreaCell(hoveredCell.Value, out preview) == false)
+            {
+                string invalidText = preview.failureReason switch
+                {
+                    TargetingFailureReason.OutOfRange => "Burning Hands: aim is out of range (15 ft)",
+                    TargetingFailureReason.WrongElevation => "Burning Hands: aim cell is on a different elevation",
+                    TargetingFailureReason.InvalidState => "Burning Hands: action unavailable",
+                    _ => "Burning Hands: choose a different cone direction"
+                };
+
+                return new TargetingHintMessage(TargetingHintTone.Invalid, invalidText);
+            }
+
+            return new TargetingHintMessage(
+                TargetingHintTone.Info,
+                locked
+                    ? "Burning Hands: cone locked (Confirm/Esc/Backspace)"
+                    : "Burning Hands: choose a cell or creature to set the cone");
         }
 
         private void ApplyMessage(TargetingHintMessage message)

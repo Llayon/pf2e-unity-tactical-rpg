@@ -293,6 +293,31 @@ namespace PF2e.Presentation
             return sb.ToString();
         }
 
+        public static string BurningHandsBreakdown(int spellDc, int rolledDamage, string[] targetLines)
+        {
+            var sb = new StringBuilder(384);
+            AppendSectionHeader(sb, "Burning Hands");
+            sb.Append('\n');
+            AppendContextLine(sb, $"2 actions • 15 ft cone • Reflex DC {spellDc} • rolled {rolledDamage} fire");
+
+            if (targetLines != null && targetLines.Length > 0)
+            {
+                sb.Append('\n');
+                sb.Append('\n');
+                AppendSectionHeader(sb, "Targets");
+                for (int i = 0; i < targetLines.Length; i++)
+                {
+                    if (string.IsNullOrEmpty(targetLines[i]))
+                        continue;
+
+                    sb.Append('\n');
+                    sb.Append(BuildDescriptionText($"• {targetLines[i]}"));
+                }
+            }
+
+            return sb.ToString();
+        }
+
         public static string BuildResultExtendedBody(
             string coreBody,
             string ruleTitle,
@@ -397,6 +422,7 @@ namespace PF2e.Presentation
                 DamageType.Force => "Force damage is pure magical impact that strikes without relying on a weapon or element.",
                 DamageType.Electricity => "Electricity damage comes from lightning, shocks, and crackling magical arcs.",
                 DamageType.Cold => "Cold damage numbs, freezes, and slows with biting frost and winter magic.",
+                DamageType.Fire => "Fire damage burns with flame, heat, and explosive magical bursts.",
                 _ => "Damage type description unavailable."
             };
         }

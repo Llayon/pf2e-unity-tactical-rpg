@@ -96,6 +96,14 @@ namespace PF2e.TurnSystem
                 return;
             }
 
+            if (targetingController != null && targetingController.ActiveMode == TargetingMode.SpellAoE)
+            {
+                var data = entityManager?.Registry?.Get(handle);
+                if (data != null)
+                    targetingController.TryConfirmCell(data.GridPosition);
+                return;
+            }
+
             if (actionExecutor.IsBusy) return;
             targetingController.TryConfirmEntity(handle);
         }
@@ -254,6 +262,14 @@ namespace PF2e.TurnSystem
                     targets => targets != null
                         && targets.Count > 0
                         && actionExecutor.TryConfirmSnowball(targets[0]));
+                return;
+            }
+
+            if (actorData.KnowsBurningHands && actionExecutor.TryBeginBurningHands())
+            {
+                targetingController.BeginSpellAoETargeting(
+                    SpellId.BurningHands,
+                    cell => actionExecutor.TryConfirmBurningHands(cell));
             }
         }
 

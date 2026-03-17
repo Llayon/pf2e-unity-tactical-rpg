@@ -53,6 +53,7 @@ namespace PF2e.Presentation
                 SpellId.ForceBarrage => BuildForceBarrageSummary(in e),
                 SpellId.ElectricArc => BuildElectricArcSummary(in e),
                 SpellId.Snowball => BuildSnowballSummary(in e),
+                SpellId.BurningHands => BuildBurningHandsSummary(in e),
                 _ => CombatLogRichText.Verb("resolves.")
             };
 
@@ -162,6 +163,37 @@ namespace PF2e.Presentation
             return sb.ToString();
         }
 
+        private string BuildBurningHandsSummary(in SpellResolvedEvent e)
+        {
+            var sb = new StringBuilder(256);
+            for (int i = 0; i < e.targetOutcomes.Length; i++)
+            {
+                if (i > 0)
+                    sb.Append(CombatLogRichText.Verb("; "));
+
+                ref readonly var outcome = ref e.targetOutcomes[i];
+                sb.Append(GetTargetName(outcome.target, rich: true));
+                sb.Append(' ');
+
+                if (outcome.saveResult.HasValue)
+                {
+                    sb.Append(CombatLogRichText.DegreeShort(outcome.saveResult.Value.degree));
+                    sb.Append(CombatLogRichText.Verb(", "));
+                }
+
+                if (outcome.appliedDamage > 0)
+                    sb.Append(CombatLogRichText.DamageAmountAndType(outcome.appliedDamage, DamageType.Fire));
+                else
+                    sb.Append(CombatLogRichText.Verb("no damage"));
+            }
+
+            if (e.targetOutcomes.Length <= 0)
+                sb.Append(CombatLogRichText.Verb("the cone hits no creatures"));
+
+            sb.Append('.');
+            return sb.ToString();
+        }
+
         private string BuildTooltipBody(in SpellResolvedEvent e)
         {
             string[] targetLines = new string[e.targetOutcomes.Length];
@@ -175,6 +207,7 @@ namespace PF2e.Presentation
                     SpellId.ForceBarrage => $"{targetName}: {outcome.shardCount} shard(s) [{FormatShardRolls(outcome.shardRolls)}] => {outcome.appliedDamage} force ({outcome.hpBefore}->{outcome.hpAfter} HP)",
                     SpellId.ElectricArc => $"{targetName}: {FormatSaveResult(outcome.saveResult)} => {outcome.appliedDamage} electricity ({outcome.hpBefore}->{outcome.hpAfter} HP)",
                     SpellId.Snowball => $"{targetName}: {FormatAttackResult(outcome.attackResult)} => {BuildSnowballEffectSummary(in outcome)} ({outcome.hpBefore}->{outcome.hpAfter} HP)",
+                    SpellId.BurningHands => $"{targetName}: {FormatSaveResult(outcome.saveResult)} => {outcome.appliedDamage} fire ({outcome.hpBefore}->{outcome.hpAfter} HP)",
                     _ => targetName
                 };
             }
@@ -184,6 +217,7 @@ namespace PF2e.Presentation
                 SpellId.ForceBarrage => TooltipTextBuilder.ForceBarrageBreakdown(e.actionCost, targetLines),
                 SpellId.ElectricArc => TooltipTextBuilder.ElectricArcBreakdown(e.spellDc, e.rolledDamage, targetLines),
                 SpellId.Snowball => TooltipTextBuilder.SnowballBreakdown(e.spellAttackModifier, e.rolledDamage, targetLines),
+                SpellId.BurningHands => TooltipTextBuilder.BurningHandsBreakdown(e.spellDc, e.rolledDamage, targetLines),
                 _ => string.Empty
             };
         }

@@ -9,6 +9,7 @@ namespace PF2e.TurnSystem
     {
         None = 0,
         ConcealmentFlatCheck = 1 << 0,
-        CoverAcBonus = 1 << 1
+        CoverAcBonus = 1 << 1,
+        AlliesInArea = 1 << 2
     }
 }

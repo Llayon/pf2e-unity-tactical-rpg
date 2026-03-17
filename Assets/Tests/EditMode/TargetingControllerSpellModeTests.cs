@@ -188,6 +188,38 @@ namespace PF2e.Tests
             Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
         }
 
+        [Test]
+        public void BurningHands_CellSelection_RequiresExplicitConfirm()
+        {
+            using var ctx = new SpellTargetingContext();
+            var actor = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(0, 0, 0));
+            ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(0, 0, 2));
+            ctx.SetCurrentActor(actor);
+
+            int confirmCalls = 0;
+            Vector3Int confirmedCell = default;
+            ctx.Controller.BeginSpellAoETargeting(
+                SpellId.BurningHands,
+                cell =>
+                {
+                    confirmCalls++;
+                    confirmedCell = cell;
+                    return true;
+                });
+
+            var aimCell = new Vector3Int(0, 0, 1);
+            Assert.AreEqual(TargetingResult.Success, ctx.Controller.TryConfirmCell(aimCell));
+            Assert.AreEqual(TargetingMode.SpellAoE, ctx.Controller.ActiveMode);
+            Assert.IsTrue(ctx.Controller.HasSelectedSpellAreaCell);
+            Assert.AreEqual(aimCell, ctx.Controller.SelectedSpellAreaCell.Value);
+            Assert.AreEqual(0, confirmCalls);
+
+            Assert.IsTrue(ctx.Controller.TryConfirmSpellTargeting());
+            Assert.AreEqual(1, confirmCalls);
+            Assert.AreEqual(aimCell, confirmedCell);
+            Assert.AreEqual(TargetingMode.None, ctx.Controller.ActiveMode);
+        }
+
         private sealed class SpellTargetingContext : System.IDisposable
         {
             private readonly bool oldIgnoreLogs;
@@ -196,6 +228,7 @@ namespace PF2e.Tests
             public CombatEventBus EventBus { get; }
             public EntityManager EntityManager { get; }
             public TurnManager TurnManager { get; }
+            public PlayerActionExecutor ActionExecutor { get; }
             public TargetingController Controller { get; }
             public EntityRegistry Registry { get; }
 
@@ -225,15 +258,23 @@ namespace PF2e.Tests
                 SetPrivateField(TurnManager, "currentIndex", 0);
                 SetPrivateField(TurnManager, "state", TurnState.PlayerTurn);
 
+                var executorGo = new GameObject("Executor");
+                executorGo.transform.SetParent(root.transform);
+                ActionExecutor = executorGo.AddComponent<PlayerActionExecutor>();
+                SetPrivateField(ActionExecutor, "turnManager", TurnManager);
+                SetPrivateField(ActionExecutor, "entityManager", EntityManager);
+                SetPrivateField(ActionExecutor, "eventBus", EventBus);
+
                 var targetingGo = new GameObject("TargetingController");
                 targetingGo.transform.SetParent(root.transform);
                 Controller = targetingGo.AddComponent<TargetingController>();
+                SetPrivateField(Controller, "actionExecutor", ActionExecutor);
                 SetPrivateField(Controller, "entityManager", EntityManager);
                 SetPrivateField(Controller, "turnManager", TurnManager);
                 SetPrivateField(Controller, "eventBus", EventBus);
             }
 
-            public EntityHandle RegisterEntity(string name, Team team)
+            public EntityHandle RegisterEntity(string name, Team team, Vector3Int gridPosition = default)
             {
                 return Registry.Register(new EntityData
                 {
@@ -243,7 +284,8 @@ namespace PF2e.Tests
                     MaxHP = 10,
                     CurrentHP = 10,
                     Speed = 25,
-                    Size = CreatureSize.Medium
+                    Size = CreatureSize.Medium,
+                    GridPosition = gridPosition
                 });
             }
 

@@ -25,12 +25,22 @@ namespace PF2e.Presentation
         [Header("Reposition Cell Highlight")]
         [SerializeField] private Color repositionDestinationColor = new Color(0.25f, 0.8f, 1f, 0.35f);
 
+        [Header("Spell Area Highlight")]
+        [SerializeField] private Color spellAreaPreviewColor = new Color(1f, 0.48f, 0.12f, 0.76f);
+        [SerializeField] private Color spellAreaSelectedColor = new Color(1f, 0.62f, 0.18f, 0.9f);
+        [SerializeField] private Color spellAreaWarningColor = new Color(1f, 0.26f, 0.16f, 0.92f);
+        [SerializeField] private float spellAreaHighlightLift = 0.04f;
+        [SerializeField] private float spellAreaHighlightScale = 0.62f;
+        [SerializeField] private float spellAreaHighlightYawDegrees = 45f;
+
         private readonly HashSet<EntityHandle> eligibleHandles = new HashSet<EntityHandle>();
         private readonly Dictionary<EntityHandle, TargetingTintController> tintCache = new Dictionary<EntityHandle, TargetingTintController>();
         private readonly List<GameObject> repositionCellHighlights = new List<GameObject>();
+        private readonly List<GameObject> spellAreaHighlights = new List<GameObject>();
         private readonly List<Vector3Int> repositionDestinationsBuffer = new List<Vector3Int>();
 
         private EntityHandle? hoveredEntity;
+        private Vector3Int? hoveredCell;
 
 #if UNITY_EDITOR
         private void OnValidate()
@@ -53,9 +63,14 @@ namespace PF2e.Presentation
                 return;
             }
 
+            hoveredEntity = gridManager.HoveredEntity;
+            hoveredCell = gridManager.HoveredCell;
+
             targetingController.OnModeChanged += HandleModeChanged;
             gridManager.OnEntityHovered += HandleEntityHovered;
             gridManager.OnEntityUnhovered += HandleEntityUnhovered;
+            gridManager.OnCellHovered += HandleCellHovered;
+            gridManager.OnCellUnhovered += HandleCellUnhovered;
 
             eventBus.OnCombatStartedTyped += HandleCombatStarted;
             eventBus.OnCombatEndedTyped += HandleCombatEnded;
@@ -77,6 +92,8 @@ namespace PF2e.Presentation
             {
                 gridManager.OnEntityHovered -= HandleEntityHovered;
                 gridManager.OnEntityUnhovered -= HandleEntityUnhovered;
+                gridManager.OnCellHovered -= HandleCellHovered;
+                gridManager.OnCellUnhovered -= HandleCellUnhovered;
             }
 
             if (eventBus != null)
@@ -114,6 +131,20 @@ namespace PF2e.Presentation
         private void HandleEntityUnhovered()
         {
             hoveredEntity = null;
+            if (IsTargetingActive())
+                RecomputeVisuals();
+        }
+
+        private void HandleCellHovered(Vector3Int cell)
+        {
+            hoveredCell = cell;
+            if (IsTargetingActive())
+                RecomputeVisuals();
+        }
+
+        private void HandleCellUnhovered()
+        {
+            hoveredCell = null;
             if (IsTargetingActive())
                 RecomputeVisuals();
         }
@@ -168,6 +199,7 @@ namespace PF2e.Presentation
             ClearTrackedVisualStates();
             eligibleHandles.Clear();
             ClearRepositionCellHighlights();
+            ClearSpellAreaHighlights();
 
             if (!IsTargetingActive())
                 return;
@@ -175,6 +207,12 @@ namespace PF2e.Presentation
             if (targetingController.IsRepositionSelectingCell)
             {
                 ShowRepositionDestinationHighlights();
+                return;
+            }
+
+            if (targetingController.ActiveMode == TargetingMode.SpellAoE)
+            {
+                ShowSpellAreaPreviewHighlights();
                 return;
             }
 
@@ -261,9 +299,13 @@ namespace PF2e.Presentation
         {
             ClearTrackedVisualStates();
             ClearRepositionCellHighlights();
+            ClearSpellAreaHighlights();
             eligibleHandles.Clear();
             if (clearHover)
+            {
                 hoveredEntity = null;
+                hoveredCell = null;
+            }
         }
 
         private void ShowRepositionDestinationHighlights()
@@ -296,6 +338,63 @@ namespace PF2e.Presentation
 
             repositionCellHighlights.Clear();
             repositionDestinationsBuffer.Clear();
+        }
+
+        private void ShowSpellAreaPreviewHighlights()
+        {
+            if (targetingController == null || cellHighlightPool == null || gridManager == null || gridManager.Data == null || gridManager.Config == null)
+                return;
+
+            SpellAreaPreview preview = default;
+            if (targetingController.HasSelectedSpellAreaCell)
+            {
+                if (!targetingController.TryGetSelectedSpellAreaPreview(out preview))
+                    return;
+            }
+            else
+            {
+                if (!hoveredCell.HasValue || !targetingController.TryPreviewSpellAreaCell(hoveredCell.Value, out preview))
+                    return;
+            }
+
+            Color color = preview.HasWarning
+                ? spellAreaWarningColor
+                : targetingController.HasSelectedSpellAreaCell
+                    ? spellAreaSelectedColor
+                    : spellAreaPreviewColor;
+
+            float cellSize = gridManager.Config.cellWorldSize;
+            for (int i = 0; i < preview.areaCells.Length; i++)
+            {
+                var worldPos = gridManager.Data.CellToWorld(preview.areaCells[i]);
+                var go = cellHighlightPool.ShowHighlight(worldPos, cellSize, color);
+                if (go != null)
+                {
+                    var transform = go.transform;
+                    transform.position += Vector3.up * spellAreaHighlightLift;
+                    transform.rotation = Quaternion.Euler(90f, spellAreaHighlightYawDegrees, 0f);
+                    transform.localScale = new Vector3(cellSize * spellAreaHighlightScale, 1f, cellSize * spellAreaHighlightScale);
+                    spellAreaHighlights.Add(go);
+                }
+            }
+
+            for (int i = 0; i < preview.targets.Length; i++)
+                SetTintState(preview.targets[i], TargetingTintState.HoverValid);
+        }
+
+        private void ClearSpellAreaHighlights()
+        {
+            if (cellHighlightPool != null)
+            {
+                for (int i = 0; i < spellAreaHighlights.Count; i++)
+                {
+                    var go = spellAreaHighlights[i];
+                    if (go != null)
+                        cellHighlightPool.Return(go);
+                }
+            }
+
+            spellAreaHighlights.Clear();
         }
     }
 }

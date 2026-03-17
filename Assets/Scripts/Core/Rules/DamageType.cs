@@ -7,6 +7,7 @@ namespace PF2e.Core
         Slashing,
         Force,
         Electricity,
-        Cold
+        Cold,
+        Fire
     }
 }

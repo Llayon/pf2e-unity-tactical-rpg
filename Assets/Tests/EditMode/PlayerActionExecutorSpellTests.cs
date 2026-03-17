@@ -359,6 +359,97 @@ namespace PF2e.Tests
             }
         }
 
+        [Test]
+        public void TryConfirmBurningHands_MultipleTargets_UsesBasicSavesAndSpendsTwoActions()
+        {
+            using var ctx = new SpellExecutorContext();
+
+            var actor = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(0, 0, 0), intelligence: 18);
+            var targetA = ctx.RegisterEntity("Goblin_A", Team.Enemy, new Vector3Int(0, 0, 2), dexterity: 10, hp: 12);
+            var targetB = ctx.RegisterEntity("Goblin_B", Team.Enemy, new Vector3Int(1, 0, 2), dexterity: 18, hp: 12);
+            ctx.Registry.Get(actor).KnowsBurningHands = true;
+            ctx.Registry.Get(targetB).ReflexProf = ProficiencyRank.Expert;
+            ctx.SetCurrentActor(actor, actionsRemaining: 3);
+
+            var damageEvents = new List<DamageAppliedEvent>();
+            SpellResolvedEvent lastSpell = default;
+            ctx.EventBus.OnDamageAppliedTyped += HandleDamage;
+            ctx.EventBus.OnSpellResolvedTyped += HandleSpell;
+            try
+            {
+                bool executed = ctx.Executor.TryConfirmBurningHands(
+                    new Vector3Int(0, 0, 1),
+                    rng: new FixedRng(d20Rolls: new[] { 5, 10 }, dieRolls: new[] { 3, 2 }));
+
+                Assert.IsTrue(executed);
+                Assert.AreEqual(2, damageEvents.Count);
+                Assert.AreEqual(5, damageEvents[0].amount);
+                Assert.AreEqual(targetA, damageEvents[0].target);
+                Assert.AreEqual(2, damageEvents[1].amount);
+                Assert.AreEqual(targetB, damageEvents[1].target);
+                Assert.AreEqual(1, ctx.Registry.Get(actor).ActionsRemaining);
+
+                Assert.AreEqual(SpellId.BurningHands, lastSpell.spellId);
+                Assert.AreEqual(17, lastSpell.spellDc);
+                Assert.AreEqual(5, lastSpell.rolledDamage);
+                Assert.AreEqual(2, lastSpell.targetOutcomes.Length);
+                Assert.AreEqual(DegreeOfSuccess.Failure, lastSpell.targetOutcomes[0].saveResult.Value.degree);
+                Assert.AreEqual(DegreeOfSuccess.Success, lastSpell.targetOutcomes[1].saveResult.Value.degree);
+                Assert.AreEqual(5, lastSpell.targetOutcomes[0].appliedDamage);
+                Assert.AreEqual(2, lastSpell.targetOutcomes[1].appliedDamage);
+            }
+            finally
+            {
+                ctx.EventBus.OnDamageAppliedTyped -= HandleDamage;
+                ctx.EventBus.OnSpellResolvedTyped -= HandleSpell;
+            }
+
+            void HandleDamage(in DamageAppliedEvent e)
+            {
+                damageEvents.Add(e);
+            }
+
+            void HandleSpell(in SpellResolvedEvent e)
+            {
+                lastSpell = e;
+            }
+        }
+
+        [Test]
+        public void TryConfirmBurningHands_AlliesInCone_AppliesFriendlyFire()
+        {
+            using var ctx = new SpellExecutorContext();
+
+            var actor = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(0, 0, 0), intelligence: 18);
+            var ally = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(-1, 0, 2), hp: 20);
+            var enemy = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(0, 0, 2), hp: 12);
+            ctx.Registry.Get(actor).KnowsBurningHands = true;
+            ctx.SetCurrentActor(actor, actionsRemaining: 3);
+
+            var damageTargets = new List<EntityHandle>();
+            ctx.EventBus.OnDamageAppliedTyped += HandleDamage;
+            try
+            {
+                bool executed = ctx.Executor.TryConfirmBurningHands(
+                    new Vector3Int(0, 0, 1),
+                    rng: new FixedRng(d20Rolls: new[] { 5, 5 }, dieRolls: new[] { 2, 2 }));
+
+                Assert.IsTrue(executed);
+                CollectionAssert.AreEquivalent(new[] { ally, enemy }, damageTargets);
+                Assert.AreEqual(16, ctx.Registry.Get(ally).CurrentHP);
+                Assert.AreEqual(8, ctx.Registry.Get(enemy).CurrentHP);
+            }
+            finally
+            {
+                ctx.EventBus.OnDamageAppliedTyped -= HandleDamage;
+            }
+
+            void HandleDamage(in DamageAppliedEvent e)
+            {
+                damageTargets.Add(e.target);
+            }
+        }
+
         private sealed class SpellExecutorContext : System.IDisposable
         {
             private readonly bool oldIgnoreLogs;
