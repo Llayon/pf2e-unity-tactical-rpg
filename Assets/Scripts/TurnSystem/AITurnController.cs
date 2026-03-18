@@ -21,6 +21,7 @@ namespace PF2e.TurnSystem
         [SerializeField] private EntityManager entityManager;
         [SerializeField] private GridManager gridManager;
         [SerializeField] private StrideAction strideAction;
+        [SerializeField] private StepAction stepAction;
         [SerializeField] private StrikeAction strikeAction;
         [SerializeField] private StandAction standAction;
         [SerializeField] private ShieldBlockAction shieldBlockAction;
@@ -45,6 +46,7 @@ namespace PF2e.TurnSystem
         // Async stride state
         private bool waitingForStride;
         private int lastStrideCost;
+        private bool warnedAboutMissingStepAction;
 
         // Tracks lock ownership for safe cleanup on abort/disable.
         private bool ownsExecutionLock;
@@ -57,6 +59,7 @@ namespace PF2e.TurnSystem
             if (entityManager == null) Debug.LogError("[AITurnController] Missing EntityManager", this);
             if (gridManager == null) Debug.LogError("[AITurnController] Missing GridManager", this);
             if (strideAction == null) Debug.LogError("[AITurnController] Missing StrideAction", this);
+            if (stepAction == null) Debug.LogWarning("[AITurnController] Missing StepAction", this);
             if (strikeAction == null) Debug.LogError("[AITurnController] Missing StrikeAction", this);
             if (standAction == null) Debug.LogError("[AITurnController] Missing StandAction", this);
             if (shieldBlockAction == null) Debug.LogWarning("[AITurnController] Missing ShieldBlockAction", this);
@@ -221,6 +224,28 @@ namespace PF2e.TurnSystem
 
                     if (actorData.ActionsRemaining <= 0) break;
 
+                    if (EnsureStepAction())
+                    {
+                        var stepCell = decisionPolicy.SelectStepCell(
+                            actorData,
+                            targetData,
+                            availableActions: actorData.ActionsRemaining);
+
+                        if (stepCell.HasValue && stepCell.Value != actorData.GridPosition)
+                        {
+                            bool stepped = false;
+                            yield return DoStep(actor, stepCell.Value, token, success => stepped = success);
+
+                            if (!IsCurrentRun(token) || !IsMyTurn(actor))
+                                yield break;
+                            if (stepped)
+                            {
+                                yield return new WaitForSeconds(actionDelay);
+                                continue;
+                            }
+                        }
+                    }
+
                     var moveCell = decisionPolicy.SelectStrideCell(
                         actorData,
                         targetData,
@@ -308,6 +333,43 @@ namespace PF2e.TurnSystem
                     yield break;
 
                 CompleteExecutionWithCost(Mathf.Max(1, lastStrideCost));
+                completed = true;
+                setResult?.Invoke(true);
+            }
+            finally
+            {
+                if (!completed)
+                    TryRollbackExecutionLock();
+            }
+        }
+
+        private IEnumerator DoStep(EntityHandle actor, Vector3Int targetCell, int token, System.Action<bool> setResult)
+        {
+            bool completed = false;
+            setResult?.Invoke(false);
+
+            try
+            {
+                if (stepAction == null || turnManager == null)
+                    yield break;
+
+                var data = entityManager != null && entityManager.Registry != null
+                    ? entityManager.Registry.Get(actor)
+                    : null;
+                if (data == null || data.ActionsRemaining <= 0)
+                    yield break;
+
+                if (!TryBeginExecution(actor, "AI.Step"))
+                    yield break;
+
+                bool performed = stepAction.TryExecuteStep(actor, targetCell);
+                if (!performed)
+                    yield break;
+
+                if (!IsCurrentRun(token))
+                    yield break;
+
+                CompleteExecutionWithCost(StepAction.ActionCost);
                 completed = true;
                 setResult?.Invoke(true);
             }
@@ -576,6 +638,24 @@ namespace PF2e.TurnSystem
             if (reactionPolicy != null) return true;
             reactionPolicy = new ModalReactionPolicy(reactionPromptController);
             return true;
+        }
+
+        private bool EnsureStepAction()
+        {
+            if (stepAction != null)
+                return true;
+
+            stepAction = GetComponent<StepAction>();
+            if (stepAction != null)
+                return true;
+
+            if (!warnedAboutMissingStepAction)
+            {
+                Debug.LogWarning("[AITurnController] Missing StepAction. AI will skip Step decisions.", this);
+                warnedAboutMissingStepAction = true;
+            }
+
+            return false;
         }
 
         private bool IsCurrentRun(int token) => token == runId;

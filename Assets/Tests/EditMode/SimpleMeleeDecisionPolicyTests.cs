@@ -74,6 +74,84 @@ namespace PF2e.Tests
             Assert.AreEqual(new Vector3Int(3, 0, 0), cell);
         }
 
+        [Test]
+        public void SelectStepCell_WhenNotThreatened_ReturnsNull()
+        {
+            using var ctx = new PolicyContext(CreateSquareGrid(5, 5));
+
+            var actor = RegisterEntity(ctx.Registry, ctx.Occupancy, Team.Enemy, new Vector3Int(1, 0, 1), alive: true, speedFeet: 25);
+            var target = RegisterEntity(ctx.Registry, ctx.Occupancy, Team.Player, new Vector3Int(3, 0, 1), alive: true, speedFeet: 25);
+
+            var cell = ctx.Policy.SelectStepCell(
+                ctx.Registry.Get(actor),
+                ctx.Registry.Get(target),
+                availableActions: 1);
+
+            Assert.IsNull(cell);
+        }
+
+        [Test]
+        public void SelectStepCell_WhenThreatened_PrefersSaferCellThatClosesDistance()
+        {
+            using var ctx = new PolicyContext(CreateSquareGrid(5, 5));
+
+            var actor = RegisterEntity(ctx.Registry, ctx.Occupancy, Team.Enemy, new Vector3Int(1, 0, 1), alive: true, speedFeet: 25);
+            RegisterEntity(
+                ctx.Registry,
+                ctx.Occupancy,
+                Team.Player,
+                new Vector3Int(0, 0, 1),
+                alive: true,
+                speedFeet: 25,
+                currentHp: 20,
+                hasReactiveStrike: true,
+                reactionAvailable: true);
+            var target = RegisterEntity(ctx.Registry, ctx.Occupancy, Team.Player, new Vector3Int(3, 0, 1), alive: true, speedFeet: 25);
+
+            var cell = ctx.Policy.SelectStepCell(
+                ctx.Registry.Get(actor),
+                ctx.Registry.Get(target),
+                availableActions: 1);
+
+            Assert.AreEqual(new Vector3Int(2, 0, 1), cell);
+        }
+
+        [Test]
+        public void SelectStepCell_WhenNoSaferCell_PrefersMeleeSetupCell()
+        {
+            using var ctx = new PolicyContext(CreateSquareGrid(5, 5));
+
+            var actor = RegisterEntity(ctx.Registry, ctx.Occupancy, Team.Enemy, new Vector3Int(1, 0, 1), alive: true, speedFeet: 25);
+            RegisterEntity(
+                ctx.Registry,
+                ctx.Occupancy,
+                Team.Player,
+                new Vector3Int(0, 0, 1),
+                alive: true,
+                speedFeet: 25,
+                currentHp: 20,
+                hasReactiveStrike: true,
+                reactionAvailable: true);
+            RegisterEntity(
+                ctx.Registry,
+                ctx.Occupancy,
+                Team.Player,
+                new Vector3Int(3, 0, 1),
+                alive: true,
+                speedFeet: 25,
+                currentHp: 20,
+                hasReactiveStrike: true,
+                reactionAvailable: true);
+            var target = RegisterEntity(ctx.Registry, ctx.Occupancy, Team.Player, new Vector3Int(2, 0, 2), alive: true, speedFeet: 25);
+
+            var cell = ctx.Policy.SelectStepCell(
+                ctx.Registry.Get(actor),
+                ctx.Registry.Get(target),
+                availableActions: 1);
+
+            Assert.AreEqual(new Vector3Int(2, 0, 1), cell);
+        }
+
         private static EntityHandle RegisterEntity(
             EntityRegistry registry,
             OccupancyMap occupancy,
@@ -81,7 +159,9 @@ namespace PF2e.Tests
             Vector3Int pos,
             bool alive = true,
             int speedFeet = 25,
-            int currentHp = 20)
+            int currentHp = 20,
+            bool hasReactiveStrike = false,
+            bool reactionAvailable = true)
         {
             var data = new EntityData
             {
@@ -92,6 +172,8 @@ namespace PF2e.Tests
                 CurrentHP = alive ? Mathf.Max(1, currentHp) : 0,
                 Speed = speedFeet,
                 GridPosition = pos,
+                HasReactiveStrike = hasReactiveStrike,
+                ReactionAvailable = reactionAvailable,
                 EquippedWeapon = new WeaponInstance
                 {
                     potencyBonus = 0,
@@ -109,6 +191,15 @@ namespace PF2e.Tests
             var grid = new GridData(1f, 1f, 16);
             for (int x = 0; x < length; x++)
                 grid.SetCell(new Vector3Int(x, 0, 0), CellData.CreateWalkable());
+            return grid;
+        }
+
+        private static GridData CreateSquareGrid(int width, int height)
+        {
+            var grid = new GridData(1f, 1f, 16);
+            for (int x = 0; x < width; x++)
+                for (int z = 0; z < height; z++)
+                    grid.SetCell(new Vector3Int(x, 0, z), CellData.CreateWalkable());
             return grid;
         }
 

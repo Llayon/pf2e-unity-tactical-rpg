@@ -11,6 +11,7 @@ namespace PF2e.TurnSystem
     {
         EntityHandle SelectTarget(EntityData actor);
         bool IsInMeleeRange(EntityData actor, EntityData target);
+        Vector3Int? SelectStepCell(EntityData actor, EntityData target, int availableActions);
         Vector3Int? SelectStrideCell(EntityData actor, EntityData target, int availableActions);
     }
 }
