@@ -4,6 +4,9 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 
 | ID | Priority | Status | Agent Role | Task | DoD |
 | --- | --- | --- | --- | --- | --- |
+| T-185 | P0 | done | Builder | Expand deterministic AI with spellcasting, support, defensive, and martial-control passes | Enemy AI can cast the current offensive/control spell slice, use `Heal/Harm` support on urgent targets, fall back to `Raise Shield` / `Shield`, and choose `Demoralize` / `Trip` / `Grapple` / `Shove` / `Reposition` through the shared decision seam with EditMode coverage |
+| T-186 | P1 | done | Builder | Add follow-through heuristics for AI control actions | After `Trip/Grapple`, AI prefers immediate melee follow-through over weaker fallback actions when the target is already under control and still in melee |
+| T-187 | P1 | done | Builder | Add hazardous-terrain entry damage and terrain-aware AI positioning/control | Entering `CellTerrain.Hazardous` applies deterministic damage on entry, `Step` avoids hazardous cells when safe alternatives exist, and AI `Shove/Reposition` prefer hazardous/difficult destinations when tactically valid |
 | T-184 | P0 | done | Builder | Ship first gameplay spell slice with typed cast UX and combat feedback | `Force Barrage`, `Electric Arc`, `Snowball`, `Burning Hands`, and `Fear` are playable through current action bar / targeting / damage / log / tooltip flows with EditMode coverage |
 | T-183 | P1 | done | Builder | Complete `Fear` critical failure and make frightened penalties visible in strike breakdowns | `Fear` critical failure now applies `Frightened 3 + Fleeing`, fleeing behavior is enforced in combat, and strike tooltip/log explicitly show status penalties |
 | T-182 | P0 | done | Builder | Add `Heal` / `Harm` vitality casting and build-player utility | `Heal [1/2/3]` and `Harm [1/2/3]` support living/undead split resolution with typed healing/logging, and the project has a repeatable Windows player build entrypoint |

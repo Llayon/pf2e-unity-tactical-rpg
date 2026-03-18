@@ -5,6 +5,7 @@ using PF2e.Core;
 using PF2e.Data;
 using PF2e.Grid;
 using PF2e.Presentation.Entity;
+using PF2e.TurnSystem;
 
 namespace PF2e.Managers
 {
@@ -299,6 +300,7 @@ namespace PF2e.Managers
             goblin1.LightArmorProf = ProficiencyRank.Trained;
             goblin1.MediumArmorProf = ProficiencyRank.Untrained;
             goblin1.HeavyArmorProf = ProficiencyRank.Untrained;
+            goblin1.IntimidationProf = ProficiencyRank.Trained;
 
             goblin1.EquippedWeapon = new WeaponInstance
             {
@@ -321,7 +323,7 @@ namespace PF2e.Managers
             {
                 Name = "Goblin_2", EncounterActorId = "goblin_2", Team = Team.Enemy, Size = CreatureSize.Small,
                 Level = -1, MaxHP = 6, CurrentHP = 6, ArmorClass = 16, Speed = 25,
-                Strength = 12, Dexterity = 16, Constitution = 10, Intelligence = 10, Wisdom = 10, Charisma = 8
+                Strength = 12, Dexterity = 16, Constitution = 10, Intelligence = 16, Wisdom = 12, Charisma = 8
             };
             goblin2.MartialWeaponProf = ProficiencyRank.Trained;
             goblin2.SimpleWeaponProf = ProficiencyRank.Trained;
@@ -331,6 +333,7 @@ namespace PF2e.Managers
             goblin2.LightArmorProf = ProficiencyRank.Trained;
             goblin2.MediumArmorProf = ProficiencyRank.Untrained;
             goblin2.HeavyArmorProf = ProficiencyRank.Untrained;
+            goblin2.IntimidationProf = ProficiencyRank.Trained;
 
             goblin2.EquippedWeapon = new WeaponInstance
             {
@@ -345,6 +348,13 @@ namespace PF2e.Managers
                 resilient = ResilientRuneRank.None,
                 broken = false
             };
+            goblin2.KnowsStandardShieldCantrip = true;
+            goblin2.KnowsForceBarrage = true;
+            goblin2.KnowsElectricArc = true;
+            goblin2.KnowsSnowball = true;
+            goblin2.KnowsBurningHands = true;
+            goblin2.KnowsFear = true;
+            goblin2.KnowsHeal = true;
             goblin2.Portrait = ResolvePortrait(goblin2.EncounterActorId);
             CreateEntity(goblin2, new Vector3Int(6, 0, 5));
 
@@ -433,6 +443,8 @@ namespace PF2e.Managers
             var view = GetView(handle);
             if (view != null && view.gameObject != null)
                 view.transform.position = GetEntityWorldPosition(destination);
+
+            HazardousTerrainRules.TryApplyEntryEffect(handle, destination, this, eventBus);
 
             return true;
         }

@@ -27,7 +27,7 @@ MonoBehaviour:
   isRanged: 0
   rangeIncrementFeet: 0
   maxRangeIncrements: 0
-  traits: 1
+  traits: 33
   usesAmmo: 0
   ammoType: 0
   ammoPerShot: 1

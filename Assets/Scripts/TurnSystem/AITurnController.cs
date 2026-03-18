@@ -22,6 +22,7 @@ namespace PF2e.TurnSystem
         [SerializeField] private GridManager gridManager;
         [SerializeField] private StrideAction strideAction;
         [SerializeField] private StepAction stepAction;
+        [SerializeField] private PlayerActionExecutor actionExecutor;
         [SerializeField] private StrikeAction strikeAction;
         [SerializeField] private StandAction standAction;
         [SerializeField] private ShieldBlockAction shieldBlockAction;
@@ -41,6 +42,8 @@ namespace PF2e.TurnSystem
         private IAIDecisionPolicy decisionPolicy;
         private IReactionDecisionPolicy reactionPolicy;
         private readonly System.Collections.Generic.List<ReactionOption> reactionBuffer = new(2);
+        private readonly List<EntityHandle> aiSpellTargetBuffer = new(3);
+        private readonly List<Vector3Int> aiCellBuffer = new(8);
         private readonly Dictionary<Vector3Int, int> fleeingZoneBuffer = new(64);
 
         // Async stride state
@@ -60,6 +63,7 @@ namespace PF2e.TurnSystem
             if (gridManager == null) Debug.LogError("[AITurnController] Missing GridManager", this);
             if (strideAction == null) Debug.LogError("[AITurnController] Missing StrideAction", this);
             if (stepAction == null) Debug.LogWarning("[AITurnController] Missing StepAction", this);
+            if (actionExecutor == null) Debug.LogWarning("[AITurnController] Missing PlayerActionExecutor", this);
             if (strikeAction == null) Debug.LogError("[AITurnController] Missing StrikeAction", this);
             if (standAction == null) Debug.LogError("[AITurnController] Missing StandAction", this);
             if (shieldBlockAction == null) Debug.LogWarning("[AITurnController] Missing ShieldBlockAction", this);
@@ -208,6 +212,84 @@ namespace PF2e.TurnSystem
                             this);
                         ForceEndTurn(actor);
                         yield break;
+                    }
+
+                    if (decisionPolicy.TrySelectSpellDecision(
+                            actorData,
+                            targetData,
+                            actorData.ActionsRemaining,
+                            out var spellDecision))
+                    {
+                        bool casted = TryExecuteSpellDecision(actor, in spellDecision);
+                        if (!IsCurrentRun(token))
+                            yield break;
+
+                        actorData = entityManager.Registry.Get(actor);
+                        if (actorData == null || !actorData.IsAlive)
+                            yield break;
+                        if (!IsMyTurn(actor) && casted)
+                            yield break;
+
+                        if (casted)
+                        {
+                            yield return new WaitForSeconds(actionDelay);
+                            continue;
+                        }
+
+                        if (!IsMyTurn(actor))
+                            yield break;
+                    }
+
+                    if (decisionPolicy.TrySelectDefensiveDecision(
+                            actorData,
+                            targetData,
+                            actorData.ActionsRemaining,
+                            out var defensiveDecision))
+                    {
+                        bool defended = TryExecuteDefensiveDecision(in defensiveDecision);
+                        if (!IsCurrentRun(token))
+                            yield break;
+
+                        actorData = entityManager.Registry.Get(actor);
+                        if (actorData == null || !actorData.IsAlive)
+                            yield break;
+                        if (!IsMyTurn(actor) && defended)
+                            yield break;
+
+                        if (defended)
+                        {
+                            yield return new WaitForSeconds(actionDelay);
+                            continue;
+                        }
+
+                        if (!IsMyTurn(actor))
+                            yield break;
+                    }
+
+                    if (decisionPolicy.TrySelectSkillDecision(
+                            actorData,
+                            targetData,
+                            actorData.ActionsRemaining,
+                            out var skillDecision))
+                    {
+                        bool usedSkill = TryExecuteSkillDecision(in skillDecision);
+                        if (!IsCurrentRun(token))
+                            yield break;
+
+                        actorData = entityManager.Registry.Get(actor);
+                        if (actorData == null || !actorData.IsAlive)
+                            yield break;
+                        if (!IsMyTurn(actor) && usedSkill)
+                            yield break;
+
+                        if (usedSkill)
+                        {
+                            yield return new WaitForSeconds(actionDelay);
+                            continue;
+                        }
+
+                        if (!IsMyTurn(actor))
+                            yield break;
                     }
 
                     if (decisionPolicy.IsInMeleeRange(actorData, targetData))
@@ -656,6 +738,153 @@ namespace PF2e.TurnSystem
             }
 
             return false;
+        }
+
+        private bool EnsureActionExecutor()
+        {
+            if (actionExecutor != null)
+                return true;
+
+            actionExecutor = GetComponent<PlayerActionExecutor>();
+            if (actionExecutor == null)
+            {
+                Debug.LogWarning("[AITurnController] Missing PlayerActionExecutor. AI spellcasting will be skipped.", this);
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool TryExecuteSpellDecision(EntityHandle actor, in AISpellDecision decision)
+        {
+            if (!actor.IsValid)
+                return false;
+            if (!EnsureActionExecutor())
+                return false;
+
+            return decision.spellId switch
+            {
+                SpellId.Heal => TryExecuteHealDecision(in decision),
+                SpellId.Harm => TryExecuteHarmDecision(in decision),
+                SpellId.Fear => actionExecutor.TryConfirmFear(decision.primaryTarget),
+                SpellId.Snowball => actionExecutor.TryConfirmSnowball(decision.primaryTarget),
+                SpellId.BurningHands => decision.HasAimCell && actionExecutor.TryConfirmBurningHands(decision.aimCell),
+                SpellId.ElectricArc => TryExecuteElectricArcDecision(in decision),
+                SpellId.ForceBarrage => TryExecuteForceBarrageDecision(in decision),
+                _ => false
+            };
+        }
+
+        private bool TryExecuteDefensiveDecision(in AIDefensiveDecision decision)
+        {
+            if (!EnsureActionExecutor())
+                return false;
+
+            return decision.actionKind switch
+            {
+                AIDefensiveActionKind.RaisePhysicalShield => actionExecutor.TryExecuteRaiseShield(),
+                AIDefensiveActionKind.CastShieldSpell => actionExecutor.TryExecuteCastShieldSpell(decision.shieldSpellMode),
+                _ => false
+            };
+        }
+
+        private bool TryExecuteSkillDecision(in AISkillDecision decision)
+        {
+            if (!EnsureActionExecutor())
+                return false;
+
+            return decision.actionKind switch
+            {
+                AISkillActionKind.Demoralize => actionExecutor.TryExecuteDemoralize(decision.primaryTarget),
+                AISkillActionKind.Trip => actionExecutor.TryExecuteTrip(decision.primaryTarget),
+                AISkillActionKind.Grapple => actionExecutor.TryExecuteGrapple(decision.primaryTarget),
+                AISkillActionKind.Shove => actionExecutor.TryExecuteShove(decision.primaryTarget),
+                AISkillActionKind.Reposition => TryExecuteRepositionDecision(in decision),
+                _ => false
+            };
+        }
+
+        private bool TryExecuteRepositionDecision(in AISkillDecision decision)
+        {
+            if (!decision.primaryTarget.IsValid || !decision.HasDestinationCell)
+                return false;
+
+            RepositionTargetSelectionResult result = actionExecutor.TryBeginRepositionTargetSelection(decision.primaryTarget);
+            switch (result)
+            {
+                case RepositionTargetSelectionResult.ResolvedAndClear:
+                    return true;
+
+                case RepositionTargetSelectionResult.EnterCellSelection:
+                    aiCellBuffer.Clear();
+                    if (!actionExecutor.TryGetPendingRepositionDestinations(aiCellBuffer) || aiCellBuffer.Count <= 0)
+                    {
+                        actionExecutor.CancelPendingRepositionSelection();
+                        return true;
+                    }
+
+                    Vector3Int chosenCell = aiCellBuffer[0];
+                    for (int i = 0; i < aiCellBuffer.Count; i++)
+                    {
+                        if (aiCellBuffer[i] == decision.destinationCell)
+                        {
+                            chosenCell = decision.destinationCell;
+                            break;
+                        }
+                    }
+
+                    if (actionExecutor.TryConfirmRepositionDestination(chosenCell))
+                        return true;
+
+                    actionExecutor.CancelPendingRepositionSelection();
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        private bool TryExecuteElectricArcDecision(in AISpellDecision decision)
+        {
+            aiSpellTargetBuffer.Clear();
+            if (decision.primaryTarget.IsValid)
+                aiSpellTargetBuffer.Add(decision.primaryTarget);
+            if (decision.secondaryTarget.IsValid && decision.secondaryTarget != decision.primaryTarget)
+                aiSpellTargetBuffer.Add(decision.secondaryTarget);
+
+            return aiSpellTargetBuffer.Count > 0
+                && actionExecutor.TryConfirmElectricArc(aiSpellTargetBuffer);
+        }
+
+        private bool TryExecuteHealDecision(in AISpellDecision decision)
+        {
+            if (!decision.primaryTarget.IsValid)
+                return false;
+
+            int actionCount = Mathf.Clamp(decision.actionCount, 1, 2);
+            return actionExecutor.TryConfirmHeal(decision.primaryTarget, actionCount);
+        }
+
+        private bool TryExecuteHarmDecision(in AISpellDecision decision)
+        {
+            if (!decision.primaryTarget.IsValid)
+                return false;
+
+            int actionCount = Mathf.Clamp(decision.actionCount, 1, 2);
+            return actionExecutor.TryConfirmHarm(decision.primaryTarget, actionCount);
+        }
+
+        private bool TryExecuteForceBarrageDecision(in AISpellDecision decision)
+        {
+            aiSpellTargetBuffer.Clear();
+            if (!decision.primaryTarget.IsValid)
+                return false;
+
+            int shardCount = Mathf.Clamp(decision.actionCount, 1, 3);
+            for (int i = 0; i < shardCount; i++)
+                aiSpellTargetBuffer.Add(decision.primaryTarget);
+
+            return actionExecutor.TryConfirmForceBarrage(aiSpellTargetBuffer, shardCount);
         }
 
         private bool IsCurrentRun(int token) => token == runId;

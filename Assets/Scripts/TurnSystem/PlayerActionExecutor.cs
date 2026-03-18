@@ -177,7 +177,7 @@ namespace PF2e.TurnSystem
         private bool CanActNow(FleeingActionAllowance fleeingAllowance = FleeingActionAllowance.Restricted)
         {
             if (turnManager == null || entityManager == null) return false;
-            if (!turnManager.IsPlayerTurn) return false;
+            if (turnManager.State != TurnState.PlayerTurn && turnManager.State != TurnState.EnemyTurn) return false;
             if (turnManager.State == TurnState.ExecutingAction) return false;
 
             var actor = turnManager.CurrentEntity;

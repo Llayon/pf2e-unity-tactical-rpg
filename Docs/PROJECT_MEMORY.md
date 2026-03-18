@@ -1,5 +1,5 @@
 # Project Memory
-Last updated: 2026-03-17
+Last updated: 2026-03-19
 
 ## Session Handoff Pointers
 - Active handoff snapshot: `Docs/SESSION_HANDOFF_2026-03-08.md`
@@ -12,7 +12,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Primary playable scene: `Assets/Scenes/SampleScene.unity` with one encounter.
 - Secondary wiring-validation scene: `Assets/Scenes/EncounterFlowPrefabScene.unity` (prefab-driven encounter flow UI fallback).
 - Player can: start combat, move (`Stride` and `Step`), Strike, Trip, Shove, Grapple, Escape, Demoralize, Reposition, Delay, Aid (prepare + resolve on checks), Stand, Raise Shield, cast the current spell slice (`Force Barrage`, `Electric Arc`, `Snowball`, `Burning Hands`, `Fear`, `Heal`, `Harm`), and end turn.
-- Enemy side takes turns via simple melee AI (stand if prone, stride toward nearest player, strike in range; if no same-floor targets exist, target selection now falls back to any elevation).
+- Enemy side now uses a deterministic tactical AI seam: it can still run the old melee loop, but also chooses from offensive/control spellcasting (`Fear`, `Electric Arc`, `Snowball`, `Force Barrage`, `Burning Hands`), urgent `Heal/Harm` support, defensive fallback (`Raise Shield` / `Shield` cantrip), and martial skill openers (`Demoralize`, `Trip`, `Grapple`, `Shove`, `Reposition`) before falling back to `Step` / `Stride` / `Strike`.
 - Combat presents: turn HUD, portrait-only initiative strip (prepared-art portraits, team frames, active enlargement, acted-state dimming, immediate defeated removal, thin HP strip, proportional damage overlay), combat log (pooled TMP lines, wrap-aware row heights, retention cap `maxLines=300` with notice, Source Sans 3 typography with warm Solasta-style palette and Lora accents in rich text), interactive tooltip cards with dock/layout profiles, floating damage, modal Shield Block reaction prompt, and end-of-encounter panel.
 - Basic PF2e rules included: 3-action economy, MAP, weapon-aware strike check (melee/ranged, ranged LoS/cover/concealment MVP), current spell slice (single-target, cone, emanation, condition, healing/vitality), passive `Reactive Strike`, damage roll, and simple conditions.
 
@@ -20,7 +20,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 ### A) Current Folder Map + Responsibilities
 - `Assets/Scripts/Core`: pure rules/data structures (entities, condition rules/service/deltas, attack/damage math, occupancy, item models, event contracts).
 - `Assets/Scripts/Grid`: grid data, pathfinding, rendering, floor controls, click/hover interaction.
-- `Assets/Scripts/TurnSystem`: turn state machine, input routing, action execution (`StrideAction`, `StepAction`, `StrikeAction`, `StandAction`, `RaiseShieldAction`, `ShieldBlockAction`, `TripAction`, `ShoveAction`, `GrappleAction`, `EscapeAction`, `DemoralizeAction`), spell execution/targeting flow, phased strike/reaction windows, generic check system (`CheckResolver`), targeting, grapple lifecycle (`GrappleLifecycleController` + `GrappleService`), passive `Reactive Strike` trigger layer, enemy AI orchestration (`AITurnController`), and AI decision seam (`IAIDecisionPolicy` + `SimpleMeleeDecisionPolicy`) plus reaction decision seam (`IReactionDecisionPolicy`, runtime default `ModalReactionPolicy`).
+- `Assets/Scripts/TurnSystem`: turn state machine, input routing, action execution (`StrideAction`, `StepAction`, `StrikeAction`, `StandAction`, `RaiseShieldAction`, `ShieldBlockAction`, `TripAction`, `ShoveAction`, `GrappleAction`, `EscapeAction`, `DemoralizeAction`), spell execution/targeting flow, phased strike/reaction windows, generic check system (`CheckResolver`), targeting, grapple lifecycle (`GrappleLifecycleController` + `GrappleService`), passive `Reactive Strike` trigger layer, enemy AI orchestration (`AITurnController`), and AI decision seams (`IAIDecisionPolicy`, `AISpellDecision`, `AISkillDecision`, `AIDefensiveDecision`, `SimpleMeleeDecisionPolicy`) plus reaction decision seam (`IReactionDecisionPolicy`, runtime default `ModalReactionPolicy`).
 - `Assets/Scripts/Managers`: `EntityManager` scene orchestration, spawning test entities (now including optional fighter shield + reaction preference), view management.
 - `Assets/Scripts/Presentation`: UI/controllers/log forwarders, shared UI style primitives (`CombatUiPalette`, `CombatUiTypography`), initiative/floating damage visuals, action bar, targeting world tint feedback, targeting reason hint UI, and Delay initiative/prompt composition helpers (`DelayPlacementPromptPresenter`, `DelayPlacementMarkerOverlayPresenter`, `DelayPlacementInteractionCoordinator`, `DelayInitiativeRowPlanner`). Delay UI now refreshes directly in `TurnOptionsPresenter` and `InitiativeBarController` via typed bus subscriptions (no orchestrator component). `AidResolvedLogForwarder` now owns Aid lifecycle log rendering (`prepared/resolved/cleared`) from typed events.
 - `Assets/Scripts/Data`: ScriptableObject configs/data assets (`GridConfig`, `EncounterActorPortraitLibrary`).
@@ -57,10 +57,12 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - `EncounterFlowUIPreset_RuntimeFallback.asset` has been reserialized to include initiative schema fields (`initiativeCheckMode`, `initiativeSkill`, `actorInitiativeOverrides`) with defaults (`Perception`, no overrides) to keep preset data aligned with code schema.
 - Movement works: occupancy-aware, multi-stride pathing, 5/10 diagonal parity, movement zone/path preview, animated movement.
 - `Step` now works as a distinct 5-foot safe move: it uses its own targeting mode, validates adjacent non-difficult destination cells, occupies the shared mobility slot when the actor is not prone, and explicitly suppresses `Reactive Strike`.
+- `CellTerrain.Hazardous` now has a minimal runtime effect: entering a hazardous cell deals deterministic entry damage, and this applies both to direct movement and forced movement paths.
 - Combat works at MVP level: weapon-aware strike resolution (melee + ranged), MAP increment, ranged range-increment penalties, ranged line-of-sight validation + simple cover AC bonus support, ranged concealment flat-check miss support (`Concealed`, DC 5 flat check on would-hit), ranged `Volley` penalty support, strike crit math support for `Deadly` and `Fatal`, phased strike flow (pre/post reaction extension points), damage apply, defeat hide + events, and generic non-strike damage pipeline (`DamageAppliedEvent` + `DamageApplicationService`) currently used by `Trip` crit damage with optional pre-apply Shield Block reduction context.
 - Spellcasting works for the current slice through the existing HUD/targeting pipeline: `Force Barrage`, `Electric Arc`, `Snowball`, `Burning Hands`, `Fear`, `Heal`, and `Harm` all use action bar cast flow, targeting hints, combat log payloads, tooltip payloads, and floating number feedback. Supported spell-resolution patterns now include auto-hit grouped damage, spell attack vs AC, basic-save damage, pure condition application, 15-foot cone AoE, 30-foot emanation AoE, healing, vitality damage, and living/undead split resolution.
 - `Fear` critical failure now applies both `Frightened 3` and `Fleeing`; `Frightened` penalties are also surfaced explicitly in strike tooltip/log breakdowns instead of being hidden inside totals.
 - `Reactive Strike` now exists as a passive fighter reaction layer alongside `Ready Strike`: it can trigger on normal movement, ranged attack start, `Stand`, and `Manipulate`, and a critical hit against `Manipulate` disrupts the action before it resolves.
+- Deterministic AI now has a real tactical layer: it can open with current offensive/control spells, cast urgent support spells, use defensive fallbacks, pick martial control actions (`Trip/Grapple/Shove/Reposition`), preserve melee follow-through on already-controlled targets, and prefer/avoid cells based on terrain pressure (`Hazardous` > `GreaterDifficult` > `Difficult`) for `Step`, `Shove`, and `Reposition`.
 - Skill-action checks work at MVP level: generic `CheckResolver` + `SkillType`/`SaveType` + `SkillRules`, with `Trip`, `Shove`, `Grapple`, `Escape`, `Demoralize`, and `Reposition` implemented and wired through `PlayerActionExecutor`.
 - Opposed-check foundation is available for future contested-roll mechanics: `CheckResolver.RollOpposedCheck(...)`, `OpposedCheckResult`, typed event `OpposedCheckResolvedEvent`, and `OpposedCheckLogForwarder` (current tactical actions still use PF2e check-vs-DC flow).
 - Aid is now integrated end-to-end for current player action checks: `AidAction` prepares aid for an ally, `PlayerActionExecutor` consumes prepared aid at pre-check timing, `AidService` resolves DC 15 aid checks and spends helper reaction, and applied aid bonus/penalty is carried through `Strike` + all current skill-check actions (`Trip/Shove/Grapple/Escape/Reposition/Demoralize`) via payload fields (`aidCircumstanceBonus`) and log tokens (`AID(+/-N)`). Current scope remains player-driven aid only (AI aid still pending).
@@ -242,7 +244,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Grid/entity raycasts rely on layer consistency (`EntityView` objects share grid layer).
 
 ## Known Issues / TODOs
-- AI is intentionally minimal: nearest-target melee only (prefers same elevation, then falls back to any elevation), no tactical scoring.
+- AI remains deterministic and heuristic-driven rather than full utility-AI: tactical coverage is much broader now, but scoring is still priority-based and not yet candidate/utility scored.
 - AI no-progress bailout uses threshold 2 repeated identical loop snapshots; tune only with matching regression tests.
 - `SampleScene` remains authored-reference first; `EncounterFlowPrefabScene` is the current preset-driven fallback example scene.
 - Restart is scene-reload based (`SceneManager.LoadScene`) and intentionally simple for MVP.
@@ -254,7 +256,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Input System package exists, but most gameplay input is polled directly from keyboard/mouse.
 - CI requires repository-level `UNITY_LICENSE` secret; workflow fails fast when missing.
 - PlayMode regression now covers multi-round movement/AI/condition-tick flow, blocked-turn recovery, sticky-target lock behavior, ranged concealment/cover logic, Shield Block reaction prompts, and Delay planned/manual + full-round expiry + pointer-level UI click flows (including pointer-driven Skip-loop expiry); full matrix coverage for the newer spell/reaction slices is still pending.
-- The current spell slice is intentionally narrow: no spell slots, heightening, prepared casting, traditions/bloodlines gating, or AI spell usage are implemented yet.
+- The current spell slice is intentionally narrow on rules depth: no spell slots, heightening, prepared casting, or traditions/bloodlines gating. Enemy AI spell usage now exists for the current authored slice, but only through deterministic heuristics.
 - `Step` currently targets a single adjacent cell and blocks difficult terrain entry; broader movement-exception coverage (special Step lengths, richer terrain states, immobilized interactions) is still pending.
 - `Reactive Strike` currently covers the baseline fighter-style trigger family but is not yet generalized into a full feat/reaction framework.
 - PlayMode now also includes dedicated combat-log hover coverage: hide-on-scroll, hide-on-viewport-exit, link-scan/token-resolution, and show-from-inactive regression guard for tooltip panel activation.
@@ -272,9 +274,9 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Legacy forwarder stubs (`TurnManagerLogForwarder`, `TurnManagerTypedForwarder`) were removed from scenes and code; turn/combat typed flow is direct `TurnManager -> CombatEventBus`.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. AI tactical movement follow-up: teach AI when to prefer `Step` over `Stride` around threatened squares and preserve reaction-aware positioning.
-2. Spellcasting follow-up: either expand area templates (`burst` / `line`) or add the first AI spell-usage pass for the current spell slice.
-3. Reaction follow-up: extend action-trait trigger taxonomy beyond current `Reactive Strike` coverage (`Reload`, more manipulate actions, future feat families).
+1. AI terrain-control follow-up: teach AI to understand authored hazard/trap value beyond simple terrain pressure, including cliff/lava-like high-value destinations and escape-value scoring.
+2. Utility-AI migration prep: replace the growing fixed-priority AI policy with typed candidate generation/scoring while keeping the current executor/runtime seams unchanged.
+3. Spellcasting follow-up: expand shared area templates beyond the current hardcoded slices (`burst` / `line`) so future spells stop needing custom shape helpers.
 
 ## LLM-First Delivery Workflow (Multi-Agent)
 ### Operating Model (for non-programmer project owner)

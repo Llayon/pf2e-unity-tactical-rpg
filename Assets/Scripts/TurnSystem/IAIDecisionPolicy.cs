@@ -11,6 +11,9 @@ namespace PF2e.TurnSystem
     {
         EntityHandle SelectTarget(EntityData actor);
         bool IsInMeleeRange(EntityData actor, EntityData target);
+        bool TrySelectSpellDecision(EntityData actor, EntityData target, int availableActions, out AISpellDecision decision);
+        bool TrySelectSkillDecision(EntityData actor, EntityData target, int availableActions, out AISkillDecision decision);
+        bool TrySelectDefensiveDecision(EntityData actor, EntityData target, int availableActions, out AIDefensiveDecision decision);
         Vector3Int? SelectStepCell(EntityData actor, EntityData target, int availableActions);
         Vector3Int? SelectStrideCell(EntityData actor, EntityData target, int availableActions);
     }

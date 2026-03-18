@@ -4,6 +4,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 using PF2e.Core;
+using PF2e.Grid;
 using PF2e.Managers;
 using PF2e.TurnSystem;
 
@@ -27,6 +28,348 @@ namespace PF2e.Tests
 
             Assert.IsTrue(began);
             Assert.AreEqual(3, ctx.Registry.Get(actor).ActionsRemaining);
+        }
+
+        [Test]
+        public void TryConfirmFear_CurrentEnemyTurnActor_Succeeds()
+        {
+            using var ctx = new SpellExecutorContext();
+
+            var actor = ctx.RegisterEntity("EnemyWizard", Team.Enemy, new Vector3Int(0, 0, 0), intelligence: 18);
+            var target = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(1, 0, 0), hp: 20);
+            ctx.Registry.Get(actor).KnowsFear = true;
+            ctx.SetCurrentActor(actor, actionsRemaining: 3, turnState: TurnState.EnemyTurn);
+
+            bool executed = ctx.Executor.TryConfirmFear(target, rng: new FixedRng(d20Rolls: new[] { 2 }));
+
+            Assert.IsTrue(executed);
+            Assert.AreEqual(1, ctx.Registry.Get(actor).ActionsRemaining);
+            Assert.IsTrue(ctx.Registry.Get(target).HasCondition(ConditionType.Frightened));
+        }
+
+        [Test]
+        public void TryConfirmBurningHands_CurrentEnemyTurnActor_Succeeds()
+        {
+            using var ctx = new SpellExecutorContext();
+
+            var actor = ctx.RegisterEntity("EnemyCaster", Team.Enemy, new Vector3Int(0, 0, 0), intelligence: 18);
+            var targetA = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(0, 0, 2), hp: 16);
+            var targetB = ctx.RegisterEntity("Wizard", Team.Player, new Vector3Int(1, 0, 2), hp: 14);
+            ctx.Registry.Get(actor).KnowsBurningHands = true;
+            ctx.SetCurrentActor(actor, actionsRemaining: 3, turnState: TurnState.EnemyTurn);
+
+            var damageTargets = new List<EntityHandle>();
+            ctx.EventBus.OnDamageAppliedTyped += HandleDamage;
+            try
+            {
+                bool executed = ctx.Executor.TryConfirmBurningHands(
+                    new Vector3Int(0, 0, 1),
+                    rng: new FixedRng(d20Rolls: new[] { 5, 5 }, dieRolls: new[] { 3, 2 }));
+
+                Assert.IsTrue(executed);
+                CollectionAssert.AreEquivalent(new[] { targetA, targetB }, damageTargets);
+                Assert.AreEqual(1, ctx.Registry.Get(actor).ActionsRemaining);
+            }
+            finally
+            {
+                ctx.EventBus.OnDamageAppliedTyped -= HandleDamage;
+            }
+
+            void HandleDamage(in DamageAppliedEvent e)
+            {
+                damageTargets.Add(e.target);
+            }
+        }
+
+        [Test]
+        public void TryConfirmHeal_CurrentEnemyTurnActor_Succeeds()
+        {
+            using var ctx = new SpellExecutorContext();
+
+            var actor = ctx.RegisterEntity("EnemyCleric", Team.Enemy, new Vector3Int(0, 0, 0), hp: 14, intelligence: 18);
+            var ally = ctx.RegisterEntity("Goblin", Team.Enemy, new Vector3Int(3, 0, 0), hp: 6);
+            ctx.Registry.Get(actor).KnowsHeal = true;
+            ctx.Registry.Get(ally).CurrentHP = 2;
+            ctx.SetCurrentActor(actor, actionsRemaining: 3, turnState: TurnState.EnemyTurn);
+
+            bool executed = ctx.Executor.TryConfirmHeal(
+                ally,
+                actionCount: 2,
+                rng: new FixedRng(dieRolls: new[] { 4 }));
+
+            Assert.IsTrue(executed);
+            Assert.AreEqual(1, ctx.Registry.Get(actor).ActionsRemaining);
+            Assert.AreEqual(6, ctx.Registry.Get(ally).CurrentHP);
+        }
+
+        [Test]
+        public void TryConfirmHarm_CurrentEnemyTurnActor_Succeeds()
+        {
+            using var ctx = new SpellExecutorContext();
+
+            var actor = ctx.RegisterEntity("EnemyNecromancer", Team.Enemy, new Vector3Int(0, 0, 0), hp: 14, intelligence: 18);
+            var undead = ctx.RegisterEntity("Skeleton", Team.Enemy, new Vector3Int(3, 0, 0), hp: 12);
+            ctx.Registry.Get(actor).KnowsHarm = true;
+            ctx.Registry.Get(undead).VitalityAffinity = VitalityAffinity.Undead;
+            ctx.Registry.Get(undead).CurrentHP = 2;
+            ctx.SetCurrentActor(actor, actionsRemaining: 3, turnState: TurnState.EnemyTurn);
+
+            bool executed = ctx.Executor.TryConfirmHarm(
+                undead,
+                actionCount: 2,
+                rng: new FixedRng(dieRolls: new[] { 4 }));
+
+            Assert.IsTrue(executed);
+            Assert.AreEqual(1, ctx.Registry.Get(actor).ActionsRemaining);
+            Assert.AreEqual(12, ctx.Registry.Get(undead).CurrentHP);
+        }
+
+        [Test]
+        public void TryExecuteRaiseShield_CurrentEnemyTurnActor_Succeeds()
+        {
+            using var ctx = new SpellExecutorContext();
+            var shieldDef = ScriptableObject.CreateInstance<ShieldDefinition>();
+
+            try
+            {
+                shieldDef.acBonus = 2;
+                shieldDef.hardness = 3;
+                shieldDef.maxHP = 12;
+
+                var actor = ctx.RegisterEntity("EnemyGuard", Team.Enemy, new Vector3Int(0, 0, 0), hp: 16);
+                ctx.Registry.Get(actor).EquippedShield = ShieldInstance.CreateEquipped(shieldDef);
+                ctx.SetCurrentActor(actor, actionsRemaining: 2, turnState: TurnState.EnemyTurn);
+
+                bool executed = ctx.Executor.TryExecuteRaiseShield();
+
+                Assert.IsTrue(executed);
+                Assert.IsTrue(ctx.Registry.Get(actor).HasRaisedPhysicalShield);
+                Assert.AreEqual(1, ctx.Registry.Get(actor).ActionsRemaining);
+            }
+            finally
+            {
+                Object.DestroyImmediate(shieldDef);
+            }
+        }
+
+        [Test]
+        public void TryExecuteCastShieldSpell_CurrentEnemyTurnActor_Succeeds()
+        {
+            using var ctx = new SpellExecutorContext();
+
+            var actor = ctx.RegisterEntity("EnemyMage", Team.Enemy, new Vector3Int(0, 0, 0), hp: 12, intelligence: 18);
+            ctx.Registry.Get(actor).KnowsStandardShieldCantrip = true;
+            ctx.SetCurrentActor(actor, actionsRemaining: 2, turnState: TurnState.EnemyTurn);
+
+            bool executed = ctx.Executor.TryExecuteCastShieldSpell(RaiseShieldSpellMode.Standard);
+
+            Assert.IsTrue(executed);
+            Assert.IsTrue(ctx.Registry.Get(actor).StandardShieldRaised);
+            Assert.AreEqual(1, ctx.Registry.Get(actor).ActionsRemaining);
+        }
+
+        [Test]
+        public void TryExecuteDemoralize_CurrentEnemyTurnActor_Succeeds()
+        {
+            using var ctx = new SpellExecutorContext();
+
+            var actor = ctx.RegisterEntity(
+                "EnemySkirmisher",
+                Team.Enemy,
+                new Vector3Int(0, 0, 0),
+                hp: 12,
+                charisma: 12,
+                intimidationProf: ProficiencyRank.Trained);
+            var target = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(2, 0, 0), hp: 20);
+            var actorData = ctx.Registry.Get(actor);
+            actorData.Level = 20;
+            actorData.Charisma = 24;
+            actorData.IntimidationProf = ProficiencyRank.Legendary;
+            var targetData = ctx.Registry.Get(target);
+            targetData.Level = 1;
+            targetData.Wisdom = 8;
+            targetData.WillProf = ProficiencyRank.Untrained;
+            ctx.SetCurrentActor(actor, actionsRemaining: 3, turnState: TurnState.EnemyTurn);
+
+            bool executed = ctx.Executor.TryExecuteDemoralize(target);
+
+            Assert.IsTrue(executed);
+            Assert.AreEqual(2, ctx.Registry.Get(actor).ActionsRemaining);
+            Assert.IsTrue(ctx.Registry.Get(target).HasCondition(ConditionType.Frightened));
+        }
+
+        [Test]
+        public void TryExecuteTrip_CurrentEnemyTurnActor_SpendsActionAndIncrementsMap()
+        {
+            using var ctx = new SpellExecutorContext();
+            var tripWeapon = ScriptableObject.CreateInstance<WeaponDefinition>();
+
+            try
+            {
+                tripWeapon.category = WeaponCategory.Martial;
+                tripWeapon.reachFeet = 5;
+                tripWeapon.isRanged = false;
+                tripWeapon.traits = WeaponTraitFlags.Trip;
+
+                var actor = ctx.RegisterEntity("EnemyBruiser", Team.Enemy, new Vector3Int(0, 0, 0), hp: 14);
+                var target = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(1, 0, 0), hp: 20);
+                var actorData = ctx.Registry.Get(actor);
+                actorData.Strength = 16;
+                actorData.AthleticsProf = ProficiencyRank.Trained;
+                actorData.EquippedWeapon = new WeaponInstance
+                {
+                    def = tripWeapon,
+                    potencyBonus = 0,
+                    strikingRank = StrikingRuneRank.None
+                };
+                ctx.SetCurrentActor(actor, actionsRemaining: 3, turnState: TurnState.EnemyTurn);
+
+                bool executed = ctx.Executor.TryExecuteTrip(target);
+
+                Assert.IsTrue(executed);
+                Assert.AreEqual(2, ctx.Registry.Get(actor).ActionsRemaining);
+                Assert.AreEqual(1, ctx.Registry.Get(actor).MAPCount);
+            }
+            finally
+            {
+                Object.DestroyImmediate(tripWeapon);
+            }
+        }
+
+        [Test]
+        public void TryExecuteGrapple_CurrentEnemyTurnActor_SpendsActionAndIncrementsMap()
+        {
+            using var ctx = new SpellExecutorContext();
+            var grappleWeapon = ScriptableObject.CreateInstance<WeaponDefinition>();
+
+            try
+            {
+                grappleWeapon.category = WeaponCategory.Martial;
+                grappleWeapon.reachFeet = 5;
+                grappleWeapon.isRanged = false;
+                grappleWeapon.traits = WeaponTraitFlags.Grapple;
+
+                var actor = ctx.RegisterEntity("EnemyGrabber", Team.Enemy, new Vector3Int(0, 0, 0), hp: 14);
+                var target = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(1, 0, 0), hp: 20);
+                var actorData = ctx.Registry.Get(actor);
+                actorData.Strength = 16;
+                actorData.AthleticsProf = ProficiencyRank.Trained;
+                actorData.EquippedWeapon = new WeaponInstance
+                {
+                    def = grappleWeapon,
+                    potencyBonus = 0,
+                    strikingRank = StrikingRuneRank.None
+                };
+                ctx.SetCurrentActor(actor, actionsRemaining: 3, turnState: TurnState.EnemyTurn);
+
+                bool executed = ctx.Executor.TryExecuteGrapple(target);
+
+                Assert.IsTrue(executed);
+                Assert.AreEqual(2, ctx.Registry.Get(actor).ActionsRemaining);
+                Assert.AreEqual(1, ctx.Registry.Get(actor).MAPCount);
+            }
+            finally
+            {
+                Object.DestroyImmediate(grappleWeapon);
+            }
+        }
+
+        [Test]
+        public void TryExecuteShove_CurrentEnemyTurnActor_PushesTargetAndSpendsAction()
+        {
+            using var ctx = new SpellExecutorContext();
+            var shoveWeapon = ScriptableObject.CreateInstance<WeaponDefinition>();
+
+            try
+            {
+                shoveWeapon.category = WeaponCategory.Martial;
+                shoveWeapon.reachFeet = 10;
+                shoveWeapon.isRanged = false;
+                shoveWeapon.traits = WeaponTraitFlags.Shove;
+
+                var actor = ctx.RegisterEntity("EnemyPikeman", Team.Enemy, new Vector3Int(0, 0, 0), hp: 14);
+                var target = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(1, 0, 0), hp: 20);
+                var actorData = ctx.Registry.Get(actor);
+                actorData.Level = 20;
+                actorData.Strength = 24;
+                actorData.AthleticsProf = ProficiencyRank.Legendary;
+                actorData.EquippedWeapon = new WeaponInstance
+                {
+                    def = shoveWeapon,
+                    potencyBonus = 0,
+                    strikingRank = StrikingRuneRank.None
+                };
+                var targetData = ctx.Registry.Get(target);
+                targetData.Level = 1;
+                targetData.Constitution = 8;
+                targetData.FortitudeProf = ProficiencyRank.Untrained;
+                ctx.SetCurrentActor(actor, actionsRemaining: 3, turnState: TurnState.EnemyTurn);
+
+                bool executed = ctx.Executor.TryExecuteShove(target);
+
+                Assert.IsTrue(executed);
+                Assert.AreEqual(2, ctx.Registry.Get(actor).ActionsRemaining);
+                Assert.AreEqual(1, ctx.Registry.Get(actor).MAPCount);
+                Assert.Greater(
+                    GridDistancePF2e.DistanceFeetXZ(ctx.Registry.Get(actor).GridPosition, ctx.Registry.Get(target).GridPosition),
+                    5,
+                    "Shove should move the target away from the actor.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(shoveWeapon);
+            }
+        }
+
+        [Test]
+        public void TryExecuteReposition_CurrentEnemyTurnActor_MovesTargetAndSpendsAction()
+        {
+            using var ctx = new SpellExecutorContext();
+            var repositionWeapon = ScriptableObject.CreateInstance<WeaponDefinition>();
+
+            try
+            {
+                repositionWeapon.category = WeaponCategory.Martial;
+                repositionWeapon.reachFeet = 10;
+                repositionWeapon.isRanged = false;
+                repositionWeapon.traits = WeaponTraitFlags.Reposition;
+
+                var actor = ctx.RegisterEntity("EnemyController", Team.Enemy, new Vector3Int(0, 0, 0), hp: 14);
+                var target = ctx.RegisterEntity("Fighter", Team.Player, new Vector3Int(1, 0, 0), hp: 20);
+                var actorData = ctx.Registry.Get(actor);
+                actorData.Level = 20;
+                actorData.Strength = 24;
+                actorData.AthleticsProf = ProficiencyRank.Legendary;
+                actorData.EquippedWeapon = new WeaponInstance
+                {
+                    def = repositionWeapon,
+                    potencyBonus = 0,
+                    strikingRank = StrikingRuneRank.None
+                };
+                var targetData = ctx.Registry.Get(target);
+                targetData.Level = 1;
+                targetData.Constitution = 8;
+                targetData.FortitudeProf = ProficiencyRank.Untrained;
+                ctx.SetCurrentActor(actor, actionsRemaining: 3, turnState: TurnState.EnemyTurn);
+
+                RepositionTargetSelectionResult started = ctx.Executor.TryBeginRepositionTargetSelection(target);
+                var destinations = new List<Vector3Int>();
+
+                Assert.AreEqual(RepositionTargetSelectionResult.EnterCellSelection, started);
+                Assert.IsTrue(ctx.Executor.TryGetPendingRepositionDestinations(destinations));
+                Assert.IsNotEmpty(destinations);
+
+                bool executed = ctx.Executor.TryConfirmRepositionDestination(destinations[0]);
+
+                Assert.IsTrue(executed);
+                Assert.AreEqual(2, ctx.Registry.Get(actor).ActionsRemaining);
+                Assert.AreEqual(1, ctx.Registry.Get(actor).MAPCount);
+                Assert.AreEqual(destinations[0], ctx.Registry.Get(target).GridPosition);
+            }
+            finally
+            {
+                Object.DestroyImmediate(repositionWeapon);
+            }
         }
 
         [Test]
@@ -914,6 +1257,7 @@ namespace PF2e.Tests
             public TurnManager TurnManager { get; }
             public PlayerActionExecutor Executor { get; }
             public EntityRegistry Registry { get; }
+            public GridManager GridManager { get; }
 
             public SpellExecutorContext()
             {
@@ -926,10 +1270,20 @@ namespace PF2e.Tests
                 eventBusGo.transform.SetParent(root.transform);
                 EventBus = eventBusGo.AddComponent<CombatEventBus>();
 
+                var gridManagerGo = new GameObject("GridManager");
+                gridManagerGo.transform.SetParent(root.transform);
+                GridManager = gridManagerGo.AddComponent<GridManager>();
+                SetAutoPropertyBackingField(GridManager, "Data", CreateOpenGrid());
+
                 var entityManagerGo = new GameObject("EntityManager");
                 entityManagerGo.transform.SetParent(root.transform);
                 EntityManager = entityManagerGo.AddComponent<EntityManager>();
                 Registry = new EntityRegistry();
+                var occupancy = new OccupancyMap(Registry);
+                var pathfinding = new GridPathfinding();
+                SetPrivateField(EntityManager, "gridManager", GridManager);
+                SetAutoPropertyBackingField(EntityManager, "Occupancy", occupancy);
+                SetAutoPropertyBackingField(EntityManager, "Pathfinding", pathfinding);
                 SetAutoPropertyBackingField(EntityManager, "Registry", Registry);
 
                 var turnManagerGo = new GameObject("TurnManager");
@@ -945,9 +1299,58 @@ namespace PF2e.Tests
                 var executorGo = new GameObject("Executor");
                 executorGo.transform.SetParent(root.transform);
                 Executor = executorGo.AddComponent<PlayerActionExecutor>();
+
+                var raiseShieldAction = executorGo.AddComponent<RaiseShieldAction>();
+                SetPrivateField(raiseShieldAction, "entityManager", EntityManager);
+                SetPrivateField(raiseShieldAction, "eventBus", EventBus);
+
+                var standardShieldAction = executorGo.AddComponent<StandardShieldAction>();
+                SetPrivateField(standardShieldAction, "entityManager", EntityManager);
+                SetPrivateField(standardShieldAction, "eventBus", EventBus);
+
+                var glassShieldAction = executorGo.AddComponent<GlassShieldAction>();
+                SetPrivateField(glassShieldAction, "entityManager", EntityManager);
+                SetPrivateField(glassShieldAction, "eventBus", EventBus);
+
+                var demoralizeAction = executorGo.AddComponent<DemoralizeAction>();
+                SetPrivateField(demoralizeAction, "entityManager", EntityManager);
+                SetPrivateField(demoralizeAction, "eventBus", EventBus);
+
+                var tripAction = executorGo.AddComponent<TripAction>();
+                SetPrivateField(tripAction, "entityManager", EntityManager);
+                SetPrivateField(tripAction, "eventBus", EventBus);
+                SetPrivateField(tripAction, "turnManager", TurnManager);
+
+                var grappleLifecycle = executorGo.AddComponent<GrappleLifecycleController>();
+                SetPrivateField(grappleLifecycle, "entityManager", EntityManager);
+                SetPrivateField(grappleLifecycle, "eventBus", EventBus);
+
+                var grappleAction = executorGo.AddComponent<GrappleAction>();
+                SetPrivateField(grappleAction, "entityManager", EntityManager);
+                SetPrivateField(grappleAction, "eventBus", EventBus);
+                SetPrivateField(grappleAction, "grappleLifecycle", grappleLifecycle);
+
+                var shoveAction = executorGo.AddComponent<ShoveAction>();
+                SetPrivateField(shoveAction, "entityManager", EntityManager);
+                SetPrivateField(shoveAction, "eventBus", EventBus);
+
+                var repositionAction = executorGo.AddComponent<RepositionAction>();
+                SetPrivateField(repositionAction, "entityManager", EntityManager);
+                SetPrivateField(repositionAction, "gridManager", GridManager);
+                SetPrivateField(repositionAction, "eventBus", EventBus);
+                SetPrivateField(repositionAction, "grappleLifecycle", grappleLifecycle);
+
                 SetPrivateField(Executor, "turnManager", TurnManager);
                 SetPrivateField(Executor, "entityManager", EntityManager);
                 SetPrivateField(Executor, "eventBus", EventBus);
+                SetPrivateField(Executor, "raiseShieldAction", raiseShieldAction);
+                SetPrivateField(Executor, "standardShieldAction", standardShieldAction);
+                SetPrivateField(Executor, "glassShieldAction", glassShieldAction);
+                SetPrivateField(Executor, "demoralizeAction", demoralizeAction);
+                SetPrivateField(Executor, "tripAction", tripAction);
+                SetPrivateField(Executor, "grappleAction", grappleAction);
+                SetPrivateField(Executor, "shoveAction", shoveAction);
+                SetPrivateField(Executor, "repositionAction", repositionAction);
             }
 
             public EntityHandle RegisterEntity(
@@ -956,7 +1359,9 @@ namespace PF2e.Tests
                 Vector3Int gridPosition,
                 int hp = 10,
                 int intelligence = 10,
-                int dexterity = 10)
+                int dexterity = 10,
+                int charisma = 10,
+                ProficiencyRank intimidationProf = ProficiencyRank.Untrained)
             {
                 var handle = Registry.Register(new EntityData
                 {
@@ -968,7 +1373,8 @@ namespace PF2e.Tests
                     Constitution = 10,
                     Intelligence = intelligence,
                     Wisdom = 10,
-                    Charisma = 10,
+                    Charisma = charisma,
+                    IntimidationProf = intimidationProf,
                     MaxHP = hp,
                     CurrentHP = hp,
                     GridPosition = gridPosition,
@@ -977,10 +1383,11 @@ namespace PF2e.Tests
                 });
 
                 registeredHandles.Add(handle);
+                Assert.IsTrue(EntityManager.Occupancy.Place(handle, gridPosition, 1), $"Failed to place {name} at {gridPosition}");
                 return handle;
             }
 
-            public void SetCurrentActor(EntityHandle actor, int actionsRemaining)
+            public void SetCurrentActor(EntityHandle actor, int actionsRemaining, TurnState turnState = TurnState.PlayerTurn)
             {
                 var actorData = Registry.Get(actor);
                 Assert.IsNotNull(actorData);
@@ -1014,7 +1421,7 @@ namespace PF2e.Tests
 
                 SetPrivateField(TurnManager, "initiativeOrder", order);
                 SetPrivateField(TurnManager, "currentIndex", 0);
-                SetPrivateField(TurnManager, "state", TurnState.PlayerTurn);
+                SetPrivateField(TurnManager, "state", turnState);
             }
 
             public void Dispose()
@@ -1024,6 +1431,18 @@ namespace PF2e.Tests
 
                 LogAssert.ignoreFailingMessages = oldIgnoreLogs;
             }
+        }
+
+        private static GridData CreateOpenGrid()
+        {
+            var grid = new GridData(1f, 1f, 128);
+            for (int x = -16; x <= 64; x++)
+            {
+                for (int z = -16; z <= 64; z++)
+                    grid.SetCell(new Vector3Int(x, 0, z), CellData.CreateWalkable());
+            }
+
+            return grid;
         }
 
         private sealed class FixedRng : IRng

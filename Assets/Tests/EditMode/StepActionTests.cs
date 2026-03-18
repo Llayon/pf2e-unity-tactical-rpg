@@ -110,6 +110,67 @@ namespace PF2e.Tests
             }
         }
 
+        [Test]
+        public void TryExecuteStep_HazardousDestination_AppliesEntryDamage()
+        {
+            using var ctx = new StepActionContext();
+            var actor = ctx.RegisterActor(new Vector3Int(1, 0, 1));
+            ctx.GridData.SetCell(new Vector3Int(2, 0, 1), CellData.CreateWalkable(CellTerrain.Hazardous));
+
+            DamageAppliedEvent? damage = null;
+            ctx.EventBus.OnDamageAppliedTyped += HandleDamage;
+            try
+            {
+                bool executed = ctx.Action.TryExecuteStep(actor, new Vector3Int(2, 0, 1));
+
+                Assert.IsTrue(executed);
+                Assert.AreEqual(18, ctx.Registry.Get(actor).CurrentHP);
+                Assert.IsTrue(damage.HasValue);
+                Assert.AreEqual(actor, damage.Value.target);
+                Assert.AreEqual(HazardousTerrainRules.HazardousEntryDamage, damage.Value.amount);
+                Assert.AreEqual(HazardousTerrainRules.HazardousTerrainActionName, damage.Value.sourceActionName);
+            }
+            finally
+            {
+                ctx.EventBus.OnDamageAppliedTyped -= HandleDamage;
+            }
+
+            void HandleDamage(in DamageAppliedEvent e)
+            {
+                damage = e;
+            }
+        }
+
+        [Test]
+        public void TryMoveEntityImmediate_HazardousDestination_AppliesEntryDamage()
+        {
+            using var ctx = new StepActionContext();
+            var actor = ctx.RegisterActor(new Vector3Int(1, 0, 1));
+            ctx.GridData.SetCell(new Vector3Int(2, 0, 1), CellData.CreateWalkable(CellTerrain.Hazardous));
+
+            DamageAppliedEvent? damage = null;
+            ctx.EventBus.OnDamageAppliedTyped += HandleDamage;
+            try
+            {
+                bool moved = ctx.EntityManager.TryMoveEntityImmediate(actor, new Vector3Int(2, 0, 1));
+
+                Assert.IsTrue(moved);
+                Assert.AreEqual(18, ctx.Registry.Get(actor).CurrentHP);
+                Assert.IsTrue(damage.HasValue);
+                Assert.AreEqual(actor, damage.Value.target);
+                Assert.AreEqual(HazardousTerrainRules.HazardousEntryDamage, damage.Value.amount);
+            }
+            finally
+            {
+                ctx.EventBus.OnDamageAppliedTyped -= HandleDamage;
+            }
+
+            void HandleDamage(in DamageAppliedEvent e)
+            {
+                damage = e;
+            }
+        }
+
         private sealed class StepActionContext : System.IDisposable
         {
             private readonly bool oldIgnoreLogs;

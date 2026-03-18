@@ -43,6 +43,8 @@
 - Complete `Fear` critical-failure semantics with `Fleeing` and expose status/circumstance penalties directly in strike tooltip/log breakdowns. (Done)
 - Add passive `Reactive Strike` trigger layer for movement, ranged attacks, `Stand`, and `Manipulate`, including action-start aborts and crit-based `Manipulate` disruption. (Done)
 - Add `Step` as a 5-foot safe-move action, mobility-slot UX replacement for non-prone actors, and movement trigger metadata so `Reactive Strike` ignores `Step` while still catching normal movement. (Done)
+- Expand deterministic AI combat behavior beyond basic melee: offensive/control spellcasting (`Fear`, `Electric Arc`, `Snowball`, `Force Barrage`, `Burning Hands`), support casting (`Heal`/`Harm` single-target), defensive fallback (`Raise Shield` / `Shield` cantrip), skill openers (`Demoralize`, `Trip`, `Grapple`, `Shove`, `Reposition`), and follow-through priorities for controlled targets. (Done)
+- Add hazard-aware terrain pressure to AI positioning/control and a minimal `Hazardous` cell entry effect so `Step` avoids danger when possible and `Shove`/`Reposition` can exploit dangerous cells. (Done)
 
 ## Phase 3 — Content & UX Polish (In Progress)
 - Add more encounter layouts and data-driven authoring flow.

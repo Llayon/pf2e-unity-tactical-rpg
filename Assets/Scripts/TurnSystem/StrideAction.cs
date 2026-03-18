@@ -170,6 +170,9 @@ namespace PF2e.TurnSystem
 
             // Invoke callback (no closure; executor passed method group)
             cb?.Invoke(cost);
+
+            if (actor.IsValid)
+                HazardousTerrainRules.TryApplyEntryEffect(actor, destination, entityManager, eventBus);
         }
 
         // ─── Boundary computation ────────────────────────────────────────────
