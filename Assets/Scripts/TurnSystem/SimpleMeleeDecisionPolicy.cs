@@ -36,10 +36,6 @@ namespace PF2e.TurnSystem
             new Vector3Int(1, 0, -1)
         };
 
-        private const int DifficultTerrainPressure = 10;
-        private const int GreaterDifficultTerrainPressure = 20;
-        private const int HazardousTerrainPressure = 100;
-
         public SimpleMeleeDecisionPolicy(EntityManager entityManager, GridManager gridManager)
         {
             this.entityManager = entityManager;
@@ -667,7 +663,7 @@ namespace PF2e.TurnSystem
             bool keepsTargetInReach = pushedDistance > currentDistance
                 && pushedDistance <= actor.EquippedWeapon.ReachFeet;
 
-            if (!keepsTargetInReach && terrainPressure < HazardousTerrainPressure)
+            if (!keepsTargetInReach && terrainPressure < HazardousTerrainRules.DefaultHazardousTerrainPressure)
                 return false;
 
             decision = AISkillDecision.Shove(target.Handle);
@@ -888,18 +884,7 @@ namespace PF2e.TurnSystem
 
         private int GetTerrainPressureScore(Vector3Int cell)
         {
-            if (gridManager == null || gridManager.Data == null)
-                return 0;
-            if (!gridManager.Data.TryGetCell(cell, out var cellData))
-                return 0;
-
-            return cellData.terrain switch
-            {
-                CellTerrain.Hazardous => HazardousTerrainPressure,
-                CellTerrain.GreaterDifficult => GreaterDifficultTerrainPressure,
-                CellTerrain.Difficult => DifficultTerrainPressure,
-                _ => 0
-            };
+            return HazardousTerrainRules.GetTerrainPressureScore(gridManager, cell);
         }
 
         private static Vector3Int GetNormalizedPushDirection(Vector3Int actorCell, Vector3Int targetCell)

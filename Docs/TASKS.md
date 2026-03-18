@@ -4,6 +4,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 
 | ID | Priority | Status | Agent Role | Task | DoD |
 | --- | --- | --- | --- | --- | --- |
+| T-188 | P1 | done | Builder | Add scene-authored hazard/trap cells with runtime payload and telegraph overlay | `GridHazardController` can author hazard cells with custom damage/AI pressure, hazard entry uses authored payloads, `Step`/`Shove`/`Reposition` read authored pressure, and `SampleScene` includes visible trap telegraphs |
 | T-185 | P0 | done | Builder | Expand deterministic AI with spellcasting, support, defensive, and martial-control passes | Enemy AI can cast the current offensive/control spell slice, use `Heal/Harm` support on urgent targets, fall back to `Raise Shield` / `Shield`, and choose `Demoralize` / `Trip` / `Grapple` / `Shove` / `Reposition` through the shared decision seam with EditMode coverage |
 | T-186 | P1 | done | Builder | Add follow-through heuristics for AI control actions | After `Trip/Grapple`, AI prefers immediate melee follow-through over weaker fallback actions when the target is already under control and still in melee |
 | T-187 | P1 | done | Builder | Add hazardous-terrain entry damage and terrain-aware AI positioning/control | Entering `CellTerrain.Hazardous` applies deterministic damage on entry, `Step` avoids hazardous cells when safe alternatives exist, and AI `Shove/Reposition` prefer hazardous/difficult destinations when tactically valid |

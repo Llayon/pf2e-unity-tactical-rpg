@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -159,6 +160,53 @@ namespace PF2e.Tests
                 Assert.IsTrue(damage.HasValue);
                 Assert.AreEqual(actor, damage.Value.target);
                 Assert.AreEqual(HazardousTerrainRules.HazardousEntryDamage, damage.Value.amount);
+            }
+            finally
+            {
+                ctx.EventBus.OnDamageAppliedTyped -= HandleDamage;
+            }
+
+            void HandleDamage(in DamageAppliedEvent e)
+            {
+                damage = e;
+            }
+        }
+
+        [Test]
+        public void TryExecuteStep_AuthoredHazardDestination_UsesAuthoredPayload()
+        {
+            using var ctx = new StepActionContext();
+            var actor = ctx.RegisterActor(new Vector3Int(1, 0, 1));
+
+            var hazardController = ctx.GridManager.gameObject.AddComponent<GridHazardController>();
+            SetPrivateField(hazardController, "gridManager", ctx.GridManager);
+            SetPrivateField(
+                hazardController,
+                "hazards",
+                new List<GridHazardDefinition>
+                {
+                    new GridHazardDefinition(
+                        "Spike Pit",
+                        new Vector3Int(2, 0, 1),
+                        entryDamage: 5,
+                        damageType: DamageType.Piercing,
+                        aiPressure: 220,
+                        telegraphColor: new Color(1f, 0.4f, 0.1f, 0.4f))
+                });
+            hazardController.ApplyHazardsNow();
+
+            DamageAppliedEvent? damage = null;
+            ctx.EventBus.OnDamageAppliedTyped += HandleDamage;
+            try
+            {
+                bool executed = ctx.Action.TryExecuteStep(actor, new Vector3Int(2, 0, 1));
+
+                Assert.IsTrue(executed);
+                Assert.AreEqual(15, ctx.Registry.Get(actor).CurrentHP);
+                Assert.IsTrue(damage.HasValue);
+                Assert.AreEqual(DamageType.Piercing, damage.Value.damageType);
+                Assert.AreEqual("Spike Pit", damage.Value.sourceActionName);
+                Assert.AreEqual(5, damage.Value.amount);
             }
             finally
             {

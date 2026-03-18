@@ -14,6 +14,9 @@ namespace PF2e.TurnSystem
     {
         public const int HazardousEntryDamage = 2;
         public const string HazardousTerrainActionName = "Hazardous terrain";
+        public const int DefaultDifficultTerrainPressure = 10;
+        public const int DefaultGreaterDifficultTerrainPressure = 20;
+        public const int DefaultHazardousTerrainPressure = 100;
 
         public static int TryApplyEntryEffect(
             EntityHandle mover,
@@ -30,15 +33,48 @@ namespace PF2e.TurnSystem
             if (cellData.terrain != CellTerrain.Hazardous)
                 return 0;
 
+            int entryDamage = HazardousEntryDamage;
+            DamageType damageType = DamageType.Bludgeoning;
+            string actionName = HazardousTerrainActionName;
+
+            if (entityManager.GridManager != null
+                && entityManager.GridManager.TryGetHazard(destinationCell, out var authoredHazard))
+            {
+                entryDamage = authoredHazard.entryDamage;
+                damageType = authoredHazard.damageType;
+                actionName = string.IsNullOrWhiteSpace(authoredHazard.displayName)
+                    ? HazardousTerrainActionName
+                    : authoredHazard.displayName;
+            }
+
             return DamageApplicationService.ApplyDamage(
                 source: EntityHandle.None,
                 target: mover,
-                amount: HazardousEntryDamage,
-                damageType: DamageType.Bludgeoning,
-                sourceActionName: HazardousTerrainActionName,
+                amount: entryDamage,
+                damageType: damageType,
+                sourceActionName: actionName,
                 isCritical: false,
                 entityManager: entityManager,
                 eventBus: eventBus);
+        }
+
+        public static int GetTerrainPressureScore(GridManager gridManager, Vector3Int cell)
+        {
+            if (gridManager == null || gridManager.Data == null)
+                return 0;
+
+            if (gridManager.TryGetHazard(cell, out var hazard))
+                return hazard.aiPressure;
+            if (!gridManager.Data.TryGetCell(cell, out var cellData))
+                return 0;
+
+            return cellData.terrain switch
+            {
+                CellTerrain.Hazardous => DefaultHazardousTerrainPressure,
+                CellTerrain.GreaterDifficult => DefaultGreaterDifficultTerrainPressure,
+                CellTerrain.Difficult => DefaultDifficultTerrainPressure,
+                _ => 0
+            };
         }
     }
 }

@@ -38,10 +38,21 @@ namespace PF2e.Grid
         private Vector3Int? hoveredCell;
         private Vector3Int? selectedCell;
         private EntityHandle? hoveredEntity;
+        private GridHazardController hazardController;
 
         public Vector3Int? HoveredCell => hoveredCell;
         public Vector3Int? SelectedCell => selectedCell;
         public EntityHandle? HoveredEntity => hoveredEntity;
+
+        public bool TryGetHazard(Vector3Int cell, out GridHazardInfo hazard)
+        {
+            hazard = default;
+
+            if (hazardController == null)
+                hazardController = GetComponent<GridHazardController>();
+
+            return hazardController != null && hazardController.TryGetHazard(cell, out hazard);
+        }
 
         private void Awake()
         {

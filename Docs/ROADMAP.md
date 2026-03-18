@@ -45,6 +45,7 @@
 - Add `Step` as a 5-foot safe-move action, mobility-slot UX replacement for non-prone actors, and movement trigger metadata so `Reactive Strike` ignores `Step` while still catching normal movement. (Done)
 - Expand deterministic AI combat behavior beyond basic melee: offensive/control spellcasting (`Fear`, `Electric Arc`, `Snowball`, `Force Barrage`, `Burning Hands`), support casting (`Heal`/`Harm` single-target), defensive fallback (`Raise Shield` / `Shield` cantrip), skill openers (`Demoralize`, `Trip`, `Grapple`, `Shove`, `Reposition`), and follow-through priorities for controlled targets. (Done)
 - Add hazard-aware terrain pressure to AI positioning/control and a minimal `Hazardous` cell entry effect so `Step` avoids danger when possible and `Shove`/`Reposition` can exploit dangerous cells. (Done)
+- Add scene-authored hazard/trap cells with runtime lookup, custom entry payloads, and visible telegraph overlays so hazards are no longer only a raw terrain enum. (Done)
 
 ## Phase 3 — Content & UX Polish (In Progress)
 - Add more encounter layouts and data-driven authoring flow.

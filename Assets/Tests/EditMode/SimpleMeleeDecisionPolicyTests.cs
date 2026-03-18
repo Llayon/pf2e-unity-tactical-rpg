@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -875,6 +876,72 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void TrySelectSkillDecision_AuthoredTrapCell_PicksRepositionToTrap()
+        {
+            using var ctx = new PolicyContext(CreateSquareGrid(8, 8));
+            var repositionWeapon = ScriptableObject.CreateInstance<WeaponDefinition>();
+
+            try
+            {
+                repositionWeapon.category = WeaponCategory.Martial;
+                repositionWeapon.reachFeet = 10;
+                repositionWeapon.isRanged = false;
+                repositionWeapon.traits = WeaponTraitFlags.Reposition;
+
+                var hazardController = ctx.GridManager.gameObject.AddComponent<GridHazardController>();
+                SetPrivateField(hazardController, "gridManager", ctx.GridManager);
+                SetPrivateField(
+                    hazardController,
+                    "hazards",
+                    new List<GridHazardDefinition>
+                    {
+                        new GridHazardDefinition(
+                            "Blade Trap",
+                            new Vector3Int(3, 0, 1),
+                            entryDamage: 6,
+                            damageType: DamageType.Slashing,
+                            aiPressure: 240,
+                            telegraphColor: new Color(1f, 0.3f, 0.15f, 0.35f))
+                    });
+                hazardController.ApplyHazardsNow();
+
+                var actor = RegisterEntity(
+                    ctx.Registry,
+                    ctx.Occupancy,
+                    Team.Enemy,
+                    new Vector3Int(1, 0, 1),
+                    alive: true,
+                    speedFeet: 25);
+                var target = RegisterEntity(ctx.Registry, ctx.Occupancy, Team.Player, new Vector3Int(2, 0, 1), alive: true, speedFeet: 25);
+
+                var actorData = ctx.Registry.Get(actor);
+                actorData.Level = 1;
+                actorData.Strength = 16;
+                actorData.AthleticsProf = ProficiencyRank.Trained;
+                actorData.EquippedWeapon = new WeaponInstance
+                {
+                    def = repositionWeapon,
+                    potencyBonus = 0,
+                    strikingRank = StrikingRuneRank.None
+                };
+
+                bool selected = ctx.Policy.TrySelectSkillDecision(
+                    actorData,
+                    ctx.Registry.Get(target),
+                    availableActions: 3,
+                    out var decision);
+
+                Assert.IsTrue(selected);
+                Assert.AreEqual(AISkillActionKind.Reposition, decision.actionKind);
+                Assert.AreEqual(new Vector3Int(3, 0, 1), decision.destinationCell);
+            }
+            finally
+            {
+                Object.DestroyImmediate(repositionWeapon);
+            }
+        }
+
+        [Test]
         public void TrySelectSpellDecision_ControlledMeleeTargetAfterAttack_SkipsFear()
         {
             using var ctx = new PolicyContext(CreateSquareGrid(6, 6));
@@ -1172,6 +1239,14 @@ namespace PF2e.Tests
             string fieldName = $"<{propertyName}>k__BackingField";
             var field = target.GetType().GetField(fieldName, flags);
             Assert.IsNotNull(field, $"Missing backing field '{fieldName}' on {target.GetType().Name}");
+            field.SetValue(target, value);
+        }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var field = target.GetType().GetField(fieldName, flags);
+            Assert.IsNotNull(field, $"Missing field '{fieldName}' on {target.GetType().Name}");
             field.SetValue(target, value);
         }
 
