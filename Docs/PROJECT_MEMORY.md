@@ -59,6 +59,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - `Step` now works as a distinct 5-foot safe move: it uses its own targeting mode, validates adjacent non-difficult destination cells, occupies the shared mobility slot when the actor is not prone, and explicitly suppresses `Reactive Strike`.
 - `CellTerrain.Hazardous` now has a minimal runtime effect: entering a hazardous cell deals deterministic entry damage, and this applies both to direct movement and forced movement paths.
 - Hazard authoring now has a real scene seam: `GridHazardController` can author cell-based hazards/traps with custom entry damage/type, AI pressure, and per-cell telegraph color; authored hazards stamp their cells to `CellTerrain.Hazardous` at runtime and expose lookup through `GridManager.TryGetHazard(...)`.
+- Hazard framework and telegraph rendering are committed, but clean authored wiring in the tracked `SampleScene` is still a follow-up: the scene already had a large unrelated dirty diff, so trap telegraph scene serialization was intentionally kept out of the last gameplay commit.
 - Combat works at MVP level: weapon-aware strike resolution (melee + ranged), MAP increment, ranged range-increment penalties, ranged line-of-sight validation + simple cover AC bonus support, ranged concealment flat-check miss support (`Concealed`, DC 5 flat check on would-hit), ranged `Volley` penalty support, strike crit math support for `Deadly` and `Fatal`, phased strike flow (pre/post reaction extension points), damage apply, defeat hide + events, and generic non-strike damage pipeline (`DamageAppliedEvent` + `DamageApplicationService`) currently used by `Trip` crit damage with optional pre-apply Shield Block reduction context.
 - Spellcasting works for the current slice through the existing HUD/targeting pipeline: `Force Barrage`, `Electric Arc`, `Snowball`, `Burning Hands`, `Fear`, `Heal`, and `Harm` all use action bar cast flow, targeting hints, combat log payloads, tooltip payloads, and floating number feedback. Supported spell-resolution patterns now include auto-hit grouped damage, spell attack vs AC, basic-save damage, pure condition application, 15-foot cone AoE, 30-foot emanation AoE, healing, vitality damage, and living/undead split resolution.
 - `Fear` critical failure now applies both `Frightened 3` and `Fleeing`; `Frightened` penalties are also surfaced explicitly in strike tooltip/log breakdowns instead of being hidden inside totals.
@@ -248,6 +249,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 ## Known Issues / TODOs
 - AI remains deterministic and heuristic-driven rather than full utility-AI: tactical coverage is much broader now, but scoring is still priority-based and not yet candidate/utility scored.
 - Hazard telegraphing is intentionally simple for now: authored hazard cells use transparent quad overlays, not a full decal/VFX pipeline or floor-aware overlay sorting system.
+- `SampleScene` still needs a clean committed authoring pass for `GridHazardController`/trap telegraphs; the runtime support exists, but scene serialization was deferred to avoid dragging unrelated scene/UI diffs into the hazard gameplay commit.
 - AI no-progress bailout uses threshold 2 repeated identical loop snapshots; tune only with matching regression tests.
 - `SampleScene` remains authored-reference first; `EncounterFlowPrefabScene` is the current preset-driven fallback example scene.
 - Restart is scene-reload based (`SceneManager.LoadScene`) and intentionally simple for MVP.
@@ -277,9 +279,9 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Legacy forwarder stubs (`TurnManagerLogForwarder`, `TurnManagerTypedForwarder`) were removed from scenes and code; turn/combat typed flow is direct `TurnManager -> CombatEventBus`.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Hazard follow-up: extend authored hazards beyond flat entry damage into richer cell effects (`persistent fire`, `prone-on-entry`, `forced save`) and decide which are worth typed event/log support.
-2. Utility-AI migration prep: replace the growing fixed-priority AI policy with typed candidate generation/scoring while keeping the current executor/runtime seams unchanged.
-3. Spellcasting follow-up: expand shared area templates beyond the current hardcoded slices (`burst` / `line`) so future spells stop needing custom shape helpers.
+1. Hazard scene follow-up: isolate and commit clean `SampleScene` wiring for `GridHazardController` so authored trap telegraphs are visible in the tracked primary scene.
+2. Hazard rules follow-up: extend authored hazards beyond flat entry damage into richer cell effects (`persistent fire`, `prone-on-entry`, `forced save`) and decide which are worth typed event/log support.
+3. Utility-AI migration prep: replace the growing fixed-priority AI policy with typed candidate generation/scoring while keeping the current executor/runtime seams unchanged.
 
 ## LLM-First Delivery Workflow (Multi-Agent)
 ### Operating Model (for non-programmer project owner)

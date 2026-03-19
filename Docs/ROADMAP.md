@@ -45,11 +45,12 @@
 - Add `Step` as a 5-foot safe-move action, mobility-slot UX replacement for non-prone actors, and movement trigger metadata so `Reactive Strike` ignores `Step` while still catching normal movement. (Done)
 - Expand deterministic AI combat behavior beyond basic melee: offensive/control spellcasting (`Fear`, `Electric Arc`, `Snowball`, `Force Barrage`, `Burning Hands`), support casting (`Heal`/`Harm` single-target), defensive fallback (`Raise Shield` / `Shield` cantrip), skill openers (`Demoralize`, `Trip`, `Grapple`, `Shove`, `Reposition`), and follow-through priorities for controlled targets. (Done)
 - Add hazard-aware terrain pressure to AI positioning/control and a minimal `Hazardous` cell entry effect so `Step` avoids danger when possible and `Shove`/`Reposition` can exploit dangerous cells. (Done)
-- Add scene-authored hazard/trap cells with runtime lookup, custom entry payloads, and visible telegraph overlays so hazards are no longer only a raw terrain enum. (Done)
+- Add scene-authored hazard/trap framework with runtime lookup, custom entry payloads, and telegraph overlay support so hazards are no longer only a raw terrain enum. (Done)
 
 ## Phase 3 — Content & UX Polish (In Progress)
 - Add more encounter layouts and data-driven authoring flow.
 - Improve turn clarity and targeting UX.
+- Commit clean `SampleScene` hazard/trap wiring once the large unrelated scene diff is isolated, so authored telegraphs are visible in the tracked primary scene.
 - Add Action Bar UI (clickable actions + hotkey hints + targeting-mode highlight) with scene builder and validator support (`Phase 23`). (Done)
 - Add world-space targeting feedback (`eligible` highlight + hover valid/invalid tint) and target reason hint panel powered by `TargetingController` preview reasons (`Phases 23.1–23.2`). (Done)
 - Add playable two-step `Reposition` targeting UX (target -> check -> destination cell on success), cell highlights/hints, Action Bar wiring, and Reposition control polish (`Phases 26.1a–26.2`). (Done)
