@@ -134,7 +134,7 @@ namespace PF2e.TurnSystem
             if (view != null && view.gameObject != null)
                 view.transform.position = entityManager.GetEntityWorldPosition(targetCell);
 
-            HazardousTerrainRules.TryApplyEntryEffect(actor, targetCell, entityManager, eventBus);
+            HazardousTerrainRules.TryApplyEntryEffect(actor, targetCell, entityManager, eventBus, originCell: fromCell);
 
             return true;
         }

@@ -5,6 +5,7 @@ namespace PF2e.Core
         OffGuard,
         Frightened,
         Fleeing,
+        PersistentFire,
         Sickened,
         Stunned,
         Prone,
@@ -18,6 +19,7 @@ namespace PF2e.Core
         Dying,
         Unconscious,
         Doomed,
-        Concealed
+        Concealed,
+        PersistentAcid
     }
 }

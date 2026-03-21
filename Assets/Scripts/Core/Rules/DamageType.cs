@@ -10,6 +10,7 @@ namespace PF2e.Core
         Cold,
         Fire,
         Vitality,
-        Void
+        Void,
+        Acid
     }
 }

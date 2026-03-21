@@ -143,6 +143,17 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void StrikeDamageBreakdown_Acid_UsesAcidDescription()
+        {
+            string text = TooltipTextBuilder.StrikeDamageBreakdown(
+                totalDamage: 5,
+                damageType: DamageType.Acid);
+
+            StringAssert.Contains("Total: 5 ACID", text);
+            StringAssert.Contains("caustic burns", text);
+        }
+
+        [Test]
         public void BuildResultExtendedBody_AppendsRuleBlock()
         {
             string standardBody = "Attack Roll\nResult: 16 Success!";

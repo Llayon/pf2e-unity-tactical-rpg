@@ -570,6 +570,7 @@ namespace PF2e.Presentation
                 DamageType.Electricity => "Electricity damage comes from lightning, shocks, and crackling magical arcs.",
                 DamageType.Cold => "Cold damage numbs, freezes, and slows with biting frost and winter magic.",
                 DamageType.Fire => "Fire damage burns with flame, heat, and explosive magical bursts.",
+                DamageType.Acid => "Acid damage corrodes flesh, armor, and gear with caustic burns and dissolving magic.",
                 DamageType.Vitality => "Vitality restores the living and burns through undead with restorative magic.",
                 DamageType.Void => "Void drains the living and restores undead through entropic necromancy.",
                 _ => "Damage type description unavailable."

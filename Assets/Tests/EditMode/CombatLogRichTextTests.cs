@@ -81,5 +81,14 @@ namespace PF2e.Tests
             StringAssert.Contains("Electricity", rich);
             StringAssert.Contains(CombatUiPalette.ElectricityHex, rich);
         }
+
+        [Test]
+        public void DmgType_Acid_UsesAcidColor()
+        {
+            string rich = CombatLogRichText.DmgType(DamageType.Acid);
+
+            StringAssert.Contains("Acid", rich);
+            StringAssert.Contains(CombatUiPalette.AcidHex, rich);
+        }
     }
 }

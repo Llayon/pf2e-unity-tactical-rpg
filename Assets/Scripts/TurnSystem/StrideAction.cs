@@ -29,6 +29,7 @@ namespace PF2e.TurnSystem
         private EntityHandle pendingActor;
         private Action<int> pendingOnComplete;
         private int pendingCost;
+        private Vector3Int pendingOrigin;
         private Vector3Int pendingDestination;
 
         /// <summary>
@@ -139,6 +140,7 @@ namespace PF2e.TurnSystem
             // Logical movement commit event (used by systems such as grapple lifecycle).
             eventBus?.PublishEntityMoved(actor, fromCell, targetCell, forced: false);
 
+            pendingOrigin = fromCell;
             // Start animation
             strideInProgress = true;
 
@@ -158,6 +160,8 @@ namespace PF2e.TurnSystem
 
             var destination = pendingDestination;
             pendingDestination = default;
+            var origin = pendingOrigin;
+            pendingOrigin = default;
 
             int cost = pendingCost;
             pendingCost = 0;
@@ -172,7 +176,7 @@ namespace PF2e.TurnSystem
             cb?.Invoke(cost);
 
             if (actor.IsValid)
-                HazardousTerrainRules.TryApplyEntryEffect(actor, destination, entityManager, eventBus);
+                HazardousTerrainRules.TryApplyEntryEffect(actor, destination, entityManager, eventBus, originCell: origin);
         }
 
         // ─── Boundary computation ────────────────────────────────────────────

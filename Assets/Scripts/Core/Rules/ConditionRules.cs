@@ -7,6 +7,7 @@ namespace PF2e.Core
         public static bool IsValued(ConditionType type) => type switch
         {
             ConditionType.Frightened or ConditionType.Sickened or
+            ConditionType.PersistentFire or ConditionType.PersistentAcid or
             ConditionType.Stunned or ConditionType.Slowed or
             ConditionType.SpeedPenalty or
             ConditionType.Wounded or ConditionType.Dying or
@@ -27,6 +28,8 @@ namespace PF2e.Core
             ConditionType.OffGuard => "off-guard",
             ConditionType.SpeedPenalty => "speed penalty",
             ConditionType.Fleeing => "fleeing",
+            ConditionType.PersistentFire => "persistent fire",
+            ConditionType.PersistentAcid => "persistent acid",
             _ => type.ToString().ToLowerInvariant()
         };
 

@@ -91,19 +91,134 @@ namespace PF2e.Grid
                 ? "Hazard"
                 : definition.displayName.Trim();
             int entryDamage = Mathf.Max(1, definition.entryDamage);
-            int aiPressure = Mathf.Max(HazardousTerrainRules.DefaultHazardousTerrainPressure, definition.aiPressure);
+            int aiPressure = definition.aiPressure > 0
+                ? definition.aiPressure
+                : HazardousTerrainRules.DefaultHazardousTerrainPressure;
+            int saveDc = definition.saveDc > 0 ? definition.saveDc : 15;
+            int persistentDamage = definition.persistentDamage;
+            int forcedMoveCells = definition.forcedMoveCells;
+            int forcedMoveElevationPerCell = definition.forcedMoveElevationPerCell;
+            DamageType damageType = definition.damageType;
             Color telegraphColor = definition.telegraphColor.a > 0f
                 ? definition.telegraphColor
                 : new Color(1f, 0.32f, 0.12f, 0.7f);
 
+            switch (definition.effectKind)
+            {
+                case HazardEffectKind.ProneOnEntry:
+                    entryDamage = 0;
+                    break;
+                case HazardEffectKind.PersistentFireOnEntry:
+                    entryDamage = Mathf.Max(1, definition.entryDamage);
+                    persistentDamage = Mathf.Max(1, definition.persistentDamage > 0 ? definition.persistentDamage : definition.entryDamage);
+                    break;
+                case HazardEffectKind.BasicSaveDamage:
+                case HazardEffectKind.DamageAndProneOnFailure:
+                case HazardEffectKind.PersistentFireOnFailedSave:
+                    entryDamage = Mathf.Max(1, definition.entryDamage);
+                    break;
+                case HazardEffectKind.BasicSaveDamageAndPersistentFireOnFailure:
+                    entryDamage = Mathf.Max(1, definition.entryDamage);
+                    persistentDamage = Mathf.Max(1, definition.persistentDamage > 0 ? definition.persistentDamage : definition.entryDamage);
+                    break;
+                case HazardEffectKind.ProneAndPersistentFireOnFailedSave:
+                    entryDamage = 0;
+                    persistentDamage = Mathf.Max(1, definition.persistentDamage > 0 ? definition.persistentDamage : definition.entryDamage);
+                    break;
+                case HazardEffectKind.PushOnFailedSave:
+                    entryDamage = 0;
+                    persistentDamage = 0;
+                    forcedMoveCells = Mathf.Max(1, definition.forcedMoveCells > 0 ? definition.forcedMoveCells : 1);
+                    forcedMoveElevationPerCell = Mathf.Clamp(definition.forcedMoveElevationPerCell, -1, 1);
+                    break;
+                case HazardEffectKind.BasicSaveDamageAndPushOnFailedSave:
+                    entryDamage = Mathf.Max(1, definition.entryDamage);
+                    persistentDamage = 0;
+                    forcedMoveCells = Mathf.Max(1, definition.forcedMoveCells > 0 ? definition.forcedMoveCells : 1);
+                    forcedMoveElevationPerCell = Mathf.Clamp(definition.forcedMoveElevationPerCell, -1, 1);
+                    break;
+                case HazardEffectKind.BasicSaveDamageAndProneAndPushOnFailedSave:
+                    entryDamage = Mathf.Max(1, definition.entryDamage);
+                    persistentDamage = 0;
+                    forcedMoveCells = Mathf.Max(1, definition.forcedMoveCells > 0 ? definition.forcedMoveCells : 1);
+                    forcedMoveElevationPerCell = Mathf.Clamp(definition.forcedMoveElevationPerCell, -1, 1);
+                    break;
+                case HazardEffectKind.ProneAndPushAndPersistentFireOnFailedSave:
+                    entryDamage = 0;
+                    persistentDamage = Mathf.Max(1, definition.persistentDamage > 0 ? definition.persistentDamage : definition.entryDamage);
+                    forcedMoveCells = Mathf.Max(1, definition.forcedMoveCells > 0 ? definition.forcedMoveCells : 1);
+                    forcedMoveElevationPerCell = Mathf.Clamp(definition.forcedMoveElevationPerCell, -1, 1);
+                    break;
+                case HazardEffectKind.PullOnFailedSave:
+                    entryDamage = 0;
+                    persistentDamage = 0;
+                    forcedMoveCells = Mathf.Max(1, definition.forcedMoveCells > 0 ? definition.forcedMoveCells : 1);
+                    forcedMoveElevationPerCell = Mathf.Clamp(definition.forcedMoveElevationPerCell, -1, 1);
+                    break;
+                case HazardEffectKind.BasicSaveDamageAndPullOnFailedSave:
+                    entryDamage = Mathf.Max(1, definition.entryDamage);
+                    persistentDamage = 0;
+                    forcedMoveCells = Mathf.Max(1, definition.forcedMoveCells > 0 ? definition.forcedMoveCells : 1);
+                    forcedMoveElevationPerCell = Mathf.Clamp(definition.forcedMoveElevationPerCell, -1, 1);
+                    break;
+                case HazardEffectKind.BasicSaveDamageAndProneAndPullOnFailedSave:
+                    entryDamage = Mathf.Max(1, definition.entryDamage);
+                    persistentDamage = 0;
+                    forcedMoveCells = Mathf.Max(1, definition.forcedMoveCells > 0 ? definition.forcedMoveCells : 1);
+                    forcedMoveElevationPerCell = Mathf.Clamp(definition.forcedMoveElevationPerCell, -1, 1);
+                    break;
+                case HazardEffectKind.ProneAndPullOnFailedSave:
+                    entryDamage = 0;
+                    persistentDamage = 0;
+                    forcedMoveCells = Mathf.Max(1, definition.forcedMoveCells > 0 ? definition.forcedMoveCells : 1);
+                    forcedMoveElevationPerCell = Mathf.Clamp(definition.forcedMoveElevationPerCell, -1, 1);
+                    break;
+                case HazardEffectKind.PullAndPersistentFireOnFailedSave:
+                    entryDamage = 0;
+                    persistentDamage = Mathf.Max(1, definition.persistentDamage > 0 ? definition.persistentDamage : definition.entryDamage);
+                    forcedMoveCells = Mathf.Max(1, definition.forcedMoveCells > 0 ? definition.forcedMoveCells : 1);
+                    forcedMoveElevationPerCell = Mathf.Clamp(definition.forcedMoveElevationPerCell, -1, 1);
+                    break;
+                case HazardEffectKind.ProneAndPullAndPersistentFireOnFailedSave:
+                    entryDamage = 0;
+                    persistentDamage = Mathf.Max(1, definition.persistentDamage > 0 ? definition.persistentDamage : definition.entryDamage);
+                    forcedMoveCells = Mathf.Max(1, definition.forcedMoveCells > 0 ? definition.forcedMoveCells : 1);
+                    forcedMoveElevationPerCell = Mathf.Clamp(definition.forcedMoveElevationPerCell, -1, 1);
+                    break;
+                case HazardEffectKind.PersistentAcidOnFailedSave:
+                    entryDamage = 0;
+                    persistentDamage = Mathf.Max(1, definition.persistentDamage > 0 ? definition.persistentDamage : definition.entryDamage);
+                    damageType = DamageType.Acid;
+                    break;
+                case HazardEffectKind.BasicSaveDamageAndPersistentAcidOnFailure:
+                    entryDamage = Mathf.Max(1, definition.entryDamage);
+                    persistentDamage = Mathf.Max(1, definition.persistentDamage > 0 ? definition.persistentDamage : definition.entryDamage);
+                    damageType = DamageType.Acid;
+                    break;
+                case HazardEffectKind.ProneAndPersistentAcidOnFailedSave:
+                    entryDamage = 0;
+                    persistentDamage = Mathf.Max(1, definition.persistentDamage > 0 ? definition.persistentDamage : definition.entryDamage);
+                    damageType = DamageType.Acid;
+                    break;
+                default:
+                    entryDamage = Mathf.Max(1, definition.entryDamage);
+                    break;
+            }
+
             info = new GridHazardInfo(
                 displayName,
                 definition.cell,
+                definition.effectKind,
                 entryDamage,
-                definition.damageType,
+                persistentDamage,
+                forcedMoveCells,
+                damageType,
+                definition.saveType,
+                saveDc,
                 aiPressure,
-                telegraphColor);
-            return true;
+                telegraphColor,
+                forcedMoveElevationPerCell);
+            return info.IsValid;
         }
 
         private void ApplyHazardTerrain(Vector3Int cell)

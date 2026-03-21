@@ -48,6 +48,7 @@ namespace PF2e.Presentation
         [SerializeField] private Color electricityColor = new Color(0.5f, 0.82f, 1f, 1f);
         [SerializeField] private Color coldColor        = new Color(0.56f, 0.82f, 0.94f, 1f);
         [SerializeField] private Color fireColor        = new Color(0.93f, 0.6f, 0.28f, 1f);
+        [SerializeField] private Color acidColor        = new Color(0.62f, 0.84f, 0.38f, 1f);
         [SerializeField] private Color vitalityColor    = new Color(0.64f, 0.82f, 0.54f, 1f);
         [SerializeField] private Color voidColor        = new Color(0.63f, 0.54f, 0.74f, 1f);
         [SerializeField] private Color healingColor     = new Color(0.44f, 0.9f, 0.48f, 1f);
@@ -145,6 +146,7 @@ namespace PF2e.Presentation
                 case DamageType.Electricity: return electricityColor;
                 case DamageType.Cold:        return coldColor;
                 case DamageType.Fire:        return fireColor;
+                case DamageType.Acid:        return acidColor;
                 case DamageType.Vitality:    return vitalityColor;
                 case DamageType.Void:        return voidColor;
                 default:                     return bludgeoningColor;

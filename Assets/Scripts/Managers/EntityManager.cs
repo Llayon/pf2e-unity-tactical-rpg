@@ -445,7 +445,7 @@ namespace PF2e.Managers
             if (view != null && view.gameObject != null)
                 view.transform.position = GetEntityWorldPosition(destination);
 
-            HazardousTerrainRules.TryApplyEntryEffect(handle, destination, this, eventBus);
+            HazardousTerrainRules.TryApplyEntryEffect(handle, destination, this, eventBus, originCell: from);
 
             return true;
         }

@@ -41,6 +41,7 @@ namespace PF2e.Presentation
         public const string FireColor = CombatUiPalette.FireHex;
         public const string VitalityColor = CombatUiPalette.HealHex;
         public const string VoidColor = CombatUiPalette.VoidHex;
+        public const string AcidColor = CombatUiPalette.AcidHex;
 
         public static string EntityName(string name, Team team)
         {
@@ -214,6 +215,7 @@ namespace PF2e.Presentation
                 DamageType.Fire => FireColor,
                 DamageType.Vitality => VitalityColor,
                 DamageType.Void => VoidColor,
+                DamageType.Acid => AcidColor,
                 _ => CombatUiPalette.TooltipBodyHex
             };
         }

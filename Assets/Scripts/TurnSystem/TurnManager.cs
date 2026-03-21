@@ -48,6 +48,7 @@ namespace PF2e.TurnSystem
         private readonly HashSet<EntityHandle> delayReactionSuppressed = new();
         private EntityHandle lastActionStartInterruptedActor = EntityHandle.None;
         private IRng initiativeRng = UnityRng.Shared;
+        private IRng ongoingEffectRng = UnityRng.Shared;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         private const float ActionLockWarnSeconds = 4f;
@@ -150,6 +151,11 @@ namespace PF2e.TurnSystem
         internal void SetReactiveStrikeRngForTesting(IRng rng)
         {
             reactiveStrikeCoordinator.SetRngForTesting(rng);
+        }
+
+        internal void SetOngoingEffectRngForTesting(IRng rng)
+        {
+            ongoingEffectRng = rng ?? UnityRng.Shared;
         }
 
         internal bool ConsumeLastActionStartInterrupted(EntityHandle actor)
@@ -926,6 +932,25 @@ namespace PF2e.TurnSystem
                 return;
 
             conditionDeltaBuffer.Clear();
+            PersistentDamageRules.ApplyEndTurnPersistentDamage(
+                actor,
+                data,
+                entityManager,
+                eventBus,
+                conditionService,
+                conditionDeltaBuffer,
+                ongoingEffectRng);
+
+            if (!data.IsAlive)
+            {
+                for (int i = 0; i < conditionDeltaBuffer.Count; i++)
+                    PublishConditionChanged(conditionDeltaBuffer[i]);
+
+                if (conditionDeltaBuffer.Count > 0)
+                    PublishConditionsTicked(new ConditionsTickedEvent(actor, conditionDeltaBuffer));
+                return;
+            }
+
             conditionService.TickEndTurn(data, conditionDeltaBuffer);
 
             for (int i = 0; i < conditionDeltaBuffer.Count; i++)
