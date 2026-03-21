@@ -21602,6 +21602,7 @@ GameObject:
   - component: {fileID: 2005884556}
   - component: {fileID: 2005884555}
   - component: {fileID: 2005884557}
+  - component: {fileID: 2005884558}
   m_Layer: 8
   m_Name: TacticalGrid
   m_TagString: Untagged
@@ -21735,6 +21736,59 @@ MonoBehaviour:
   boundaryMarkerScale: 0.45
   boundaryMarkerExtraYOffset: 0.03
   boundaryMarkerYawDegrees: 45
+--- !u!114 &2005884558
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2005884549}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c00fb281e34c4234493af71787f3a7cc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PF2e::PF2e.Grid.GridHazardController
+  gridManager: {fileID: 0}
+  hazards:
+  - displayName: Hook Snare
+    cell: {x: 4, y: 0, z: 2}
+    effectKind: 20
+    entryDamage: 5
+    persistentDamage: 0
+    forcedMoveCells: 1
+    forcedMoveElevationPerCell: 0
+    damageType: 2
+    saveType: 1
+    saveDc: 16
+    aiPressure: 235
+    telegraphColor: {r: 0.4, g: 0.82, b: 0.96, a: 0.74}
+  - displayName: Acid Slick
+    cell: {x: 4, y: 0, z: 3}
+    effectKind: 18
+    entryDamage: 0
+    persistentDamage: 2
+    forcedMoveCells: 0
+    forcedMoveElevationPerCell: 0
+    damageType: 9
+    saveType: 1
+    saveDc: 16
+    aiPressure: 210
+    telegraphColor: {r: 0.36, g: 0.92, b: 0.42, a: 0.68}
+  - displayName: Burning Coals
+    cell: {x: 4, y: 0, z: 5}
+    effectKind: 6
+    entryDamage: 4
+    persistentDamage: 2
+    forcedMoveCells: 0
+    forcedMoveElevationPerCell: 0
+    damageType: 6
+    saveType: 1
+    saveDc: 16
+    aiPressure: 225
+    telegraphColor: {r: 1, g: 0.45, b: 0.08, a: 0.74}
+  showTelegraphs: 1
+  telegraphYOffset: 0.075
+  telegraphInset: 0.12
 --- !u!1 &2007017140
 GameObject:
   m_ObjectHideFlags: 0

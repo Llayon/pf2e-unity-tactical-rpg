@@ -71,7 +71,7 @@
 ## Phase 3 — Content & UX Polish (In Progress)
 - Add more encounter layouts and data-driven authoring flow.
 - Improve turn clarity and targeting UX.
-- Commit clean `SampleScene` hazard/trap wiring once the large unrelated scene diff is isolated, so authored telegraphs are visible in the tracked primary scene.
+- Author a real `SampleScene` hazard telegraph pass with readable central trap lanes and distinct trap roles, so the tracked primary encounter communicates hazard gameplay without relying on hidden runtime defaults. (Done)
 - Add Action Bar UI (clickable actions + hotkey hints + targeting-mode highlight) with scene builder and validator support (`Phase 23`). (Done)
 - Add world-space targeting feedback (`eligible` highlight + hover valid/invalid tint) and target reason hint panel powered by `TargetingController` preview reasons (`Phases 23.1–23.2`). (Done)
 - Add playable two-step `Reposition` targeting UX (target -> check -> destination cell on success), cell highlights/hints, Action Bar wiring, and Reposition control polish (`Phases 26.1a–26.2`). (Done)
