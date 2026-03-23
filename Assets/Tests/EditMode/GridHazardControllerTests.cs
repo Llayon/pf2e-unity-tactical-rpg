@@ -715,6 +715,108 @@ namespace PF2e.Tests
             }
         }
 
+        [Test]
+        public void ApplyHazardsNow_PullAndPersistentAcidHazard_ForcesAcidDamageTypeAndNormalizesPayload()
+        {
+            bool oldIgnoreLogs = LogAssert.ignoreFailingMessages;
+            LogAssert.ignoreFailingMessages = true;
+
+            var root = new GameObject("GridHazardTests_PullAcidRoot");
+            try
+            {
+                var gridManager = root.AddComponent<GridManager>();
+                var gridData = new GridData(1f, 1f);
+                SeedWalkableGrid(gridData, 4, 4);
+                SetAutoPropertyBackingField(gridManager, "Data", gridData);
+
+                var hazardController = root.AddComponent<GridHazardController>();
+                SetPrivateField(hazardController, "gridManager", gridManager);
+                SetPrivateField(
+                    hazardController,
+                    "hazards",
+                    new List<GridHazardDefinition>
+                    {
+                        new GridHazardDefinition(
+                            "Hook Acid",
+                            new Vector3Int(3, 0, 2),
+                            HazardEffectKind.PullAndPersistentAcidOnFailedSave,
+                            entryDamage: 2,
+                            persistentDamage: 0,
+                            forcedMoveCells: 0,
+                            damageType: DamageType.Bludgeoning,
+                            saveType: SaveType.Reflex,
+                            saveDc: 16,
+                            aiPressure: 210,
+                            telegraphColor: new Color(0.7f, 0.95f, 0.35f, 0.35f))
+                    });
+
+                hazardController.ApplyHazardsNow();
+
+                Assert.IsTrue(gridManager.TryGetHazard(new Vector3Int(3, 0, 2), out var hazard));
+                Assert.AreEqual(HazardEffectKind.PullAndPersistentAcidOnFailedSave, hazard.effectKind);
+                Assert.AreEqual(2, hazard.persistentDamage);
+                Assert.AreEqual(1, hazard.forcedMoveCells);
+                Assert.AreEqual(DamageType.Acid, hazard.damageType);
+                Assert.IsTrue(hazard.IsValid);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+                LogAssert.ignoreFailingMessages = oldIgnoreLogs;
+            }
+        }
+
+        [Test]
+        public void ApplyHazardsNow_PushAndPersistentAcidHazard_ForcesAcidDamageTypeAndNormalizesPayload()
+        {
+            bool oldIgnoreLogs = LogAssert.ignoreFailingMessages;
+            LogAssert.ignoreFailingMessages = true;
+
+            var root = new GameObject("GridHazardTests_PushAcidRoot");
+            try
+            {
+                var gridManager = root.AddComponent<GridManager>();
+                var gridData = new GridData(1f, 1f);
+                SeedWalkableGrid(gridData, 4, 4);
+                SetAutoPropertyBackingField(gridManager, "Data", gridData);
+
+                var hazardController = root.AddComponent<GridHazardController>();
+                SetPrivateField(hazardController, "gridManager", gridManager);
+                SetPrivateField(
+                    hazardController,
+                    "hazards",
+                    new List<GridHazardDefinition>
+                    {
+                        new GridHazardDefinition(
+                            "Blast Acid",
+                            new Vector3Int(3, 0, 1),
+                            HazardEffectKind.PushAndPersistentAcidOnFailedSave,
+                            entryDamage: 2,
+                            persistentDamage: 0,
+                            forcedMoveCells: 0,
+                            damageType: DamageType.Bludgeoning,
+                            saveType: SaveType.Reflex,
+                            saveDc: 16,
+                            aiPressure: 220,
+                            telegraphColor: new Color(0.68f, 0.95f, 0.38f, 0.35f))
+                    });
+
+                hazardController.ApplyHazardsNow();
+
+                Assert.IsTrue(gridManager.TryGetHazard(new Vector3Int(3, 0, 1), out var hazard));
+                Assert.AreEqual(HazardEffectKind.PushAndPersistentAcidOnFailedSave, hazard.effectKind);
+                Assert.AreEqual(2, hazard.persistentDamage);
+                Assert.AreEqual(1, hazard.forcedMoveCells);
+                Assert.AreEqual(DamageType.Acid, hazard.damageType);
+                Assert.IsTrue(hazard.IsValid);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+                LogAssert.ignoreFailingMessages = oldIgnoreLogs;
+            }
+        }
+
         private static void SeedWalkableGrid(GridData gridData, int sizeX, int sizeZ)
         {
             for (int x = 0; x < sizeX; x++)

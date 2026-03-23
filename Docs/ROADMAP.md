@@ -66,7 +66,8 @@
 - Add authored vertical displacement depth/elevation rules for hazards so push/pull traps can move uphill/downhill per step instead of being locked to same-elevation displacement. (Done)
 - Add the first chained vertical push trap (`basic save` damage + push + prone on failure`) so the new elevation-aware displacement seam is exercised by a real authored punish+control payload rather than only pure movement traps. (Done)
 - Add the first chained vertical pull trap (`basic save` damage + pull + prone on failure`) so the new elevation-aware displacement seam is now exercised symmetrically on both push and pull branches. (Done)
-- Add the first chained displacement + non-fire ongoing authored hazard so displacement traps are no longer coupled only to fire/control follow-ups and can reuse the shared persistent-damage seam with a second damage family.
+- Add the first chained displacement + non-fire ongoing authored hazard so displacement traps are no longer coupled only to fire/control follow-ups and can reuse the shared persistent-damage seam with a second damage family. (Done)
+- Add the symmetric push-side non-fire ongoing hazard so the non-fire displacement branch is no longer pull-only and can now apply acid pressure on both knockback and drag-style traps. (Done)
 
 ## Phase 3 — Content & UX Polish (In Progress)
 - Add more encounter layouts and data-driven authoring flow.

@@ -71,6 +71,8 @@ namespace PF2e.Grid
             HazardEffectKind.ProneAndPersistentAcidOnFailedSave => persistentDamage > 0 && saveDc > 0,
             HazardEffectKind.BasicSaveDamageAndProneAndPushOnFailedSave => entryDamage > 0 && forcedMoveCells > 0 && saveDc > 0,
             HazardEffectKind.BasicSaveDamageAndProneAndPullOnFailedSave => entryDamage > 0 && forcedMoveCells > 0 && saveDc > 0,
+            HazardEffectKind.PullAndPersistentAcidOnFailedSave => persistentDamage > 0 && forcedMoveCells > 0 && saveDc > 0,
+            HazardEffectKind.PushAndPersistentAcidOnFailedSave => persistentDamage > 0 && forcedMoveCells > 0 && saveDc > 0,
             _ => false
         };
     }

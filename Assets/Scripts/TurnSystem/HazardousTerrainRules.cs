@@ -173,6 +173,30 @@ namespace PF2e.TurnSystem
                         eventBus,
                         rng);
 
+                case HazardEffectKind.PullAndPersistentAcidOnFailedSave:
+                    return ResolvePullAndPersistentAcidHazard(
+                        mover,
+                        moverData,
+                        destinationCell,
+                        originCell,
+                        actionName,
+                        hazard,
+                        entityManager,
+                        eventBus,
+                        rng);
+
+                case HazardEffectKind.PushAndPersistentAcidOnFailedSave:
+                    return ResolvePushAndPersistentAcidHazard(
+                        mover,
+                        moverData,
+                        destinationCell,
+                        originCell,
+                        actionName,
+                        hazard,
+                        entityManager,
+                        eventBus,
+                        rng);
+
                 case HazardEffectKind.BasicSaveDamageAndPersistentFireOnFailure:
                     return ResolveSaveDamageAndPersistentFireHazard(
                         mover,
@@ -789,6 +813,66 @@ namespace PF2e.TurnSystem
                     moverData,
                     GetPersistentAcidDamage(hazard),
                     eventBus);
+            }
+
+            return 0;
+        }
+
+        private static int ResolvePullAndPersistentAcidHazard(
+            EntityHandle mover,
+            EntityData moverData,
+            Vector3Int destinationCell,
+            Vector3Int? originCell,
+            string actionName,
+            in GridHazardInfo hazard,
+            EntityManager entityManager,
+            CombatEventBus eventBus,
+            IRng rng)
+        {
+            var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
+            PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
+
+            if (moverData.IsAlive
+                && (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure))
+            {
+                TryApplyForcedPull(
+                    mover,
+                    destinationCell,
+                    originCell,
+                    Mathf.Max(1, hazard.forcedMoveCells),
+                    hazard.forcedMoveElevationPerCell,
+                    entityManager);
+                ApplyPersistentAcid(moverData, GetPersistentAcidDamage(hazard), eventBus);
+            }
+
+            return 0;
+        }
+
+        private static int ResolvePushAndPersistentAcidHazard(
+            EntityHandle mover,
+            EntityData moverData,
+            Vector3Int destinationCell,
+            Vector3Int? originCell,
+            string actionName,
+            in GridHazardInfo hazard,
+            EntityManager entityManager,
+            CombatEventBus eventBus,
+            IRng rng)
+        {
+            var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
+            PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
+
+            if (moverData.IsAlive
+                && (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure))
+            {
+                TryApplyForcedPush(
+                    mover,
+                    destinationCell,
+                    originCell,
+                    Mathf.Max(1, hazard.forcedMoveCells),
+                    hazard.forcedMoveElevationPerCell,
+                    entityManager);
+                ApplyPersistentAcid(moverData, GetPersistentAcidDamage(hazard), eventBus);
             }
 
             return 0;
