@@ -98,6 +98,7 @@ public static class PF2eSceneDependencyValidator
         errors += ValidateAll<TargetingHintController>(ValidateTargetingHintController, ref warnings);
         errors += ValidateAll<TargetingFeedbackController>(ValidateTargetingFeedbackController, ref warnings);
         errors += ValidateAll<ConditionLogForwarder>(ValidateConditionLogForwarder, ref warnings);
+        errors += ValidateAll<HazardLogForwarder>(ValidateHazardLogForwarder, ref warnings);
         errors += ValidateAll<StandAction>(ValidateStandAction, ref warnings);
                 errors += ValidateAll<TripAction>(ValidateTripAction, ref warnings);
         errors += ValidateAll<ShoveAction>(ValidateShoveAction, ref warnings);
@@ -132,6 +133,7 @@ public static class PF2eSceneDependencyValidator
         errors += ErrorIfMoreThanOne<TargetingHintController>();
         errors += ErrorIfMoreThanOne<TargetingFeedbackController>();
         errors += ErrorIfMoreThanOne<ConditionLogForwarder>();
+        errors += ErrorIfMoreThanOne<HazardLogForwarder>();
         errors += ErrorIfMoreThanOne<StandAction>();
                 errors += ErrorIfMoreThanOne<TripAction>();
         errors += ErrorIfMoreThanOne<ShoveAction>();
@@ -186,6 +188,7 @@ public static class PF2eSceneDependencyValidator
         warnings += WarnIfNone<TargetingHintController>();
         warnings += WarnIfNone<TargetingFeedbackController>();
         warnings += WarnIfNone<DamageLogForwarder>();
+        warnings += WarnIfNone<HazardLogForwarder>();
         warnings += WarnMissingEncounterActorIdsOnCombatants();
         warnings += WarnIfAny<ConditionTickForwarder>(
             "ConditionTickForwarder is deprecated and should be removed from scene.");
@@ -553,6 +556,12 @@ public static class PF2eSceneDependencyValidator
     private static void ValidateConditionLogForwarder(ConditionLogForwarder f, ref int errors, ref int warnings)
     {
         errors += RequireRef(f, "eventBus", "CombatEventBus");
+    }
+
+    private static void ValidateHazardLogForwarder(HazardLogForwarder f, ref int errors, ref int warnings)
+    {
+        errors += RequireRef(f, "eventBus", "CombatEventBus");
+        errors += RequireRef(f, "entityManager", "EntityManager");
     }
 
     private static void ValidateStandAction(StandAction sa, ref int errors, ref int warnings)
@@ -968,6 +977,7 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         TryGetSingleton(out ReadyStrikeEventBinder readyStrikeEventBinderSingleton, logIfMissing: false);
         TryGetSingleton(out TargetingHintController targetingHintControllerSingleton, logIfMissing: false);
         TryGetSingleton(out TargetingFeedbackController targetingFeedbackControllerSingleton, logIfMissing: false);
+        TryGetSingleton(out HazardLogForwarder hazardLogForwarderSingleton, logIfMissing: false);
 
         if (readyStrikeEventBinderSingleton == null &&
             turnManager != null &&
@@ -978,6 +988,16 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
             EditorUtility.SetDirty(turnManager.gameObject);
             fixedCount++;
             Debug.Log("[PF2eAutoFix] Created ReadyStrikeEventBinder on TurnManager GameObject.", turnManager.gameObject);
+        }
+
+        if (hazardLogForwarderSingleton == null &&
+            eventBus != null)
+        {
+            Undo.RecordObject(eventBus.gameObject, "Create HazardLogForwarder");
+            hazardLogForwarderSingleton = eventBus.gameObject.AddComponent<HazardLogForwarder>();
+            EditorUtility.SetDirty(eventBus.gameObject);
+            fixedCount++;
+            Debug.Log("[PF2eAutoFix] Created HazardLogForwarder on CombatEventBus GameObject.", eventBus.gameObject);
         }
 
         // Fix null references only
@@ -1135,6 +1155,11 @@ private static void ValidateDemoralizeAction(DemoralizeAction da, ref int errors
         // ConditionLogForwarder (Phase 15B)
         if (eventBus != null)
             fixedCount += FixAll<ConditionLogForwarder>("eventBus", eventBus);
+
+        // HazardLogForwarder (typed hazard trigger summaries)
+        fixedCount += FixAll<HazardLogForwarder>("entityManager", entityManager);
+        if (eventBus != null)
+            fixedCount += FixAll<HazardLogForwarder>("eventBus", eventBus);
 
         // PlayerActionExecutor standAction (Phase 15A)
         TryGetSingleton(out StandAction standActionSingleton, logIfMissing: false);

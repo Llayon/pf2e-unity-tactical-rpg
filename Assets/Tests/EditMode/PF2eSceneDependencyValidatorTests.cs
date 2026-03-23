@@ -54,12 +54,25 @@ namespace PF2e.Tests
                 "SampleScene must contain TurnUIController.");
             Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<CombatLogController>(),
                 "SampleScene must contain CombatLogController.");
+            Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<HazardLogForwarder>(),
+                "SampleScene must contain HazardLogForwarder.");
             Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<UnitPanelController>(),
                 "SampleScene must contain UnitPanelController.");
             Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<TurnEconomyController>(),
                 "SampleScene must contain TurnEconomyController.");
             Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<TurnOptionsPresenter>(),
                 "SampleScene must contain TurnOptionsPresenter.");
+        }
+
+        [Test]
+        public void EncounterFlowPrefabScene_Smoke_WiresHazardLogForwarder()
+        {
+            Assert.IsTrue(System.IO.File.Exists(EncounterFlowScenePath), $"Missing scene: {EncounterFlowScenePath}");
+
+            EditorSceneManager.OpenScene(EncounterFlowScenePath, OpenSceneMode.Single);
+
+            Assert.IsNotNull(UnityEngine.Object.FindFirstObjectByType<HazardLogForwarder>(),
+                "EncounterFlowPrefabScene must contain HazardLogForwarder.");
         }
 
         [Test]
@@ -480,6 +493,50 @@ namespace PF2e.Tests
             Assert.AreSame(turnManager.gameObject, binder.gameObject, "ReadyStrikeEventBinder must be created on TurnManager GameObject.");
             Assert.AreSame(turnManager, GetPrivateField<TurnManager>(binder, "turnManager"));
             Assert.AreSame(eventBus, GetPrivateField<CombatEventBus>(binder, "eventBus"));
+        }
+
+        [Test]
+        [TestMustExpectAllLogs(false)]
+        public void AutoFix_WhenHazardLogForwarderMissing_CreatesAndWiresOnCombatEventBus()
+        {
+            bool oldIgnoreFailingLogs = LogAssert.ignoreFailingMessages;
+            LogAssert.ignoreFailingMessages = true;
+            Assert.IsTrue(System.IO.File.Exists(SampleScenePath), $"Missing scene: {SampleScenePath}");
+
+            try
+            {
+                EditorSceneManager.OpenScene(SampleScenePath, OpenSceneMode.Single);
+
+                var eventBus = UnityEngine.Object.FindFirstObjectByType<CombatEventBus>();
+                var entityManager = UnityEngine.Object.FindFirstObjectByType<EntityManager>();
+                Assert.IsNotNull(eventBus, "SampleScene must contain CombatEventBus.");
+                Assert.IsNotNull(entityManager, "SampleScene must contain EntityManager.");
+
+                var existing = UnityEngine.Object.FindObjectsByType<HazardLogForwarder>(FindObjectsSortMode.None);
+                for (int i = 0; i < existing.Length; i++)
+                {
+                    UnityEngine.Object.DestroyImmediate(existing[i]);
+                }
+
+                Assert.AreEqual(
+                    0,
+                    UnityEngine.Object.FindObjectsByType<HazardLogForwarder>(FindObjectsSortMode.None).Length,
+                    "Test precondition: HazardLogForwarder must be missing before autofix.");
+
+                InvokePrivateValidatorMethodWithBoolArg("RunAutoFix", false);
+
+                var after = UnityEngine.Object.FindObjectsByType<HazardLogForwarder>(FindObjectsSortMode.None);
+                Assert.AreEqual(1, after.Length, "AutoFix must create exactly one HazardLogForwarder.");
+
+                var forwarder = after[0];
+                Assert.AreSame(eventBus.gameObject, forwarder.gameObject, "HazardLogForwarder must be created on CombatEventBus GameObject.");
+                Assert.AreSame(eventBus, GetPrivateField<CombatEventBus>(forwarder, "eventBus"));
+                Assert.AreSame(entityManager, GetPrivateField<EntityManager>(forwarder, "entityManager"));
+            }
+            finally
+            {
+                LogAssert.ignoreFailingMessages = oldIgnoreFailingLogs;
+            }
         }
 
         [Test]
