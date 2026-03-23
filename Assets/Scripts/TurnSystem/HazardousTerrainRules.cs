@@ -120,17 +120,57 @@ namespace PF2e.TurnSystem
                         rng);
 
                 case HazardEffectKind.ProneOnEntry:
+                {
+                    int hpBefore = moverData.CurrentHP;
                     ApplyProne(
                         moverData,
                         eventBus);
+                    PublishHazardTriggered(
+                        mover,
+                        moverData,
+                        destinationCell,
+                        actionName,
+                        hazard,
+                        rolledDamage: 0,
+                        hpBefore: hpBefore,
+                        appliedDamage: 0,
+                        saveResult: null,
+                        movedCells: 0,
+                        pulledTowardOrigin: false,
+                        primaryConditionType: ConditionType.Prone,
+                        primaryConditionValue: 0,
+                        secondaryConditionType: null,
+                        secondaryConditionValue: 0,
+                        eventBus: eventBus);
                     return 0;
+                }
 
                 case HazardEffectKind.PersistentFireOnEntry:
+                {
+                    int hpBefore = moverData.CurrentHP;
                     ApplyPersistentFire(
                         moverData,
                         GetPersistentFireDamage(hazard),
                         eventBus);
+                    PublishHazardTriggered(
+                        mover,
+                        moverData,
+                        destinationCell,
+                        actionName,
+                        hazard,
+                        rolledDamage: 0,
+                        hpBefore: hpBefore,
+                        appliedDamage: 0,
+                        saveResult: null,
+                        movedCells: 0,
+                        pulledTowardOrigin: false,
+                        primaryConditionType: ConditionType.PersistentFire,
+                        primaryConditionValue: GetPersistentFireDamage(hazard),
+                        secondaryConditionType: null,
+                        secondaryConditionValue: 0,
+                        eventBus: eventBus);
                     return 0;
+                }
 
                 case HazardEffectKind.PersistentFireOnFailedSave:
                     return ResolvePersistentFireOnFailedSaveHazard(
@@ -187,6 +227,54 @@ namespace PF2e.TurnSystem
 
                 case HazardEffectKind.PushAndPersistentAcidOnFailedSave:
                     return ResolvePushAndPersistentAcidHazard(
+                        mover,
+                        moverData,
+                        destinationCell,
+                        originCell,
+                        actionName,
+                        hazard,
+                        entityManager,
+                        eventBus,
+                        rng);
+
+                case HazardEffectKind.BasicSaveDamageAndPushAndPersistentAcidOnFailedSave:
+                    return ResolveSaveDamageAndPushAndPersistentAcidHazard(
+                        mover,
+                        moverData,
+                        destinationCell,
+                        originCell,
+                        actionName,
+                        hazard,
+                        entityManager,
+                        eventBus,
+                        rng);
+
+                case HazardEffectKind.BasicSaveDamageAndPullAndPersistentAcidOnFailedSave:
+                    return ResolveSaveDamageAndPullAndPersistentAcidHazard(
+                        mover,
+                        moverData,
+                        destinationCell,
+                        originCell,
+                        actionName,
+                        hazard,
+                        entityManager,
+                        eventBus,
+                        rng);
+
+                case HazardEffectKind.ProneAndPushAndPersistentAcidOnFailedSave:
+                    return ResolveProneAndPushAndPersistentAcidHazard(
+                        mover,
+                        moverData,
+                        destinationCell,
+                        originCell,
+                        actionName,
+                        hazard,
+                        entityManager,
+                        eventBus,
+                        rng);
+
+                case HazardEffectKind.ProneAndPullAndPersistentAcidOnFailedSave:
+                    return ResolveProneAndPullAndPersistentAcidHazard(
                         mover,
                         moverData,
                         destinationCell,
@@ -352,7 +440,9 @@ namespace PF2e.TurnSystem
 
                 case HazardEffectKind.FlatDamage:
                 default:
-                    return DamageApplicationService.ApplyDamage(
+                {
+                    int hpBefore = moverData.CurrentHP;
+                    int appliedDamage = DamageApplicationService.ApplyDamage(
                         source: EntityHandle.None,
                         target: mover,
                         amount: hazard.entryDamage,
@@ -361,6 +451,25 @@ namespace PF2e.TurnSystem
                         isCritical: false,
                         entityManager: entityManager,
                         eventBus: eventBus);
+                    PublishHazardTriggered(
+                        mover,
+                        moverData,
+                        destinationCell,
+                        actionName,
+                        hazard,
+                        rolledDamage: hazard.entryDamage,
+                        hpBefore: hpBefore,
+                        appliedDamage: appliedDamage,
+                        saveResult: null,
+                        movedCells: 0,
+                        pulledTowardOrigin: false,
+                        primaryConditionType: null,
+                        primaryConditionValue: 0,
+                        secondaryConditionType: null,
+                        secondaryConditionValue: 0,
+                        eventBus: eventBus);
+                    return appliedDamage;
+                }
             }
         }
 
@@ -375,6 +484,7 @@ namespace PF2e.TurnSystem
             CombatEventBus eventBus,
             IRng rng)
         {
+            int hpBefore = moverData.CurrentHP;
             var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
             int resolvedDamage = CheckResolver.ApplyBasicSaveDamage(hazard.entryDamage, save.degree);
 
@@ -399,6 +509,26 @@ namespace PF2e.TurnSystem
                     eventBus);
             }
 
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: hazard.entryDamage,
+                hpBefore: hpBefore,
+                appliedDamage: appliedDamage,
+                saveResult: save,
+                movedCells: 0,
+                pulledTowardOrigin: false,
+                primaryConditionType: applyProneOnFailure && (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.Prone
+                    : null,
+                primaryConditionValue: 0,
+                secondaryConditionType: null,
+                secondaryConditionValue: 0,
+                eventBus: eventBus);
+
             return appliedDamage;
         }
 
@@ -411,6 +541,7 @@ namespace PF2e.TurnSystem
             CombatEventBus eventBus,
             IRng rng)
         {
+            int hpBefore = moverData.CurrentHP;
             var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
             PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
 
@@ -420,6 +551,30 @@ namespace PF2e.TurnSystem
                 ApplyProne(moverData, eventBus);
                 ApplyPersistentFire(moverData, GetPersistentFireDamage(hazard), eventBus);
             }
+
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: 0,
+                hpBefore: hpBefore,
+                appliedDamage: 0,
+                saveResult: save,
+                movedCells: 0,
+                pulledTowardOrigin: false,
+                primaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.Prone
+                    : null,
+                primaryConditionValue: 0,
+                secondaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.PersistentFire
+                    : null,
+                secondaryConditionValue: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? GetPersistentFireDamage(hazard)
+                    : 0,
+                eventBus: eventBus);
 
             return 0;
         }
@@ -435,8 +590,10 @@ namespace PF2e.TurnSystem
             CombatEventBus eventBus,
             IRng rng)
         {
+            int hpBefore = moverData.CurrentHP;
             var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
             int resolvedDamage = CheckResolver.ApplyBasicSaveDamage(hazard.entryDamage, save.degree);
+            int movedCells = 0;
 
             PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
 
@@ -453,7 +610,7 @@ namespace PF2e.TurnSystem
             if (moverData.IsAlive
                 && (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure))
             {
-                TryApplyForcedPush(
+                movedCells = TryApplyForcedPush(
                     mover,
                     destinationCell,
                     originCell,
@@ -461,6 +618,24 @@ namespace PF2e.TurnSystem
                     hazard.forcedMoveElevationPerCell,
                     entityManager);
             }
+
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: hazard.entryDamage,
+                hpBefore: hpBefore,
+                appliedDamage: appliedDamage,
+                saveResult: save,
+                movedCells: movedCells,
+                pulledTowardOrigin: false,
+                primaryConditionType: null,
+                primaryConditionValue: 0,
+                secondaryConditionType: null,
+                secondaryConditionValue: 0,
+                eventBus: eventBus);
 
             return appliedDamage;
         }
@@ -476,13 +651,15 @@ namespace PF2e.TurnSystem
             CombatEventBus eventBus,
             IRng rng)
         {
+            int hpBefore = moverData.CurrentHP;
             var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
             PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
+            int movedCells = 0;
 
             if (moverData.IsAlive
                 && (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure))
             {
-                TryApplyForcedPush(
+                movedCells = TryApplyForcedPush(
                     mover,
                     destinationCell,
                     originCell,
@@ -490,6 +667,24 @@ namespace PF2e.TurnSystem
                     hazard.forcedMoveElevationPerCell,
                     entityManager);
             }
+
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: 0,
+                hpBefore: hpBefore,
+                appliedDamage: 0,
+                saveResult: save,
+                movedCells: movedCells,
+                pulledTowardOrigin: false,
+                primaryConditionType: null,
+                primaryConditionValue: 0,
+                secondaryConditionType: null,
+                secondaryConditionValue: 0,
+                eventBus: eventBus);
 
             return 0;
         }
@@ -505,13 +700,15 @@ namespace PF2e.TurnSystem
             CombatEventBus eventBus,
             IRng rng)
         {
+            int hpBefore = moverData.CurrentHP;
             var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
             PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
+            int movedCells = 0;
 
             if (moverData.IsAlive
                 && (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure))
             {
-                TryApplyForcedPush(
+                movedCells = TryApplyForcedPush(
                     mover,
                     destinationCell,
                     originCell,
@@ -521,6 +718,144 @@ namespace PF2e.TurnSystem
                 ApplyProne(moverData, eventBus);
                 ApplyPersistentFire(moverData, GetPersistentFireDamage(hazard), eventBus);
             }
+
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: 0,
+                hpBefore: hpBefore,
+                appliedDamage: 0,
+                saveResult: save,
+                movedCells: movedCells,
+                pulledTowardOrigin: false,
+                primaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.Prone
+                    : null,
+                primaryConditionValue: 0,
+                secondaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.PersistentFire
+                    : null,
+                secondaryConditionValue: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? GetPersistentFireDamage(hazard)
+                    : 0,
+                eventBus: eventBus);
+
+            return 0;
+        }
+
+        private static int ResolveProneAndPushAndPersistentAcidHazard(
+            EntityHandle mover,
+            EntityData moverData,
+            Vector3Int destinationCell,
+            Vector3Int? originCell,
+            string actionName,
+            in GridHazardInfo hazard,
+            EntityManager entityManager,
+            CombatEventBus eventBus,
+            IRng rng)
+        {
+            int hpBefore = moverData.CurrentHP;
+            var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
+            PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
+            int movedCells = 0;
+
+            if (moverData.IsAlive
+                && (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure))
+            {
+                movedCells = TryApplyForcedPush(
+                    mover,
+                    destinationCell,
+                    originCell,
+                    Mathf.Max(1, hazard.forcedMoveCells),
+                    hazard.forcedMoveElevationPerCell,
+                    entityManager);
+                ApplyProne(moverData, eventBus);
+                ApplyPersistentAcid(moverData, GetPersistentAcidDamage(hazard), eventBus);
+            }
+
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: 0,
+                hpBefore: hpBefore,
+                appliedDamage: 0,
+                saveResult: save,
+                movedCells: movedCells,
+                pulledTowardOrigin: false,
+                primaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.Prone
+                    : null,
+                primaryConditionValue: 0,
+                secondaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.PersistentAcid
+                    : null,
+                secondaryConditionValue: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? GetPersistentAcidDamage(hazard)
+                    : 0,
+                eventBus: eventBus);
+
+            return 0;
+        }
+
+        private static int ResolveProneAndPullAndPersistentAcidHazard(
+            EntityHandle mover,
+            EntityData moverData,
+            Vector3Int destinationCell,
+            Vector3Int? originCell,
+            string actionName,
+            in GridHazardInfo hazard,
+            EntityManager entityManager,
+            CombatEventBus eventBus,
+            IRng rng)
+        {
+            int hpBefore = moverData.CurrentHP;
+            var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
+            PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
+            int movedCells = 0;
+
+            if (moverData.IsAlive
+                && (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure))
+            {
+                movedCells = TryApplyForcedPull(
+                    mover,
+                    destinationCell,
+                    originCell,
+                    Mathf.Max(1, hazard.forcedMoveCells),
+                    hazard.forcedMoveElevationPerCell,
+                    entityManager);
+                ApplyProne(moverData, eventBus);
+                ApplyPersistentAcid(moverData, GetPersistentAcidDamage(hazard), eventBus);
+            }
+
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: 0,
+                hpBefore: hpBefore,
+                appliedDamage: 0,
+                saveResult: save,
+                movedCells: movedCells,
+                pulledTowardOrigin: true,
+                primaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.Prone
+                    : null,
+                primaryConditionValue: 0,
+                secondaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.PersistentAcid
+                    : null,
+                secondaryConditionValue: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? GetPersistentAcidDamage(hazard)
+                    : 0,
+                eventBus: eventBus);
 
             return 0;
         }
@@ -536,8 +871,10 @@ namespace PF2e.TurnSystem
             CombatEventBus eventBus,
             IRng rng)
         {
+            int hpBefore = moverData.CurrentHP;
             var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
             int resolvedDamage = CheckResolver.ApplyBasicSaveDamage(hazard.entryDamage, save.degree);
+            int movedCells = 0;
 
             PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
 
@@ -554,7 +891,7 @@ namespace PF2e.TurnSystem
             if (moverData.IsAlive
                 && (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure))
             {
-                TryApplyForcedPush(
+                movedCells = TryApplyForcedPush(
                     mover,
                     destinationCell,
                     originCell,
@@ -563,6 +900,26 @@ namespace PF2e.TurnSystem
                     entityManager);
                 ApplyProne(moverData, eventBus);
             }
+
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: hazard.entryDamage,
+                hpBefore: hpBefore,
+                appliedDamage: appliedDamage,
+                saveResult: save,
+                movedCells: movedCells,
+                pulledTowardOrigin: false,
+                primaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.Prone
+                    : null,
+                primaryConditionValue: 0,
+                secondaryConditionType: null,
+                secondaryConditionValue: 0,
+                eventBus: eventBus);
 
             return appliedDamage;
         }
@@ -578,13 +935,15 @@ namespace PF2e.TurnSystem
             CombatEventBus eventBus,
             IRng rng)
         {
+            int hpBefore = moverData.CurrentHP;
             var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
             PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
+            int movedCells = 0;
 
             if (moverData.IsAlive
                 && (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure))
             {
-                TryApplyForcedPull(
+                movedCells = TryApplyForcedPull(
                     mover,
                     destinationCell,
                     originCell,
@@ -592,6 +951,24 @@ namespace PF2e.TurnSystem
                     hazard.forcedMoveElevationPerCell,
                     entityManager);
             }
+
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: 0,
+                hpBefore: hpBefore,
+                appliedDamage: 0,
+                saveResult: save,
+                movedCells: movedCells,
+                pulledTowardOrigin: true,
+                primaryConditionType: null,
+                primaryConditionValue: 0,
+                secondaryConditionType: null,
+                secondaryConditionValue: 0,
+                eventBus: eventBus);
 
             return 0;
         }
@@ -607,8 +984,10 @@ namespace PF2e.TurnSystem
             CombatEventBus eventBus,
             IRng rng)
         {
+            int hpBefore = moverData.CurrentHP;
             var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
             int resolvedDamage = CheckResolver.ApplyBasicSaveDamage(hazard.entryDamage, save.degree);
+            int movedCells = 0;
 
             PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
 
@@ -625,7 +1004,7 @@ namespace PF2e.TurnSystem
             if (moverData.IsAlive
                 && (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure))
             {
-                TryApplyForcedPull(
+                movedCells = TryApplyForcedPull(
                     mover,
                     destinationCell,
                     originCell,
@@ -633,6 +1012,24 @@ namespace PF2e.TurnSystem
                     hazard.forcedMoveElevationPerCell,
                     entityManager);
             }
+
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: hazard.entryDamage,
+                hpBefore: hpBefore,
+                appliedDamage: appliedDamage,
+                saveResult: save,
+                movedCells: movedCells,
+                pulledTowardOrigin: true,
+                primaryConditionType: null,
+                primaryConditionValue: 0,
+                secondaryConditionType: null,
+                secondaryConditionValue: 0,
+                eventBus: eventBus);
 
             return appliedDamage;
         }
@@ -648,13 +1045,15 @@ namespace PF2e.TurnSystem
             CombatEventBus eventBus,
             IRng rng)
         {
+            int hpBefore = moverData.CurrentHP;
             var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
             PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
+            int movedCells = 0;
 
             if (moverData.IsAlive
                 && (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure))
             {
-                TryApplyForcedPull(
+                movedCells = TryApplyForcedPull(
                     mover,
                     destinationCell,
                     originCell,
@@ -663,6 +1062,26 @@ namespace PF2e.TurnSystem
                     entityManager);
                 ApplyProne(moverData, eventBus);
             }
+
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: 0,
+                hpBefore: hpBefore,
+                appliedDamage: 0,
+                saveResult: save,
+                movedCells: movedCells,
+                pulledTowardOrigin: true,
+                primaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.Prone
+                    : null,
+                primaryConditionValue: 0,
+                secondaryConditionType: null,
+                secondaryConditionValue: 0,
+                eventBus: eventBus);
 
             return 0;
         }
@@ -678,8 +1097,10 @@ namespace PF2e.TurnSystem
             CombatEventBus eventBus,
             IRng rng)
         {
+            int hpBefore = moverData.CurrentHP;
             var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
             int resolvedDamage = CheckResolver.ApplyBasicSaveDamage(hazard.entryDamage, save.degree);
+            int movedCells = 0;
 
             PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
 
@@ -696,7 +1117,7 @@ namespace PF2e.TurnSystem
             if (moverData.IsAlive
                 && (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure))
             {
-                TryApplyForcedPull(
+                movedCells = TryApplyForcedPull(
                     mover,
                     destinationCell,
                     originCell,
@@ -705,6 +1126,26 @@ namespace PF2e.TurnSystem
                     entityManager);
                 ApplyProne(moverData, eventBus);
             }
+
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: hazard.entryDamage,
+                hpBefore: hpBefore,
+                appliedDamage: appliedDamage,
+                saveResult: save,
+                movedCells: movedCells,
+                pulledTowardOrigin: true,
+                primaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.Prone
+                    : null,
+                primaryConditionValue: 0,
+                secondaryConditionType: null,
+                secondaryConditionValue: 0,
+                eventBus: eventBus);
 
             return appliedDamage;
         }
@@ -720,13 +1161,15 @@ namespace PF2e.TurnSystem
             CombatEventBus eventBus,
             IRng rng)
         {
+            int hpBefore = moverData.CurrentHP;
             var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
             PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
+            int movedCells = 0;
 
             if (moverData.IsAlive
                 && (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure))
             {
-                TryApplyForcedPull(
+                movedCells = TryApplyForcedPull(
                     mover,
                     destinationCell,
                     originCell,
@@ -735,6 +1178,28 @@ namespace PF2e.TurnSystem
                     entityManager);
                 ApplyPersistentFire(moverData, GetPersistentFireDamage(hazard), eventBus);
             }
+
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: 0,
+                hpBefore: hpBefore,
+                appliedDamage: 0,
+                saveResult: save,
+                movedCells: movedCells,
+                pulledTowardOrigin: true,
+                primaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.PersistentFire
+                    : null,
+                primaryConditionValue: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? GetPersistentFireDamage(hazard)
+                    : 0,
+                secondaryConditionType: null,
+                secondaryConditionValue: 0,
+                eventBus: eventBus);
 
             return 0;
         }
@@ -750,13 +1215,15 @@ namespace PF2e.TurnSystem
             CombatEventBus eventBus,
             IRng rng)
         {
+            int hpBefore = moverData.CurrentHP;
             var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
             PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
+            int movedCells = 0;
 
             if (moverData.IsAlive
                 && (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure))
             {
-                TryApplyForcedPull(
+                movedCells = TryApplyForcedPull(
                     mover,
                     destinationCell,
                     originCell,
@@ -766,6 +1233,30 @@ namespace PF2e.TurnSystem
                 ApplyProne(moverData, eventBus);
                 ApplyPersistentFire(moverData, GetPersistentFireDamage(hazard), eventBus);
             }
+
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: 0,
+                hpBefore: hpBefore,
+                appliedDamage: 0,
+                saveResult: save,
+                movedCells: movedCells,
+                pulledTowardOrigin: true,
+                primaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.Prone
+                    : null,
+                primaryConditionValue: 0,
+                secondaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.PersistentFire
+                    : null,
+                secondaryConditionValue: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? GetPersistentFireDamage(hazard)
+                    : 0,
+                eventBus: eventBus);
 
             return 0;
         }
@@ -779,6 +1270,7 @@ namespace PF2e.TurnSystem
             CombatEventBus eventBus,
             IRng rng)
         {
+            int hpBefore = moverData.CurrentHP;
             var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
             PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
 
@@ -790,6 +1282,28 @@ namespace PF2e.TurnSystem
                     GetPersistentFireDamage(hazard),
                     eventBus);
             }
+
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: 0,
+                hpBefore: hpBefore,
+                appliedDamage: 0,
+                saveResult: save,
+                movedCells: 0,
+                pulledTowardOrigin: false,
+                primaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.PersistentFire
+                    : null,
+                primaryConditionValue: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? GetPersistentFireDamage(hazard)
+                    : 0,
+                secondaryConditionType: null,
+                secondaryConditionValue: 0,
+                eventBus: eventBus);
 
             return 0;
         }
@@ -803,6 +1317,7 @@ namespace PF2e.TurnSystem
             CombatEventBus eventBus,
             IRng rng)
         {
+            int hpBefore = moverData.CurrentHP;
             var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
             PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
 
@@ -814,6 +1329,28 @@ namespace PF2e.TurnSystem
                     GetPersistentAcidDamage(hazard),
                     eventBus);
             }
+
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: 0,
+                hpBefore: hpBefore,
+                appliedDamage: 0,
+                saveResult: save,
+                movedCells: 0,
+                pulledTowardOrigin: false,
+                primaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.PersistentAcid
+                    : null,
+                primaryConditionValue: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? GetPersistentAcidDamage(hazard)
+                    : 0,
+                secondaryConditionType: null,
+                secondaryConditionValue: 0,
+                eventBus: eventBus);
 
             return 0;
         }
@@ -829,13 +1366,15 @@ namespace PF2e.TurnSystem
             CombatEventBus eventBus,
             IRng rng)
         {
+            int hpBefore = moverData.CurrentHP;
             var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
             PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
+            int movedCells = 0;
 
             if (moverData.IsAlive
                 && (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure))
             {
-                TryApplyForcedPull(
+                movedCells = TryApplyForcedPull(
                     mover,
                     destinationCell,
                     originCell,
@@ -844,6 +1383,28 @@ namespace PF2e.TurnSystem
                     entityManager);
                 ApplyPersistentAcid(moverData, GetPersistentAcidDamage(hazard), eventBus);
             }
+
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: 0,
+                hpBefore: hpBefore,
+                appliedDamage: 0,
+                saveResult: save,
+                movedCells: movedCells,
+                pulledTowardOrigin: true,
+                primaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.PersistentAcid
+                    : null,
+                primaryConditionValue: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? GetPersistentAcidDamage(hazard)
+                    : 0,
+                secondaryConditionType: null,
+                secondaryConditionValue: 0,
+                eventBus: eventBus);
 
             return 0;
         }
@@ -859,13 +1420,15 @@ namespace PF2e.TurnSystem
             CombatEventBus eventBus,
             IRng rng)
         {
+            int hpBefore = moverData.CurrentHP;
             var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
             PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
+            int movedCells = 0;
 
             if (moverData.IsAlive
                 && (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure))
             {
-                TryApplyForcedPush(
+                movedCells = TryApplyForcedPush(
                     mover,
                     destinationCell,
                     originCell,
@@ -875,7 +1438,161 @@ namespace PF2e.TurnSystem
                 ApplyPersistentAcid(moverData, GetPersistentAcidDamage(hazard), eventBus);
             }
 
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: 0,
+                hpBefore: hpBefore,
+                appliedDamage: 0,
+                saveResult: save,
+                movedCells: movedCells,
+                pulledTowardOrigin: false,
+                primaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.PersistentAcid
+                    : null,
+                primaryConditionValue: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? GetPersistentAcidDamage(hazard)
+                    : 0,
+                secondaryConditionType: null,
+                secondaryConditionValue: 0,
+                eventBus: eventBus);
+
             return 0;
+        }
+
+        private static int ResolveSaveDamageAndPushAndPersistentAcidHazard(
+            EntityHandle mover,
+            EntityData moverData,
+            Vector3Int destinationCell,
+            Vector3Int? originCell,
+            string actionName,
+            in GridHazardInfo hazard,
+            EntityManager entityManager,
+            CombatEventBus eventBus,
+            IRng rng)
+        {
+            int hpBefore = moverData.CurrentHP;
+            var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
+            int resolvedDamage = CheckResolver.ApplyBasicSaveDamage(hazard.entryDamage, save.degree);
+            int movedCells = 0;
+
+            PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
+
+            int appliedDamage = DamageApplicationService.ApplyDamage(
+                source: EntityHandle.None,
+                target: mover,
+                amount: resolvedDamage,
+                damageType: hazard.damageType,
+                sourceActionName: actionName,
+                isCritical: save.degree == DegreeOfSuccess.CriticalFailure,
+                entityManager: entityManager,
+                eventBus: eventBus);
+
+            if (moverData.IsAlive
+                && (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure))
+            {
+                movedCells = TryApplyForcedPush(
+                    mover,
+                    destinationCell,
+                    originCell,
+                    Mathf.Max(1, hazard.forcedMoveCells),
+                    hazard.forcedMoveElevationPerCell,
+                    entityManager);
+                ApplyPersistentAcid(moverData, GetPersistentAcidDamage(hazard), eventBus);
+            }
+
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: hazard.entryDamage,
+                hpBefore: hpBefore,
+                appliedDamage: appliedDamage,
+                saveResult: save,
+                movedCells: movedCells,
+                pulledTowardOrigin: false,
+                primaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.PersistentAcid
+                    : null,
+                primaryConditionValue: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? GetPersistentAcidDamage(hazard)
+                    : 0,
+                secondaryConditionType: null,
+                secondaryConditionValue: 0,
+                eventBus: eventBus);
+
+            return appliedDamage;
+        }
+
+        private static int ResolveSaveDamageAndPullAndPersistentAcidHazard(
+            EntityHandle mover,
+            EntityData moverData,
+            Vector3Int destinationCell,
+            Vector3Int? originCell,
+            string actionName,
+            in GridHazardInfo hazard,
+            EntityManager entityManager,
+            CombatEventBus eventBus,
+            IRng rng)
+        {
+            int hpBefore = moverData.CurrentHP;
+            var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
+            int resolvedDamage = CheckResolver.ApplyBasicSaveDamage(hazard.entryDamage, save.degree);
+            int movedCells = 0;
+
+            PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
+
+            int appliedDamage = DamageApplicationService.ApplyDamage(
+                source: EntityHandle.None,
+                target: mover,
+                amount: resolvedDamage,
+                damageType: hazard.damageType,
+                sourceActionName: actionName,
+                isCritical: save.degree == DegreeOfSuccess.CriticalFailure,
+                entityManager: entityManager,
+                eventBus: eventBus);
+
+            if (moverData.IsAlive
+                && (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure))
+            {
+                movedCells = TryApplyForcedPull(
+                    mover,
+                    destinationCell,
+                    originCell,
+                    Mathf.Max(1, hazard.forcedMoveCells),
+                    hazard.forcedMoveElevationPerCell,
+                    entityManager);
+                ApplyPersistentAcid(moverData, GetPersistentAcidDamage(hazard), eventBus);
+            }
+
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: hazard.entryDamage,
+                hpBefore: hpBefore,
+                appliedDamage: appliedDamage,
+                saveResult: save,
+                movedCells: movedCells,
+                pulledTowardOrigin: true,
+                primaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.PersistentAcid
+                    : null,
+                primaryConditionValue: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? GetPersistentAcidDamage(hazard)
+                    : 0,
+                secondaryConditionType: null,
+                secondaryConditionValue: 0,
+                eventBus: eventBus);
+
+            return appliedDamage;
         }
 
         private static int ResolveSaveDamageAndPersistentFireHazard(
@@ -888,6 +1605,7 @@ namespace PF2e.TurnSystem
             CombatEventBus eventBus,
             IRng rng)
         {
+            int hpBefore = moverData.CurrentHP;
             var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
             int resolvedDamage = CheckResolver.ApplyBasicSaveDamage(hazard.entryDamage, save.degree);
 
@@ -912,6 +1630,28 @@ namespace PF2e.TurnSystem
                     eventBus);
             }
 
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: hazard.entryDamage,
+                hpBefore: hpBefore,
+                appliedDamage: appliedDamage,
+                saveResult: save,
+                movedCells: 0,
+                pulledTowardOrigin: false,
+                primaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.PersistentFire
+                    : null,
+                primaryConditionValue: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? GetPersistentFireDamage(hazard)
+                    : 0,
+                secondaryConditionType: null,
+                secondaryConditionValue: 0,
+                eventBus: eventBus);
+
             return appliedDamage;
         }
 
@@ -925,6 +1665,7 @@ namespace PF2e.TurnSystem
             CombatEventBus eventBus,
             IRng rng)
         {
+            int hpBefore = moverData.CurrentHP;
             var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
             int resolvedDamage = CheckResolver.ApplyBasicSaveDamage(hazard.entryDamage, save.degree);
 
@@ -949,6 +1690,28 @@ namespace PF2e.TurnSystem
                     eventBus);
             }
 
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: hazard.entryDamage,
+                hpBefore: hpBefore,
+                appliedDamage: appliedDamage,
+                saveResult: save,
+                movedCells: 0,
+                pulledTowardOrigin: false,
+                primaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.PersistentAcid
+                    : null,
+                primaryConditionValue: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? GetPersistentAcidDamage(hazard)
+                    : 0,
+                secondaryConditionType: null,
+                secondaryConditionValue: 0,
+                eventBus: eventBus);
+
             return appliedDamage;
         }
 
@@ -961,6 +1724,7 @@ namespace PF2e.TurnSystem
             CombatEventBus eventBus,
             IRng rng)
         {
+            int hpBefore = moverData.CurrentHP;
             var save = CheckResolver.RollSave(moverData, hazard.saveType, hazard.saveDc, rng);
             PublishSaveLog(mover, actionName, destinationCell, hazard.saveType, save, eventBus);
 
@@ -974,6 +1738,30 @@ namespace PF2e.TurnSystem
                     eventBus);
             }
 
+            PublishHazardTriggered(
+                mover,
+                moverData,
+                destinationCell,
+                actionName,
+                hazard,
+                rolledDamage: 0,
+                hpBefore: hpBefore,
+                appliedDamage: 0,
+                saveResult: save,
+                movedCells: 0,
+                pulledTowardOrigin: false,
+                primaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.Prone
+                    : null,
+                primaryConditionValue: 0,
+                secondaryConditionType: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? ConditionType.PersistentAcid
+                    : null,
+                secondaryConditionValue: (save.degree == DegreeOfSuccess.Failure || save.degree == DegreeOfSuccess.CriticalFailure)
+                    ? GetPersistentAcidDamage(hazard)
+                    : 0,
+                eventBus: eventBus);
+
             return 0;
         }
 
@@ -985,12 +1773,7 @@ namespace PF2e.TurnSystem
             in CheckResult save,
             CombatEventBus eventBus)
         {
-            if (eventBus == null)
-                return;
-
-            string message =
-                $"triggers {actionName} at {destinationCell}, rolls {saveType} {save.total} vs DC {save.dc} - {FormatDegree(save.degree)}.";
-            eventBus.Publish(mover, message, CombatLogCategory.ActionResult);
+            // Authored hazards now publish a single typed hazard-result line via HazardLogForwarder.
         }
 
         private static void ApplyProne(
@@ -1133,6 +1916,51 @@ namespace PF2e.TurnSystem
             }
 
             return movedCells;
+        }
+
+        private static void PublishHazardTriggered(
+            EntityHandle mover,
+            EntityData moverData,
+            Vector3Int destinationCell,
+            string actionName,
+            in GridHazardInfo hazard,
+            int rolledDamage,
+            int hpBefore,
+            int appliedDamage,
+            CheckResult? saveResult,
+            int movedCells,
+            bool pulledTowardOrigin,
+            ConditionType? primaryConditionType,
+            int primaryConditionValue,
+            ConditionType? secondaryConditionType,
+            int secondaryConditionValue,
+            CombatEventBus eventBus)
+        {
+            if (eventBus == null || moverData == null)
+                return;
+
+            var ev = new HazardTriggeredEvent(
+                mover,
+                actionName,
+                hazard.cell,
+                hazard.effectKind,
+                hazard.damageType,
+                rolledDamage,
+                appliedDamage,
+                hazard.saveDc > 0 ? hazard.saveType : null,
+                saveResult,
+                primaryConditionType,
+                primaryConditionValue,
+                secondaryConditionType,
+                secondaryConditionValue,
+                destinationCell,
+                moverData.GridPosition,
+                movedCells,
+                pulledTowardOrigin,
+                hpBefore,
+                moverData.CurrentHP,
+                !moverData.IsAlive);
+            eventBus.PublishHazardTriggered(in ev);
         }
 
         private static void PublishConditionDeltas(List<ConditionDelta> conditionDeltaBuffer, CombatEventBus eventBus)

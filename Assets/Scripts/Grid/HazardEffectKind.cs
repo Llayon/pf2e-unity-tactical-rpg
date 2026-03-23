@@ -24,6 +24,10 @@ namespace PF2e.Grid
         BasicSaveDamageAndProneAndPushOnFailedSave = 19,
         BasicSaveDamageAndProneAndPullOnFailedSave = 20,
         PullAndPersistentAcidOnFailedSave = 21,
-        PushAndPersistentAcidOnFailedSave = 22
+        PushAndPersistentAcidOnFailedSave = 22,
+        BasicSaveDamageAndPushAndPersistentAcidOnFailedSave = 23,
+        BasicSaveDamageAndPullAndPersistentAcidOnFailedSave = 24,
+        ProneAndPushAndPersistentAcidOnFailedSave = 25,
+        ProneAndPullAndPersistentAcidOnFailedSave = 26
     }
 }

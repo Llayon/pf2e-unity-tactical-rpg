@@ -4,6 +4,7 @@ using NUnit.Framework;
 using PF2e.Core;
 using PF2e.Grid;
 using PF2e.Managers;
+using PF2e.Presentation;
 using PF2e.TurnSystem;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -48,7 +49,7 @@ namespace PF2e.Tests
                 Assert.AreEqual(20, ctx.Registry.Get(actor).CurrentHP);
                 Assert.IsTrue(logEntry.HasValue);
                 StringAssert.Contains("Flame Jet", logEntry.Value.Message);
-                StringAssert.Contains("Critical Success", logEntry.Value.Message);
+                StringAssert.Contains("Critical!", logEntry.Value.Message);
             }
             finally
             {
@@ -58,6 +59,67 @@ namespace PF2e.Tests
             void HandleLog(CombatLogEntry entry)
             {
                 logEntry = entry;
+            }
+        }
+
+        [Test]
+        public void TryApplyEntryEffect_BasicSaveDamageAndPullAndPersistentAcidOnFailure_PublishesTypedHazardEvent()
+        {
+            using var ctx = new HazardRulesContext();
+            var origin = new Vector3Int(1, 0, 1);
+            var hazardCell = new Vector3Int(2, 0, 1);
+            var pulledCell = new Vector3Int(1, 0, 1);
+            var actor = ctx.RegisterActor(origin, dexterity: 10, reflexProf: ProficiencyRank.Untrained);
+            ctx.SetHazards(
+                new GridHazardDefinition(
+                    "Acid Hook",
+                    hazardCell,
+                    HazardEffectKind.BasicSaveDamageAndPullAndPersistentAcidOnFailedSave,
+                    entryDamage: 6,
+                    persistentDamage: 2,
+                    forcedMoveCells: 1,
+                    damageType: DamageType.Acid,
+                    saveType: SaveType.Reflex,
+                    saveDc: 16,
+                    aiPressure: 260,
+                    telegraphColor: new Color(0.7f, 0.95f, 0.35f, 0.45f)));
+
+            ctx.MoveActorWithoutHazard(actor, hazardCell);
+
+            HazardTriggeredEvent? triggered = null;
+            ctx.EventBus.OnHazardTriggeredTyped += HandleTriggered;
+            try
+            {
+                int appliedDamage = HazardousTerrainRules.TryApplyEntryEffect(
+                    actor,
+                    hazardCell,
+                    ctx.EntityManager,
+                    ctx.EventBus,
+                    rng: new FixedRng(7),
+                    originCell: origin);
+
+                Assert.AreEqual(6, appliedDamage);
+                Assert.IsTrue(triggered.HasValue);
+                Assert.AreEqual("Acid Hook", triggered.Value.hazardName);
+                Assert.AreEqual(HazardEffectKind.BasicSaveDamageAndPullAndPersistentAcidOnFailedSave, triggered.Value.effectKind);
+                Assert.IsTrue(triggered.Value.saveResult.HasValue);
+                Assert.AreEqual(DegreeOfSuccess.Failure, triggered.Value.saveResult.Value.degree);
+                Assert.AreEqual(6, triggered.Value.appliedDamage);
+                Assert.AreEqual(1, triggered.Value.movedCells);
+                Assert.IsTrue(triggered.Value.pulledTowardOrigin);
+                Assert.AreEqual(hazardCell, triggered.Value.positionBefore);
+                Assert.AreEqual(pulledCell, triggered.Value.positionAfter);
+                Assert.AreEqual(ConditionType.PersistentAcid, triggered.Value.primaryConditionType);
+                Assert.AreEqual(2, triggered.Value.primaryConditionValue);
+            }
+            finally
+            {
+                ctx.EventBus.OnHazardTriggeredTyped -= HandleTriggered;
+            }
+
+            void HandleTriggered(in HazardTriggeredEvent e)
+            {
+                triggered = e;
             }
         }
 
@@ -246,7 +308,7 @@ namespace PF2e.Tests
                 Assert.AreEqual(0, appliedDamage);
                 Assert.IsFalse(ctx.Registry.Get(actor).HasCondition(ConditionType.PersistentFire));
                 Assert.IsTrue(logEntry.HasValue);
-                StringAssert.Contains("Critical Success", logEntry.Value.Message);
+                StringAssert.Contains("Critical!", logEntry.Value.Message);
             }
             finally
             {
@@ -339,7 +401,7 @@ namespace PF2e.Tests
                 Assert.AreEqual(0, appliedDamage);
                 Assert.IsFalse(ctx.Registry.Get(actor).HasCondition(ConditionType.PersistentAcid));
                 Assert.IsTrue(logEntry.HasValue);
-                StringAssert.Contains("Critical Success", logEntry.Value.Message);
+                StringAssert.Contains("Critical!", logEntry.Value.Message);
             }
             finally
             {
@@ -1928,6 +1990,422 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void TryApplyEntryEffect_BasicSaveDamageAndPushAndPersistentAcidOnFailedSave_Success_AppliesHalfDamageWithoutPushOrPersistentAcid()
+        {
+            using var ctx = new HazardRulesContext();
+            var origin = new Vector3Int(1, 0, 1);
+            var hazardCell = new Vector3Int(2, 0, 1);
+            var actor = ctx.RegisterActor(origin, dexterity: 12, reflexProf: ProficiencyRank.Trained);
+            ctx.SetHazards(
+                new GridHazardDefinition(
+                    "Acid Launch Plate",
+                    hazardCell,
+                    HazardEffectKind.BasicSaveDamageAndPushAndPersistentAcidOnFailedSave,
+                    entryDamage: 6,
+                    persistentDamage: 2,
+                    forcedMoveCells: 1,
+                    damageType: DamageType.Acid,
+                    saveType: SaveType.Reflex,
+                    saveDc: 15,
+                    aiPressure: 235,
+                    telegraphColor: new Color(0.68f, 0.95f, 0.38f, 0.45f)));
+
+            ctx.MoveActorWithoutHazard(actor, hazardCell);
+
+            int appliedDamage = HazardousTerrainRules.TryApplyEntryEffect(
+                actor,
+                hazardCell,
+                ctx.EntityManager,
+                ctx.EventBus,
+                rng: new FixedRng(12),
+                originCell: origin);
+
+            Assert.AreEqual(3, appliedDamage);
+            Assert.AreEqual(17, ctx.Registry.Get(actor).CurrentHP);
+            Assert.AreEqual(hazardCell, ctx.Registry.Get(actor).GridPosition);
+            Assert.IsFalse(ctx.Registry.Get(actor).HasCondition(ConditionType.PersistentAcid));
+        }
+
+        [Test]
+        public void TryApplyEntryEffect_BasicSaveDamageAndPushAndPersistentAcidOnFailedSave_Failure_AppliesDamagePushAndPersistentAcid()
+        {
+            using var ctx = new HazardRulesContext();
+            var origin = new Vector3Int(1, 0, 1);
+            var hazardCell = new Vector3Int(2, 0, 1);
+            var pushedCell = new Vector3Int(3, 0, 1);
+            var actor = ctx.RegisterActor(origin, dexterity: 10, reflexProf: ProficiencyRank.Untrained);
+            ctx.SetHazards(
+                new GridHazardDefinition(
+                    "Acid Launch Plate",
+                    hazardCell,
+                    HazardEffectKind.BasicSaveDamageAndPushAndPersistentAcidOnFailedSave,
+                    entryDamage: 6,
+                    persistentDamage: 2,
+                    forcedMoveCells: 1,
+                    damageType: DamageType.Acid,
+                    saveType: SaveType.Reflex,
+                    saveDc: 16,
+                    aiPressure: 235,
+                    telegraphColor: new Color(0.68f, 0.95f, 0.38f, 0.45f)));
+
+            ctx.MoveActorWithoutHazard(actor, hazardCell);
+
+            EntityMovedEvent? moved = null;
+            ConditionChangedEvent? persistentAcidDelta = null;
+            ctx.EventBus.OnEntityMovedTyped += HandleMoved;
+            ctx.EventBus.OnConditionChangedTyped += HandleCondition;
+            try
+            {
+                int appliedDamage = HazardousTerrainRules.TryApplyEntryEffect(
+                    actor,
+                    hazardCell,
+                    ctx.EntityManager,
+                    ctx.EventBus,
+                    rng: new FixedRng(7),
+                    originCell: origin);
+
+                Assert.AreEqual(6, appliedDamage);
+                Assert.AreEqual(14, ctx.Registry.Get(actor).CurrentHP);
+                Assert.AreEqual(pushedCell, ctx.Registry.Get(actor).GridPosition);
+                Assert.IsTrue(ctx.Registry.Get(actor).HasCondition(ConditionType.PersistentAcid));
+                Assert.AreEqual(2, ctx.Registry.Get(actor).GetConditionValue(ConditionType.PersistentAcid));
+                Assert.IsTrue(moved.HasValue);
+                Assert.AreEqual(MovementTriggerKind.Forced, moved.Value.movementTriggerKind);
+                Assert.IsTrue(persistentAcidDelta.HasValue);
+                Assert.AreEqual(ConditionType.PersistentAcid, persistentAcidDelta.Value.conditionType);
+            }
+            finally
+            {
+                ctx.EventBus.OnEntityMovedTyped -= HandleMoved;
+                ctx.EventBus.OnConditionChangedTyped -= HandleCondition;
+            }
+
+            void HandleMoved(in EntityMovedEvent e)
+            {
+                moved = e;
+            }
+
+            void HandleCondition(in ConditionChangedEvent e)
+            {
+                if (e.conditionType == ConditionType.PersistentAcid)
+                    persistentAcidDelta = e;
+            }
+        }
+
+        [Test]
+        public void TryApplyEntryEffect_BasicSaveDamageAndPullAndPersistentAcidOnFailedSave_Success_AppliesHalfDamageWithoutPullOrPersistentAcid()
+        {
+            using var ctx = new HazardRulesContext();
+            var origin = new Vector3Int(1, 0, 1);
+            var hazardCell = new Vector3Int(2, 0, 1);
+            var actor = ctx.RegisterActor(origin, dexterity: 12, reflexProf: ProficiencyRank.Trained);
+            ctx.SetHazards(
+                new GridHazardDefinition(
+                    "Acid Chain Snare",
+                    hazardCell,
+                    HazardEffectKind.BasicSaveDamageAndPullAndPersistentAcidOnFailedSave,
+                    entryDamage: 6,
+                    persistentDamage: 2,
+                    forcedMoveCells: 1,
+                    damageType: DamageType.Acid,
+                    saveType: SaveType.Reflex,
+                    saveDc: 15,
+                    aiPressure: 235,
+                    telegraphColor: new Color(0.7f, 0.92f, 0.45f, 0.45f)));
+
+            ctx.MoveActorWithoutHazard(actor, hazardCell);
+
+            int appliedDamage = HazardousTerrainRules.TryApplyEntryEffect(
+                actor,
+                hazardCell,
+                ctx.EntityManager,
+                ctx.EventBus,
+                rng: new FixedRng(12),
+                originCell: origin);
+
+            Assert.AreEqual(3, appliedDamage);
+            Assert.AreEqual(17, ctx.Registry.Get(actor).CurrentHP);
+            Assert.AreEqual(hazardCell, ctx.Registry.Get(actor).GridPosition);
+            Assert.IsFalse(ctx.Registry.Get(actor).HasCondition(ConditionType.PersistentAcid));
+        }
+
+        [Test]
+        public void TryApplyEntryEffect_BasicSaveDamageAndPullAndPersistentAcidOnFailedSave_Failure_AppliesDamagePullAndPersistentAcid()
+        {
+            using var ctx = new HazardRulesContext();
+            var origin = new Vector3Int(1, 0, 1);
+            var hazardCell = new Vector3Int(2, 0, 1);
+            var actor = ctx.RegisterActor(origin, dexterity: 10, reflexProf: ProficiencyRank.Untrained);
+            ctx.SetHazards(
+                new GridHazardDefinition(
+                    "Acid Chain Snare",
+                    hazardCell,
+                    HazardEffectKind.BasicSaveDamageAndPullAndPersistentAcidOnFailedSave,
+                    entryDamage: 6,
+                    persistentDamage: 2,
+                    forcedMoveCells: 1,
+                    damageType: DamageType.Acid,
+                    saveType: SaveType.Reflex,
+                    saveDc: 16,
+                    aiPressure: 235,
+                    telegraphColor: new Color(0.7f, 0.92f, 0.45f, 0.45f)));
+
+            ctx.MoveActorWithoutHazard(actor, hazardCell);
+
+            EntityMovedEvent? moved = null;
+            ConditionChangedEvent? persistentAcidDelta = null;
+            ctx.EventBus.OnEntityMovedTyped += HandleMoved;
+            ctx.EventBus.OnConditionChangedTyped += HandleCondition;
+            try
+            {
+                int appliedDamage = HazardousTerrainRules.TryApplyEntryEffect(
+                    actor,
+                    hazardCell,
+                    ctx.EntityManager,
+                    ctx.EventBus,
+                    rng: new FixedRng(7),
+                    originCell: origin);
+
+                Assert.AreEqual(6, appliedDamage);
+                Assert.AreEqual(14, ctx.Registry.Get(actor).CurrentHP);
+                Assert.AreEqual(origin, ctx.Registry.Get(actor).GridPosition);
+                Assert.IsTrue(ctx.Registry.Get(actor).HasCondition(ConditionType.PersistentAcid));
+                Assert.AreEqual(2, ctx.Registry.Get(actor).GetConditionValue(ConditionType.PersistentAcid));
+                Assert.IsTrue(moved.HasValue);
+                Assert.AreEqual(MovementTriggerKind.Forced, moved.Value.movementTriggerKind);
+                Assert.IsTrue(persistentAcidDelta.HasValue);
+                Assert.AreEqual(ConditionType.PersistentAcid, persistentAcidDelta.Value.conditionType);
+            }
+            finally
+            {
+                ctx.EventBus.OnEntityMovedTyped -= HandleMoved;
+                ctx.EventBus.OnConditionChangedTyped -= HandleCondition;
+            }
+
+            void HandleMoved(in EntityMovedEvent e)
+            {
+                moved = e;
+            }
+
+            void HandleCondition(in ConditionChangedEvent e)
+            {
+                if (e.conditionType == ConditionType.PersistentAcid)
+                    persistentAcidDelta = e;
+            }
+        }
+
+        [Test]
+        public void TryApplyEntryEffect_ProneAndPushAndPersistentAcidOnFailedSave_Success_DoesNotApplyEffects()
+        {
+            using var ctx = new HazardRulesContext();
+            var origin = new Vector3Int(1, 0, 1);
+            var hazardCell = new Vector3Int(2, 0, 1);
+            var actor = ctx.RegisterActor(origin, dexterity: 12, reflexProf: ProficiencyRank.Trained);
+            ctx.SetHazards(
+                new GridHazardDefinition(
+                    "Acid Blast Inferno",
+                    hazardCell,
+                    HazardEffectKind.ProneAndPushAndPersistentAcidOnFailedSave,
+                    entryDamage: 0,
+                    persistentDamage: 2,
+                    forcedMoveCells: 1,
+                    damageType: DamageType.Acid,
+                    saveType: SaveType.Reflex,
+                    saveDc: 15,
+                    aiPressure: 225,
+                    telegraphColor: new Color(0.68f, 0.95f, 0.38f, 0.4f)));
+
+            ctx.MoveActorWithoutHazard(actor, hazardCell);
+
+            int appliedDamage = HazardousTerrainRules.TryApplyEntryEffect(
+                actor,
+                hazardCell,
+                ctx.EntityManager,
+                ctx.EventBus,
+                rng: new FixedRng(12),
+                originCell: origin);
+
+            Assert.AreEqual(0, appliedDamage);
+            Assert.AreEqual(hazardCell, ctx.Registry.Get(actor).GridPosition);
+            Assert.IsFalse(ctx.Registry.Get(actor).HasCondition(ConditionType.Prone));
+            Assert.IsFalse(ctx.Registry.Get(actor).HasCondition(ConditionType.PersistentAcid));
+        }
+
+        [Test]
+        public void TryApplyEntryEffect_ProneAndPushAndPersistentAcidOnFailedSave_Failure_PushesAndAppliesBothConditions()
+        {
+            using var ctx = new HazardRulesContext();
+            var origin = new Vector3Int(1, 0, 1);
+            var hazardCell = new Vector3Int(2, 0, 1);
+            var pushedCell = new Vector3Int(3, 0, 1);
+            var actor = ctx.RegisterActor(origin, dexterity: 10, reflexProf: ProficiencyRank.Untrained);
+            ctx.SetHazards(
+                new GridHazardDefinition(
+                    "Acid Blast Inferno",
+                    hazardCell,
+                    HazardEffectKind.ProneAndPushAndPersistentAcidOnFailedSave,
+                    entryDamage: 0,
+                    persistentDamage: 2,
+                    forcedMoveCells: 1,
+                    damageType: DamageType.Acid,
+                    saveType: SaveType.Reflex,
+                    saveDc: 16,
+                    aiPressure: 225,
+                    telegraphColor: new Color(0.68f, 0.95f, 0.38f, 0.4f)));
+
+            ctx.MoveActorWithoutHazard(actor, hazardCell);
+
+            EntityMovedEvent? moved = null;
+            ConditionChangedEvent? proneDelta = null;
+            ConditionChangedEvent? persistentAcidDelta = null;
+            ctx.EventBus.OnEntityMovedTyped += HandleMoved;
+            ctx.EventBus.OnConditionChangedTyped += HandleCondition;
+            try
+            {
+                int appliedDamage = HazardousTerrainRules.TryApplyEntryEffect(
+                    actor,
+                    hazardCell,
+                    ctx.EntityManager,
+                    ctx.EventBus,
+                    rng: new FixedRng(7),
+                    originCell: origin);
+
+                Assert.AreEqual(0, appliedDamage);
+                Assert.AreEqual(pushedCell, ctx.Registry.Get(actor).GridPosition);
+                Assert.IsTrue(ctx.Registry.Get(actor).HasCondition(ConditionType.Prone));
+                Assert.IsTrue(ctx.Registry.Get(actor).HasCondition(ConditionType.PersistentAcid));
+                Assert.AreEqual(2, ctx.Registry.Get(actor).GetConditionValue(ConditionType.PersistentAcid));
+                Assert.IsTrue(moved.HasValue);
+                Assert.AreEqual(MovementTriggerKind.Forced, moved.Value.movementTriggerKind);
+                Assert.IsTrue(proneDelta.HasValue);
+                Assert.IsTrue(persistentAcidDelta.HasValue);
+            }
+            finally
+            {
+                ctx.EventBus.OnEntityMovedTyped -= HandleMoved;
+                ctx.EventBus.OnConditionChangedTyped -= HandleCondition;
+            }
+
+            void HandleMoved(in EntityMovedEvent e)
+            {
+                moved = e;
+            }
+
+            void HandleCondition(in ConditionChangedEvent e)
+            {
+                if (e.conditionType == ConditionType.Prone)
+                    proneDelta = e;
+                else if (e.conditionType == ConditionType.PersistentAcid)
+                    persistentAcidDelta = e;
+            }
+        }
+
+        [Test]
+        public void TryApplyEntryEffect_ProneAndPullAndPersistentAcidOnFailedSave_Success_DoesNotApplyEffects()
+        {
+            using var ctx = new HazardRulesContext();
+            var origin = new Vector3Int(1, 0, 1);
+            var hazardCell = new Vector3Int(2, 0, 1);
+            var actor = ctx.RegisterActor(origin, dexterity: 12, reflexProf: ProficiencyRank.Trained);
+            ctx.SetHazards(
+                new GridHazardDefinition(
+                    "Acid Hook Inferno",
+                    hazardCell,
+                    HazardEffectKind.ProneAndPullAndPersistentAcidOnFailedSave,
+                    entryDamage: 0,
+                    persistentDamage: 2,
+                    forcedMoveCells: 1,
+                    damageType: DamageType.Acid,
+                    saveType: SaveType.Reflex,
+                    saveDc: 15,
+                    aiPressure: 225,
+                    telegraphColor: new Color(0.7f, 0.92f, 0.45f, 0.4f)));
+
+            ctx.MoveActorWithoutHazard(actor, hazardCell);
+
+            int appliedDamage = HazardousTerrainRules.TryApplyEntryEffect(
+                actor,
+                hazardCell,
+                ctx.EntityManager,
+                ctx.EventBus,
+                rng: new FixedRng(12),
+                originCell: origin);
+
+            Assert.AreEqual(0, appliedDamage);
+            Assert.AreEqual(hazardCell, ctx.Registry.Get(actor).GridPosition);
+            Assert.IsFalse(ctx.Registry.Get(actor).HasCondition(ConditionType.Prone));
+            Assert.IsFalse(ctx.Registry.Get(actor).HasCondition(ConditionType.PersistentAcid));
+        }
+
+        [Test]
+        public void TryApplyEntryEffect_ProneAndPullAndPersistentAcidOnFailedSave_Failure_PullsAndAppliesBothConditions()
+        {
+            using var ctx = new HazardRulesContext();
+            var origin = new Vector3Int(1, 0, 1);
+            var hazardCell = new Vector3Int(2, 0, 1);
+            var actor = ctx.RegisterActor(origin, dexterity: 10, reflexProf: ProficiencyRank.Untrained);
+            ctx.SetHazards(
+                new GridHazardDefinition(
+                    "Acid Hook Inferno",
+                    hazardCell,
+                    HazardEffectKind.ProneAndPullAndPersistentAcidOnFailedSave,
+                    entryDamage: 0,
+                    persistentDamage: 2,
+                    forcedMoveCells: 1,
+                    damageType: DamageType.Acid,
+                    saveType: SaveType.Reflex,
+                    saveDc: 16,
+                    aiPressure: 225,
+                    telegraphColor: new Color(0.7f, 0.92f, 0.45f, 0.4f)));
+
+            ctx.MoveActorWithoutHazard(actor, hazardCell);
+
+            EntityMovedEvent? moved = null;
+            ConditionChangedEvent? proneDelta = null;
+            ConditionChangedEvent? persistentAcidDelta = null;
+            ctx.EventBus.OnEntityMovedTyped += HandleMoved;
+            ctx.EventBus.OnConditionChangedTyped += HandleCondition;
+            try
+            {
+                int appliedDamage = HazardousTerrainRules.TryApplyEntryEffect(
+                    actor,
+                    hazardCell,
+                    ctx.EntityManager,
+                    ctx.EventBus,
+                    rng: new FixedRng(7),
+                    originCell: origin);
+
+                Assert.AreEqual(0, appliedDamage);
+                Assert.AreEqual(origin, ctx.Registry.Get(actor).GridPosition);
+                Assert.IsTrue(ctx.Registry.Get(actor).HasCondition(ConditionType.Prone));
+                Assert.IsTrue(ctx.Registry.Get(actor).HasCondition(ConditionType.PersistentAcid));
+                Assert.AreEqual(2, ctx.Registry.Get(actor).GetConditionValue(ConditionType.PersistentAcid));
+                Assert.IsTrue(moved.HasValue);
+                Assert.AreEqual(MovementTriggerKind.Forced, moved.Value.movementTriggerKind);
+                Assert.IsTrue(proneDelta.HasValue);
+                Assert.IsTrue(persistentAcidDelta.HasValue);
+            }
+            finally
+            {
+                ctx.EventBus.OnEntityMovedTyped -= HandleMoved;
+                ctx.EventBus.OnConditionChangedTyped -= HandleCondition;
+            }
+
+            void HandleMoved(in EntityMovedEvent e)
+            {
+                moved = e;
+            }
+
+            void HandleCondition(in ConditionChangedEvent e)
+            {
+                if (e.conditionType == ConditionType.Prone)
+                    proneDelta = e;
+                else if (e.conditionType == ConditionType.PersistentAcid)
+                    persistentAcidDelta = e;
+            }
+        }
+
+        [Test]
         public void TryApplyEntryEffect_PushOnFailedSave_WithForcedMoveDepthTwo_MovesTwoCellsOnOpenLane()
         {
             using var ctx = new HazardRulesContext();
@@ -2317,6 +2795,7 @@ namespace PF2e.Tests
             public readonly EntityManager EntityManager;
             public readonly EntityRegistry Registry;
             public readonly OccupancyMap Occupancy;
+            public readonly HazardLogForwarder HazardLogForwarder;
 
             public HazardRulesContext()
             {
@@ -2346,6 +2825,13 @@ namespace PF2e.Tests
                 SetAutoPropertyBackingField(EntityManager, "Registry", Registry);
                 SetAutoPropertyBackingField(EntityManager, "Occupancy", Occupancy);
                 SetAutoPropertyBackingField(EntityManager, "Pathfinding", new GridPathfinding());
+
+                var hazardLogForwarderGo = new GameObject("HazardLogForwarder");
+                hazardLogForwarderGo.transform.SetParent(root.transform);
+                HazardLogForwarder = hazardLogForwarderGo.AddComponent<HazardLogForwarder>();
+                SetPrivateField(HazardLogForwarder, "eventBus", EventBus);
+                SetPrivateField(HazardLogForwarder, "entityManager", EntityManager);
+                InvokePrivate(HazardLogForwarder, "OnEnable");
             }
 
             public EntityHandle RegisterActor(
@@ -2394,6 +2880,9 @@ namespace PF2e.Tests
 
             public void Dispose()
             {
+                if (HazardLogForwarder != null)
+                    InvokePrivate(HazardLogForwarder, "OnDisable");
+
                 if (root != null)
                     Object.DestroyImmediate(root);
 
@@ -2428,6 +2917,13 @@ namespace PF2e.Tests
                 for (int z = 0; z < sizeZ; z++)
                     gridData.SetCell(new Vector3Int(x, 0, z), CellData.CreateWalkable());
             }
+        }
+
+        private static void InvokePrivate(object target, string methodName)
+        {
+            var method = target.GetType().GetMethod(methodName, InstanceNonPublic);
+            Assert.IsNotNull(method, $"Missing method '{methodName}' on {target.GetType().Name}");
+            method.Invoke(target, null);
         }
 
         private static void SetPrivateField(object target, string fieldName, object value)

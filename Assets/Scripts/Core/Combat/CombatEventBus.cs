@@ -49,6 +49,7 @@ namespace PF2e.Core
         public delegate void AidClearedHandler(in AidClearedEvent e);
         public delegate void AidResolvedHandler(in AidResolvedEvent e);
         public delegate void SpellResolvedHandler(in SpellResolvedEvent e);
+        public delegate void HazardTriggeredHandler(in HazardTriggeredEvent e);
         public delegate void ShieldRaisedHandler(in ShieldRaisedEvent e);
         public delegate void ShieldBlockResolvedHandler(in ShieldBlockResolvedEvent e);
         public delegate void CombatActionStartedHandler(in CombatActionStartedEvent e);
@@ -85,6 +86,7 @@ namespace PF2e.Core
         public event AidClearedHandler OnAidClearedTyped;
         public event AidResolvedHandler OnAidResolvedTyped;
         public event SpellResolvedHandler OnSpellResolvedTyped;
+        public event HazardTriggeredHandler OnHazardTriggeredTyped;
         public event ShieldRaisedHandler OnShieldRaisedTyped;
         public event ShieldBlockResolvedHandler OnShieldBlockResolvedTyped;
         public event CombatActionStartedHandler OnCombatActionStartedTyped;
@@ -215,6 +217,11 @@ namespace PF2e.Core
         public void PublishSpellResolved(in SpellResolvedEvent ev)
         {
             OnSpellResolvedTyped?.Invoke(in ev);
+        }
+
+        public void PublishHazardTriggered(in HazardTriggeredEvent ev)
+        {
+            OnHazardTriggeredTyped?.Invoke(in ev);
         }
 
         public void PublishStrikePreDamage(

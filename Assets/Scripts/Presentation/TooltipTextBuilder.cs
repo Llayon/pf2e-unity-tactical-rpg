@@ -465,6 +465,35 @@ namespace PF2e.Presentation
             return sb.ToString();
         }
 
+        public static string HazardBreakdown(string hazardName, string contextLine, string[] detailLines)
+        {
+            var sb = new StringBuilder(384);
+            AppendSectionHeader(sb, string.IsNullOrEmpty(hazardName) ? "Hazard" : hazardName);
+
+            if (!string.IsNullOrEmpty(contextLine))
+            {
+                sb.Append('\n');
+                AppendContextLine(sb, contextLine);
+            }
+
+            if (detailLines != null && detailLines.Length > 0)
+            {
+                sb.Append('\n');
+                sb.Append('\n');
+                AppendSectionHeader(sb, "Outcome");
+                for (int i = 0; i < detailLines.Length; i++)
+                {
+                    if (string.IsNullOrEmpty(detailLines[i]))
+                        continue;
+
+                    sb.Append('\n');
+                    sb.Append(BuildDescriptionText($"• {detailLines[i]}"));
+                }
+            }
+
+            return sb.ToString();
+        }
+
         public static string BuildResultExtendedBody(
             string coreBody,
             string ruleTitle,

@@ -68,6 +68,11 @@
 - Add the first chained vertical pull trap (`basic save` damage + pull + prone on failure`) so the new elevation-aware displacement seam is now exercised symmetrically on both push and pull branches. (Done)
 - Add the first chained displacement + non-fire ongoing authored hazard so displacement traps are no longer coupled only to fire/control follow-ups and can reuse the shared persistent-damage seam with a second damage family. (Done)
 - Add the symmetric push-side non-fire ongoing hazard so the non-fire displacement branch is no longer pull-only and can now apply acid pressure on both knockback and drag-style traps. (Done)
+- Add the first richer chained acid push hazard (`basic save` damage + push + persistent acid on failure`) so the non-fire displacement branch now covers both plain ongoing traps and a real burst+displacement+ongoing payload. (Done)
+- Add the pull-side mirror to the richer acid displacement branch (`basic save` damage + pull + persistent acid on failure`) so burst+displacement+ongoing acid is now symmetric across push/pull. (Done)
+- Add the first control + acid push displacement rider (`push + prone + persistent acid on failure`) so the non-fire displacement branch now covers pure ongoing, burst+ongoing, and control+ongoing outcomes on the push side. (Done)
+- Add the pull-side mirror to the control + acid displacement branch (`pull + prone + persistent acid on failure`) so control+ongoing acid is now symmetric across push/pull too. (Done)
+- Add typed hazard-trigger outcome cards/events so authored trap results log with the same single-line summary + tooltip-card clarity as strikes and spells. (Done)
 
 ## Phase 3 — Content & UX Polish (In Progress)
 - Add more encounter layouts and data-driven authoring flow.
@@ -78,6 +83,7 @@
 - Add playable two-step `Reposition` targeting UX (target -> check -> destination cell on success), cell highlights/hints, Action Bar wiring, and Reposition control polish (`Phases 26.1a–26.2`). (Done)
 - Fix combat log high-volume readability: wrapped-line preferred-height sizing, pooled-line sibling order, and retention cap notice (`Showing last N lines`). (Done)
 - Add combat-log tooltip cards with typed payloads, TMP link tokens, dock/layout profiles, and hover regressions coverage. (Done)
+- Extend authored hazard presentation with typed trap outcome cards, so the hazard matrix remains readable in combat feedback instead of relying on raw save strings. (Done)
 - Migrate HUD typography to shared `Source Sans 3` / `Lora` assets and add repeatable Solasta-style UI polish tooling for scene/prefab authoring. (Done)
 - Replace the initiative bar with a prepared-art portrait strip (portrait library, team frames, stable visual order, acted-state dimming, active enlargement, HP feedback, and immediate defeated removal). (Done)
 - Harden input/UI interaction boundaries: block camera wheel zoom and grid click/hover raycasts while pointer is over UI. (Done)

@@ -214,6 +214,34 @@ namespace PF2e.Grid
                     forcedMoveElevationPerCell = Mathf.Clamp(definition.forcedMoveElevationPerCell, -1, 1);
                     damageType = DamageType.Acid;
                     break;
+                case HazardEffectKind.BasicSaveDamageAndPushAndPersistentAcidOnFailedSave:
+                    entryDamage = Mathf.Max(1, definition.entryDamage);
+                    persistentDamage = Mathf.Max(1, definition.persistentDamage > 0 ? definition.persistentDamage : definition.entryDamage);
+                    forcedMoveCells = Mathf.Max(1, definition.forcedMoveCells > 0 ? definition.forcedMoveCells : 1);
+                    forcedMoveElevationPerCell = Mathf.Clamp(definition.forcedMoveElevationPerCell, -1, 1);
+                    damageType = DamageType.Acid;
+                    break;
+                case HazardEffectKind.BasicSaveDamageAndPullAndPersistentAcidOnFailedSave:
+                    entryDamage = Mathf.Max(1, definition.entryDamage);
+                    persistentDamage = Mathf.Max(1, definition.persistentDamage > 0 ? definition.persistentDamage : definition.entryDamage);
+                    forcedMoveCells = Mathf.Max(1, definition.forcedMoveCells > 0 ? definition.forcedMoveCells : 1);
+                    forcedMoveElevationPerCell = Mathf.Clamp(definition.forcedMoveElevationPerCell, -1, 1);
+                    damageType = DamageType.Acid;
+                    break;
+                case HazardEffectKind.ProneAndPushAndPersistentAcidOnFailedSave:
+                    entryDamage = 0;
+                    persistentDamage = Mathf.Max(1, definition.persistentDamage > 0 ? definition.persistentDamage : definition.entryDamage);
+                    forcedMoveCells = Mathf.Max(1, definition.forcedMoveCells > 0 ? definition.forcedMoveCells : 1);
+                    forcedMoveElevationPerCell = Mathf.Clamp(definition.forcedMoveElevationPerCell, -1, 1);
+                    damageType = DamageType.Acid;
+                    break;
+                case HazardEffectKind.ProneAndPullAndPersistentAcidOnFailedSave:
+                    entryDamage = 0;
+                    persistentDamage = Mathf.Max(1, definition.persistentDamage > 0 ? definition.persistentDamage : definition.entryDamage);
+                    forcedMoveCells = Mathf.Max(1, definition.forcedMoveCells > 0 ? definition.forcedMoveCells : 1);
+                    forcedMoveElevationPerCell = Mathf.Clamp(definition.forcedMoveElevationPerCell, -1, 1);
+                    damageType = DamageType.Acid;
+                    break;
                 default:
                     entryDamage = Mathf.Max(1, definition.entryDamage);
                     break;

@@ -82,7 +82,12 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - `SampleScene` now has a real authored hazard telegraph pass in the tracked scene: the central approach lanes serialize three distinct trap roles (`Hook Snare`, `Acid Slick`, `Burning Coals`) with tuned telegraph colors plus larger/higher overlays (`telegraphInset=0.12`, `telegraphYOffset=0.075`) so hazards are visible in the primary encounter without depending on runtime defaults.
 - The displacement branch now also has its first non-fire ongoing follow-up: `PullAndPersistentAcidOnFailedSave` combines save-gated pull displacement with `PersistentAcid`, so authored traps are no longer limited to fire-based ongoing consequences once displacement is involved.
 - The non-fire displacement branch is now symmetric too: `PushAndPersistentAcidOnFailedSave` mirrors the new pull+acid slice and proves that authored acid pressure can ride on both push and pull displacement without a second ongoing-damage system.
-- Recommended next authored-hazard slice: add a richer chained acid displacement rider, rather than another plain fire permutation or another one-off same-family clone.
+- The acid push branch now also has a richer chained payload: `BasicSaveDamageAndPushAndPersistentAcidOnFailedSave` combines burst damage, save-gated push displacement, and `PersistentAcid`, so non-fire displacement now covers both plain and burst-backed pressure on the push side.
+- The richer acid displacement branch is now symmetric as well: `BasicSaveDamageAndPullAndPersistentAcidOnFailedSave` mirrors the push-side burst+displacement+ongoing payload, so non-fire displacement now covers plain and burst-backed pressure on both push and pull sides.
+- The non-fire displacement branch now also has its first control+ongoing rider: `ProneAndPushAndPersistentAcidOnFailedSave` combines save-gated push displacement, `Prone`, and `PersistentAcid`, so the acid branch now mirrors the earlier fire-side control pressure on at least one displacement direction.
+- The control+acid displacement branch is now symmetric too: `ProneAndPullAndPersistentAcidOnFailedSave` mirrors the push-side rider, so non-fire displacement now covers plain, burst-backed, and control+ongoing pressure on both push and pull sides.
+- Authored hazards now also publish a first-class typed outcome event: `HazardTriggeredEvent` captures save result, applied burst damage, forced displacement, and up to two applied conditions, while `HazardLogForwarder` renders a single linked combat-log line with tooltip card instead of relying on raw save strings.
+- Recommended next authored-hazard slice: add a richer control+acid rider beyond plain `Prone`, or cleanly wire the new typed hazard log card into the authored combat scenes.
 - Combat works at MVP level: weapon-aware strike resolution (melee + ranged), MAP increment, ranged range-increment penalties, ranged line-of-sight validation + simple cover AC bonus support, ranged concealment flat-check miss support (`Concealed`, DC 5 flat check on would-hit), ranged `Volley` penalty support, strike crit math support for `Deadly` and `Fatal`, phased strike flow (pre/post reaction extension points), damage apply, defeat hide + events, and generic non-strike damage pipeline (`DamageAppliedEvent` + `DamageApplicationService`) currently used by `Trip` crit damage with optional pre-apply Shield Block reduction context.
 - Spellcasting works for the current slice through the existing HUD/targeting pipeline: `Force Barrage`, `Electric Arc`, `Snowball`, `Burning Hands`, `Fear`, `Heal`, and `Harm` all use action bar cast flow, targeting hints, combat log payloads, tooltip payloads, and floating number feedback. Supported spell-resolution patterns now include auto-hit grouped damage, spell attack vs AC, basic-save damage, pure condition application, 15-foot cone AoE, 30-foot emanation AoE, healing, vitality damage, and living/undead split resolution.
 - `Fear` critical failure now applies both `Frightened 3` and `Fleeing`; `Frightened` penalties are also surfaced explicitly in strike tooltip/log breakdowns instead of being hidden inside totals.
@@ -272,8 +277,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 ## Known Issues / TODOs
 - AI remains deterministic and heuristic-driven rather than full utility-AI: tactical coverage is much broader now, but scoring is still priority-based and not yet candidate/utility scored.
 - Hazard telegraphing is intentionally simple for now: authored hazard cells use transparent quad overlays, not a full decal/VFX pipeline or floor-aware overlay sorting system.
-- Authored hazards still do not surface a dedicated trap outcome card/log event the way strikes and spells do; trap resolution is readable in the combat log, but not yet elevated to a first-class tooltip/card payload.
-- Authored hazards still do not cover richer chained acid displacement riders yet: the plain `Push/Pull + PersistentAcid` symmetry exists, but combinations like damage/control plus non-fire displacement are still follow-up work.
+- Authored hazards still do not cover richer control+acid displacement riders beyond `Prone`: the symmetric push/pull branch now exists, but stronger or more varied non-fire control riders are still follow-up work.
 - AI no-progress bailout uses threshold 2 repeated identical loop snapshots; tune only with matching regression tests.
 - `SampleScene` remains authored-reference first; `EncounterFlowPrefabScene` is the current preset-driven fallback example scene.
 - Restart is scene-reload based (`SceneManager.LoadScene`) and intentionally simple for MVP.
@@ -303,8 +307,8 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - Legacy forwarder stubs (`TurnManagerLogForwarder`, `TurnManagerTypedForwarder`) were removed from scenes and code; turn/combat typed flow is direct `TurnManager -> CombatEventBus`.
 
 ## Next 3 Recommended Tasks (Small, High Value)
-1. Hazard rules follow-up: add a richer chained acid displacement rider so the non-fire branch grows beyond plain `push/pull + PersistentAcid`.
-2. Hazard presentation follow-up: add a typed hazard-trigger event/log card so trap outcomes are surfaced with the same clarity as strikes and spells.
+1. Hazard rules follow-up: add a richer control+acid rider beyond plain `Prone`, or combine acid control with burst damage in a single displacement payload.
+2. Hazard presentation follow-up: wire `HazardLogForwarder` into the authored combat scenes cleanly, isolating that scene change from the remaining `SampleScene`/HUD diff noise.
 3. Utility-AI migration prep: replace the growing fixed-priority AI policy with typed candidate generation/scoring while keeping the current executor/runtime seams unchanged.
 
 ## LLM-First Delivery Workflow (Multi-Agent)

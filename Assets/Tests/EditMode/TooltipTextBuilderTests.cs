@@ -204,5 +204,27 @@ namespace PF2e.Tests
             StringAssert.Contains("Goblin_1", text);
             StringAssert.Contains("Failure", text);
         }
+
+        [Test]
+        public void HazardBreakdown_IncludesContextAndOutcomeLines()
+        {
+            string text = TooltipTextBuilder.HazardBreakdown(
+                "Acid Hook",
+                "cell (2, 0, 1) • Reflex DC 16 • pull x1",
+                new[]
+                {
+                    "Reflex: Failure (8 vs DC 16, rolled 5)",
+                    "Damage: 6 acid (20->14 HP)",
+                    "Forced movement: pulled 1 cell to (1, 0, 1)",
+                    "Conditions: persistent acid 2"
+                });
+
+            StringAssert.Contains("Acid Hook", text);
+            StringAssert.Contains("cell (2, 0, 1)", text);
+            StringAssert.Contains("Reflex: Failure", text);
+            StringAssert.Contains("Damage: 6 acid", text);
+            StringAssert.Contains("Forced movement: pulled 1 cell", text);
+            StringAssert.Contains("Conditions: persistent acid 2", text);
+        }
     }
 }
