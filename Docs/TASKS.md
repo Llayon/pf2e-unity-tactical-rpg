@@ -4,6 +4,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 
 | ID | Priority | Status | Agent Role | Task | DoD |
 | --- | --- | --- | --- | --- | --- |
+| T-219 | P1 | done | Builder | Add full `SampleScene` trap-lane PlayMode regression coverage | `CombatRoundRegressionPlayModeTests` covers the authored `SampleScene` lane end-to-end: player-driven `Hook Snare`, enemy-driven shove into `Hook Snare`, direct `Acid Slick`, and direct `Burning Coals`, each asserting typed hazard cards plus their authored save/damage/displacement/condition contracts |
 | T-218 | P1 | done | Builder | Tune `SampleScene` encounter starts around the authored trap lane | The code-authored combatant start cells line the fighter up with the `Hook Snare` lane, place `Goblin_1` directly behind it, and keep `Goblin_2` deeper in the backline, so the primary tracked encounter reproduces a readable trap-pressure beat in the opening rounds without adding more baseline actors |
 | T-217 | P1 | done | Builder | Add typed hazard trigger event + tooltip log card | Authored hazards publish `HazardTriggeredEvent`, `HazardLogForwarder` emits a single readable trap-summary line with tooltip payload, and EditMode coverage proves save/damage/movement/condition outcomes render cleanly |
 | T-216 | P1 | done | Builder | Add pull-side mirror for control + acid displacement rider | Authored hazards support a save-gated pull + `Prone` + `PersistentAcid` outcome, reuse the shared forced-move and persistent-damage seams, and have EditMode coverage for success/failure movement + condition behavior |

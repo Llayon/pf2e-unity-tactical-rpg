@@ -1,5 +1,5 @@
 # Project Memory
-Last updated: 2026-03-21
+Last updated: 2026-03-24
 
 ## Session Handoff Pointers
 - Active handoff snapshot: `Docs/SESSION_HANDOFF_2026-03-08.md`
@@ -81,6 +81,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 - The pull branch now matches that chained vertical payload depth too: `BasicSaveDamageAndProneAndPullOnFailedSave` combines burst damage, authored pull displacement, and `Prone`, and it automatically inherits vertical pull behavior through `forcedMoveElevationPerCell`; the vertical-pull regression harness now seeds intermediate elevated steps explicitly, and the full EditMode suite is green on that contract.
 - `SampleScene` now has a real authored hazard telegraph pass in the tracked scene: the central approach lanes serialize three distinct trap roles (`Hook Snare`, `Acid Slick`, `Burning Coals`) with tuned telegraph colors plus larger/higher overlays (`telegraphInset=0.12`, `telegraphYOffset=0.075`) so hazards are visible in the primary encounter without depending on runtime defaults.
 - `SampleScene` now also has a cleaner opening trap beat: the fighter's code-authored spawn cell is aligned with the `Hook Snare` approach lane, `Goblin_1` starts directly behind that lane for immediate melee pressure, and `Goblin_2` starts deeper in the backline so the caster complements the encounter instead of owning the whole opening.
+- `SampleScene` hazard encounter coverage is now pinned by PlayMode regressions instead of ad-hoc smoke only: `CombatRoundRegressionPlayModeTests` now covers player-driven `Hook Snare`, enemy-driven shove into `Hook Snare`, direct `Acid Slick` (`Prone + PersistentAcid`), and direct `Burning Coals` (`basic save` fire burst + `PersistentFire`) with typed hazard-card assertions.
 - The displacement branch now also has its first non-fire ongoing follow-up: `PullAndPersistentAcidOnFailedSave` combines save-gated pull displacement with `PersistentAcid`, so authored traps are no longer limited to fire-based ongoing consequences once displacement is involved.
 - The non-fire displacement branch is now symmetric too: `PushAndPersistentAcidOnFailedSave` mirrors the new pull+acid slice and proves that authored acid pressure can ride on both push and pull displacement without a second ongoing-damage system.
 - The acid push branch now also has a richer chained payload: `BasicSaveDamageAndPushAndPersistentAcidOnFailedSave` combines burst damage, save-gated push displacement, and `PersistentAcid`, so non-fire displacement now covers both plain and burst-backed pressure on the push side.
@@ -310,7 +311,7 @@ Build a small, playable, turn-based tactical PF2e combat slice in Unity where on
 
 ## Next 3 Recommended Tasks (Small, High Value)
 1. Hazard rules follow-up: add a richer control+acid rider beyond plain `Prone`, or combine acid control with burst damage in a single displacement payload.
-2. Hazard scene follow-up: author at least one tracked encounter beat that reliably demonstrates typed trap cards in live play (forced move + ongoing condition) and capture smoke evidence.
+2. Hazard scene follow-up: capture one manual smoke artifact for the now-regressed `SampleScene` trap lane (for example screenshot/GIF showing telegraph + typed card), so authored hazards are documented visually as well as by tests.
 3. Utility-AI migration prep: replace the growing fixed-priority AI policy with typed candidate generation/scoring while keeping the current executor/runtime seams unchanged.
 
 ## LLM-First Delivery Workflow (Multi-Agent)
