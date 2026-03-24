@@ -2050,6 +2050,176 @@ namespace PF2e.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator GT_P39_PM_427_SampleScene_GoblinShoveIntoHookSnare_PublishesHazardCard()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+            var aiTurnController = UnityEngine.Object.FindFirstObjectByType<AITurnController>();
+
+            Assert.IsNotNull(aiTurnController, "AITurnController not found in SampleScene.");
+
+            Vector3Int goblinStartCell = new(2, 0, 2);
+            Vector3Int fighterStartCell = new(3, 0, 2);
+            Vector3Int hookSnareCell = new(4, 0, 2);
+            Vector3Int expectedPulledCell = new(3, 0, 2);
+
+            WeaponDefinition shoveOnlyWeaponDef = null;
+
+            BoostAllCombatantsHP(200);
+
+            goblin1.Wisdom = 5000;
+            goblin2.Wisdom = -3000;
+            wizard.Wisdom = -4000;
+            fighter.Wisdom = -5000;
+
+            goblin1.Strength = 5000;
+            fighter.Constitution = -4000;
+            fighter.Dexterity = -4000;
+
+            MoveEntityToCell(goblin1, goblinStartCell);
+            MoveEntityToCell(fighter, fighterStartCell);
+            MoveEntityToCell(wizard, FindFarthestAvailableCell(goblin1.GridPosition, wizard.Handle, minDistFeet: 20));
+            MoveEntityToCell(goblin2, FindFarthestAvailableCell(fighter.GridPosition, goblin2.Handle, minDistFeet: 20));
+
+            var sourceWeaponDef = goblin1.EquippedWeapon.def;
+            Assert.IsNotNull(sourceWeaponDef, "Goblin_1 must have a weapon definition for shove regression.");
+
+            shoveOnlyWeaponDef = ScriptableObject.CreateInstance<WeaponDefinition>();
+            shoveOnlyWeaponDef.itemName = "PlayMode_GoblinShoveOnly";
+            shoveOnlyWeaponDef.category = sourceWeaponDef.category;
+            shoveOnlyWeaponDef.group = sourceWeaponDef.group;
+            shoveOnlyWeaponDef.hands = sourceWeaponDef.hands;
+            shoveOnlyWeaponDef.diceCount = sourceWeaponDef.diceCount;
+            shoveOnlyWeaponDef.dieSides = sourceWeaponDef.dieSides;
+            shoveOnlyWeaponDef.damageType = sourceWeaponDef.damageType;
+            shoveOnlyWeaponDef.reachFeet = sourceWeaponDef.reachFeet;
+            shoveOnlyWeaponDef.isRanged = false;
+            shoveOnlyWeaponDef.rangeIncrementFeet = 0;
+            shoveOnlyWeaponDef.maxRangeIncrements = 0;
+            shoveOnlyWeaponDef.traits = WeaponTraitFlags.Shove;
+            shoveOnlyWeaponDef.usesAmmo = false;
+            shoveOnlyWeaponDef.ammoType = AmmoType.None;
+            shoveOnlyWeaponDef.ammoPerShot = 0;
+
+            var goblinWeapon = goblin1.EquippedWeapon;
+            goblinWeapon.def = shoveOnlyWeaponDef;
+            goblin1.EquippedWeapon = goblinWeapon;
+
+            SetPrivateField(aiTurnController, "thinkDelay", 0f);
+            SetPrivateField(aiTurnController, "actionDelay", 0f);
+
+            SkillCheckResolvedEvent observedSkill = default;
+            bool skillSeen = false;
+            HazardTriggeredEvent observedHazard = default;
+            bool hazardSeen = false;
+            CombatLogEntry observedEntry = default;
+            CombatLogTooltipPayload? observedTooltip = null;
+            bool logSeen = false;
+
+            void SkillHandler(in SkillCheckResolvedEvent e)
+            {
+                if (skillSeen)
+                    return;
+                if (e.actor != goblin1.Handle)
+                    return;
+                if (e.target != fighter.Handle)
+                    return;
+                if (!string.Equals(e.actionName, "Shove", StringComparison.Ordinal))
+                    return;
+
+                observedSkill = e;
+                skillSeen = true;
+            }
+
+            void HazardHandler(in HazardTriggeredEvent e)
+            {
+                if (hazardSeen)
+                    return;
+                if (e.target != fighter.Handle)
+                    return;
+                if (e.hazardCell != hookSnareCell)
+                    return;
+
+                observedHazard = e;
+                hazardSeen = true;
+            }
+
+            void LogHandler(CombatLogEntry entry, CombatLogTooltipPayload? tooltipPayload)
+            {
+                if (logSeen)
+                    return;
+                if (entry.Actor != fighter.Handle)
+                    return;
+                if (entry.Category != CombatLogCategory.ActionResult)
+                    return;
+                if (string.IsNullOrEmpty(entry.Message) || !entry.Message.Contains("Hook Snare"))
+                    return;
+                if (!tooltipPayload.HasValue || !tooltipPayload.Value.HasEntries)
+                    return;
+
+                observedEntry = entry;
+                observedTooltip = tooltipPayload;
+                logSeen = true;
+            }
+
+            eventBus.OnSkillCheckResolvedTyped += SkillHandler;
+            eventBus.OnHazardTriggeredTyped += HazardHandler;
+            eventBus.OnLogEntryWithTooltip += LogHandler;
+
+            try
+            {
+                turnManager.StartCombat();
+
+                yield return WaitUntilOrTimeout(
+                    () => skillSeen && hazardSeen && logSeen,
+                    DefaultTimeoutSeconds,
+                    "Goblin_1 did not shove Fighter into Hook Snare with typed hazard card output.");
+
+                Assert.AreEqual(goblin1.Handle, observedSkill.actor);
+                Assert.AreEqual(fighter.Handle, observedSkill.target);
+                Assert.AreEqual(SkillType.Athletics, observedSkill.skill);
+                Assert.AreEqual("Shove", observedSkill.actionName);
+                Assert.IsTrue(
+                    observedSkill.degree == DegreeOfSuccess.Success || observedSkill.degree == DegreeOfSuccess.CriticalSuccess,
+                    "Goblin_1 should land a successful shove in the trap-lane regression.");
+
+                Assert.AreEqual("Hook Snare", observedHazard.hazardName);
+                Assert.AreEqual(HazardEffectKind.BasicSaveDamageAndProneAndPullOnFailedSave, observedHazard.effectKind);
+                Assert.AreEqual(hookSnareCell, observedHazard.hazardCell);
+                Assert.AreEqual(fighter.Handle, observedHazard.target);
+                Assert.AreEqual(SaveType.Reflex, observedHazard.saveType);
+                Assert.IsTrue(observedHazard.saveResult.HasValue, "Hook Snare should publish the save result.");
+                Assert.AreEqual(hookSnareCell, observedHazard.positionBefore);
+                Assert.AreEqual(expectedPulledCell, observedHazard.positionAfter);
+                Assert.IsTrue(observedHazard.pulledTowardOrigin, "Hook Snare should pull the fighter back toward the origin lane.");
+                Assert.AreEqual(1, observedHazard.movedCells, "Hook Snare should pull exactly one cell on failed save.");
+                Assert.AreEqual(ConditionType.Prone, observedHazard.primaryConditionType);
+
+                Assert.AreEqual(expectedPulledCell, fighter.GridPosition, "Fighter should end back on the lane cell after Hook Snare resolves.");
+                Assert.IsTrue(fighter.HasCondition(ConditionType.Prone), "Enemy-driven Hook Snare beat should leave the fighter prone.");
+
+                Assert.AreEqual(CombatLogCategory.ActionResult, observedEntry.Category);
+                StringAssert.Contains("Hook Snare", observedEntry.Message);
+                Assert.IsTrue(observedTooltip.HasValue && observedTooltip.Value.HasEntries);
+                Assert.AreEqual("Hook Snare", observedTooltip.Value.entries[0].title);
+                StringAssert.Contains("Reflex", observedTooltip.Value.entries[0].body);
+                StringAssert.Contains("Forced movement", observedTooltip.Value.entries[0].body);
+                StringAssert.Contains("prone", observedTooltip.Value.entries[0].body);
+            }
+            finally
+            {
+                eventBus.OnSkillCheckResolvedTyped -= SkillHandler;
+                eventBus.OnHazardTriggeredTyped -= HazardHandler;
+                eventBus.OnLogEntryWithTooltip -= LogHandler;
+
+                if (shoveOnlyWeaponDef != null)
+                    UnityEngine.Object.DestroyImmediate(shoveOnlyWeaponDef);
+            }
+        }
+
         private void ResolveSceneReferences()
         {
             turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();
