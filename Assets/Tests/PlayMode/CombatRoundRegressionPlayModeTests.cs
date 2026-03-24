@@ -2330,6 +2330,122 @@ namespace PF2e.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator GT_P39_PM_429_SampleScene_BurningCoals_AppliesDamagePersistentFire_AndPublishesHazardCard()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+            Vector3Int fighterStartCell = new(3, 0, 5);
+            Vector3Int burningCoalsCell = new(4, 0, 5);
+
+            BoostAllCombatantsHP(200);
+            fighter.Wisdom = 5000;
+            fighter.Dexterity = -4000;
+            wizard.Wisdom = -3000;
+            goblin1.Wisdom = -4000;
+            goblin2.Wisdom = -5000;
+
+            MoveEntityToCell(fighter, burningCoalsCell);
+            MoveEntityToCell(goblin1, FindFarthestAvailableCell(fighter.GridPosition, goblin1.Handle, minDistFeet: 20));
+            MoveEntityToCell(goblin2, FindFarthestAvailableCell(fighter.GridPosition, goblin2.Handle, minDistFeet: 20));
+            MoveEntityToCell(wizard, FindFarthestAvailableCell(fighter.GridPosition, wizard.Handle, minDistFeet: 20));
+
+            HazardTriggeredEvent observedHazard = default;
+            bool hazardSeen = false;
+            CombatLogEntry observedEntry = default;
+            CombatLogTooltipPayload? observedTooltip = null;
+            bool logSeen = false;
+
+            void HazardHandler(in HazardTriggeredEvent e)
+            {
+                if (e.target != fighter.Handle)
+                    return;
+                if (e.hazardCell != burningCoalsCell)
+                    return;
+
+                observedHazard = e;
+                hazardSeen = true;
+            }
+
+            void LogHandler(CombatLogEntry entry, CombatLogTooltipPayload? tooltipPayload)
+            {
+                if (entry.Actor != fighter.Handle)
+                    return;
+                if (entry.Category != CombatLogCategory.ActionResult)
+                    return;
+                if (string.IsNullOrEmpty(entry.Message) || !entry.Message.Contains("Burning Coals"))
+                    return;
+                if (!tooltipPayload.HasValue || !tooltipPayload.Value.HasEntries)
+                    return;
+
+                observedEntry = entry;
+                observedTooltip = tooltipPayload;
+                logSeen = true;
+            }
+
+            eventBus.OnHazardTriggeredTyped += HazardHandler;
+            eventBus.OnLogEntryWithTooltip += LogHandler;
+
+            try
+            {
+                int hpBefore = fighter.CurrentHP;
+
+                int appliedDamage = HazardousTerrainRules.TryApplyEntryEffect(
+                    fighter.Handle,
+                    burningCoalsCell,
+                    entityManager,
+                    eventBus,
+                    originCell: fighterStartCell);
+
+                yield return WaitUntilOrTimeout(
+                    () => hazardSeen && logSeen,
+                    DefaultTimeoutSeconds,
+                    "Did not receive Burning Coals hazard event + tooltip log payload.");
+
+                Assert.AreEqual("Burning Coals", observedHazard.hazardName);
+                Assert.AreEqual(HazardEffectKind.BasicSaveDamageAndPersistentFireOnFailure, observedHazard.effectKind);
+                Assert.AreEqual(burningCoalsCell, observedHazard.hazardCell);
+                Assert.AreEqual(fighter.Handle, observedHazard.target);
+                Assert.AreEqual(SaveType.Reflex, observedHazard.saveType);
+                Assert.IsTrue(observedHazard.saveResult.HasValue, "Burning Coals should publish the save result.");
+                Assert.AreEqual(DamageType.Fire, observedHazard.damageType);
+                Assert.AreEqual(4, observedHazard.rolledDamage, "Burning Coals should expose the authored burst damage.");
+                Assert.AreEqual(
+                    CheckResolver.ApplyBasicSaveDamage(observedHazard.rolledDamage, observedHazard.saveResult.Value.degree),
+                    observedHazard.appliedDamage,
+                    "Burning Coals damage should follow the shared basic-save mapping.");
+                Assert.AreEqual(observedHazard.appliedDamage, appliedDamage);
+                Assert.AreEqual(hpBefore - appliedDamage, fighter.CurrentHP);
+                Assert.AreEqual(burningCoalsCell, observedHazard.positionBefore);
+                Assert.AreEqual(burningCoalsCell, observedHazard.positionAfter);
+                Assert.AreEqual(0, observedHazard.movedCells, "Burning Coals should not force movement.");
+                Assert.AreEqual(ConditionType.PersistentFire, observedHazard.primaryConditionType);
+                Assert.AreEqual(2, observedHazard.primaryConditionValue, "Burning Coals should apply the authored persistent fire value.");
+                Assert.IsNull(observedHazard.secondaryConditionType);
+
+                Assert.AreEqual(burningCoalsCell, fighter.GridPosition, "Fighter should remain on Burning Coals after resolution.");
+                Assert.IsFalse(fighter.HasCondition(ConditionType.Prone), "Burning Coals should not apply prone.");
+                Assert.IsTrue(fighter.HasCondition(ConditionType.PersistentFire), "Burning Coals should apply persistent fire on failed save.");
+                Assert.AreEqual(2, fighter.GetConditionValue(ConditionType.PersistentFire));
+
+                Assert.AreEqual(CombatLogCategory.ActionResult, observedEntry.Category);
+                StringAssert.Contains("Burning Coals", observedEntry.Message);
+                Assert.IsTrue(observedTooltip.HasValue && observedTooltip.Value.HasEntries);
+                Assert.AreEqual(1, observedTooltip.Value.entries.Length);
+                Assert.AreEqual("Burning Coals", observedTooltip.Value.entries[0].title);
+                StringAssert.Contains("Reflex", observedTooltip.Value.entries[0].body);
+                StringAssert.Contains("fire", observedTooltip.Value.entries[0].body);
+                StringAssert.Contains("persistent fire", observedTooltip.Value.entries[0].body);
+            }
+            finally
+            {
+                eventBus.OnHazardTriggeredTyped -= HazardHandler;
+                eventBus.OnLogEntryWithTooltip -= LogHandler;
+            }
+        }
+
         private void ResolveSceneReferences()
         {
             turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();
