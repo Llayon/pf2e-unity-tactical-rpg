@@ -2631,6 +2631,105 @@ namespace PF2e.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator GT_P39_PM_431_SampleScene_GoblinStride_AvoidsRicherAuthoredTrapOnApproach()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+            var aiTurnController = UnityEngine.Object.FindFirstObjectByType<AITurnController>();
+            var hazardController = UnityEngine.Object.FindFirstObjectByType<GridHazardController>();
+
+            Assert.IsNotNull(aiTurnController, "AITurnController not found in SampleScene.");
+            Assert.IsNotNull(hazardController, "GridHazardController not found in SampleScene.");
+
+            Vector3Int goblinStartCell = new(0, 0, 1);
+            Vector3Int fighterStartCell = new(4, 0, 1);
+            Vector3Int richerTrapCell = new(3, 0, 1);
+            Vector3Int safeApproachCell = new(3, 0, 0);
+
+            BoostAllCombatantsHP(200);
+
+            goblin1.Wisdom = 5000;
+            goblin2.Wisdom = -3000;
+            wizard.Wisdom = -4000;
+            fighter.Wisdom = -5000;
+
+            MoveEntityToCell(goblin1, goblinStartCell);
+            MoveEntityToCell(fighter, fighterStartCell);
+            MoveEntityToCell(wizard, FindFarthestAvailableCell(fighter.GridPosition, wizard.Handle, minDistFeet: 20));
+            MoveEntityToCell(goblin2, FindFarthestAvailableCell(goblin1.GridPosition, goblin2.Handle, minDistFeet: 20));
+
+            SetPrivateField(aiTurnController, "thinkDelay", 0f);
+            SetPrivateField(aiTurnController, "actionDelay", 0f);
+
+            SetPrivateField(
+                hazardController,
+                "hazards",
+                new List<GridHazardDefinition>
+                {
+                    new GridHazardDefinition(
+                        "Acid Slick",
+                        richerTrapCell,
+                        HazardEffectKind.ProneAndPersistentAcidOnFailedSave,
+                        entryDamage: 0,
+                        persistentDamage: 2,
+                        forcedMoveCells: 0,
+                        damageType: DamageType.Acid,
+                        saveType: SaveType.Reflex,
+                        saveDc: 18,
+                        aiPressure: 0,
+                        telegraphColor: new Color(0.35f, 0.95f, 0.35f, 0.35f))
+                });
+            hazardController.ApplyHazardsNow();
+
+            StrideCompletedEvent observedStride = default;
+            bool strideSeen = false;
+            bool goblinHazardSeen = false;
+
+            void StrideHandler(in StrideCompletedEvent e)
+            {
+                if (strideSeen)
+                    return;
+                if (e.actor != goblin1.Handle)
+                    return;
+
+                observedStride = e;
+                strideSeen = true;
+            }
+
+            void HazardHandler(in HazardTriggeredEvent e)
+            {
+                if (e.target == goblin1.Handle)
+                    goblinHazardSeen = true;
+            }
+
+            eventBus.OnStrideCompletedTyped += StrideHandler;
+            eventBus.OnHazardTriggeredTyped += HazardHandler;
+
+            try
+            {
+                turnManager.StartCombat();
+
+                yield return WaitUntilOrTimeout(
+                    () => strideSeen && turnManager.CurrentEntity != goblin1.Handle && turnManager.State != TurnState.ExecutingAction,
+                    DefaultTimeoutSeconds,
+                    "Did not observe Goblin_1 complete its trap-avoidance stride.");
+
+                Assert.AreEqual(safeApproachCell, observedStride.to, "Goblin_1 should approach through the safe adjacent cell instead of stepping into the richer trap.");
+                Assert.AreEqual(safeApproachCell, goblin1.GridPosition, "Goblin_1 should end its stride on the safe approach cell.");
+                Assert.IsFalse(goblinHazardSeen, "Goblin_1 should not trigger the richer authored trap while approaching.");
+                Assert.IsFalse(goblin1.HasCondition(ConditionType.Prone), "Goblin_1 should not end up prone from self-entering the trap.");
+                Assert.IsFalse(goblin1.HasCondition(ConditionType.PersistentAcid), "Goblin_1 should not gain persistent acid while approaching.");
+            }
+            finally
+            {
+                eventBus.OnStrideCompletedTyped -= StrideHandler;
+                eventBus.OnHazardTriggeredTyped -= HazardHandler;
+            }
+        }
+
         private void ResolveSceneReferences()
         {
             turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();

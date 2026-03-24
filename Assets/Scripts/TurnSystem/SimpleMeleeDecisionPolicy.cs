@@ -396,7 +396,8 @@ namespace PF2e.TurnSystem
                 target,
                 availableActions,
                 pathBuffer,
-                zoneBuffer);
+                zoneBuffer,
+                GetTerrainPressureScore);
         }
 
         private bool IsValidStepDestination(EntityData actor, in NeighborInfo neighbor)

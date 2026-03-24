@@ -76,6 +76,82 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void SelectStrideCell_AuthoredRichAdjacentTrap_PrefersSafeAdjacentAlternative()
+        {
+            using var ctx = new PolicyContext(CreateStrideAdjacentTrapGrid());
+
+            var hazardController = ctx.GridManager.gameObject.AddComponent<GridHazardController>();
+            SetPrivateField(hazardController, "gridManager", ctx.GridManager);
+            SetPrivateField(
+                hazardController,
+                "hazards",
+                new List<GridHazardDefinition>
+                {
+                    new GridHazardDefinition(
+                        "Acid Slick",
+                        new Vector3Int(3, 0, 1),
+                        HazardEffectKind.ProneAndPersistentAcidOnFailedSave,
+                        entryDamage: 0,
+                        persistentDamage: 2,
+                        forcedMoveCells: 0,
+                        damageType: DamageType.Acid,
+                        saveType: SaveType.Reflex,
+                        saveDc: 18,
+                        aiPressure: 0,
+                        telegraphColor: new Color(0.35f, 0.95f, 0.35f, 0.35f))
+                });
+            hazardController.ApplyHazardsNow();
+
+            var actor = RegisterEntity(ctx.Registry, ctx.Occupancy, Team.Enemy, new Vector3Int(0, 0, 1), alive: true, speedFeet: 30);
+            var target = RegisterEntity(ctx.Registry, ctx.Occupancy, Team.Player, new Vector3Int(4, 0, 1), alive: true, speedFeet: 25);
+
+            var cell = ctx.Policy.SelectStrideCell(
+                ctx.Registry.Get(actor),
+                ctx.Registry.Get(target),
+                availableActions: 3);
+
+            Assert.AreEqual(new Vector3Int(3, 0, 0), cell, "Stride should avoid the richer authored trap when a same-cost safe adjacent cell exists.");
+        }
+
+        [Test]
+        public void SelectStrideCell_AuthoredRichFallbackTrap_PrefersSafeRouteWithinTolerance()
+        {
+            using var ctx = new PolicyContext(CreateStrideFallbackTrapGrid());
+
+            var hazardController = ctx.GridManager.gameObject.AddComponent<GridHazardController>();
+            SetPrivateField(hazardController, "gridManager", ctx.GridManager);
+            SetPrivateField(
+                hazardController,
+                "hazards",
+                new List<GridHazardDefinition>
+                {
+                    new GridHazardDefinition(
+                        "Burning Coals",
+                        new Vector3Int(5, 0, 1),
+                        HazardEffectKind.BasicSaveDamageAndPersistentFireOnFailure,
+                        entryDamage: 4,
+                        persistentDamage: 2,
+                        forcedMoveCells: 0,
+                        damageType: DamageType.Fire,
+                        saveType: SaveType.Reflex,
+                        saveDc: 18,
+                        aiPressure: 0,
+                        telegraphColor: new Color(1f, 0.45f, 0.15f, 0.35f))
+                });
+            hazardController.ApplyHazardsNow();
+
+            var actor = RegisterEntity(ctx.Registry, ctx.Occupancy, Team.Enemy, new Vector3Int(0, 0, 1), alive: true, speedFeet: 25);
+            var target = RegisterEntity(ctx.Registry, ctx.Occupancy, Team.Player, new Vector3Int(7, 0, 1), alive: true, speedFeet: 25);
+
+            var cell = ctx.Policy.SelectStrideCell(
+                ctx.Registry.Get(actor),
+                ctx.Registry.Get(target),
+                availableActions: 1);
+
+            Assert.AreEqual(new Vector3Int(4, 0, 1), cell, "Stride fallback should stay off the richer authored trap when a safer route is only 5 feet worse.");
+        }
+
+        [Test]
         public void SelectStepCell_WhenNotThreatened_ReturnsNull()
         {
             using var ctx = new PolicyContext(CreateSquareGrid(5, 5));
@@ -1380,6 +1456,26 @@ namespace PF2e.Tests
             for (int x = 0; x < width; x++)
                 for (int z = 0; z < height; z++)
                     grid.SetCell(new Vector3Int(x, 0, z), CellData.CreateWalkable());
+            return grid;
+        }
+
+        private static GridData CreateStrideAdjacentTrapGrid()
+        {
+            var grid = new GridData(1f, 1f, 16);
+            for (int x = 0; x <= 4; x++)
+                grid.SetCell(new Vector3Int(x, 0, 1), CellData.CreateWalkable());
+
+            grid.SetCell(new Vector3Int(3, 0, 0), CellData.CreateWalkable());
+            return grid;
+        }
+
+        private static GridData CreateStrideFallbackTrapGrid()
+        {
+            var grid = new GridData(1f, 1f, 16);
+            for (int x = 0; x <= 7; x++)
+                grid.SetCell(new Vector3Int(x, 0, 1), CellData.CreateWalkable());
+
+            grid.SetCell(new Vector3Int(5, 0, 0), CellData.CreateWalkable());
             return grid;
         }
 
