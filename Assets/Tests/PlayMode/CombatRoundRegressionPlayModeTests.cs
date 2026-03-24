@@ -2446,6 +2446,191 @@ namespace PF2e.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator GT_P39_PM_430_SampleScene_GoblinReposition_PrefersRicherAuthoredTrap()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+            var aiTurnController = UnityEngine.Object.FindFirstObjectByType<AITurnController>();
+            var hazardController = UnityEngine.Object.FindFirstObjectByType<GridHazardController>();
+
+            Assert.IsNotNull(aiTurnController, "AITurnController not found in SampleScene.");
+            Assert.IsNotNull(hazardController, "GridHazardController not found in SampleScene.");
+
+            Vector3Int goblinStartCell = new(1, 0, 6);
+            Vector3Int fighterStartCell = new(2, 0, 6);
+            Vector3Int minorTrapCell = new(3, 0, 6);
+            Vector3Int richerTrapCell = new(2, 0, 7);
+
+            WeaponDefinition repositionOnlyWeaponDef = null;
+
+            BoostAllCombatantsHP(200);
+
+            goblin1.Wisdom = 5000;
+            goblin2.Wisdom = -3000;
+            wizard.Wisdom = -4000;
+            fighter.Wisdom = -5000;
+
+            goblin1.Strength = 5000;
+            fighter.Constitution = -4000;
+            fighter.Dexterity = -4000;
+
+            MoveEntityToCell(goblin1, goblinStartCell);
+            MoveEntityToCell(fighter, fighterStartCell);
+            MoveEntityToCell(wizard, FindFarthestAvailableCell(goblin1.GridPosition, wizard.Handle, minDistFeet: 20));
+            MoveEntityToCell(goblin2, FindFarthestAvailableCell(fighter.GridPosition, goblin2.Handle, minDistFeet: 20));
+
+            var sourceWeaponDef = goblin1.EquippedWeapon.def;
+            Assert.IsNotNull(sourceWeaponDef, "Goblin_1 must have a weapon definition for reposition regression.");
+
+            repositionOnlyWeaponDef = ScriptableObject.CreateInstance<WeaponDefinition>();
+            repositionOnlyWeaponDef.itemName = "PlayMode_GoblinRepositionOnly";
+            repositionOnlyWeaponDef.category = sourceWeaponDef.category;
+            repositionOnlyWeaponDef.group = sourceWeaponDef.group;
+            repositionOnlyWeaponDef.hands = sourceWeaponDef.hands;
+            repositionOnlyWeaponDef.diceCount = sourceWeaponDef.diceCount;
+            repositionOnlyWeaponDef.dieSides = sourceWeaponDef.dieSides;
+            repositionOnlyWeaponDef.damageType = sourceWeaponDef.damageType;
+            repositionOnlyWeaponDef.reachFeet = 10;
+            repositionOnlyWeaponDef.isRanged = false;
+            repositionOnlyWeaponDef.rangeIncrementFeet = 0;
+            repositionOnlyWeaponDef.maxRangeIncrements = 0;
+            repositionOnlyWeaponDef.traits = WeaponTraitFlags.Reposition;
+            repositionOnlyWeaponDef.usesAmmo = false;
+            repositionOnlyWeaponDef.ammoType = AmmoType.None;
+            repositionOnlyWeaponDef.ammoPerShot = 0;
+
+            var goblinWeapon = goblin1.EquippedWeapon;
+            goblinWeapon.def = repositionOnlyWeaponDef;
+            goblin1.EquippedWeapon = goblinWeapon;
+
+            SetPrivateField(aiTurnController, "thinkDelay", 0f);
+            SetPrivateField(aiTurnController, "actionDelay", 0f);
+
+            SetPrivateField(
+                hazardController,
+                "hazards",
+                new List<GridHazardDefinition>
+                {
+                    new GridHazardDefinition(
+                        "Minor Blade",
+                        minorTrapCell,
+                        entryDamage: 1,
+                        damageType: DamageType.Slashing,
+                        aiPressure: 0,
+                        telegraphColor: new Color(1f, 0.35f, 0.2f, 0.35f)),
+                    new GridHazardDefinition(
+                        "Acid Slick",
+                        richerTrapCell,
+                        HazardEffectKind.ProneAndPersistentAcidOnFailedSave,
+                        entryDamage: 0,
+                        persistentDamage: 2,
+                        forcedMoveCells: 0,
+                        damageType: DamageType.Acid,
+                        saveType: SaveType.Reflex,
+                        saveDc: 18,
+                        aiPressure: 0,
+                        telegraphColor: new Color(0.35f, 0.95f, 0.35f, 0.35f))
+                });
+            hazardController.ApplyHazardsNow();
+
+            SkillCheckResolvedEvent observedSkill = default;
+            bool skillSeen = false;
+            HazardTriggeredEvent observedHazard = default;
+            bool hazardSeen = false;
+            CombatLogEntry observedEntry = default;
+            CombatLogTooltipPayload? observedTooltip = null;
+            bool logSeen = false;
+
+            void SkillHandler(in SkillCheckResolvedEvent e)
+            {
+                if (skillSeen)
+                    return;
+                if (e.actor != goblin1.Handle)
+                    return;
+                if (e.target != fighter.Handle)
+                    return;
+                if (!string.Equals(e.actionName, "Reposition", StringComparison.Ordinal))
+                    return;
+
+                observedSkill = e;
+                skillSeen = true;
+            }
+
+            void HazardHandler(in HazardTriggeredEvent e)
+            {
+                if (hazardSeen)
+                    return;
+                if (e.target != fighter.Handle)
+                    return;
+                if (e.hazardCell != richerTrapCell)
+                    return;
+
+                observedHazard = e;
+                hazardSeen = true;
+            }
+
+            void LogHandler(CombatLogEntry entry, CombatLogTooltipPayload? tooltipPayload)
+            {
+                if (entry.Actor != fighter.Handle)
+                    return;
+                if (entry.Category != CombatLogCategory.ActionResult)
+                    return;
+                if (string.IsNullOrEmpty(entry.Message) || !entry.Message.Contains("Acid Slick"))
+                    return;
+                if (!tooltipPayload.HasValue || !tooltipPayload.Value.HasEntries)
+                    return;
+
+                observedEntry = entry;
+                observedTooltip = tooltipPayload;
+                logSeen = true;
+            }
+
+            eventBus.OnSkillCheckResolvedTyped += SkillHandler;
+            eventBus.OnHazardTriggeredTyped += HazardHandler;
+            eventBus.OnLogEntryWithTooltip += LogHandler;
+
+            try
+            {
+                turnManager.StartCombat();
+
+                yield return WaitUntilOrTimeout(
+                    () => skillSeen && hazardSeen && logSeen && turnManager.State != TurnState.ExecutingAction,
+                    DefaultTimeoutSeconds,
+                    "Did not observe Goblin_1 reposition into the richer authored trap.");
+
+                Assert.AreEqual("Reposition", observedSkill.actionName);
+                Assert.IsTrue(
+                    observedSkill.degree == DegreeOfSuccess.Success || observedSkill.degree == DegreeOfSuccess.CriticalSuccess,
+                    "Reposition should succeed in this forced-success setup.");
+
+                Assert.AreEqual("Acid Slick", observedHazard.hazardName);
+                Assert.AreEqual(HazardEffectKind.ProneAndPersistentAcidOnFailedSave, observedHazard.effectKind);
+                Assert.AreEqual(richerTrapCell, observedHazard.hazardCell);
+                Assert.AreEqual(richerTrapCell, fighter.GridPosition, "Fighter should end in the richer trap cell.");
+                Assert.AreEqual(ConditionType.Prone, observedHazard.primaryConditionType);
+                Assert.AreEqual(ConditionType.PersistentAcid, observedHazard.secondaryConditionType);
+                Assert.IsTrue(fighter.HasCondition(ConditionType.Prone), "Richer trap should leave the fighter prone.");
+                Assert.IsTrue(fighter.HasCondition(ConditionType.PersistentAcid), "Richer trap should apply persistent acid.");
+
+                Assert.AreEqual(CombatLogCategory.ActionResult, observedEntry.Category);
+                StringAssert.Contains("Acid Slick", observedEntry.Message);
+                Assert.IsTrue(observedTooltip.HasValue && observedTooltip.Value.HasEntries);
+                StringAssert.Contains("persistent acid", observedTooltip.Value.entries[0].body);
+            }
+            finally
+            {
+                eventBus.OnSkillCheckResolvedTyped -= SkillHandler;
+                eventBus.OnHazardTriggeredTyped -= HazardHandler;
+                eventBus.OnLogEntryWithTooltip -= LogHandler;
+
+                if (repositionOnlyWeaponDef != null)
+                    UnityEngine.Object.DestroyImmediate(repositionOnlyWeaponDef);
+            }
+        }
+
         private void ResolveSceneReferences()
         {
             turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();

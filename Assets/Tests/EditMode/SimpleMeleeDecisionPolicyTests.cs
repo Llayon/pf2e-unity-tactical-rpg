@@ -942,6 +942,156 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void TrySelectSkillDecision_AuthoredRichTrapWithoutAiPressure_PicksShoveFromPayloadScore()
+        {
+            using var ctx = new PolicyContext(CreateSquareGrid(8, 8));
+            var shoveWeapon = ScriptableObject.CreateInstance<WeaponDefinition>();
+
+            try
+            {
+                shoveWeapon.category = WeaponCategory.Martial;
+                shoveWeapon.reachFeet = 5;
+                shoveWeapon.isRanged = false;
+                shoveWeapon.traits = WeaponTraitFlags.Shove;
+
+                var hazardController = ctx.GridManager.gameObject.AddComponent<GridHazardController>();
+                SetPrivateField(hazardController, "gridManager", ctx.GridManager);
+                SetPrivateField(
+                    hazardController,
+                    "hazards",
+                    new List<GridHazardDefinition>
+                    {
+                        new GridHazardDefinition(
+                            "Acid Pit",
+                            new Vector3Int(3, 0, 1),
+                            HazardEffectKind.ProneAndPersistentAcidOnFailedSave,
+                            entryDamage: 0,
+                            persistentDamage: 2,
+                            forcedMoveCells: 0,
+                            damageType: DamageType.Acid,
+                            saveType: SaveType.Reflex,
+                            saveDc: 18,
+                            aiPressure: 0,
+                            telegraphColor: new Color(0.35f, 0.95f, 0.35f, 0.35f))
+                    });
+                hazardController.ApplyHazardsNow();
+
+                var actor = RegisterEntity(
+                    ctx.Registry,
+                    ctx.Occupancy,
+                    Team.Enemy,
+                    new Vector3Int(1, 0, 1),
+                    alive: true,
+                    speedFeet: 25,
+                    charisma: 12,
+                    intimidationProf: ProficiencyRank.Trained);
+                var target = RegisterEntity(ctx.Registry, ctx.Occupancy, Team.Player, new Vector3Int(2, 0, 1), alive: true, speedFeet: 25);
+
+                var actorData = ctx.Registry.Get(actor);
+                actorData.Level = 1;
+                actorData.Strength = 16;
+                actorData.AthleticsProf = ProficiencyRank.Trained;
+                actorData.EquippedWeapon = new WeaponInstance
+                {
+                    def = shoveWeapon,
+                    potencyBonus = 0,
+                    strikingRank = StrikingRuneRank.None
+                };
+
+                bool selected = ctx.Policy.TrySelectSkillDecision(
+                    actorData,
+                    ctx.Registry.Get(target),
+                    availableActions: 3,
+                    out var decision);
+
+                Assert.IsTrue(selected);
+                Assert.AreEqual(AISkillActionKind.Shove, decision.actionKind);
+            }
+            finally
+            {
+                Object.DestroyImmediate(shoveWeapon);
+            }
+        }
+
+        [Test]
+        public void TrySelectSkillDecision_AuthoredRicherTrapPayload_PrefersHigherOutcomeCell()
+        {
+            using var ctx = new PolicyContext(CreateSquareGrid(8, 8));
+            var repositionWeapon = ScriptableObject.CreateInstance<WeaponDefinition>();
+
+            try
+            {
+                repositionWeapon.category = WeaponCategory.Martial;
+                repositionWeapon.reachFeet = 10;
+                repositionWeapon.isRanged = false;
+                repositionWeapon.traits = WeaponTraitFlags.Reposition;
+
+                var hazardController = ctx.GridManager.gameObject.AddComponent<GridHazardController>();
+                SetPrivateField(hazardController, "gridManager", ctx.GridManager);
+                SetPrivateField(
+                    hazardController,
+                    "hazards",
+                    new List<GridHazardDefinition>
+                    {
+                        new GridHazardDefinition(
+                            "Minor Blade",
+                            new Vector3Int(3, 0, 1),
+                            entryDamage: 1,
+                            damageType: DamageType.Slashing,
+                            aiPressure: 0,
+                            telegraphColor: new Color(1f, 0.3f, 0.15f, 0.35f)),
+                        new GridHazardDefinition(
+                            "Acid Slick",
+                            new Vector3Int(2, 0, 2),
+                            HazardEffectKind.ProneAndPersistentAcidOnFailedSave,
+                            entryDamage: 0,
+                            persistentDamage: 2,
+                            forcedMoveCells: 0,
+                            damageType: DamageType.Acid,
+                            saveType: SaveType.Reflex,
+                            saveDc: 18,
+                            aiPressure: 0,
+                            telegraphColor: new Color(0.35f, 0.95f, 0.35f, 0.35f))
+                    });
+                hazardController.ApplyHazardsNow();
+
+                var actor = RegisterEntity(
+                    ctx.Registry,
+                    ctx.Occupancy,
+                    Team.Enemy,
+                    new Vector3Int(1, 0, 1),
+                    alive: true,
+                    speedFeet: 25);
+                var target = RegisterEntity(ctx.Registry, ctx.Occupancy, Team.Player, new Vector3Int(2, 0, 1), alive: true, speedFeet: 25);
+
+                var actorData = ctx.Registry.Get(actor);
+                actorData.Level = 1;
+                actorData.Strength = 16;
+                actorData.AthleticsProf = ProficiencyRank.Trained;
+                actorData.EquippedWeapon = new WeaponInstance
+                {
+                    def = repositionWeapon,
+                    potencyBonus = 0,
+                    strikingRank = StrikingRuneRank.None
+                };
+
+                bool selected = ctx.Policy.TrySelectSkillDecision(
+                    actorData,
+                    ctx.Registry.Get(target),
+                    availableActions: 3,
+                    out var decision);
+
+                Assert.IsTrue(selected);
+                Assert.AreEqual(AISkillActionKind.Reposition, decision.actionKind);
+                Assert.AreEqual(new Vector3Int(2, 0, 2), decision.destinationCell);
+            }
+            finally
+            {
+                Object.DestroyImmediate(repositionWeapon);
+            }
+        }
+
+        [Test]
         public void TrySelectSpellDecision_ControlledMeleeTargetAfterAttack_SkipsFear()
         {
             using var ctx = new PolicyContext(CreateSquareGrid(6, 6));

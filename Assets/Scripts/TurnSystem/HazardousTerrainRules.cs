@@ -78,7 +78,7 @@ namespace PF2e.TurnSystem
                 return 0;
 
             if (gridManager.TryGetHazard(cell, out var hazard))
-                return hazard.aiPressure;
+                return GetHazardPressureScore(in hazard);
             if (!gridManager.Data.TryGetCell(cell, out var cellData))
                 return 0;
 
@@ -89,6 +89,40 @@ namespace PF2e.TurnSystem
                 CellTerrain.Difficult => DefaultDifficultTerrainPressure,
                 _ => 0
             };
+        }
+
+        public static int GetHazardPressureScore(in GridHazardInfo hazard)
+        {
+            if (!hazard.IsValid)
+                return 0;
+
+            if (!hazard.HasEffect)
+                return Mathf.Max(0, hazard.aiPressure);
+
+            int score = DefaultHazardousTerrainPressure;
+
+            if (hazard.entryDamage > 0)
+            {
+                int damageMultiplier = hazard.saveDc > 0 ? 8 : 10;
+                score += Mathf.Max(20, hazard.entryDamage * damageMultiplier);
+            }
+
+            if (hazard.persistentDamage > 0)
+            {
+                int persistentMultiplier = hazard.damageType == DamageType.Acid ? 18 : 16;
+                score += Mathf.Max(24, hazard.persistentDamage * persistentMultiplier);
+            }
+
+            if (AppliesProne(in hazard))
+                score += 45;
+
+            if (hazard.forcedMoveCells > 0)
+            {
+                score += 22 + Mathf.Max(0, hazard.forcedMoveCells - 1) * 18;
+                score += Mathf.Abs(hazard.forcedMoveElevationPerCell) * Mathf.Max(1, hazard.forcedMoveCells) * 12;
+            }
+
+            return Mathf.Max(score, hazard.aiPressure);
         }
 
         private static int ResolveAuthoredHazard(
@@ -1991,6 +2025,25 @@ namespace PF2e.TurnSystem
                 DegreeOfSuccess.Failure => "Failure",
                 DegreeOfSuccess.CriticalFailure => "Critical Failure",
                 _ => degree.ToString()
+            };
+        }
+
+        private static bool AppliesProne(in GridHazardInfo hazard)
+        {
+            return hazard.effectKind switch
+            {
+                HazardEffectKind.ProneOnEntry => true,
+                HazardEffectKind.DamageAndProneOnFailure => true,
+                HazardEffectKind.ProneAndPersistentFireOnFailedSave => true,
+                HazardEffectKind.ProneAndPullOnFailedSave => true,
+                HazardEffectKind.ProneAndPullAndPersistentFireOnFailedSave => true,
+                HazardEffectKind.ProneAndPushAndPersistentFireOnFailedSave => true,
+                HazardEffectKind.ProneAndPersistentAcidOnFailedSave => true,
+                HazardEffectKind.BasicSaveDamageAndProneAndPushOnFailedSave => true,
+                HazardEffectKind.BasicSaveDamageAndProneAndPullOnFailedSave => true,
+                HazardEffectKind.ProneAndPushAndPersistentAcidOnFailedSave => true,
+                HazardEffectKind.ProneAndPullAndPersistentAcidOnFailedSave => true,
+                _ => false
             };
         }
     }
