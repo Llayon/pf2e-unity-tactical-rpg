@@ -243,7 +243,8 @@ namespace PF2e.Managers
             fighter.ShieldBlockPreference = fighterShieldBlockPreference;
             fighter.HasReactiveStrike = true;
             fighter.Portrait = ResolvePortrait(fighter.EncounterActorId);
-            CreateEntity(fighter, new Vector3Int(1, 0, 1));
+            // Keep the frontliner on the Hook Snare approach so SampleScene reliably demonstrates trap lanes.
+            CreateEntity(fighter, new Vector3Int(1, 0, 2));
 
             // Wizard with dagger and armor (from inspector defs)
             var wizard = new EntityData
