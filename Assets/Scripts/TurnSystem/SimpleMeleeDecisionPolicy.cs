@@ -299,17 +299,10 @@ namespace PF2e.TurnSystem
             int currentDistance = GridDistancePF2e.DistanceFeetXZ(actorPos, targetPos);
 
             bool foundSafer = false;
-            Vector3Int bestSaferCell = default;
-            int bestSaferThreatCount = int.MaxValue;
-            int bestSaferTerrainPressure = int.MaxValue;
-            bool bestSaferInMelee = false;
-            int bestSaferDistance = int.MaxValue;
+            AIMovementCellScore bestSaferScore = default;
 
             bool foundMelee = false;
-            Vector3Int bestMeleeCell = default;
-            int bestMeleeThreatCount = int.MaxValue;
-            int bestMeleeTerrainPressure = int.MaxValue;
-            int bestMeleeDistance = int.MaxValue;
+            AIMovementCellScore bestMeleeScore = default;
 
             gridManager.Data.GetNeighbors(actorPos, MovementType.Walk, neighborBuffer);
             for (int i = 0; i < neighborBuffer.Count; i++)
@@ -324,59 +317,37 @@ namespace PF2e.TurnSystem
                 bool candidateInMelee = candidate.y == targetPos.y
                     && candidateDistance <= actor.EquippedWeapon.ReachFeet;
 
-                int candidateThreatCount = CountHostileReactiveStrikeThreats(actor, candidate);
-                int candidateTerrainPressure = GetTerrainPressureScore(candidate);
+                AIMovementCellScore candidateScore = new(
+                    candidate,
+                    StepAction.ActionCost,
+                    candidateDistance,
+                    GetTerrainPressureScore(candidate),
+                    CountHostileReactiveStrikeThreats(actor, candidate),
+                    candidateInMelee);
 
-                if (candidateThreatCount < currentThreatCount && candidateDistance <= currentDistance)
+                if (candidateScore.hostileThreatCount < currentThreatCount && candidateDistance <= currentDistance)
                 {
-                    if (!foundSafer
-                        || IsBetterSaferStepCandidate(
-                            candidateThreatCount,
-                            candidateTerrainPressure,
-                            candidateInMelee,
-                            candidateDistance,
-                            candidate,
-                            bestSaferThreatCount,
-                            bestSaferTerrainPressure,
-                            bestSaferInMelee,
-                            bestSaferDistance,
-                            bestSaferCell))
+                    if (!foundSafer || AIMovementScoring.IsBetterThreatEscape(in candidateScore, in bestSaferScore))
                     {
                         foundSafer = true;
-                        bestSaferCell = candidate;
-                        bestSaferThreatCount = candidateThreatCount;
-                        bestSaferTerrainPressure = candidateTerrainPressure;
-                        bestSaferInMelee = candidateInMelee;
-                        bestSaferDistance = candidateDistance;
+                        bestSaferScore = candidateScore;
                     }
                 }
 
                 if (candidateInMelee)
                 {
-                    if (!foundMelee
-                        || IsBetterMeleeStepCandidate(
-                            candidateThreatCount,
-                            candidateTerrainPressure,
-                            candidateDistance,
-                            candidate,
-                            bestMeleeThreatCount,
-                            bestMeleeTerrainPressure,
-                            bestMeleeDistance,
-                            bestMeleeCell))
+                    if (!foundMelee || AIMovementScoring.IsBetterThreatenedMeleeSetup(in candidateScore, in bestMeleeScore))
                     {
                         foundMelee = true;
-                        bestMeleeCell = candidate;
-                        bestMeleeThreatCount = candidateThreatCount;
-                        bestMeleeTerrainPressure = candidateTerrainPressure;
-                        bestMeleeDistance = candidateDistance;
+                        bestMeleeScore = candidateScore;
                     }
                 }
             }
 
             if (foundSafer)
-                return bestSaferCell;
+                return bestSaferScore.cell;
 
-            return foundMelee ? bestMeleeCell : (Vector3Int?)null;
+            return foundMelee ? bestMeleeScore.cell : (Vector3Int?)null;
         }
 
         public Vector3Int? SelectStrideCell(EntityData actor, EntityData target, int availableActions)
@@ -1110,53 +1081,5 @@ namespace PF2e.TurnSystem
             return candidate.Handle.Id < best.Handle.Id;
         }
 
-        private static bool IsBetterSaferStepCandidate(
-            int threatCount,
-            int terrainPressure,
-            bool inMelee,
-            int distance,
-            Vector3Int cell,
-            int bestThreatCount,
-            int bestTerrainPressure,
-            bool bestInMelee,
-            int bestDistance,
-            Vector3Int bestCell)
-        {
-            if (threatCount < bestThreatCount) return true;
-            if (threatCount > bestThreatCount) return false;
-            if (terrainPressure < bestTerrainPressure) return true;
-            if (terrainPressure > bestTerrainPressure) return false;
-            if (inMelee && !bestInMelee) return true;
-            if (!inMelee && bestInMelee) return false;
-            if (distance < bestDistance) return true;
-            if (distance > bestDistance) return false;
-            return IsDeterministicallyEarlier(cell, bestCell);
-        }
-
-        private static bool IsBetterMeleeStepCandidate(
-            int threatCount,
-            int terrainPressure,
-            int distance,
-            Vector3Int cell,
-            int bestThreatCount,
-            int bestTerrainPressure,
-            int bestDistance,
-            Vector3Int bestCell)
-        {
-            if (threatCount < bestThreatCount) return true;
-            if (threatCount > bestThreatCount) return false;
-            if (terrainPressure < bestTerrainPressure) return true;
-            if (terrainPressure > bestTerrainPressure) return false;
-            if (distance < bestDistance) return true;
-            if (distance > bestDistance) return false;
-            return IsDeterministicallyEarlier(cell, bestCell);
-        }
-
-        private static bool IsDeterministicallyEarlier(Vector3Int cell, Vector3Int bestCell)
-        {
-            if (cell.x != bestCell.x) return cell.x < bestCell.x;
-            if (cell.y != bestCell.y) return cell.y < bestCell.y;
-            return cell.z < bestCell.z;
-        }
     }
 }

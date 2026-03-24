@@ -1,8 +1,8 @@
+using System;
 using System.Collections.Generic;
-using UnityEngine;
 using PF2e.Core;
 using PF2e.Grid;
-using System;
+using UnityEngine;
 
 namespace PF2e.TurnSystem
 {
@@ -12,8 +12,6 @@ namespace PF2e.TurnSystem
     /// </summary>
     public static class SimpleMeleeAIDecision
     {
-        private const int TrapAvoidanceDistanceToleranceFeet = 5;
-
         /// <summary>
         /// Select nearest alive player.
         /// Priority:
@@ -124,10 +122,7 @@ namespace PF2e.TurnSystem
             var actorPos = actor.GridPosition;
             var targetPos = target.GridPosition;
 
-            Vector3Int bestAdjacentCell = default;
-            int bestAdjacentActions = int.MaxValue;
-            int bestAdjacentPressure = int.MaxValue;
-            int bestAdjacentDistance = int.MaxValue;
+            AIMovementCellScore bestAdjacentScore = default;
             bool foundAdjacent = false;
 
             // Candidate cells around target (8 directions on same elevation).
@@ -159,29 +154,22 @@ namespace PF2e.TurnSystem
 
                     if (!found) continue;
 
-                    int candidatePressure = GetTerrainPressure(terrainPressureEvaluator, candidate);
-                    int candidateDistance = GridDistancePF2e.DistanceFeetXZ(candidate, targetPos);
-                    if (!foundAdjacent || IsBetterAdjacentMoveCandidate(
-                        actionsCost,
-                        candidatePressure,
-                        candidateDistance,
+                    AIMovementCellScore candidateScore = new(
                         candidate,
-                        bestAdjacentActions,
-                        bestAdjacentPressure,
-                        bestAdjacentDistance,
-                        bestAdjacentCell))
+                        actionsCost,
+                        GridDistancePF2e.DistanceFeetXZ(candidate, targetPos),
+                        GetTerrainPressure(terrainPressureEvaluator, candidate));
+
+                    if (!foundAdjacent || AIMovementScoring.IsBetterAdjacentApproach(in candidateScore, in bestAdjacentScore))
                     {
-                        bestAdjacentActions = actionsCost;
-                        bestAdjacentPressure = candidatePressure;
-                        bestAdjacentDistance = candidateDistance;
-                        bestAdjacentCell = candidate;
+                        bestAdjacentScore = candidateScore;
                         foundAdjacent = true;
                     }
                 }
             }
 
             if (foundAdjacent)
-                return bestAdjacentCell;
+                return bestAdjacentScore.cell;
 
             // Fallback: move to the closest reachable cell by remaining distance to target.
             zoneBuffer.Clear();
@@ -194,10 +182,7 @@ namespace PF2e.TurnSystem
                 occupancy,
                 zoneBuffer);
 
-            Vector3Int bestFallbackCell = default;
-            int bestFallbackDist = int.MaxValue;
-            int bestFallbackPressure = int.MaxValue;
-            int bestFallbackActions = int.MaxValue;
+            AIMovementCellScore bestFallbackScore = default;
             bool foundFallback = false;
 
             foreach (var kvp in zoneBuffer)
@@ -205,29 +190,20 @@ namespace PF2e.TurnSystem
                 if (kvp.Key == actorPos)
                     continue;
 
-                int dist = GridDistancePF2e.DistanceFeetXZ(kvp.Key, targetPos);
-                int pressure = GetTerrainPressure(terrainPressureEvaluator, kvp.Key);
-                int actions = kvp.Value;
-
-                if (!foundFallback || IsBetterFallbackMoveCandidate(
-                    dist,
-                    pressure,
-                    actions,
+                AIMovementCellScore candidateScore = new(
                     kvp.Key,
-                    bestFallbackDist,
-                    bestFallbackPressure,
-                    bestFallbackActions,
-                    bestFallbackCell))
+                    kvp.Value,
+                    GridDistancePF2e.DistanceFeetXZ(kvp.Key, targetPos),
+                    GetTerrainPressure(terrainPressureEvaluator, kvp.Key));
+
+                if (!foundFallback || AIMovementScoring.IsBetterFallbackApproach(in candidateScore, in bestFallbackScore))
                 {
-                    bestFallbackDist = dist;
-                    bestFallbackPressure = pressure;
-                    bestFallbackActions = actions;
-                    bestFallbackCell = kvp.Key;
+                    bestFallbackScore = candidateScore;
                     foundFallback = true;
                 }
             }
 
-            return foundFallback ? bestFallbackCell : (Vector3Int?)null;
+            return foundFallback ? bestFallbackScore.cell : (Vector3Int?)null;
         }
 
         private static int GetTerrainPressure(Func<Vector3Int, int> terrainPressureEvaluator, Vector3Int cell)
@@ -237,57 +213,5 @@ namespace PF2e.TurnSystem
                 : 0;
         }
 
-        private static bool IsBetterAdjacentMoveCandidate(
-            int actions,
-            int pressure,
-            int distance,
-            Vector3Int cell,
-            int bestActions,
-            int bestPressure,
-            int bestDistance,
-            Vector3Int bestCell)
-        {
-            if (actions < bestActions) return true;
-            if (actions > bestActions) return false;
-            if (pressure < bestPressure) return true;
-            if (pressure > bestPressure) return false;
-            if (distance < bestDistance) return true;
-            if (distance > bestDistance) return false;
-            return IsDeterministicallyEarlier(cell, bestCell);
-        }
-
-        private static bool IsBetterFallbackMoveCandidate(
-            int distance,
-            int pressure,
-            int actions,
-            Vector3Int cell,
-            int bestDistance,
-            int bestPressure,
-            int bestActions,
-            Vector3Int bestCell)
-        {
-            bool candidateMuchSafer = pressure + HazardousTerrainRules.DefaultHazardousTerrainPressure <= bestPressure
-                && distance <= bestDistance + TrapAvoidanceDistanceToleranceFeet;
-            if (candidateMuchSafer) return true;
-
-            bool bestMuchSafer = bestPressure + HazardousTerrainRules.DefaultHazardousTerrainPressure <= pressure
-                && bestDistance <= distance + TrapAvoidanceDistanceToleranceFeet;
-            if (bestMuchSafer) return false;
-
-            if (distance < bestDistance) return true;
-            if (distance > bestDistance) return false;
-            if (pressure < bestPressure) return true;
-            if (pressure > bestPressure) return false;
-            if (actions < bestActions) return true;
-            if (actions > bestActions) return false;
-            return IsDeterministicallyEarlier(cell, bestCell);
-        }
-
-        private static bool IsDeterministicallyEarlier(Vector3Int cell, Vector3Int bestCell)
-        {
-            if (cell.x != bestCell.x) return cell.x < bestCell.x;
-            if (cell.y != bestCell.y) return cell.y < bestCell.y;
-            return cell.z < bestCell.z;
-        }
     }
 }
