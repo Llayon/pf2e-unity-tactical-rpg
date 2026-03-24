@@ -2730,6 +2730,147 @@ namespace PF2e.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator GT_P39_PM_432_SampleScene_GoblinStep_AvoidsRicherAuthoredTrapWhileThreatened()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+            var aiTurnController = UnityEngine.Object.FindFirstObjectByType<AITurnController>();
+            var hazardController = UnityEngine.Object.FindFirstObjectByType<GridHazardController>();
+
+            Assert.IsNotNull(aiTurnController, "AITurnController not found in SampleScene.");
+            Assert.IsNotNull(hazardController, "GridHazardController not found in SampleScene.");
+
+            Vector3Int fighterThreatCell = new(0, 0, 1);
+            Vector3Int goblinStartCell = new(2, 0, 1);
+            Vector3Int wizardTargetCell = new(4, 0, 1);
+            Vector3Int richerTrapCell = new(3, 0, 1);
+            Vector3Int safeStepCell = new(3, 0, 2);
+            Vector3Int blockedSafeAlternativeCell = new(3, 0, 0);
+
+            WeaponDefinition reachThreatWeaponDef = null;
+
+            BoostAllCombatantsHP(200);
+
+            goblin1.Wisdom = 5000;
+            goblin2.Wisdom = -3000;
+            wizard.Wisdom = -4000;
+            fighter.Wisdom = -5000;
+
+            goblin1.Charisma = 8;
+            goblin1.IntimidationProf = ProficiencyRank.Untrained;
+            wizard.CurrentHP = 50;
+            fighter.CurrentHP = 200;
+            fighter.HasReactiveStrike = true;
+            fighter.ReactionAvailable = true;
+
+            MoveEntityToCell(fighter, fighterThreatCell);
+            MoveEntityToCell(goblin1, goblinStartCell);
+            MoveEntityToCell(wizard, wizardTargetCell);
+            MoveEntityToCell(goblin2, blockedSafeAlternativeCell);
+
+            var sourceWeaponDef = fighter.EquippedWeapon.def;
+            Assert.IsNotNull(sourceWeaponDef, "Fighter must have a weapon definition for the step avoidance regression.");
+
+            reachThreatWeaponDef = ScriptableObject.CreateInstance<WeaponDefinition>();
+            reachThreatWeaponDef.itemName = "PlayMode_FighterReachThreat";
+            reachThreatWeaponDef.category = sourceWeaponDef.category;
+            reachThreatWeaponDef.group = sourceWeaponDef.group;
+            reachThreatWeaponDef.hands = sourceWeaponDef.hands;
+            reachThreatWeaponDef.diceCount = sourceWeaponDef.diceCount;
+            reachThreatWeaponDef.dieSides = sourceWeaponDef.dieSides;
+            reachThreatWeaponDef.damageType = sourceWeaponDef.damageType;
+            reachThreatWeaponDef.reachFeet = 10;
+            reachThreatWeaponDef.isRanged = false;
+            reachThreatWeaponDef.rangeIncrementFeet = 0;
+            reachThreatWeaponDef.maxRangeIncrements = 0;
+            reachThreatWeaponDef.traits = sourceWeaponDef.traits;
+            reachThreatWeaponDef.usesAmmo = false;
+            reachThreatWeaponDef.ammoType = AmmoType.None;
+            reachThreatWeaponDef.ammoPerShot = 0;
+
+            var fighterWeapon = fighter.EquippedWeapon;
+            fighterWeapon.def = reachThreatWeaponDef;
+            fighter.EquippedWeapon = fighterWeapon;
+
+            SetPrivateField(aiTurnController, "thinkDelay", 0f);
+            SetPrivateField(aiTurnController, "actionDelay", 0f);
+
+            SetPrivateField(
+                hazardController,
+                "hazards",
+                new List<GridHazardDefinition>
+                {
+                    new GridHazardDefinition(
+                        "Acid Slick",
+                        richerTrapCell,
+                        HazardEffectKind.ProneAndPersistentAcidOnFailedSave,
+                        entryDamage: 0,
+                        persistentDamage: 2,
+                        forcedMoveCells: 0,
+                        damageType: DamageType.Acid,
+                        saveType: SaveType.Reflex,
+                        saveDc: 18,
+                        aiPressure: 0,
+                        telegraphColor: new Color(0.35f, 0.95f, 0.35f, 0.35f))
+                });
+            hazardController.ApplyHazardsNow();
+
+            EntityMovedEvent observedStep = default;
+            bool stepSeen = false;
+            bool goblinHazardSeen = false;
+
+            void MoveHandler(in EntityMovedEvent e)
+            {
+                if (stepSeen)
+                    return;
+                if (e.entity != goblin1.Handle)
+                    return;
+                if (e.movementTriggerKind != MovementTriggerKind.Step)
+                    return;
+
+                observedStep = e;
+                stepSeen = true;
+            }
+
+            void HazardHandler(in HazardTriggeredEvent e)
+            {
+                if (e.target == goblin1.Handle)
+                    goblinHazardSeen = true;
+            }
+
+            eventBus.OnEntityMovedTyped += MoveHandler;
+            eventBus.OnHazardTriggeredTyped += HazardHandler;
+
+            try
+            {
+                turnManager.StartCombat();
+
+                yield return WaitUntilOrTimeout(
+                    () => stepSeen && turnManager.CurrentEntity != goblin1.Handle && turnManager.State != TurnState.ExecutingAction,
+                    DefaultTimeoutSeconds,
+                    "Did not observe Goblin_1 complete its trap-avoidance step.");
+
+                Assert.AreEqual(goblinStartCell, observedStep.from);
+                Assert.AreEqual(safeStepCell, observedStep.to, "Goblin_1 should step through the safe melee-setup cell instead of into the richer trap.");
+                Assert.AreEqual(MovementTriggerKind.Step, observedStep.movementTriggerKind);
+                Assert.AreEqual(safeStepCell, goblin1.GridPosition, "Goblin_1 should end the step on the safe melee-setup cell.");
+                Assert.IsFalse(goblinHazardSeen, "Goblin_1 should not trigger the richer authored trap while stepping.");
+                Assert.IsFalse(goblin1.HasCondition(ConditionType.Prone), "Goblin_1 should not become prone from self-entering the trap.");
+                Assert.IsFalse(goblin1.HasCondition(ConditionType.PersistentAcid), "Goblin_1 should not gain persistent acid from self-entering the trap.");
+            }
+            finally
+            {
+                eventBus.OnEntityMovedTyped -= MoveHandler;
+                eventBus.OnHazardTriggeredTyped -= HazardHandler;
+
+                if (reachThreatWeaponDef != null)
+                    UnityEngine.Object.DestroyImmediate(reachThreatWeaponDef);
+            }
+        }
+
         private void ResolveSceneReferences()
         {
             turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();
