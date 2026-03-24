@@ -4,7 +4,7 @@ Status legend: `todo` | `in_progress` | `verify` | `done`
 
 | ID | Priority | Status | Agent Role | Task | DoD |
 | --- | --- | --- | --- | --- | --- |
-| T-218 | P1 | done | Builder | Tune `SampleScene` encounter starts around the authored trap lane | The code-authored combatant start cells line the fighter up with the `Hook Snare` lane, so the primary tracked encounter can reproduce a trap trigger in the opening rounds without relying on AI-only behavior |
+| T-218 | P1 | done | Builder | Tune `SampleScene` encounter starts around the authored trap lane | The code-authored combatant start cells line the fighter up with the `Hook Snare` lane and place `Goblin_1` directly behind it, so the primary tracked encounter can reproduce a readable trap-pressure beat in the opening rounds without adding more baseline actors |
 | T-217 | P1 | done | Builder | Add typed hazard trigger event + tooltip log card | Authored hazards publish `HazardTriggeredEvent`, `HazardLogForwarder` emits a single readable trap-summary line with tooltip payload, and EditMode coverage proves save/damage/movement/condition outcomes render cleanly |
 | T-216 | P1 | done | Builder | Add pull-side mirror for control + acid displacement rider | Authored hazards support a save-gated pull + `Prone` + `PersistentAcid` outcome, reuse the shared forced-move and persistent-damage seams, and have EditMode coverage for success/failure movement + condition behavior |
 | T-215 | P1 | done | Builder | Add first control + acid push displacement rider | Authored hazards support a save-gated push + `Prone` + `PersistentAcid` outcome, reuse the shared forced-move and persistent-damage seams, and have EditMode coverage for success/failure movement + condition behavior |

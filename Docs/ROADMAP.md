@@ -85,7 +85,7 @@
 - Add combat-log tooltip cards with typed payloads, TMP link tokens, dock/layout profiles, and hover regressions coverage. (Done)
 - Extend authored hazard presentation with typed trap outcome cards, so the hazard matrix remains readable in combat feedback instead of relying on raw save strings. (Done)
 - Wire `HazardLogForwarder` into the authored combat scenes and validator/autofix contract, so typed trap outcome cards are present in both tracked combat scenes instead of existing only as runtime code. (Done)
-- Tune the code-authored `SampleScene` starting formation around the trap lane, so the tracked encounter can reproduce a readable hazard trigger in the opening rounds without depending on AI-only control plays. (Done)
+- Tune the code-authored `SampleScene` starting formation around the trap lane, so the tracked encounter can reproduce a readable hazard trigger and immediate enemy lane pressure in the opening rounds without depending on AI-only control plays or extra baseline actors. (Done)
 - Migrate HUD typography to shared `Source Sans 3` / `Lora` assets and add repeatable Solasta-style UI polish tooling for scene/prefab authoring. (Done)
 - Replace the initiative bar with a prepared-art portrait strip (portrait library, team frames, stable visual order, acted-state dimming, active enlargement, HP feedback, and immediate defeated removal). (Done)
 - Harden input/UI interaction boundaries: block camera wheel zoom and grid click/hover raycasts while pointer is over UI. (Done)

@@ -318,7 +318,8 @@ namespace PF2e.Managers
                 broken = false
             };
             goblin1.Portrait = ResolvePortrait(goblin1.EncounterActorId);
-            CreateEntity(goblin1, new Vector3Int(6, 0, 2));
+            // Guard the Hook Snare lane so SampleScene pressure appears without adding another enemy baseline actor.
+            CreateEntity(goblin1, new Vector3Int(5, 0, 2));
 
             // Goblin_2 (from inspector defs)
             var goblin2 = new EntityData
