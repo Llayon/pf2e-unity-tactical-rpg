@@ -1939,6 +1939,117 @@ namespace PF2e.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator GT_P39_PM_426_SampleScene_HookSnareLane_PublishesHazardCard()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+            Vector3Int hookSnareCell = new(4, 0, 2);
+            Vector3Int expectedPulledCell = new(3, 0, 2);
+
+            Assert.AreEqual(new Vector3Int(1, 0, 2), fighter.GridPosition, "Fighter should open on the Hook Snare lane.");
+            Assert.AreEqual(new Vector3Int(5, 0, 2), goblin1.GridPosition, "Goblin_1 should pressure the Hook Snare lane.");
+            Assert.AreEqual(new Vector3Int(8, 0, 7), goblin2.GridPosition, "Goblin_2 should start deeper in the backline.");
+
+            BoostAllCombatantsHP(200);
+            fighter.Wisdom = 5000;
+            fighter.Dexterity = -4000;
+            wizard.Wisdom = -3000;
+            goblin1.Wisdom = -4000;
+            goblin2.Wisdom = -5000;
+
+            HazardTriggeredEvent observedHazard = default;
+            bool hazardSeen = false;
+            CombatLogEntry observedEntry = default;
+            CombatLogTooltipPayload? observedTooltip = null;
+            bool logSeen = false;
+
+            void HazardHandler(in HazardTriggeredEvent e)
+            {
+                if (e.target != fighter.Handle)
+                    return;
+                if (e.hazardCell != hookSnareCell)
+                    return;
+
+                observedHazard = e;
+                hazardSeen = true;
+            }
+
+            void LogHandler(CombatLogEntry entry, CombatLogTooltipPayload? tooltipPayload)
+            {
+                if (entry.Actor != fighter.Handle)
+                    return;
+                if (entry.Category != CombatLogCategory.ActionResult)
+                    return;
+                if (string.IsNullOrEmpty(entry.Message) || !entry.Message.Contains("Hook Snare"))
+                    return;
+                if (!tooltipPayload.HasValue || !tooltipPayload.Value.HasEntries)
+                    return;
+
+                observedEntry = entry;
+                observedTooltip = tooltipPayload;
+                logSeen = true;
+            }
+
+            eventBus.OnHazardTriggeredTyped += HazardHandler;
+            eventBus.OnLogEntryWithTooltip += LogHandler;
+
+            try
+            {
+                turnManager.StartCombat();
+
+                yield return WaitUntilOrTimeout(
+                    () => turnManager.State == TurnState.PlayerTurn && turnManager.CurrentEntity == fighter.Handle,
+                    DefaultTimeoutSeconds,
+                    "Fighter did not become the first actor for Hook Snare regression.");
+
+                entityManager.SelectEntity(fighter.Handle);
+                Assert.IsTrue(
+                    playerActionExecutor.TryExecuteStrideToCell(hookSnareCell),
+                    "Fighter failed to stride into Hook Snare lane.");
+
+                yield return WaitUntilOrTimeout(
+                    () => hazardSeen && logSeen && turnManager.State != TurnState.ExecutingAction,
+                    DefaultTimeoutSeconds,
+                    "Did not receive Hook Snare hazard event + tooltip log payload.");
+
+                Assert.AreEqual("Hook Snare", observedHazard.hazardName);
+                Assert.AreEqual(HazardEffectKind.BasicSaveDamageAndProneAndPullOnFailedSave, observedHazard.effectKind);
+                Assert.AreEqual(hookSnareCell, observedHazard.hazardCell);
+                Assert.AreEqual(fighter.Handle, observedHazard.target);
+                Assert.AreEqual(SaveType.Reflex, observedHazard.saveType);
+                Assert.IsTrue(observedHazard.saveResult.HasValue, "Hook Snare should publish the save result.");
+                Assert.AreEqual(
+                    CheckResolver.ApplyBasicSaveDamage(observedHazard.rolledDamage, observedHazard.saveResult.Value.degree),
+                    observedHazard.appliedDamage,
+                    "Hook Snare damage should follow the shared basic-save damage mapping.");
+                Assert.AreEqual(1, observedHazard.movedCells, "Hook Snare should pull one cell on failure.");
+                Assert.IsTrue(observedHazard.pulledTowardOrigin, "Hook Snare should pull toward the origin cell.");
+                Assert.AreEqual(hookSnareCell, observedHazard.positionBefore);
+                Assert.AreEqual(expectedPulledCell, observedHazard.positionAfter);
+                Assert.AreEqual(ConditionType.Prone, observedHazard.primaryConditionType);
+                Assert.AreEqual(expectedPulledCell, fighter.GridPosition, "Fighter should end one cell short after the pull.");
+                Assert.IsTrue(fighter.HasCondition(ConditionType.Prone), "Hook Snare should leave the fighter prone in this forced-failure setup.");
+                Assert.AreEqual(2, turnManager.ActionsRemaining, "Striding onto Hook Snare should still cost only one action.");
+
+                Assert.AreEqual(CombatLogCategory.ActionResult, observedEntry.Category);
+                StringAssert.Contains("Hook Snare", observedEntry.Message);
+                Assert.IsTrue(observedTooltip.HasValue && observedTooltip.Value.HasEntries);
+                Assert.AreEqual(1, observedTooltip.Value.entries.Length);
+                Assert.AreEqual("Hook Snare", observedTooltip.Value.entries[0].title);
+                StringAssert.Contains("Reflex", observedTooltip.Value.entries[0].body);
+                StringAssert.Contains("Forced movement", observedTooltip.Value.entries[0].body);
+                StringAssert.Contains("prone", observedTooltip.Value.entries[0].body);
+            }
+            finally
+            {
+                eventBus.OnHazardTriggeredTyped -= HazardHandler;
+                eventBus.OnLogEntryWithTooltip -= LogHandler;
+            }
+        }
+
         private void ResolveSceneReferences()
         {
             turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();
