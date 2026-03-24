@@ -359,7 +359,8 @@ namespace PF2e.Managers
             goblin2.KnowsFear = true;
             goblin2.KnowsHeal = true;
             goblin2.Portrait = ResolvePortrait(goblin2.EncounterActorId);
-            CreateEntity(goblin2, new Vector3Int(6, 0, 5));
+            // Keep the caster deeper in the backline so the trap lane remains the opening focal point.
+            CreateEntity(goblin2, new Vector3Int(8, 0, 7));
 
             Debug.Log($"[EntityManager] Spawned {Registry.Count} test entities");
         }
