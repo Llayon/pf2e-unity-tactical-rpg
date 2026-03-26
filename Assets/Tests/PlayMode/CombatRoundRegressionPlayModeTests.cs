@@ -2871,6 +2871,132 @@ namespace PF2e.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator GT_P39_PM_433_SampleScene_GoblinTripCandidate_BeatsStrikeInMelee()
+        {
+            var fighter = GetEntityByName("Fighter");
+            var wizard = GetEntityByName("Wizard");
+            var goblin1 = GetEntityByName("Goblin_1");
+            var goblin2 = GetEntityByName("Goblin_2");
+            var aiTurnController = UnityEngine.Object.FindFirstObjectByType<AITurnController>();
+
+            Assert.IsNotNull(aiTurnController, "AITurnController not found in SampleScene.");
+
+            Vector3Int goblinStartCell = new(2, 0, 2);
+            Vector3Int fighterStartCell = new(3, 0, 2);
+
+            WeaponDefinition tripOnlyWeaponDef = null;
+
+            BoostAllCombatantsHP(200);
+
+            goblin1.Wisdom = 5000;
+            goblin2.Wisdom = -3000;
+            wizard.Wisdom = -4000;
+            fighter.Wisdom = -5000;
+
+            goblin1.Strength = 5000;
+            goblin1.AthleticsProf = ProficiencyRank.Trained;
+            fighter.Dexterity = -4000;
+
+            MoveEntityToCell(goblin1, goblinStartCell);
+            MoveEntityToCell(fighter, fighterStartCell);
+            MoveEntityToCell(wizard, FindFarthestAvailableCell(goblin1.GridPosition, wizard.Handle, minDistFeet: 20));
+            MoveEntityToCell(goblin2, FindFarthestAvailableCell(fighter.GridPosition, goblin2.Handle, minDistFeet: 20));
+
+            var sourceWeaponDef = goblin1.EquippedWeapon.def;
+            Assert.IsNotNull(sourceWeaponDef, "Goblin_1 must have a weapon definition for trip regression.");
+
+            tripOnlyWeaponDef = ScriptableObject.CreateInstance<WeaponDefinition>();
+            tripOnlyWeaponDef.itemName = "PlayMode_GoblinTripOnly";
+            tripOnlyWeaponDef.category = sourceWeaponDef.category;
+            tripOnlyWeaponDef.group = sourceWeaponDef.group;
+            tripOnlyWeaponDef.hands = sourceWeaponDef.hands;
+            tripOnlyWeaponDef.diceCount = sourceWeaponDef.diceCount;
+            tripOnlyWeaponDef.dieSides = sourceWeaponDef.dieSides;
+            tripOnlyWeaponDef.damageType = sourceWeaponDef.damageType;
+            tripOnlyWeaponDef.reachFeet = sourceWeaponDef.reachFeet;
+            tripOnlyWeaponDef.isRanged = false;
+            tripOnlyWeaponDef.rangeIncrementFeet = 0;
+            tripOnlyWeaponDef.maxRangeIncrements = 0;
+            tripOnlyWeaponDef.traits = WeaponTraitFlags.Trip;
+            tripOnlyWeaponDef.usesAmmo = false;
+            tripOnlyWeaponDef.ammoType = AmmoType.None;
+            tripOnlyWeaponDef.ammoPerShot = 0;
+
+            var goblinWeapon = goblin1.EquippedWeapon;
+            goblinWeapon.def = tripOnlyWeaponDef;
+            goblin1.EquippedWeapon = goblinWeapon;
+
+            SetPrivateField(aiTurnController, "thinkDelay", 0f);
+            SetPrivateField(aiTurnController, "actionDelay", 0f);
+
+            SkillCheckResolvedEvent observedSkill = default;
+            bool skillSeen = false;
+            bool strikeSeen = false;
+            string firstAction = null;
+
+            void SkillHandler(in SkillCheckResolvedEvent e)
+            {
+                if (e.actor != goblin1.Handle)
+                    return;
+                if (e.target != fighter.Handle)
+                    return;
+                if (!string.Equals(e.actionName, "Trip", StringComparison.Ordinal))
+                    return;
+
+                if (firstAction == null)
+                    firstAction = "Trip";
+
+                observedSkill = e;
+                skillSeen = true;
+            }
+
+            void StrikeHandler(in StrikeResolvedEvent e)
+            {
+                if (e.attacker != goblin1.Handle)
+                    return;
+                if (e.target != fighter.Handle)
+                    return;
+
+                if (firstAction == null)
+                    firstAction = "Strike";
+
+                strikeSeen = true;
+            }
+
+            eventBus.OnSkillCheckResolvedTyped += SkillHandler;
+            eventBus.OnStrikeResolved += StrikeHandler;
+
+            try
+            {
+                turnManager.StartCombat();
+
+                yield return WaitUntilOrTimeout(
+                    () => (skillSeen || strikeSeen) && turnManager.CurrentEntity != goblin1.Handle && turnManager.State != TurnState.ExecutingAction,
+                    DefaultTimeoutSeconds,
+                    "Did not observe Goblin_1 resolve its opening melee candidate.");
+
+                Assert.IsTrue(skillSeen, "Goblin_1 should resolve Trip as its opening melee candidate.");
+                Assert.AreEqual("Trip", firstAction, "Candidate layer should prefer Trip over a plain Strike in this opening melee setup.");
+                Assert.AreEqual(goblin1.Handle, observedSkill.actor);
+                Assert.AreEqual(fighter.Handle, observedSkill.target);
+                Assert.AreEqual(SkillType.Athletics, observedSkill.skill);
+                Assert.AreEqual("Trip", observedSkill.actionName);
+                Assert.IsTrue(
+                    observedSkill.degree == DegreeOfSuccess.Success || observedSkill.degree == DegreeOfSuccess.CriticalSuccess,
+                    "Goblin_1 should succeed on the deterministic Trip opener.");
+                Assert.IsTrue(fighter.HasCondition(ConditionType.Prone), "Trip opener should leave Fighter prone.");
+            }
+            finally
+            {
+                eventBus.OnSkillCheckResolvedTyped -= SkillHandler;
+                eventBus.OnStrikeResolved -= StrikeHandler;
+
+                if (tripOnlyWeaponDef != null)
+                    UnityEngine.Object.DestroyImmediate(tripOnlyWeaponDef);
+            }
+        }
+
         private void ResolveSceneReferences()
         {
             turnManager = UnityEngine.Object.FindFirstObjectByType<TurnManager>();

@@ -277,6 +277,147 @@ namespace PF2e.Tests
         }
 
         [Test]
+        public void TrySelectActionCandidate_TripOpenerBeatsStrike()
+        {
+            using var ctx = new PolicyContext(CreateSquareGrid(6, 6));
+            var tripWeapon = ScriptableObject.CreateInstance<WeaponDefinition>();
+
+            try
+            {
+                tripWeapon.category = WeaponCategory.Martial;
+                tripWeapon.reachFeet = 5;
+                tripWeapon.isRanged = false;
+                tripWeapon.traits = WeaponTraitFlags.Trip;
+
+                var actor = RegisterEntity(
+                    ctx.Registry,
+                    ctx.Occupancy,
+                    Team.Enemy,
+                    new Vector3Int(1, 0, 1),
+                    alive: true,
+                    speedFeet: 25);
+                var target = RegisterEntity(
+                    ctx.Registry,
+                    ctx.Occupancy,
+                    Team.Player,
+                    new Vector3Int(2, 0, 1),
+                    alive: true,
+                    speedFeet: 25);
+
+                var actorData = ctx.Registry.Get(actor);
+                actorData.Level = 1;
+                actorData.Strength = 16;
+                actorData.AthleticsProf = ProficiencyRank.Trained;
+                actorData.EquippedWeapon = new WeaponInstance
+                {
+                    def = tripWeapon,
+                    potencyBonus = 0,
+                    strikingRank = StrikingRuneRank.None
+                };
+
+                bool selected = ctx.Policy.TrySelectActionCandidate(
+                    actorData,
+                    ctx.Registry.Get(target),
+                    availableActions: 3,
+                    out var candidate);
+
+                Assert.IsTrue(selected);
+                Assert.AreEqual(AIActionCandidateKind.Skill, candidate.kind);
+                Assert.AreEqual(AISkillActionKind.Trip, candidate.skillDecision.actionKind);
+                Assert.AreEqual(target, candidate.skillDecision.primaryTarget);
+            }
+            finally
+            {
+                Object.DestroyImmediate(tripWeapon);
+            }
+        }
+
+        [Test]
+        public void TrySelectActionCandidate_OneActionShieldFallbackBeatsStrike()
+        {
+            using var ctx = new PolicyContext(CreateSquareGrid(6, 6));
+            var shieldDef = ScriptableObject.CreateInstance<ShieldDefinition>();
+
+            try
+            {
+                shieldDef.acBonus = 2;
+                shieldDef.hardness = 3;
+                shieldDef.maxHP = 12;
+
+                var actor = RegisterEntity(
+                    ctx.Registry,
+                    ctx.Occupancy,
+                    Team.Enemy,
+                    new Vector3Int(1, 0, 1),
+                    alive: true,
+                    speedFeet: 25,
+                    currentHp: 8,
+                    maxHp: 20);
+                var target = RegisterEntity(
+                    ctx.Registry,
+                    ctx.Occupancy,
+                    Team.Player,
+                    new Vector3Int(2, 0, 1),
+                    alive: true,
+                    speedFeet: 25);
+
+                var actorData = ctx.Registry.Get(actor);
+                actorData.EquippedShield = ShieldInstance.CreateEquipped(shieldDef);
+
+                bool selected = ctx.Policy.TrySelectActionCandidate(
+                    actorData,
+                    ctx.Registry.Get(target),
+                    availableActions: 1,
+                    out var candidate);
+
+                Assert.IsTrue(selected);
+                Assert.AreEqual(AIActionCandidateKind.Defensive, candidate.kind);
+                Assert.AreEqual(AIDefensiveActionKind.RaisePhysicalShield, candidate.defensiveDecision.actionKind);
+            }
+            finally
+            {
+                Object.DestroyImmediate(shieldDef);
+            }
+        }
+
+        [Test]
+        public void TrySelectActionCandidate_ThreatenedApproachPrefersStepOverStride()
+        {
+            using var ctx = new PolicyContext(CreateSquareGrid(6, 6));
+
+            var actorPos = new Vector3Int(1, 0, 1);
+            var threatPos = new Vector3Int(0, 0, 1);
+            var targetPos = new Vector3Int(4, 0, 1);
+            var actor = RegisterEntity(ctx.Registry, ctx.Occupancy, Team.Enemy, actorPos, alive: true, speedFeet: 25);
+            RegisterEntity(
+                ctx.Registry,
+                ctx.Occupancy,
+                Team.Player,
+                threatPos,
+                alive: true,
+                speedFeet: 25,
+                hasReactiveStrike: true,
+                reactionAvailable: true);
+            var target = RegisterEntity(ctx.Registry, ctx.Occupancy, Team.Player, targetPos, alive: true, speedFeet: 25);
+
+            bool selected = ctx.Policy.TrySelectActionCandidate(
+                ctx.Registry.Get(actor),
+                ctx.Registry.Get(target),
+                availableActions: 1,
+                out var candidate);
+
+            Assert.IsTrue(selected);
+            Assert.AreEqual(AIActionCandidateKind.Step, candidate.kind);
+            Assert.IsTrue(candidate.HasCell);
+            Assert.AreEqual(5, GridDistancePF2e.DistanceFeetXZ(actorPos, candidate.cell), "Candidate must stay a 5-foot Step.");
+            Assert.Greater(GridDistancePF2e.DistanceFeetXZ(threatPos, candidate.cell), 5, "Candidate Step should leave hostile Reactive Strike reach.");
+            Assert.LessOrEqual(
+                GridDistancePF2e.DistanceFeetXZ(candidate.cell, targetPos),
+                GridDistancePF2e.DistanceFeetXZ(actorPos, targetPos),
+                "Candidate Step should not move farther away from the target.");
+        }
+
+        [Test]
         public void TrySelectSpellDecision_FearOnUnfrightenedTarget_ReturnsFear()
         {
             using var ctx = new PolicyContext(CreateSquareGrid(5, 5));

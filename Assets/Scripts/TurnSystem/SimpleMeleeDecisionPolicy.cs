@@ -55,6 +55,44 @@ namespace PF2e.TurnSystem
             return SimpleMeleeAIDecision.IsInMeleeRange(actor, target);
         }
 
+        public bool TrySelectActionCandidate(EntityData actor, EntityData target, int availableActions, out AIActionCandidate candidate)
+        {
+            candidate = default;
+
+            if (actor == null || target == null)
+                return false;
+            if (availableActions <= 0)
+                return false;
+            if (!actor.IsAlive || !target.IsAlive)
+                return false;
+            if (!actor.Handle.IsValid || !target.Handle.IsValid)
+                return false;
+
+            bool inMelee = IsInMeleeRange(actor, target);
+
+            if (TrySelectSpellDecision(actor, target, availableActions, out var spellDecision))
+                PromoteCandidate(ref candidate, AIActionCandidate.Spell(ScoreSpellDecision(actor, spellDecision), spellDecision));
+
+            if (TrySelectSkillDecision(actor, target, availableActions, out var skillDecision))
+                PromoteCandidate(ref candidate, AIActionCandidate.Skill(ScoreSkillDecision(actor, target, in skillDecision), skillDecision));
+
+            if (TrySelectDefensiveDecision(actor, target, availableActions, out var defensiveDecision))
+                PromoteCandidate(ref candidate, AIActionCandidate.Defensive(ScoreDefensiveDecision(actor, target, defensiveDecision), defensiveDecision));
+
+            if (inMelee)
+                PromoteCandidate(ref candidate, AIActionCandidate.Strike(ScoreStrikeCandidate(actor, target), target.Handle));
+
+            Vector3Int? stepCell = SelectStepCell(actor, target, availableActions);
+            if (stepCell.HasValue && stepCell.Value != actor.GridPosition)
+                PromoteCandidate(ref candidate, AIActionCandidate.Step(ScoreStepCandidate(actor, target, stepCell.Value), stepCell.Value));
+
+            Vector3Int? strideCell = SelectStrideCell(actor, target, availableActions);
+            if (strideCell.HasValue && strideCell.Value != actor.GridPosition)
+                PromoteCandidate(ref candidate, AIActionCandidate.Stride(ScoreStrideCandidate(actor, target, strideCell.Value), strideCell.Value));
+
+            return candidate.IsValid;
+        }
+
         public bool TrySelectSpellDecision(EntityData actor, EntityData target, int availableActions, out AISpellDecision decision)
         {
             decision = default;
@@ -857,6 +895,142 @@ namespace PF2e.TurnSystem
         private int GetTerrainPressureScore(Vector3Int cell)
         {
             return HazardousTerrainRules.GetTerrainPressureScore(gridManager, cell);
+        }
+
+        private static void PromoteCandidate(ref AIActionCandidate best, in AIActionCandidate candidate)
+        {
+            if (!candidate.IsValid)
+                return;
+
+            if (!best.IsValid
+                || candidate.score > best.score
+                || (candidate.score == best.score && candidate.kind < best.kind))
+            {
+                best = candidate;
+            }
+        }
+
+        private int ScoreSpellDecision(EntityData actor, in AISpellDecision decision)
+        {
+            int score = decision.spellId switch
+            {
+                SpellId.Heal => 940,
+                SpellId.Harm => 940,
+                SpellId.Fear => 820,
+                SpellId.BurningHands => 800,
+                SpellId.ElectricArc => 780,
+                SpellId.Snowball => 620,
+                SpellId.ForceBarrage => 610,
+                _ => 500
+            };
+
+            switch (decision.spellId)
+            {
+                case SpellId.Heal:
+                case SpellId.Harm:
+                    if (entityManager != null && entityManager.Registry != null)
+                    {
+                        var supportTarget = entityManager.Registry.Get(decision.primaryTarget);
+                        score += Mathf.Clamp(ComputeSupportUrgency(actor, supportTarget), 0, 250);
+                    }
+                    break;
+
+                case SpellId.ForceBarrage:
+                    score += decision.actionCount * 15;
+                    break;
+            }
+
+            return score;
+        }
+
+        private int ScoreSkillDecision(EntityData actor, EntityData target, in AISkillDecision decision)
+        {
+            int score = decision.actionKind switch
+            {
+                AISkillActionKind.Trip => 760,
+                AISkillActionKind.Grapple => 750,
+                AISkillActionKind.Reposition => 740,
+                AISkillActionKind.Shove => 730,
+                AISkillActionKind.Demoralize => 640,
+                _ => 0
+            };
+
+            if (decision.actionKind == AISkillActionKind.Reposition && decision.HasDestinationCell)
+                score += Mathf.Clamp(GetTerrainPressureScore(decision.destinationCell) / 2, 0, 120);
+
+            if (decision.actionKind == AISkillActionKind.Shove
+                && TryGetShoveSuccessDestination(actor, target, out var pushedCell))
+            {
+                score += Mathf.Clamp(GetTerrainPressureScore(pushedCell) / 2, 0, 120);
+            }
+
+            return score;
+        }
+
+        private int ScoreDefensiveDecision(EntityData actor, EntityData target, AIDefensiveDecision decision)
+        {
+            int score = decision.actionKind switch
+            {
+                AIDefensiveActionKind.RaisePhysicalShield => 690,
+                AIDefensiveActionKind.CastShieldSpell => 680,
+                _ => 0
+            };
+
+            int distanceFeet = GridDistancePF2e.DistanceFeetXZ(actor.GridPosition, target.GridPosition);
+            if (distanceFeet <= Mathf.Max(10, actor.EquippedWeapon.ReachFeet))
+                score += 20;
+            if (actor.CurrentHP * 2 <= actor.MaxHP)
+                score += 20;
+
+            return score;
+        }
+
+        private int ScoreStrikeCandidate(EntityData actor, EntityData target)
+        {
+            int score = 650;
+
+            if (target.HasCondition(ConditionType.Prone)
+                || target.HasCondition(ConditionType.Grabbed)
+                || target.HasCondition(ConditionType.Restrained))
+            {
+                score += 60;
+            }
+
+            if (ShouldPrioritizeMeleeFollowThrough(actor, target))
+                score += 220;
+
+            score -= actor.MAPCount * 40;
+            return score;
+        }
+
+        private int ScoreStepCandidate(EntityData actor, EntityData target, Vector3Int stepCell)
+        {
+            int targetDistance = GridDistancePF2e.DistanceFeetXZ(stepCell, target.GridPosition);
+            bool inMelee = stepCell.y == target.GridPosition.y
+                && targetDistance <= actor.EquippedWeapon.ReachFeet;
+
+            int score = 520;
+            if (inMelee)
+                score += 40;
+
+            score += Mathf.Clamp(CountHostileReactiveStrikeThreats(actor, actor.GridPosition) - CountHostileReactiveStrikeThreats(actor, stepCell), 0, 2) * 60;
+            score -= Mathf.Clamp(GetTerrainPressureScore(stepCell) / 3, 0, 120);
+            return score;
+        }
+
+        private int ScoreStrideCandidate(EntityData actor, EntityData target, Vector3Int strideCell)
+        {
+            int score = 420;
+            int currentDistance = GridDistancePF2e.DistanceFeetXZ(actor.GridPosition, target.GridPosition);
+            int candidateDistance = GridDistancePF2e.DistanceFeetXZ(strideCell, target.GridPosition);
+
+            if (candidateDistance < currentDistance)
+                score += 80;
+            if (strideCell.y == target.GridPosition.y && candidateDistance <= actor.EquippedWeapon.ReachFeet)
+                score += 40;
+
+            score -= Mathf.Clamp(GetTerrainPressureScore(strideCell) / 3, 0, 120);
+            return score;
         }
 
         private static Vector3Int GetNormalizedPushDirection(Vector3Int actorCell, Vector3Int targetCell)

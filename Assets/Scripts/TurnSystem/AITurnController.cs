@@ -214,135 +214,33 @@ namespace PF2e.TurnSystem
                         yield break;
                     }
 
-                    if (decisionPolicy.TrySelectSpellDecision(
+                    if (!decisionPolicy.TrySelectActionCandidate(
                             actorData,
                             targetData,
                             actorData.ActionsRemaining,
-                            out var spellDecision))
+                            out var candidate))
+                        break;
+
+                    bool acted = false;
+                    yield return ExecuteActionCandidate(actor, candidate, token, success => acted = success);
+
+                    if (!IsCurrentRun(token))
+                        yield break;
+
+                    actorData = entityManager.Registry.Get(actor);
+                    if (actorData == null || !actorData.IsAlive)
+                        yield break;
+
+                    if (!IsMyTurn(actor) && acted)
+                        yield break;
+
+                    if (!acted)
                     {
-                        bool casted = TryExecuteSpellDecision(actor, in spellDecision);
-                        if (!IsCurrentRun(token))
-                            yield break;
-
-                        actorData = entityManager.Registry.Get(actor);
-                        if (actorData == null || !actorData.IsAlive)
-                            yield break;
-                        if (!IsMyTurn(actor) && casted)
-                            yield break;
-
-                        if (casted)
-                        {
-                            yield return new WaitForSeconds(actionDelay);
-                            continue;
-                        }
-
                         if (!IsMyTurn(actor))
                             yield break;
-                    }
 
-                    if (decisionPolicy.TrySelectDefensiveDecision(
-                            actorData,
-                            targetData,
-                            actorData.ActionsRemaining,
-                            out var defensiveDecision))
-                    {
-                        bool defended = TryExecuteDefensiveDecision(in defensiveDecision);
-                        if (!IsCurrentRun(token))
-                            yield break;
-
-                        actorData = entityManager.Registry.Get(actor);
-                        if (actorData == null || !actorData.IsAlive)
-                            yield break;
-                        if (!IsMyTurn(actor) && defended)
-                            yield break;
-
-                        if (defended)
-                        {
-                            yield return new WaitForSeconds(actionDelay);
-                            continue;
-                        }
-
-                        if (!IsMyTurn(actor))
-                            yield break;
-                    }
-
-                    if (decisionPolicy.TrySelectSkillDecision(
-                            actorData,
-                            targetData,
-                            actorData.ActionsRemaining,
-                            out var skillDecision))
-                    {
-                        bool usedSkill = TryExecuteSkillDecision(in skillDecision);
-                        if (!IsCurrentRun(token))
-                            yield break;
-
-                        actorData = entityManager.Registry.Get(actor);
-                        if (actorData == null || !actorData.IsAlive)
-                            yield break;
-                        if (!IsMyTurn(actor) && usedSkill)
-                            yield break;
-
-                        if (usedSkill)
-                        {
-                            yield return new WaitForSeconds(actionDelay);
-                            continue;
-                        }
-
-                        if (!IsMyTurn(actor))
-                            yield break;
-                    }
-
-                    if (decisionPolicy.IsInMeleeRange(actorData, targetData))
-                    {
-                        bool struck = false;
-                        yield return DoStrike(actor, target, token, v => struck = v);
-                        if (!IsCurrentRun(token) || !IsMyTurn(actor))
-                            yield break;
-                        if (!struck) break;
-
-                        yield return new WaitForSeconds(actionDelay);
                         continue;
                     }
-
-                    if (actorData.ActionsRemaining <= 0) break;
-
-                    if (EnsureStepAction())
-                    {
-                        var stepCell = decisionPolicy.SelectStepCell(
-                            actorData,
-                            targetData,
-                            availableActions: actorData.ActionsRemaining);
-
-                        if (stepCell.HasValue && stepCell.Value != actorData.GridPosition)
-                        {
-                            bool stepped = false;
-                            yield return DoStep(actor, stepCell.Value, token, success => stepped = success);
-
-                            if (!IsCurrentRun(token) || !IsMyTurn(actor))
-                                yield break;
-                            if (stepped)
-                            {
-                                yield return new WaitForSeconds(actionDelay);
-                                continue;
-                            }
-                        }
-                    }
-
-                    var moveCell = decisionPolicy.SelectStrideCell(
-                        actorData,
-                        targetData,
-                        Mathf.Clamp(actorData.ActionsRemaining, 0, 3));
-
-                    if (!moveCell.HasValue || moveCell.Value == actorData.GridPosition)
-                        break;
-
-                    bool moved = false;
-                    yield return DoStride(actor, moveCell.Value, token, success => moved = success);
-
-                    if (!IsCurrentRun(token) || !IsMyTurn(actor))
-                        yield break;
-                    if (!moved)
-                        break;
 
                     yield return new WaitForSeconds(actionDelay);
                 }
@@ -550,6 +448,49 @@ namespace PF2e.TurnSystem
             {
                 if (!completed)
                     TryRollbackExecutionLock();
+            }
+        }
+
+        private IEnumerator ExecuteActionCandidate(EntityHandle actor, AIActionCandidate candidate, int token, System.Action<bool> setResult)
+        {
+            setResult?.Invoke(false);
+
+            switch (candidate.kind)
+            {
+                case AIActionCandidateKind.Spell:
+                    setResult?.Invoke(TryExecuteSpellDecision(actor, in candidate.spellDecision));
+                    yield break;
+
+                case AIActionCandidateKind.Skill:
+                    setResult?.Invoke(TryExecuteSkillDecision(in candidate.skillDecision));
+                    yield break;
+
+                case AIActionCandidateKind.Defensive:
+                    setResult?.Invoke(TryExecuteDefensiveDecision(in candidate.defensiveDecision));
+                    yield break;
+
+                case AIActionCandidateKind.Strike:
+                    if (!candidate.target.IsValid)
+                        yield break;
+
+                    yield return DoStrike(actor, candidate.target, token, setResult);
+                    yield break;
+
+                case AIActionCandidateKind.Step:
+                    if (!candidate.HasCell)
+                        yield break;
+                    if (!EnsureStepAction())
+                        yield break;
+
+                    yield return DoStep(actor, candidate.cell, token, setResult);
+                    yield break;
+
+                case AIActionCandidateKind.Stride:
+                    if (!candidate.HasCell)
+                        yield break;
+
+                    yield return DoStride(actor, candidate.cell, token, setResult);
+                    yield break;
             }
         }
 
